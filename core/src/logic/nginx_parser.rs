@@ -745,8 +745,9 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
                     if srv.listen.is_empty() {
                         srv.listen = listen_val;
                     }
-                } else if !srv.listen.is_empty() && srv.listen != listen_val && srv.ssl == 1 {
+                } else if !srv.listen.is_empty() && srv.listen != listen_val && (srv.ssl == 1 || has_ssl) {
                     // Second listen on a different port — HTTP→HTTPS redirect
+                    // 检查 srv.ssl == 1（之前 listen 已设 ssl）或当前 listen 带 ssl（has_ssl）
                     srv.rewrite = true;
                     srv.rewrite_listen = listen_val;
                 } else if !srv.listen.is_empty() && srv.listen == listen_val && has_ssl {

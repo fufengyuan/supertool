@@ -164,7 +164,7 @@
                 </div>
                 <div class="flex flex-col gap-1">
                   <label class="text-xs text-base-content/70">监听端口 <span class="text-error">*</span></label>
-                  <input v-model="form.listen" type="number" placeholder="80" class="input input-sm input-bordered w-28" />
+                  <input v-model="form.listen" type="text" placeholder="80 或 443 ssl" class="input input-sm input-bordered w-28" />
                 </div>
                 <div class="flex flex-col gap-1">
                   <label class="text-xs text-base-content/70">serverName</label>
@@ -876,10 +876,22 @@ async function onSave() {
     // 保存 locations
     for (const loc of locations.value) {
       loc.serverId = form.value.id
+      if (loc._deleted && loc.id) {
+        // 标记删除的统一提交后端删除
+        try {
+          await api.deleteNginxLocation(loc.id)
+        } catch (e: any) {
+          toast.error(`删除 Location ${loc.path || loc.id} 失败: ` + (e?.message || e))
+        }
+        continue
+      }
+      if (loc._deleted) {
+        // 新增后又标记删除的，跳过
+        continue
+      }
       if (loc._key && !loc.id) {
-        // 新增
+        // 新增：不预设 id，由后端生成
         const newLoc = {
-          id: crypto.randomUUID(),
           serverId: form.value.id,
           enabled: loc.enabled !== false,
           path: loc.path || '',
@@ -904,9 +916,11 @@ async function onSave() {
         }
         delete loc._key
         try {
-          await api.addNginxLocation(newLoc)
+          const result = await api.addNginxLocation(newLoc)
+          const saved = result?.data ?? result
+          if (saved?.id) { loc.id = saved.id }
         } catch (e: any) {
-          // location may already exist
+          toast.error(`保存 Location ${loc.path || ''} 失败: ` + (e?.message || e))
         }
       } else if (loc.id && !loc._deleted) {
         // 更新
@@ -914,7 +928,7 @@ async function onSave() {
         try {
           await api.updateNginxLocation(loc)
         } catch (e: any) {
-          // ignore
+          toast.error(`更新 Location ${loc.path || loc.id} 失败: ` + (e?.message || e))
         }
       }
     }
@@ -944,6 +958,7 @@ async function onCloneServer(svr: any) {
 }
 
 async function onDeleteServer(id: string) {
+  if (!confirm('确定删除此 Server？其下所有 Location 也会被删除。')) {return}
   try {
     await api.deleteNginxServer(id)
     servers.value = servers.value.filter((s) => s.id !== id)
@@ -964,15 +979,24 @@ async function toggleEnabled(svr: any) {
   }
 }
 
-// 排序
+// 排序 — index 来自 filteredServers（可能被搜索过滤），需反查真实 index
 async function moveUp(index: number) {
   if (index <= 0) {return}
-  swapServers(index, index - 1)
+  swapFiltered(index, index - 1)
 }
 
 async function moveDown(index: number) {
   if (index >= filteredServers.value.length - 1) {return}
-  swapServers(index, index + 1)
+  swapFiltered(index, index + 1)
+}
+
+async function swapFiltered(fi: number, fj: number) {
+  const filtered = filteredServers.value
+  // 通过引用反查 servers.value 中的真实 index
+  const realI = servers.value.indexOf(filtered[fi])
+  const realJ = servers.value.indexOf(filtered[fj])
+  if (realI < 0 || realJ < 0) {return}
+  swapServers(realI, realJ)
 }
 
 async function swapServers(i: number, j: number) {
@@ -1198,12 +1222,12 @@ function copyListPreview() {
 function onDeleteLocation(idx: number) {
   const loc = locations.value[idx]
   if (loc.id) {
-    // 已存在的记录标记删除
+    // 已持久化的标记删除，保存时统一提交后端删除（取消编辑时不提交）
     loc._deleted = true
-    // 尝试从后端删除
-    api.deleteNginxLocation(loc.id).catch(() => {})
+  } else {
+    // 新增项直接移除
+    locations.value.splice(idx, 1)
   }
-  locations.value.splice(idx, 1)
 }
 
 function toggleAllLocations(event: Event) {

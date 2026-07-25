@@ -127,7 +127,9 @@ export function useNginxConfig() {
       loading.value = true
       const p = currentPreset.value
       const result = await getTauriAPI().deployNginxConfig(p.serverId, p.configPath, configContent.value, comment)
-      if (result?.success) {
+      // tauriCall 已解包 .data，但 deployNginxConfig 可能返回 {success, data} 或直接返回数据
+      const ok = result?.success || result?.data?.success
+      if (ok) {
         // Save version to local DB
         await getTauriAPI().saveNginxConfigVersion({
           id: crypto.randomUUID(),
@@ -143,7 +145,7 @@ export function useNginxConfig() {
         versions.value = verResult?.data || verResult || []
         toast.success('配置已发布')
       } else {
-        toast.error(result?.error || '发布失败')
+        toast.error(result?.error || result?.data?.error || '发布失败')
       }
       return result
     } catch (err) {
@@ -167,7 +169,8 @@ export function useNginxConfig() {
       // Deploy the old version's content
       const p = currentPreset.value
       const result = await getTauriAPI().deployNginxConfig(p.serverId, p.configPath, version.content, `回滚到版本: ${version.comment || versionId}`)
-      if (result?.success) {
+      const ok = result?.success || result?.data?.success
+      if (ok) {
         configContent.value = version.content
         // Save rollback as new version entry
         await getTauriAPI().saveNginxConfigVersion({
@@ -184,7 +187,7 @@ export function useNginxConfig() {
         versions.value = verResult?.data || verResult || []
         toast.success('已回滚')
       } else {
-        toast.error(result?.error || '回滚失败')
+        toast.error(result?.error || result?.data?.error || '回滚失败')
       }
     } catch (err) {
       handleError(err, { context: 'rollbackNginxVersion' })

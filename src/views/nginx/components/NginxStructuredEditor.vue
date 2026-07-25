@@ -129,7 +129,26 @@
             <div v-for="(otherBlock, oi) in getOtherBlocksFromHttp(hi)" :key="'hob-' + oi"
               :class="searchDimClass(blockMatchesSearch(otherBlock, searchQuery.toLowerCase().trim()))"
             >
-              <GenericBlockCard :block="otherBlock" @update="emitUpdate" />
+              <div class="collapse collapse-arrow border border-base-300 rounded-xl bg-base-100/50">
+                <input type="checkbox" :checked="expandedOtherInHttp.has(`${hi}-${oi}`)" @change="toggleOther(`${hi}-${oi}`)" class="peer" />
+                <div class="collapse-title text-sm font-medium flex items-center gap-2 min-h-0 py-3 px-4 peer-checked:bg-base-200/50">
+                  <SvgIcon :name="getBlockIcon(otherBlock.type)" size="14" class="text-info" />
+                  <span>{{ otherBlock.type }}</span>
+                  <span class="badge badge-sm badge-ghost">{{ otherBlock.directives?.length || 0 }} 指令</span>
+                  <button @click.stop="removeOtherBlockFromHttp(hi, oi)" class="ml-auto btn btn-ghost btn-xs text-error">
+                    <SvgIcon name="x" size="12" />
+                  </button>
+                </div>
+                <div class="collapse-content px-4 pb-4">
+                  <div v-if="otherBlock.directives && otherBlock.directives.length" class="space-y-1">
+                    <div v-for="(d, di) in otherBlock.directives" :key="di" class="text-xs font-mono px-2 py-1 bg-base-200/50 rounded">
+                      <span class="text-info">{{ d.name }}</span>
+                      <span v-if="d.params && d.params.length" class="text-base-content/70 ml-2">{{ d.params.join(' ') }}</span>
+                    </div>
+                  </div>
+                  <div v-else class="text-xs text-base-content/50 py-2">无指令</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -305,6 +324,7 @@ const showRaw = ref(false)
 const expandedHttp = ref(new Set<number>())
 const expandedUpstream = ref(new Set<number>())
 const collapsedOther = ref(new Set<number>())
+const expandedOtherInHttp = ref(new Set<string>())
 const searchQuery = ref('')
 
 // Auto-expand matching blocks when searching
@@ -506,6 +526,24 @@ function toggleUpstream(idx: number) {
   const s = new Set(expandedUpstream.value)
   if (s.has(idx)) {s.delete(idx);} else {s.add(idx)}
   expandedUpstream.value = s
+}
+
+function toggleOther(key: string) {
+  const s = new Set(expandedOtherInHttp.value)
+  if (s.has(key)) {s.delete(key);} else {s.add(key)}
+  expandedOtherInHttp.value = s
+}
+
+function removeOtherBlockFromHttp(hi: number, oi: number) {
+  const httpBlock = httpBlocks.value[hi]
+  if (!httpBlock) {return}
+  const otherBlocks = httpBlock.blocks.filter(b => b.type !== 'server')
+  if (oi >= 0 && oi < otherBlocks.length) {
+    const block = otherBlocks[oi]
+    const idx = httpBlock.blocks.indexOf(block)
+    if (idx >= 0) {httpBlock.blocks.splice(idx, 1)}
+    emitUpdate()
+  }
 }
 
 function toggleOtherBlock(idx: number) {

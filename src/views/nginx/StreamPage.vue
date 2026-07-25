@@ -264,6 +264,7 @@ async function onSave() {
 }
 
 async function onDeleteStream(id: string) {
+  if (!confirm('确定删除此 Stream？')) {return}
   try {
     await api.deleteNginxStream(id)
     streams.value = streams.value.filter((s) => s.id !== id)

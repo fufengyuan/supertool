@@ -33,7 +33,7 @@
               <input v-model="item.name" placeholder="admin" class="input input-bordered input-xs w-full font-mono" />
             </td>
             <td>
-              <input v-model="item.pass" placeholder="密码" class="input input-bordered input-xs w-full" />
+              <input v-model="item.pass" type="password" placeholder="密码" class="input input-bordered input-xs w-full" />
             </td>
             <td>
               <input v-model="item.descr" placeholder="Restricted Area" class="input input-bordered input-xs w-full" />

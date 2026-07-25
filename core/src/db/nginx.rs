@@ -650,7 +650,17 @@ pub fn add_nginx_preset(db: &mut Database, preset: NginxPreset) -> ApiResponse<N
 }
 
 pub fn update_nginx_preset(db: &mut Database, preset: NginxPreset) -> ApiResponse<()> {
-    let result = db.conn_mut().execute(
+    let conn = db.conn_mut();
+    // 若设为 active，先取消同 serverId 下其他 preset 的 active 状态，保证唯一性
+    if preset.is_active {
+        if let Err(e) = conn.execute(
+            "UPDATE nginx_presets SET isActive = 0 WHERE serverId = ?1 AND id != ?2",
+            params![preset.server_id, preset.id],
+        ) {
+            return ApiResponse::err(format!("Clear other active presets failed: {}", e));
+        }
+    }
+    let result = conn.execute(
         "UPDATE nginx_presets SET name=?2, serverId=?3, configPath=?4, description=?5, groupName=?6, isActive=?7, updatedAt=?8 WHERE id=?1",
         params![preset.id, preset.name, preset.server_id, preset.config_path,
                 preset.description, preset.group_name,
@@ -761,7 +771,14 @@ pub fn set_current_version(
         "UPDATE nginx_config_versions SET isCurrent = 1 WHERE id = ?1 AND presetId = ?2",
         params![version_id, preset_id],
     ) {
-        Ok(_) => {
+        Ok(rows) => {
+            if rows == 0 {
+                // version_id 不属于该 preset_id，回滚避免所有版本 isCurrent 被清空
+                let _ = tx.rollback();
+                return ApiResponse::err(format!(
+                    "Version {} not found in preset {}", version_id, preset_id
+                ));
+            }
             if let Err(e) = tx.commit() {
                 return ApiResponse::err(format!("Commit failed: {}", e));
             }

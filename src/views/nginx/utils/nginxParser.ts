@@ -123,47 +123,49 @@ function tokenize(input: string): Token[] {
 
 // ============ Parser ============
 
-let tokenPos = 0
-let allTokens: Token[] = []
-
-function peek(): Token {
-  return allTokens[tokenPos] || { type: 'eof', value: '' }
+interface ParseContext {
+  tokens: Token[]
+  pos: number
 }
 
-function consume(): Token {
-  const tok = allTokens[tokenPos] || { type: 'eof', value: '' }
-  tokenPos++
+function peek(ctx: ParseContext): Token {
+  return ctx.tokens[ctx.pos] || { type: 'eof', value: '' }
+}
+
+function consume(ctx: ParseContext): Token {
+  const tok = ctx.tokens[ctx.pos] || { type: 'eof', value: '' }
+  ctx.pos++
   return tok
 }
 
 /** Consume and return any pending comment token */
-function consumeComment(): string | undefined {
-  const tok = peek()
+function consumeComment(ctx: ParseContext): string | undefined {
+  const tok = peek(ctx)
   if (tok.type === 'comment') {
-    consume()
+    consume(ctx)
     return tok.value
   }
   return undefined
 }
 
 /** Collect all consecutive comments and return them joined */
-function consumeAllComments(): string | undefined {
+function consumeAllComments(ctx: ParseContext): string | undefined {
   const comments: string[] = []
-  while (peek().type === 'comment') {
-    comments.push(consume().value)
+  while (peek(ctx).type === 'comment') {
+    comments.push(consume(ctx).value)
   }
   return comments.length > 0 ? comments.join('\n') : undefined
 }
 
-function parseDirective(): { directive: NginxDirective | null; commentBefore?: string } {
+function parseDirective(ctx: ParseContext): { directive: NginxDirective | null; commentBefore?: string } {
   // Capture any leading comment
-  const commentBefore = consumeAllComments()
+  const commentBefore = consumeAllComments(ctx)
   const words: string[] = []
 
-  while (tokenPos < allTokens.length) {
-    const tok = peek()
+  while (ctx.pos < ctx.tokens.length) {
+    const tok = peek(ctx)
     if (tok.type === 'semicolon') {
-      consume()
+      consume(ctx)
       if (words.length === 0) {return { directive: null, commentBefore }}
       const name = words[0]
       const params = words.slice(1)
@@ -182,24 +184,24 @@ function parseDirective(): { directive: NginxDirective | null; commentBefore?: s
     }
     // Skip inline comments (shouldn't happen here but just in case)
     if (tok.type === 'comment') {
-      consume()
+      consume(ctx)
       continue
     }
-    words.push(consume().value)
+    words.push(consume(ctx).value)
   }
   return { directive: null, commentBefore }
 }
 
-function parseBlock(): NginxBlock | null {
+function parseBlock(ctx: ParseContext): NginxBlock | null {
   // Save position so we can restore if it turns out to be a directive, not a block
-  const startPos = tokenPos
-  const commentBefore = consumeAllComments()
+  const startPos = ctx.pos
+  const commentBefore = consumeAllComments(ctx)
   const headerWords: string[] = []
 
-  while (tokenPos < allTokens.length) {
-    const tok = peek()
+  while (ctx.pos < ctx.tokens.length) {
+    const tok = peek(ctx)
     if (tok.type === 'brace_open') {
-      consume() // skip {
+      consume(ctx) // skip {
       if (headerWords.length === 0) {return null}
       const type = headerWords[0]
       const params = headerWords.slice(1)
@@ -207,10 +209,10 @@ function parseBlock(): NginxBlock | null {
       const blocks: NginxBlock[] = []
 
       // Parse contents until }
-      while (tokenPos < allTokens.length) {
-        const next = peek()
+      while (ctx.pos < ctx.tokens.length) {
+        const next = peek(ctx)
         if (next.type === 'brace_close') {
-          consume() // skip }
+          consume(ctx) // skip }
           return {
             type,
             name: headerWords.join(' '),
@@ -233,24 +235,24 @@ function parseBlock(): NginxBlock | null {
           }
         }
         // Try to parse as block first, then directive (both handle leading comments internally)
-        const savedPos = tokenPos
-        const block = parseBlock()
+        const savedPos = ctx.pos
+        const block = parseBlock(ctx)
         if (block) {
           blocks.push(block)
         } else {
-          const savedPos2 = tokenPos
-          const { directive, commentBefore: dirComment } = parseDirective()
+          const savedPos2 = ctx.pos
+          const { directive, commentBefore: dirComment } = parseDirective(ctx)
           if (directive) {
             directives.push(directive)
-          } else if (tokenPos === savedPos2) {
+          } else if (ctx.pos === savedPos2) {
             // Nothing consumed at all — eat the current token to avoid infinite loop
-            consume()
+            consume(ctx)
           } else {
             // parseDirective consumed some tokens but failed (e.g. encountered '{')
             // This shouldn't happen if parseBlock is tried first; break to avoid data loss.
             // Restore position and try once more as directive
-            tokenPos = savedPos2
-            const retryDir = tryParseDirectiveBody()
+            ctx.pos = savedPos2
+            const retryDir = tryParseDirectiveBody(ctx)
             if (retryDir) {
               directives.push(retryDir)
             } else {
@@ -272,16 +274,16 @@ function parseBlock(): NginxBlock | null {
     }
     if (tok.type === 'semicolon' || tok.type === 'brace_close' || tok.type === 'eof') {
       // Not a block — restore position so caller can parse as directive
-      tokenPos = startPos
+      ctx.pos = startPos
       return null
     }
     if (tok.type === 'comment') {
-      tokenPos = startPos
+      ctx.pos = startPos
       return null
     }
-    headerWords.push(consume().value)
+    headerWords.push(consume(ctx).value)
   }
-  tokenPos = startPos
+  ctx.pos = startPos
   return null
 }
 
@@ -289,12 +291,12 @@ function parseBlock(): NginxBlock | null {
  * Parse a single directive body aggressively — consume tokens until ';' is found.
  * Used as fallback when normal parsing fails within a block body.
  */
-function tryParseDirectiveBody(): NginxDirective | null {
+function tryParseDirectiveBody(ctx: ParseContext): NginxDirective | null {
   const words: string[] = []
-  while (tokenPos < allTokens.length) {
-    const tok = peek()
+  while (ctx.pos < ctx.tokens.length) {
+    const tok = peek(ctx)
     if (tok.type === 'semicolon') {
-      consume()
+      consume(ctx)
       if (words.length === 0) {return null}
       const name = words[0]
       const params = words.slice(1)
@@ -312,29 +314,28 @@ function tryParseDirectiveBody(): NginxDirective | null {
     if (tok.type === 'brace_close' || tok.type === 'eof') {
       return null
     }
-    words.push(consume().value)
+    words.push(consume(ctx).value)
   }
   return null
 }
 
 export function parseNginxConfig(input: string): ParsedNginxConfig {
-  allTokens = tokenize(input)
-  tokenPos = 0
+  const ctx: ParseContext = { tokens: tokenize(input), pos: 0 }
   const blocks: NginxBlock[] = []
   const errors: string[] = []
 
-  while (tokenPos < allTokens.length) {
-    const tok = peek()
+  while (ctx.pos < ctx.tokens.length) {
+    const tok = peek(ctx)
     if (tok.type === 'eof') {break}
     if (tok.type === 'comment') {
-      consume()
+      consume(ctx)
       continue
     }
-    const block = parseBlock()
+    const block = parseBlock(ctx)
     if (block) {
       blocks.push(block)
     } else {
-      consume()
+      consume(ctx)
     }
   }
 

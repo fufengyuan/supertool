@@ -157,7 +157,7 @@
                     <td class="text-center"><input type="checkbox" v-model="svr.backup" class="checkbox checkbox-xs" /></td>
                     <td class="text-center"><input type="checkbox" v-model="svr.down" class="checkbox checkbox-xs" /></td>
                     <td class="text-center">
-                      <button @click="upstreamServers.splice(idx, 1)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
+                      <button @click="removeUpstreamServer(idx)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
                         <SvgIcon name="x" size="12" />
                       </button>
                     </td>
@@ -296,7 +296,6 @@ function closeDialog() {
 
 function onAddUpstreamServer() {
   upstreamServers.value.push({
-    id: crypto.randomUUID(),
     upstreamId: form.value.id,
     address: '',
     port: 80,
@@ -307,16 +306,17 @@ function onAddUpstreamServer() {
     backup: false,
     down: false,
     _key: crypto.randomUUID(),
+    _isNew: true,
   })
 }
 
 function onBatchAddServers() {
   const lines = batchAddText.value.trim().split('\n').filter(l => l.trim())
+  let added = 0
   for (const line of lines) {
     const parsed = parseServerLine(line.trim())
     if (parsed) {
       upstreamServers.value.push({
-        id: crypto.randomUUID(),
         upstreamId: form.value.id,
         address: parsed.address,
         port: parsed.port,
@@ -327,12 +327,25 @@ function onBatchAddServers() {
         backup: parsed.backup ?? false,
         down: parsed.down ?? false,
         _key: crypto.randomUUID(),
+        _isNew: true,
       })
+      added++
     }
   }
   showBatchAdd.value = false
   batchAddText.value = ''
-  toast.success(`已添加 ${lines.length} 个上游服务器`)
+  toast.success(`已添加 ${added} 个上游服务器`)
+}
+
+function removeUpstreamServer(idx: number) {
+  const svr = upstreamServers.value[idx]
+  if (svr._isNew) {
+    // 新增项未持久化，直接移除
+    upstreamServers.value.splice(idx, 1)
+  } else {
+    // 已持久化的标记删除，保存时统一提交
+    svr._deleted = true
+  }
 }
 
 function parseServerLine(line: string): { address: string; port: number; weight?: number; maxFails?: number; failTimeout?: string; maxConns?: number; backup?: boolean; down?: boolean } | null {
@@ -404,16 +417,34 @@ async function onSave() {
     // 保存上游服务器
     for (const svr of upstreamServers.value) {
       svr.upstreamId = form.value.id
-      if (svr._key && !svr.id) {
-        // 新增
-        delete svr._key
+      if (svr._isNew) {
+        // 新增：不预设 id，由后端生成
+        const { _key, _isNew, ...payload } = svr
+        void _key; void _isNew
         try {
-          await api.addNginxUpstreamServer(svr)
-        } catch (_) { /* server may already exist */ }
+          const result = await api.addNginxUpstreamServer(payload)
+          const saved = result?.data ?? result
+          if (saved?.id) { svr.id = saved.id }
+          svr._isNew = false
+        } catch (err: any) {
+          toast.error(`保存上游服务器 ${svr.address} 失败: ` + (err?.message || err))
+        }
       } else if (svr.id && !svr._deleted) {
         try {
           await api.updateNginxUpstreamServer(svr)
-        } catch (_) { /* ignore */ }
+        } catch (err: any) {
+          toast.error(`更新上游服务器 ${svr.address} 失败: ` + (err?.message || err))
+        }
+      }
+    }
+    // 删除标记为 _deleted 的服务器
+    for (const svr of upstreamServers.value) {
+      if (svr._deleted && svr.id) {
+        try {
+          await api.deleteNginxUpstreamServer(svr.id)
+        } catch (err: any) {
+          toast.error(`删除上游服务器 ${svr.address} 失败: ` + (err?.message || err))
+        }
       }
     }
 
@@ -442,6 +473,7 @@ async function onCloneUpstream(upstream: any) {
 }
 
 async function onDeleteUpstream(id: string) {
+  if (!confirm('确定删除此 Upstream？其下所有上游服务器也会被删除。')) {return}
   try {
     await api.deleteNginxUpstream(id)
     upstreams.value = upstreams.value.filter(u => u.id !== id)

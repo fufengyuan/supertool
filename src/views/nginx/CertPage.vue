@@ -205,6 +205,7 @@ async function onSave() {
 }
 
 async function onDeleteCert(id: string) {
+  if (!confirm('确定删除此证书？')) {return}
   try {
     await api.deleteNginxCert(id)
     certs.value = certs.value.filter((c) => c.id !== id)

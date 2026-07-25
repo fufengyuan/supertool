@@ -146,8 +146,13 @@
               <p>请先选择一个预设</p>
             </div>
             <!-- 组件加载中 -->
-            <div v-else-if="!loadedComponents[tab.key]" class="flex items-center justify-center h-32 text-base-content/50">
+            <div v-else-if="componentStates[tab.key] === 'loading'" class="flex items-center justify-center h-32 text-base-content/50">
               <p>加载中...</p>
+            </div>
+            <!-- 组件加载失败 -->
+            <div v-else-if="componentStates[tab.key] === 'error'" class="flex flex-col items-center justify-center h-32 text-base-content/50">
+              <p class="text-error">子页面 <strong>{{ tabComponentMap[tab.key] }}</strong> 加载失败</p>
+              <button @click="loadTabComponent(tab.key)" class="btn btn-ghost btn-xs mt-2">重试</button>
             </div>
             <!-- 渲染子组件 -->
             <component
@@ -469,11 +474,13 @@ const loadedComponents = reactive<Record<string, any>>({
   deny: null,
   password: null,
 })
+// 组件加载状态：undefined=未加载, 'loading'=加载中, 'loaded'=已加载, 'error'=加载失败
+const componentStates = reactive<Record<string, 'loading' | 'loaded' | 'error'>>({})
 
 function switchTab(tabKey: string) {
   currentTab.value = tabKey
   // Lazy-load the component if not already loaded
-  if (!loadedComponents[tabKey]) {
+  if (!loadedComponents[tabKey] && componentStates[tabKey] !== 'loading') {
     loadTabComponent(tabKey)
   }
 }
@@ -496,12 +503,14 @@ async function loadTabComponent(tabKey: string) {
     }
     const loader = MODULE_MAP[fileName]
     if (!loader) {throw new Error(`Unknown component: ${fileName}`)}
+    componentStates[tabKey] = 'loading'
     const mod = await loader()
     loadedComponents[tabKey] = markRaw(mod.default || mod)
+    componentStates[tabKey] = 'loaded'
   } catch (err: any) {
     console.warn(`[NginxManager] 未能加载 ${fileName}:`, err?.message || err)
-    // Mark as null so the template shows the fallback placeholder
     loadedComponents[tabKey] = null
+    componentStates[tabKey] = 'error'
   }
 }
 
@@ -665,12 +674,12 @@ async function onImportConfig() {
   try {
     const result = await getTauriAPI().importNginxConfig(currentPreset.value.id, configContent.value)
     const summary = result?.data || result
-    alert(`导入完成!\n\n基本设置: ${summary.basic_settings}\nHTTP参数: ${summary.http_params}\nUpstreams: ${summary.upstreams}\nServers: ${summary.servers}\nStreams: ${summary.streams}\n\n请切换到各标签页查看详情。`)
+    toast.success(`导入完成: 基本设置 ${summary.basic_settings}，HTTP参数 ${summary.http_params}，Upstreams ${summary.upstreams}，Servers ${summary.servers}，Streams ${summary.streams}`)
     // Refresh all data
     await loadPresets()
     // The user will need to reload the tab data, so we can just show a message
   } catch (err: any) {
-    alert('导入失败: ' + (err?.message || err))
+    toast.error('导入失败: ' + (err?.message || err))
   } finally {
     loading.value = false
   }
@@ -762,7 +771,7 @@ function computeUnifiedDiff(oldText: string, newText: string): string {
   result.push('diff --git a/nginx.conf b/nginx.conf')
   result.push('--- a/nginx.conf')
   result.push('+++ b/nginx.conf')
-  result.push('@@ -1 +' + n + ' @@')  // Single hunk header covering entire file
+  result.push(`@@ -1,${m} +1,${n} @@`)  // Single hunk header covering entire file
 
   const ops: Array<{ prefix: string; text: string }> = []
   let i = m, j = n
@@ -815,6 +824,8 @@ async function onDeploy() {
     generatedNewConfig.value = ''
     decomposedSubFiles.value = []
     decomposeMode.value = false
+  } else {
+    toast.error(result?.error || result?.data?.error || '部署失败，请检查服务器连接和配置')
   }
 }
 
@@ -837,7 +848,7 @@ async function onRollback(versionId: string) {
 async function executeRollback() {
   const versionId = confirmRollbackId.value
   if (!versionId) {return}
-  if (!confirm('确定回滚到此版本？当前配置将被替换。')) {return}
+  // 确认已由弹窗按钮触发，无需再次 confirm
   deleting.value = true
   await rollbackToVersion(versionId)
   showRollbackConfirm.value = false
