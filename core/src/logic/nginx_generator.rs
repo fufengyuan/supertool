@@ -1376,8 +1376,9 @@ fn append_stream_block_decomposed(
         return Ok(());
     }
 
-    // Decompose stream upstreams into sub-files
+    // Stream upstreams 分解到子文件，include 放在 stream{} 块内
     let upstreams = get_upstreams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+    let mut stream_upstream_includes: Vec<String> = Vec::new();
     for u in &upstreams {
         if u.proxy_type != 1 {
             continue;
@@ -1386,16 +1387,13 @@ fn append_stream_block_decomposed(
         append_upstream(conn, u, &mut sub)?;
         let filename = sanitize_filename(&format!("stream-upstream-{}.conf", u.name));
         add_sub_file(sub_files, &filename, &sub);
-        out.push_str(&format!("    include conf.d/{};\n", filename));
+        stream_upstream_includes.push(filename);
     }
 
     out.push_str("stream {\n");
-    // Stream upstreams (proxy_type=1) - output BEFORE stream servers
-    let all_upstreams = get_upstreams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
-    for u in &all_upstreams {
-        if u.proxy_type == 1 { // Stream upstream
-            append_upstream(conn, u, out)?;
-        }
+    // Stream upstreams (proxy_type=1) - 通过 include 引用子文件，避免重复输出
+    for filename in &stream_upstream_includes {
+        out.push_str(&format!("    include conf.d/{};\n", filename));
     }
     // Global stream-level IP blacklist/whitelist
     append_global_deny_allow(conn, preset_id, "stream", out)?;
@@ -1420,16 +1418,16 @@ fn append_stream_block_decomposed(
             if !s.cert_id.is_empty() {
                 let (pem, key) = get_cert_path(conn, &s.cert_id);
                 if !pem.is_empty() {
-                    out.push_str(&format!("        ssl_certificate {};\n", handle_path(&pem)));
+                    sub.push_str(&format!("        ssl_certificate {};\n", handle_path(&pem)));
                 }
                 if !key.is_empty() {
-                    out.push_str(&format!(
+                    sub.push_str(&format!(
                         "        ssl_certificate_key {};\n",
                         handle_path(&key)
                     ));
                 }
             }
-            out.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\n");
+            sub.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\n");
         }
         if !s.proxy_upstream_id.is_empty() {
             let upstream_name = get_upstream_name(conn, &s.proxy_upstream_id);

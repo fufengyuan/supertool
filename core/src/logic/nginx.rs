@@ -899,7 +899,7 @@ impl CoreService {
     ) -> Result<ApiResponse<()>, String> {
         let pid = preset_id.to_string();
         let items = settings.to_vec();
-        Ok(self.db_write(move |conn| -> Result<(), String> {
+        Ok(self.db_write_tx(move |conn| -> Result<(), String> {
             crate::db::nginx::delete_basic_settings_by_preset(conn, &pid)
                 .map_err(|e| e.to_string())?;
             for s in &items {
@@ -1082,8 +1082,8 @@ impl CoreService {
             "streams": parsed.streams.len(),
         });
 
-        // Import in a single transaction
-        self.db_write(move |conn| -> Result<(), String> {
+        // Import in a single transaction（db_write_tx 自动 BEGIN/COMMIT/ROLLBACK）
+        self.db_write_tx(move |conn| -> Result<(), String> {
             // 1. Basic settings (replace all for this preset)
             crate::db::nginx::delete_basic_settings_by_preset(conn, &pid).map_err(|e| e.to_string())?;
             for bs in &parsed.basic_settings {
@@ -1123,11 +1123,12 @@ impl CoreService {
 
             // 3. Delete existing entity data for this preset, then insert new
             // Must delete child rows first (locations before servers, upstream_servers before upstreams)
-            conn.execute("DELETE FROM nginx_locations WHERE serverId IN (SELECT id FROM nginx_servers WHERE presetId = ?1)", rusqlite::params![&pid]).ok();
-            conn.execute("DELETE FROM nginx_servers WHERE presetId = ?1", rusqlite::params![&pid]).ok();
-            conn.execute("DELETE FROM nginx_upstream_servers WHERE upstreamId IN (SELECT id FROM nginx_upstreams WHERE presetId = ?1)", rusqlite::params![&pid]).ok();
-            conn.execute("DELETE FROM nginx_upstreams WHERE presetId = ?1", rusqlite::params![&pid]).ok();
-            conn.execute("DELETE FROM nginx_streams WHERE presetId = ?1", rusqlite::params![&pid]).ok();
+            // 不再用 .ok() 吞掉错误，失败则回滚整个事务
+            conn.execute("DELETE FROM nginx_locations WHERE serverId IN (SELECT id FROM nginx_servers WHERE presetId = ?1)", rusqlite::params![&pid]).map_err(|e| e.to_string())?;
+            conn.execute("DELETE FROM nginx_servers WHERE presetId = ?1", rusqlite::params![&pid]).map_err(|e| e.to_string())?;
+            conn.execute("DELETE FROM nginx_upstream_servers WHERE upstreamId IN (SELECT id FROM nginx_upstreams WHERE presetId = ?1)", rusqlite::params![&pid]).map_err(|e| e.to_string())?;
+            conn.execute("DELETE FROM nginx_upstreams WHERE presetId = ?1", rusqlite::params![&pid]).map_err(|e| e.to_string())?;
+            conn.execute("DELETE FROM nginx_streams WHERE presetId = ?1", rusqlite::params![&pid]).map_err(|e| e.to_string())?;
 
             // 4. Upstreams + their servers (insert new)
             for up in &parsed.upstreams {

@@ -231,43 +231,50 @@ async function loadParams() {
 
 watch(() => props.presetId, () => { loadParams() }, { immediate: true })
 
-// 新增参数
-async function onAddParam() {
-  const newParam = {
-    id: crypto.randomUUID(),
+// 新增参数 — 仅加入本地数组，失焦时统一保存
+function onAddParam() {
+  params.value.push({
+    _key: crypto.randomUUID(),
+    _isNew: true,
     presetId: props.presetId,
-    name: '',
+    name: 'new_param',
     value: '',
     sort: params.value.length + 1,
     enabled: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  }
-  try {
-    const result = await api.addNginxHttpParam(newParam)
-    const saved = result?.data ?? result
-    params.value.push({ ...newParam, ...saved })
-    toast.success('参数已添加')
-  } catch (err: any) {
-    toast.error('添加参数失败: ' + (err?.message || err))
-  }
+  })
 }
 
-// 更新参数
+// 更新参数（新增项首次保存走 add，已有项走 update）
 async function onUpdateParam(param: any) {
   param.updatedAt = new Date().toISOString()
   try {
-    await api.updateNginxHttpParam(param)
-    toast.success('参数已更新')
+    if (param._isNew) {
+      const { _key, _isNew, ...payload } = param
+      void _key; void _isNew
+      const result = await api.addNginxHttpParam(payload)
+      const saved = result?.data ?? result
+      if (saved?.id) { param.id = saved.id }
+      param._isNew = false
+    } else {
+      await api.updateNginxHttpParam(param)
+    }
   } catch (err: any) {
-    toast.error('更新参数失败: ' + (err?.message || err))
+    toast.error('保存参数失败: ' + (err?.message || err))
   }
 }
 
 // 切换启用状态
 async function toggleEnabled(param: any) {
   param.enabled = !param.enabled
-  await onUpdateParam(param)
+  try {
+    await api.updateNginxHttpParam(param)
+  } catch (err: any) {
+    // 失败时回滚 UI 状态
+    param.enabled = !param.enabled
+    toast.error('更新失败: ' + (err?.message || err))
+  }
 }
 
 // 删除参数
