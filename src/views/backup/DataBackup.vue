@@ -126,6 +126,7 @@
         'bg-success/10 text-success border-success/30': messageType === 'success',
         'bg-error/10 text-error border-error/30': messageType === 'error',
         'bg-info/10 text-info border-info/30': messageType === 'info',
+        'bg-warning/10 text-warning border-warning/30': messageType === 'warning',
       }"
     >
       {{ message }}
@@ -345,8 +346,12 @@ const exportFullBackup = async () => {
     const result = await getTauriAPI().exportData({}) as any;
 
     if (result.success) {
-      message.value = `<SvgIcon name="check" size="14" />  完整备份已导出: ${result.path}（${result.tableCount || 1} 个表，${result.totalItems || 0} 条记录）`;
-      messageType.value = 'success';
+      const warnings = result.warnings && result.warnings.length
+        ? `（${result.warnings.length} 张表导出失败：${result.warnings.slice(0, 2).join('、')}${result.warnings.length > 2 ? '...' : ''}）`
+        : '';
+      const type = warnings ? 'warning' : 'success';
+      message.value = `完整备份已导出: ${result.path}（${result.tableCount || 1} 个表，${result.totalItems || 0} 条记录）${warnings}`;
+      messageType.value = type;
     } else {
       message.value = `导出失败: ${result.error || result.message || '未知错误'}`;
       messageType.value = 'error';
@@ -375,8 +380,18 @@ const importFullBackup = async () => {
     if (result.success) {
       message.value = `成功导入 ${result.importedCount} 条记录，跳过 ${result.skippedCount || 0} 条重复数据`;
       messageType.value = 'success';
+    } else if (result.importedCount > 0) {
+      // 部分成功：有导入记录但也存在错误
+      const errSummary = result.errors && result.errors.length
+        ? `（${result.errors.length} 条错误：${result.errors.slice(0, 2).join('；')}${result.errors.length > 2 ? '...' : ''}）`
+        : '';
+      message.value = `部分导入成功：导入 ${result.importedCount} 条，跳过 ${result.skippedCount || 0} 条${errSummary}`;
+      messageType.value = 'warning';
     } else {
-      message.value = `导入失败: ${result.error || result.message || '未知错误'}`;
+      const errDetail = result.errors && result.errors.length
+        ? result.errors.slice(0, 3).join('；')
+        : (result.error || result.message || '未知错误');
+      message.value = `导入失败: ${errDetail}`;
       messageType.value = 'error';
     }
   } catch (error) {

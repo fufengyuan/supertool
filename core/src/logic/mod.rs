@@ -98,6 +98,28 @@ impl CoreService {
         Ok(result)
     }
 
+    /// 在事务中执行多个数据库写操作，自动提交或回滚
+    /// 闭包返回 Err 时自动回滚。返回结构与 db_write 一致（外层 String 为系统错误，内层为业务错误）
+    pub fn db_write_tx<T>(&self, f: impl FnOnce(&rusqlite::Connection) -> Result<T, String>) -> Result<Result<T, String>, String> {
+        let mut db = self.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.conn();
+        conn.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
+        match f(conn) {
+            Ok(result) => {
+                if let Err(e) = conn.execute_batch("COMMIT") {
+                    let _ = conn.execute_batch("ROLLBACK");
+                    return Err(e.to_string());
+                }
+                Ok(Ok(result))
+            }
+            Err(e) => {
+                let _ = conn.execute_batch("ROLLBACK");
+                log::warn!("[CoreService] db_write_tx rolled back: {}", e);
+                Ok(Err(e))
+            }
+        }
+    }
+
     /// 获取数据库的可变引用（锁保护）
     fn with_db<F, T>(&self, f: F) -> T
     where
