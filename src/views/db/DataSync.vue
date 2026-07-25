@@ -680,7 +680,7 @@
                                 @click="showSqlDialog = false"
                                 class="w-7 h-7 border-none rounded-lg bg-transparent opacity-60 text-lg cursor-pointer flex items-center justify-center hover:bg-base-200 hover:opacity-100"
                             >
-                                ×
+                                <SvgIcon name="x" size="16" />
                             </button>
                         </div>
                     </div>
@@ -720,7 +720,11 @@
                 'border border-error': !execResult.success,
             }"
         >
-            <h4 class="m-0 mb-2">{{ execResult.success ? '✅ 同步成功' : '❌ 同步失败' }}</h4>
+            <h4 class="m-0 mb-2 flex items-center justify-center gap-1.5">
+                <SvgIcon v-if="execResult.success" name="checkCircle" size="16" class="inline-block text-success" />
+                <SvgIcon v-else name="alertCircle" size="16" class="inline-block text-error" />
+                {{ execResult.success ? '同步成功' : '同步失败' }}
+            </h4>
             <div class="flex gap-4 justify-center text-sm mb-3">
                 <span>新增: {{ execResult.inserted }}</span>
                 <span>更新: {{ execResult.updated }}</span>
@@ -936,7 +940,6 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
         if (!sourceId.value) {return;}
         loadingSourceDb.value = true;
         try {
-            console.log("[onSourceChange] called");
             const conn = connections.value.find((c) => c.id === sourceId.value);
             if (conn) {
                 await getTauriAPI().dbConnect(JSON.parse(JSON.stringify(conn)));
@@ -956,7 +959,6 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
         if (!targetId.value) {return;}
         loadingTargetDb.value = true;
         try {
-            console.log("[onTargetChange] called");
             const conn = connections.value.find((c) => c.id === targetId.value);
             if (conn) {
                 await getTauriAPI().dbConnect(JSON.parse(JSON.stringify(conn)));
@@ -975,7 +977,6 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     async function loadSourceTables() {
         if (!sourceId.value || !sourceDb.value) {return;}
         try {
-            console.log("[loadSourceTables] called");
             const res = await getTauriAPI().dbGetTables(sourceId.value, sourceDb.value);
             if (res?.success) {
                 sourceTables.value = (res as any).tables || [];
@@ -988,7 +989,6 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     async function loadTargetTables() {
         if (!targetId.value || !targetDb.value) {return;}
         try {
-            console.log("[loadTargetTables] called");
             const res = await getTauriAPI().dbGetTables(targetId.value, targetDb.value);
             if (res?.success) {
                 targetTables.value = (res as any).tables || [];
@@ -1014,7 +1014,6 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
 
     async function autoFetchTableMeta(tables: string[]) {
         for (const table of tables) {
-            console.log("[autoFetchTableMeta] called");
             if (tableColumns.value[table]) {continue;} // already fetched
             try {
                 // Fetch table structure for columns
@@ -1185,7 +1184,6 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     async function executeSync() {
         executing.value = true;
         try {
-            console.log("[executeSync] called");
             // Execute sync per table (since the backend expects a single table)
             const tablesToSync = [...new Set(filteredDiffs.value.map((d) => d.tableName))];
             let totalInserted = 0;
@@ -1318,7 +1316,6 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     }
 
     async function copySingleSql(idx: number) {
-        console.log("[copySingleSql] called");
         await navigator.clipboard.writeText(generatedSqlList.value[idx]);
         toast.success("已复制");
     }

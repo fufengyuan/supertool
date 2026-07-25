@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col h-full min-h-0 max-w-full overflow-hidden bg-base-200">
     <!-- Header bar -->
-    <div class="flex items-center justify-between px-5 py-2.5 bg-base-100 border-b border-base-content/10 gap-3">
+    <div class="flex items-center justify-between px-4 py-2 bg-base-100 border-b border-base-content/10 gap-3">
       <div class="flex items-center gap-3 min-w-0">
         <h2 class="text-sm font-semibold text-base-content m-0 whitespace-nowrap flex items-center gap-2">
           <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
@@ -9,29 +9,25 @@
           </span>
           <span>数据库</span>
         </h2>
-        <span v-if="db.activeConnection.value" class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium"
-          :class="db.activeConnection.value.type === 'redis' ? 'bg-red-500/10 text-red-500' : 'bg-primary/10 text-primary'">
-          <span class="w-1.5 h-1.5 rounded-full"
-            :class="db.activeConnection.value.type === 'redis' ? 'bg-red-500' : 'bg-primary'"></span>
-          {{ db.activeConnection.value.name }}
+        <span v-if="db.activeConnection.value" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border"
+          :class="connectionBadgeClass">
+          <span class="w-1.5 h-1.5 rounded-full animate-pulse" :class="connectionDotClass"></span>
+          <span class="truncate max-w-[180px]">{{ db.activeConnection.value.name }}</span>
+          <span class="opacity-60 uppercase text-[9px]">{{ db.activeConnection.value.type }}</span>
         </span>
       </div>
       <div class="flex gap-1.5 shrink-0" v-if="db.activeConnection.value">
         <template v-if="db.activeConnection.value.type === 'redis'">
-          <button
-            @click="openRedisManager"
-            class="btn btn-primary btn-sm"
-            title="Redis 管理器"
-          >
+          <button @click="openRedisManager" class="btn btn-primary btn-sm gap-1.5" title="Redis 管理器">
             <SvgIcon name="key" size="14" />
             Redis 管理器
           </button>
         </template>
         <template v-else>
-          <div class="flex gap-1 p-0.5 bg-base-200 rounded-lg">
+          <div class="flex gap-0.5 p-0.5 bg-base-200 rounded-lg">
             <button
               @click="db.openSqlTab(db.activeConnection.value.id, db.activeConnection.value.name)"
-              class="btn btn-ghost btn-sm rounded-md"
+              class="btn btn-ghost btn-sm rounded-md gap-1.5 px-3"
               title="新建查询"
             >
               <SvgIcon name="pencil" size="14" />
@@ -39,24 +35,27 @@
             </button>
             <button
               @click="db.openStructureSyncTab()"
-              class="btn btn-ghost btn-sm rounded-md"
+              class="btn btn-ghost btn-sm rounded-md gap-1.5 px-3"
               title="结构同步"
             >
-              <SvgIcon name="tool" size="14" />  结构同步
+              <SvgIcon name="tool" size="14" />
+              结构同步
             </button>
             <button
               @click="db.openDataSyncTab()"
-              class="btn btn-ghost btn-sm rounded-md"
+              class="btn btn-ghost btn-sm rounded-md gap-1.5 px-3"
               title="数据同步"
             >
-              <SvgIcon name="package" size="14" />  数据同步
+              <SvgIcon name="package" size="14" />
+              数据同步
             </button>
             <button
               @click="openBackupTab"
-              class="btn btn-ghost btn-sm rounded-md"
+              class="btn btn-ghost btn-sm rounded-md gap-1.5 px-3"
               title="数据库备份"
             >
-              <SvgIcon name="folder" size="14" />  备份
+              <SvgIcon name="folder" size="14" />
+              备份
             </button>
           </div>
         </template>
@@ -113,49 +112,49 @@
       <!-- Main area -->
       <main class="flex-1 flex flex-col overflow-hidden min-w-0">
         <!-- No connection selected -->
-        <div v-if="!db.activeConnection.value" class="flex-1 flex items-center justify-center p-8">
-          <div class="flex flex-col items-center gap-4 max-w-[300px] text-center">
-            <div class="w-16 h-16 rounded-2xl bg-base-200 border border-base-content/10 flex items-center justify-center">
-              <SvgIcon name="database" size="28" stroke-width="1.5" class="text-base-content/30" />
+        <div v-if="!db.activeConnection.value" class="flex-1 flex items-center justify-center p-8 bg-gradient-to-b from-base-100 to-base-200">
+          <div class="flex flex-col items-center gap-5 max-w-[320px] text-center">
+            <div class="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-sm">
+              <SvgIcon name="database" size="40" stroke-width="1.5" class="text-primary/60" />
             </div>
             <div>
-              <p class="text-sm font-semibold text-base-content m-0 mb-1">选择或添加数据库连接</p>
-              <p class="text-xs text-base-content/50 m-0">从左侧选择一个已保存的连接，或添加一个新的数据库连接开始工作</p>
+              <p class="text-base font-semibold text-base-content m-0 mb-1.5">选择或添加数据库连接</p>
+              <p class="text-xs text-base-content/50 m-0 leading-relaxed">从左侧选择一个已保存的连接，或添加一个新的数据库连接开始工作</p>
             </div>
-            <button @click="db.openAddForm()" class="btn btn-primary btn-sm">
+            <button @click="db.openAddForm()" class="btn btn-primary btn-sm gap-1.5">
               <SvgIcon name="plus" size="14" /> 添加连接
             </button>
           </div>
         </div>
 
         <!-- No tabs open -->
-        <div v-else-if="db.tabs.value.length === 0" class="flex-1 flex items-center justify-center p-8">
+        <div v-else-if="db.tabs.value.length === 0" class="flex-1 flex items-center justify-center p-8 bg-gradient-to-b from-base-100 to-base-200">
           <template v-if="db.activeConnection.value?.type === 'redis'">
-            <div class="flex flex-col items-center gap-4 max-w-[300px] text-center">
-              <div class="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-                <SvgIcon name="key" size="28" stroke-width="1.5" class="text-red-500/50" />
+            <div class="flex flex-col items-center gap-5 max-w-[320px] text-center">
+              <div class="w-20 h-20 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shadow-sm">
+                <SvgIcon name="key" size="40" stroke-width="1.5" class="text-red-500/60" />
               </div>
               <div>
-                <p class="text-sm font-semibold text-base-content m-0 mb-1">Redis 连接已就绪</p>
-                <p class="text-xs text-base-content/50 m-0">浏览和管理 Redis 键值数据</p>
+                <p class="text-base font-semibold text-base-content m-0 mb-1.5">Redis 连接已就绪</p>
+                <p class="text-xs text-base-content/50 m-0 leading-relaxed">浏览和管理 Redis 键值数据</p>
               </div>
-              <button @click="openRedisManager" class="btn btn-primary btn-sm">
+              <button @click="openRedisManager" class="btn btn-primary btn-sm gap-1.5">
                 <SvgIcon name="key" size="14" /> 打开 Redis 管理器
               </button>
             </div>
           </template>
           <template v-else>
-            <div class="flex flex-col items-center gap-4 max-w-[300px] text-center">
-              <div class="w-16 h-16 rounded-2xl bg-base-200 border border-base-content/10 flex items-center justify-center">
-                <SvgIcon name="file" size="28" stroke-width="1.5" class="text-base-content/30" />
+            <div class="flex flex-col items-center gap-5 max-w-[320px] text-center">
+              <div class="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-sm">
+                <SvgIcon name="file" size="40" stroke-width="1.5" class="text-primary/60" />
               </div>
               <div>
-                <p class="text-sm font-semibold text-base-content m-0 mb-1">打开一个工作区</p>
-                <p class="text-xs text-base-content/50 m-0">从左侧树中选择一个表，或点击"新建查询"开始</p>
+                <p class="text-base font-semibold text-base-content m-0 mb-1.5">打开一个工作区</p>
+                <p class="text-xs text-base-content/50 m-0 leading-relaxed">从左侧树中选择一个表，或点击"新建查询"开始</p>
               </div>
               <button
                 @click="db.openSqlTab(db.activeConnection.value.id, db.activeConnection.value.name)"
-                class="btn btn-primary btn-sm"
+                class="btn btn-primary btn-sm gap-1.5"
               >
                 <SvgIcon name="pencil" size="14" /> 新建查询
               </button>
@@ -166,20 +165,20 @@
         <!-- Tabbed workspace -->
         <template v-else>
           <!-- Tab bar -->
-          <div class="flex items-end px-2 bg-base-100 border-b border-base-content/10 overflow-x-auto gap-1">
+          <div class="flex items-center px-2 py-1.5 bg-base-100 border-b border-base-content/10 overflow-x-auto gap-1">
             <div
               v-for="(tab, idx) in db.tabs.value"
               :key="tab.id"
-              class="group flex items-center gap-2 px-3 py-2 min-w-[90px] max-w-[180px] cursor-pointer text-xs select-none rounded-t-lg transition-all"
+              class="group flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 min-w-[100px] max-w-[200px] cursor-pointer text-xs select-none rounded-md transition-all"
               :class="[db.activeTabIndex.value === idx
-                ? 'bg-base-200 text-base-content border-b-2 border-primary'
-                : 'text-base-content/60 hover:text-base-content hover:bg-base-200/50']"
+                ? 'bg-primary/10 text-primary border border-primary/20'
+                : 'text-base-content/60 hover:text-base-content hover:bg-base-200/70 border border-transparent']"
               @click="db.setActiveTab(idx)"
             >
-              <SvgIcon :name="getTabIcon(tab)" size="14" class="shrink-0" :class="getTabIconClass(tab)" />
+              <SvgIcon :name="getTabIcon(tab)" size="13" class="shrink-0" :class="getTabIconClass(tab)" />
               <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-medium" :title="tab.title">{{ tab.title }}</span>
-              <button class="flex items-center justify-center w-5 h-5 border-0 bg-transparent rounded-md cursor-pointer text-base-content/40 shrink-0 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" @click.stop="db.closeTab(tab.id)" title="关闭">
-                <SvgIcon name="x" size="12" stroke-width="2" />
+              <button class="flex items-center justify-center w-5 h-5 border-0 bg-transparent rounded-md cursor-pointer text-base-content/40 shrink-0 opacity-0 group-hover:opacity-100 hover:text-error hover:bg-error/10 transition-all" @click.stop="db.closeTab(tab.id)" title="关闭">
+                <SvgIcon name="x" size="11" stroke-width="2" />
               </button>
             </div>
           </div>
@@ -213,6 +212,8 @@
                   :sort-direction="activeSort?.direction || 'asc'"
                   @prev-page="handlePrevPage"
                   @next-page="handleNextPage"
+                  @page-size-change="handlePageSizeChange"
+                  @jump-page="handleJumpPage"
                   @filter="handleFilterApply"
                   @filter-clear="handleFilterClear"
                   @batch-update="handleBatchUpdate"
@@ -227,39 +228,39 @@
             <!-- Table Data tab -->
             <template v-else-if="activeTab?.type === 'tableData'">
               <div class="flex flex-col h-full overflow-hidden">
-                <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10 bg-base-100 shrink-0">
+                <div class="flex items-center justify-between px-3 py-2 border-b border-base-content/10 bg-base-100 shrink-0">
                   <div class="flex items-center gap-2 min-w-0">
                     <span class="w-6 h-6 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
                       <SvgIcon name="barChart" size="12" />
                     </span>
                     <span class="text-sm font-semibold text-base-content truncate">{{ activeTab.tableName }}</span>
-                    <span class="text-xs text-base-content/40">·</span>
+                    <span class="text-xs text-base-content/30">·</span>
                     <span class="text-xs text-base-content/50 truncate">{{ activeTab.connectionName }}</span>
+                    <span v-if="resultTotal > 0" class="text-[10px] text-base-content/40 px-1.5 py-0.5 rounded bg-base-200">{{ resultTotal }} 行</span>
                   </div>
                   <button
                     @click="loadTableData"
-                    class="btn btn-ghost btn-sm"
+                    class="btn btn-ghost btn-sm gap-1.5"
                     :disabled="tableLoading"
                   >
-                    <SvgIcon name="refresh" size="14" />  刷新
+                    <SvgIcon name="refresh" size="13" :class="{ 'animate-spin': tableLoading }" />
+                    刷新
                   </button>
                 </div>
-                <div v-if="tableLoading" class="flex items-center justify-center p-8 text-base-content/50 text-sm">
-                  <span class="loading loading-spinner loading-sm mr-2"></span>加载中...
-                </div>
                 <DataGrid
-                  v-else
                   :rows="resultRows"
                   :total="resultTotal"
                   :page="currentPage"
                   :page-size="pageSize"
-                  :loading="false"
+                  :loading="tableLoading"
                   :primary-key-columns="tablePrimaryKeyColumns"
                   :column-comments="columnComments"
                   :sort-column="activeSort?.column || null"
                   :sort-direction="activeSort?.direction || 'asc'"
                   @prev-page="handlePrevPage"
                   @next-page="handleNextPage"
+                  @page-size-change="handlePageSizeChange"
+                  @jump-page="handleJumpPage"
                   @filter="handleFilterApply"
                   @filter-clear="handleFilterClear"
                   @batch-update="handleBatchUpdate"
@@ -284,35 +285,40 @@
             <!-- Redis Console tab -->
             <template v-else-if="activeTab?.type === 'redisConsole'">
               <div class="flex flex-col h-full overflow-hidden">
-                <div class="flex items-center gap-2 px-4 py-2 border-b border-base-content/10 bg-base-100 shrink-0">
+                <div class="flex items-center gap-2 px-3 py-2 border-b border-base-content/10 bg-base-100 shrink-0">
                   <span class="w-6 h-6 rounded-md bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
-                    <SvgIcon name="key" size="12" />
+                    <SvgIcon name="terminal" size="12" />
                   </span>
                   <span class="text-sm font-semibold text-base-content">Redis 控制台</span>
-                  <span class="text-xs text-base-content/40">·</span>
+                  <span class="text-xs text-base-content/30">·</span>
                   <span class="text-xs text-base-content/50 truncate">{{ activeTab.connectionName }}</span>
+                  <span v-if="redisExecuting" class="ml-auto text-[10px] text-base-content/40 flex items-center gap-1">
+                    <span class="loading loading-spinner loading-xs"></span> 执行中
+                  </span>
                 </div>
-                <div class="flex-1 flex flex-col p-4 gap-2 overflow-hidden">
-                  <div class="flex-1 overflow-y-auto p-3 bg-base-100 border border-base-content/10 rounded-lg font-mono text-xs leading-relaxed" ref="redisOutputRef">
-                    <div v-for="(msg, idx) in redisMessages" :key="idx" class="py-0.5" :class="{'text-primary': msg.type === 'input', 'text-base-content': msg.type === 'output', 'text-error': msg.type === 'error'}">
-                      <span class="font-semibold">{{ msg.prefix }}</span>
+                <div class="flex-1 flex flex-col p-3 gap-2 overflow-hidden bg-base-200">
+                  <div class="flex-1 overflow-y-auto p-3 bg-[#1e1e2e] border border-base-content/10 rounded-lg font-mono text-xs leading-relaxed text-base-content/90 shadow-inner" ref="redisOutputRef">
+                    <div v-for="(msg, idx) in redisMessages" :key="idx" class="py-0.5" :class="{'text-emerald-400': msg.type === 'input', 'text-base-content/90': msg.type === 'output', 'text-red-400': msg.type === 'error'}">
+                      <span class="font-semibold opacity-70">{{ msg.prefix }}</span>
                       <span class="break-all">{{ msg.content }}</span>
                     </div>
-                    <div v-if="redisMessages.length === 0" class="text-base-content/60 text-center p-6 italic">
+                    <div v-if="redisMessages.length === 0" class="text-base-content/30 text-center p-8 italic">
                       输入 Redis 命令，例如: GET key, KEYS *, INFO
                     </div>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <span class="font-mono text-sm font-bold text-primary">&gt;</span>
+                  <div class="flex items-center gap-2 bg-[#1e1e2e] border border-base-content/10 rounded-lg px-3 py-2">
+                    <span class="font-mono text-sm font-bold text-emerald-400">&gt;</span>
                     <input
                       v-model="redisCommand"
                       @keydown.enter="executeRedis"
-                      class="input input-bordered flex-1 font-mono text-xs"
-                      placeholder="输入 Redis 命令..."
+                      @keydown.arrow-up.prevent="redisHistoryUp"
+                      @keydown.arrow-down.prevent="redisHistoryDown"
+                      class="flex-1 bg-transparent border-0 outline-none font-mono text-xs text-base-content placeholder:text-base-content/30"
+                      placeholder="输入 Redis 命令... (↑/↓ 切换历史)"
                       spellcheck="false"
                     />
-                    <button @click="executeRedis" class="btn btn-primary btn-sm" :disabled="redisExecuting">
-                      执行
+                    <button @click="executeRedis" class="btn btn-primary btn-xs gap-1" :disabled="redisExecuting">
+                      <SvgIcon name="play" size="10" /> 执行
                     </button>
                   </div>
                 </div>
@@ -370,12 +376,30 @@
       @save="handleSaveConnection"
       @test="handleTestConnection"
     />
+
+    <!-- Confirm dialog (replaces native confirm) -->
+    <Modal :model-value="confirmDialog.show" @update:model-value="(v: boolean) => confirmDialog.show = v" :title="confirmDialog.title" width="440px">
+      <div class="flex gap-3 items-start">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+          :class="confirmDialog.danger ? 'bg-error/10 text-error' : 'bg-warning/10 text-warning'">
+          <SvgIcon :name="confirmDialog.danger ? 'alertTriangle' : 'alertCircle'" size="18" />
+        </div>
+        <p class="text-sm text-base-content/80 m-0 whitespace-pre-wrap leading-relaxed">{{ confirmDialog.message }}</p>
+      </div>
+      <template #footer>
+        <button class="btn btn-ghost btn-sm" @click="confirmDialog.show = false">取消</button>
+        <button class="btn btn-sm gap-1.5" :class="confirmDialog.danger ? 'btn-error' : 'btn-primary'" @click="handleConfirm">
+          <SvgIcon name="check" size="14" /> 确认
+        </button>
+      </template>
+    </Modal>
   </div>
 </template>
 
 <script setup lang="ts">
 defineOptions({ name: 'DBManager' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import Modal from '@/components/ui/Modal.vue'
 import * as logger from '../../services/logger'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useDBManager, type DBConnection, type WorkspaceTab } from '../../composables/useDBManager'
@@ -433,7 +457,7 @@ const testResult = ref<{ success: boolean; error?: string } | null>(null)
 const resultRows = ref<Record<string, unknown>[]>([])
 const resultTotal = ref(0)
 const currentPage = ref(1)
-const pageSize = 100
+const pageSize = ref(100)
 const tableLoading = ref(false)
 const activeFilters = ref<FilterCondition[]>([])
 const filterApplied = ref(false)
@@ -456,20 +480,57 @@ const connectionForm = ref<DBConfig>({
 const redisCommand = ref('')
 const redisExecuting = ref(false)
 const redisMessages = ref<Array<{ type: string; prefix: string; content: string }>>([])
+const redisHistory = ref<string[]>([])
+const redisHistoryIndex = ref(-1)
+
+// Confirm dialog state (replaces native confirm())
+const confirmDialog = ref<{ show: boolean; title: string; message: string; danger: boolean; onConfirm: (() => void) | null }>({
+  show: false, title: '', message: '', danger: false, onConfirm: null,
+})
+
+function showConfirm(title: string, message: string, onConfirm: () => void, danger = false) {
+  confirmDialog.value = { show: true, title, message, danger, onConfirm }
+}
+
+function handleConfirm() {
+  confirmDialog.value.onConfirm?.()
+  confirmDialog.value.show = false
+  confirmDialog.value.onConfirm = null
+}
 
 const activeTab = computed(() => db.activeTab.value)
+
+// Database type → badge/dot color classes (continues tree colors into header)
+const connectionBadgeClass = computed(() => {
+  const t = db.activeConnection.value?.type
+  switch (t) {
+    case 'redis': return 'bg-red-500/10 text-red-500 border-red-500/20'
+    case 'sqlite': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+    case 'postgresql': return 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+    default: return 'bg-primary/10 text-primary border-primary/20'
+  }
+})
+const connectionDotClass = computed(() => {
+  const t = db.activeConnection.value?.type
+  switch (t) {
+    case 'redis': return 'bg-red-500'
+    case 'sqlite': return 'bg-emerald-500'
+    case 'postgresql': return 'bg-blue-500'
+    default: return 'bg-primary'
+  }
+})
 
 function getTabIcon(tab: WorkspaceTab | null): string {
   if (!tab) {return 'file'}
   switch (tab.type) {
     case 'sql': return 'pencil'
     case 'tableData': return 'barChart'
-    case 'tableStructure': return 'table'
-    case 'redisConsole': return 'key'
+    case 'tableStructure': return 'grid'
+    case 'redisConsole': return 'terminal'
     case 'redisManager': return 'key'
     case 'structureSync': return 'tool'
     case 'dataSync': return 'package'
-    case 'backup': return 'folder'
+    case 'backup': return 'archive'
     default: return 'file'
   }
 }
@@ -480,6 +541,7 @@ function getTabIconClass(tab: WorkspaceTab | null): string {
     case 'redisConsole': return 'text-red-500'
     case 'redisManager': return 'text-red-500'
     case 'backup': return 'text-orange-500'
+    case 'tableStructure': return 'text-primary'
     default: return ''
   }
 }
@@ -519,17 +581,17 @@ watch(() => db.editingConnection.value, (conn) => {
 
 async function handleSaveConnection(form: DBConfig) {
   if (!form.name.trim()) {
-    toast.info('请输入连接名称')
+    toast.warning('请输入连接名称')
     return
   }
 
   if (db.editingConnection.value) {
     db.updateConnection(db.editingConnection.value.id, form)
-    toast.info('连接已更新')
+    toast.success('连接已更新')
   } else {
     const conn = db.addConnection(form)
     db.setActiveConnection(conn.id)
-    toast.info('连接已添加')
+    toast.success('连接已添加')
   }
   db.closeForm()
   resetForm()
@@ -540,7 +602,6 @@ async function handleTestConnection(form: DBConfig) {
   testing.value = true
   testResult.value = null
   try {
-    console.log("[handleTestConnection] called")
     // ⚠️ 剥离 Vue Proxy，否则 Tauri IPC 的 structuredClone 会失败
     const plainForm = JSON.parse(JSON.stringify(form))
     const result = await getTauriAPI().dbTest(plainForm)
@@ -553,10 +614,15 @@ async function handleTestConnection(form: DBConfig) {
 }
 
 async function handleDeleteConnection(id: string) {
-  if (confirm('确定要删除此连接吗？')) {
-    db.deleteConnection(id)
-    toast.info('连接已删除')
-  }
+  showConfirm(
+    '删除连接',
+    '确定要删除此连接吗？此操作不可撤销。',
+    () => {
+      db.deleteConnection(id)
+      toast.success('连接已删除')
+    },
+    true,
+  )
 }
 
 function openRedisManager() {
@@ -581,12 +647,21 @@ async function handleExecute(sqlText: string) {
 
   // Check if connection requires approval
   if ((db.activeConnection.value as any).requiresApproval) {
-    const proceed = confirm(
-      `⚠️ 安全审核\n\n数据库「${db.activeConnection.value.name}」已开启安全审核。\n\n请确认你要执行以下 SQL：\n\n${sqlText.substring(0, 200)}${sqlText.length > 200 ? '...' : ''}`
+    const preview = sqlText.length > 300 ? sqlText.substring(0, 300) + '...' : sqlText
+    showConfirm(
+      '安全审核',
+      `数据库「${db.activeConnection.value.name}」已开启安全审核，请确认执行以下 SQL：\n\n${preview}`,
+      () => doExecute(sqlText),
+      false,
     )
-    if (!proceed) {return}
+    return
   }
 
+  doExecute(sqlText)
+}
+
+async function doExecute(sqlText: string) {
+  if (!db.activeConnection.value) {return}
   executing.value = true
   error.value = null
   currentPage.value = 1
@@ -691,7 +766,7 @@ function handleOpenRedisKey(connId: string, dbIndex: number, key: string) {
 
 function handleRefreshTables(connId: string) {
   treeRef.value?.refreshTables(connId)
-  toast.info('表列表已刷新')
+  toast.success('表列表已刷新')
 }
 
 async function handleDeleteTable(connId: string, table: string, dbName?: string) {
@@ -704,36 +779,40 @@ async function handleDeleteTable(connId: string, table: string, dbName?: string)
     return
   }
 
-  const confirmed = confirm(`确定要删除表「${table}」吗？\n\n此操作不可撤销，表中的所有数据都将被永久删除。`)
-  if (!confirmed) {return}
+  showConfirm(
+    '删除表',
+    `确定要删除表「${table}」吗？\n\n此操作不可撤销，表中的所有数据都将被永久删除。`,
+    async () => {
+      try {
+        // Build DROP TABLE SQL based on database type
+        let sql: string
+        if (conn.type === 'mysql') {
+          const tableRef = dbName ? `\`${dbName}\`.\`${table}\`` : `\`${table}\``
+          sql = `DROP TABLE ${tableRef}`
+        } else if (conn.type === 'postgresql') {
+          const tableRef = dbName ? `${dbName}.${table}` : table
+          sql = `DROP TABLE ${tableRef}`
+        } else if (conn.type === 'sqlite') {
+          sql = `DROP TABLE "${table}"`
+        } else {
+          toast.error('不支持此数据库类型的删除表操作')
+          return
+        }
 
-  try {
-    // Build DROP TABLE SQL based on database type
-    let sql: string
-    if (conn.type === 'mysql') {
-      const tableRef = dbName ? `\`${dbName}\`.\`${table}\`` : `\`${table}\``
-      sql = `DROP TABLE ${tableRef}`
-    } else if (conn.type === 'postgresql') {
-      const tableRef = dbName ? `${dbName}.${table}` : table
-      sql = `DROP TABLE ${tableRef}`
-    } else if (conn.type === 'sqlite') {
-      sql = `DROP TABLE "${table}"`
-    } else {
-      toast.error('不支持此数据库类型的删除表操作')
-      return
-    }
-
-    const result = await getTauriAPI().dbQuery(connId, sql)
-    if (result && typeof result === 'object' && 'success' in result && (result as any).success) {
-      toast.success(`表「${table}」已删除`)
-      // Refresh table list
-      treeRef.value?.refreshTables(connId)
-    } else {
-      toast.error('删除失败: ' + ((result as any)?.error || '未知错误'))
-    }
-  } catch (e: any) {
-    toast.error('删除失败: ' + (e?.message || '未知错误'))
-  }
+        const result = await getTauriAPI().dbQuery(connId, sql)
+        if (result && typeof result === 'object' && 'success' in result && (result as any).success) {
+          toast.success(`表「${table}」已删除`)
+          // Refresh table list
+          treeRef.value?.refreshTables(connId)
+        } else {
+          toast.error('删除失败: ' + ((result as any)?.error || '未知错误'))
+        }
+      } catch (e: any) {
+        toast.error('删除失败: ' + (e?.message || '未知错误'))
+      }
+    },
+    true,
+  )
 }
 
 async function fetchColumnComments(connId: string, table: string, dbName?: string) {
@@ -781,17 +860,14 @@ function clearError() {
 }
 
 async function loadTableData() {
-    console.log("[clearError] called")
   if (!activeTab.value || activeTab.value.type !== 'tableData') {return}
   const tab = activeTab.value
   await loadTableDataForTab(tab.connectionId, tab.tableName || '')
 }
 
 async function loadTableDataForTab(connId: string, table: string) {
-    console.log("[loadTableData] called")
   tableLoading.value = true
   try {
-    console.log("[loadTableDataForTab] called")
     // Get dbName from the active tab
     const tab = db.activeTab.value
     const dbName = tab?.dbName
@@ -805,8 +881,8 @@ async function loadTableDataForTab(connId: string, table: string) {
         connectionId: connId,
         tableName: table,
         filters: activeFilters.value,
-        limit: pageSize,
-        offset: (currentPage.value - 1) * pageSize,
+        limit: pageSize.value,
+        offset: (currentPage.value - 1) * pageSize.value,
         dbName,
       }))
       const result = await getTauriAPI().dbGetTablesFiltered(filterPayload)
@@ -818,7 +894,7 @@ async function loadTableDataForTab(connId: string, table: string) {
       }
     } else {
       const result = await getTauriAPI().dbGetTableDataFiltered({
-        connId, table, pageSize, offset: (currentPage.value - 1) * pageSize, dbName,
+        connId, table, pageSize: pageSize.value, offset: (currentPage.value - 1) * pageSize.value, dbName,
         sortColumn: activeSort.value?.column, sortDirection: activeSort.value?.direction
       })
       // dbGetTableData 返回 { success, rows, total }
@@ -840,7 +916,7 @@ async function loadTableDataForTab(connId: string, table: string) {
         const tableRef = dbName
           ? `\`${dbName.replace(/`/g, '``')}\`.\`${safeTable}\``
           : `\`${safeTable}\``
-        const rows = await getTauriAPI().dbQuery(connId, `SELECT * FROM ${tableRef} LIMIT ${pageSize} OFFSET ${(currentPage.value - 1) * pageSize}`)
+        const rows = await getTauriAPI().dbQuery(connId, `SELECT * FROM ${tableRef} LIMIT ${pageSize.value} OFFSET ${(currentPage.value - 1) * pageSize.value}`)
         let dataRows: Record<string, unknown>[] = []
         if (rows && typeof rows === 'object' && 'rows' in rows) {
           dataRows = (rows as any).success ? ((rows as any).rows as Record<string, unknown>[]) || [] : []
@@ -891,16 +967,25 @@ function handleNextPage() {
   loadTableData()
 }
 
+function handlePageSizeChange(size: number) {
+  pageSize.value = size
+  currentPage.value = 1
+  loadTableData()
+}
+
+function handleJumpPage(page: number) {
+  currentPage.value = page
+  loadTableData()
+}
+
 // ============ Table Row CRUD ============
 
 const tablePrimaryKeyColumns = ref<string[]>([])
 
 async function loadTablePrimaryKeys() {
-    console.log("[handleNextPage] called")
   if (!activeTab.value || activeTab.value.type !== 'tableData') {return}
   const tab = activeTab.value
   try {
-    console.log("[loadTablePrimaryKeys] called")
     const res = await getTauriAPI().dbGetTablePrimaryKeys(tab.connectionId, tab.tableName || '', tab.dbName || '')
     if (res?.success && res.primaryKeys) {
       tablePrimaryKeyColumns.value = res.primaryKeys
@@ -916,7 +1001,6 @@ async function handleUpdateRow(index: number, oldRow: Record<string, unknown>, n
   if (!activeTab.value || activeTab.value.type !== 'tableData') {return}
   const tab = activeTab.value
   try {
-    console.log("[handleUpdateRow] called")
     const plainOld = sanitizeForDB(oldRow)
     const plainNew = sanitizeForDB(newRow)
     const res = await getTauriAPI().dbUpdateTableRow(tab.connectionId, tab.tableName || '', plainOld!, plainNew!, tab.dbName)
@@ -953,7 +1037,6 @@ async function handleInsertRow(row: Record<string, unknown>) {
   if (!activeTab.value || activeTab.value.type !== 'tableData') {return}
   const tab = activeTab.value
   try {
-    console.log("[handleInsertRow] called")
     const plainRow = sanitizeForDB(row)
     const res = await getTauriAPI().dbInsertTableRow(tab.connectionId, tab.tableName || '', plainRow!, tab.dbName)
     if (res?.success) {
@@ -972,7 +1055,6 @@ async function handleDeleteRow(row: Record<string, unknown>, _index: number) {
   if (!activeTab.value || activeTab.value.type !== 'tableData') {return}
   const tab = activeTab.value
   try {
-    console.log("[handleDeleteRow] called")
     const plainRow = sanitizeForDB(row)
     const res = await getTauriAPI().dbDeleteTableRow(tab.connectionId, tab.tableName || '', plainRow!, tab.dbName)
     if (res?.success) {
@@ -1011,6 +1093,12 @@ async function executeRedis() {
 
   const cmd = redisCommand.value.trim()
   redisMessages.value.push({ type: 'input', prefix: '> ', content: cmd })
+  // Push to history (dedupe consecutive duplicates)
+  if (redisHistory.value[redisHistory.value.length - 1] !== cmd) {
+    redisHistory.value.push(cmd)
+    if (redisHistory.value.length > 50) {redisHistory.value.shift()}
+  }
+  redisHistoryIndex.value = -1
   redisCommand.value = ''
   redisExecuting.value = true
 
@@ -1041,8 +1129,29 @@ async function executeRedis() {
   }
 }
 
+// Redis command history navigation (↑/↓)
+function redisHistoryUp() {
+  if (redisHistory.value.length === 0) {return}
+  if (redisHistoryIndex.value === -1) {
+    redisHistoryIndex.value = redisHistory.value.length - 1
+  } else if (redisHistoryIndex.value > 0) {
+    redisHistoryIndex.value--
+  }
+  redisCommand.value = redisHistory.value[redisHistoryIndex.value] || ''
+}
+
+function redisHistoryDown() {
+  if (redisHistoryIndex.value === -1) {return}
+  if (redisHistoryIndex.value < redisHistory.value.length - 1) {
+    redisHistoryIndex.value++
+    redisCommand.value = redisHistory.value[redisHistoryIndex.value] || ''
+  } else {
+    redisHistoryIndex.value = -1
+    redisCommand.value = ''
+  }
+}
+
 onMounted(async () => {
-    console.log("[components/db/DBManager.vue] mounted")
   await db.loadConnections()
 })
 

@@ -2,34 +2,38 @@
   <div class="flex flex-col h-full gap-2">
     <div class="flex items-center justify-between gap-2 pb-2 border-b border-base-content/10">
       <div v-if="connection" class="flex items-center gap-1.5">
-        <span class="text-xs px-2 py-[3px] rounded bg-primary/10 text-primary font-medium">{{ dbTypeIcon(connection.type) }} {{ connection.name }}</span>
+        <span class="text-xs px-2 py-[3px] rounded-md bg-primary/10 text-primary font-medium flex items-center gap-1">
+          <SvgIcon :name="connection.type === 'redis' ? 'key' : (connection.type === 'sqlite' ? 'file' : 'database')" size="12" />
+          {{ connection.name }}
+        </span>
       </div>
       <div class="flex gap-1.5">
         <button
           @click="handleExecute"
-          class="btn btn-primary btn-sm"
+          class="btn btn-primary btn-sm gap-1.5"
           :disabled="executing"
           title="执行 (Ctrl+Enter)"
         >
-          <SvgIcon name="send" size="14" />
+          <SvgIcon v-if="executing" name="refresh" size="14" class="animate-spin" />
+          <SvgIcon v-else name="send" size="14" />
           {{ executing ? '执行中...' : '执行' }}
         </button>
         <button
           @click="handleFormat"
-          class="btn btn-ghost btn-sm"
+          class="btn btn-ghost btn-sm gap-1.5"
           title="格式化 (Ctrl+Shift+F)"
         >
           <SvgIcon name="menu" size="14" />
           格式化
         </button>
-        <button @click="$emit('clear')" class="btn btn-ghost btn-sm" title="清空">
+        <button @click="$emit('clear')" class="btn btn-ghost btn-sm btn-square" title="清空">
           <SvgIcon name="trash" size="14" />
         </button>
       </div>
     </div>
 
     <!-- Editor with syntax highlighting overlay -->
-    <div class="relative flex-1 min-h-[120px] max-h-[300px] border border-base-content/20 rounded-lg overflow-hidden transition-[border-color] duration-150 focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.1)]">
+    <div class="relative flex-1 min-h-[120px] max-h-[300px] border border-base-content/10 rounded-lg overflow-hidden transition-[border-color] duration-150 focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.1)]">
       <!-- Highlighted background layer -->
       <pre
         class="sql-highlight"
@@ -71,7 +75,7 @@
     </div>
 
     <!-- Error display -->
-    <div v-if="error" class="flex items-start gap-2 p-[10px_12px] rounded-lg bg-red-900/10 text-error text-[13px] leading-5">
+    <div v-if="error" class="flex items-start gap-2 p-[10px_12px] rounded-lg bg-error/10 text-error text-[13px] leading-5">
       <SvgIcon name="alertCircle" size="16" class="mt-0.5" />
       <span>{{ error }}</span>
     </div>
@@ -80,7 +84,7 @@
     <div v-if="history.length > 0" class="border-t border-base-content/10 pt-2">
       <div class="flex items-center justify-between mb-1.5 text-xs font-semibold text-base-content/60">
         <span>查询历史</span>
-        <button @click="$emit('clear-history')" class="btn btn-ghost btn-sm">清空</button>
+        <button @click="$emit('clear-history')" class="btn btn-ghost btn-xs">清空</button>
       </div>
       <div
         v-for="record in history.slice(0, 10)"
@@ -146,16 +150,6 @@ const selectionLength = computed(() => {
   if (!ta) {return 0}
   return ta.selectionEnd - ta.selectionStart
 })
-
-function dbTypeIcon(type: string): string {
-  const icons: Record<string, string> = {
-    mysql: '🐬',
-    postgresql: '🐘',
-    redis: '🔴',
-    sqlite: '📄'
-  }
-  return icons[type] || '🗄️'
-}
 
 function truncate(str: string, len: number): string {
   return str.length > len ? str.slice(0, len) + '...' : str

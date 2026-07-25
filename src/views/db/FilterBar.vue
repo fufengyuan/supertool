@@ -8,9 +8,9 @@
         <span v-if="activeCount > 0" :class="enabled ? 'bg-white/30 text-white' : 'bg-primary text-white'" class="px-1.5 py-0.5 rounded-full text-[11px] font-semibold">{{ activeCount }}</span>
       </button>
       <div v-if="enabled" class="flex gap-1.5 items-center">
-        <button @click="addCondition" class="btn btn-ghost btn-xs">+ 添加条件</button>
+        <button @click="addCondition" class="btn btn-ghost btn-xs gap-1.5"><SvgIcon name="plus" size="14" /> 添加条件</button>
         <button @click="clearAll" class="btn btn-ghost btn-xs" :disabled="conditions.length === 0">清除全部</button>
-        <button @click="apply" class="btn btn-primary btn-xs" :disabled="conditions.length === 0"><SvgIcon name="search" size="14" class="align-text-bottom" /> 应用筛选</button>
+        <button @click="apply" class="btn btn-primary btn-xs gap-1.5" :disabled="conditions.length === 0"><SvgIcon name="search" size="14" /> 应用筛选</button>
       </div>
     </div>
 
@@ -79,7 +79,7 @@
         </div>
 
         <!-- Remove button -->
-        <button @click="removeCondition(idx)" class="flex items-center justify-center w-6 h-6 border-none bg-transparent rounded cursor-pointer text-base-content/60 shrink-0 transition-all duration-100 hover:bg-red-100 hover:text-red-500" title="删除条件">
+        <button @click="removeCondition(idx)" class="flex items-center justify-center w-6 h-6 border-none bg-transparent rounded cursor-pointer text-base-content/60 shrink-0 transition-all duration-100 hover:bg-error/10 hover:text-error" title="删除条件">
           <SvgIcon name="x" size="14" />
         </button>
       </div>

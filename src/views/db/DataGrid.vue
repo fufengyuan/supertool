@@ -36,14 +36,20 @@
     </div>
 
     <!-- Empty state -->
-    <div v-if="rows.length === 0 && !loading" class="flex flex-col items-center justify-center p-12 text-base-content/60 gap-3">
-      <SvgIcon name="grid" size="40" />
-      <p>暂无数据</p>
-      <button class="btn btn-primary btn-sm" @click="addNewRow">新增第一行</button>
+    <div v-if="rows.length === 0 && !loading" class="flex flex-col items-center justify-center p-12 text-base-content/60 gap-3 flex-1">
+      <div class="w-14 h-14 rounded-2xl bg-base-200 border border-base-content/10 flex items-center justify-center">
+        <SvgIcon name="grid" size="28" stroke-width="1.5" class="text-base-content/30" />
+      </div>
+      <p class="m-0 text-sm">暂无数据</p>
+      <button class="btn btn-primary btn-sm gap-1.5" @click="addNewRow">
+        <SvgIcon name="plus" size="14" /> 新增第一行
+      </button>
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex items-center justify-center p-8 text-base-content/60 text-sm">加载中...</div>
+    <div v-if="loading" class="flex items-center justify-center p-8 text-base-content/60 text-sm gap-2 flex-1">
+      <span class="loading loading-spinner loading-sm"></span> 加载中...
+    </div>
 
     <!-- Table view -->
     <div v-if="viewMode === 'table' && (rows.length > 0 || newRowData)" class="flex-1 overflow-auto min-h-0 rounded-b-lg"
@@ -51,7 +57,7 @@
       <table class="border-collapse w-max min-w-full">
         <thead>
           <tr>
-            <th class="w-14 min-w-14 text-center bg-base-200 text-base-content/60 text-[11px] font-mono sticky left-0 top-0 z-40 border-r-2 border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">#</th>
+            <th class="w-12 min-w-12 text-center bg-base-100 text-base-content/40 text-[11px] font-mono sticky left-0 top-0 z-40 border-r border-b border-base-content/10 px-2 py-2 align-middle whitespace-nowrap">#</th>
             <th v-for="col in columns" :key="col"
                 class="bg-base-200 border-t border-b-2 border-r border-base-content/10 sticky top-0 z-20 select-none font-semibold text-[11px] tracking-wider min-w-[60px] px-0 py-0 align-middle whitespace-nowrap cursor-pointer group"
                 :class="{ 'text-primary': sortColumn === col }"
@@ -77,7 +83,7 @@
                 ? 'bg-warning/5 border-l-[3px] border-l-warning hover:bg-warning/10'
                 : 'even:bg-black/[0.015] hover:bg-primary/10'"
               @contextmenu.prevent="onRowContext($event, row, idx)">
-            <td class="w-14 min-w-14 text-center bg-base-200 text-base-content/60 text-[11px] font-mono sticky left-0 z-30 border-r-2 border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">
+            <td class="w-12 min-w-12 text-center bg-base-100 text-base-content/40 text-[11px] font-mono sticky left-0 z-30 border-r border-b border-base-content/10 px-2 py-2 align-middle whitespace-nowrap">
               <span v-if="dirtyRows.has(idx)" class="text-warning font-bold text-sm" title="已修改">*</span>
               <span v-else>{{ (page - 1) * pageSize + idx + 1 }}</span>
             </td>
@@ -115,7 +121,7 @@
 
           <!-- New row -->
           <tr v-if="newRowData" class="bg-success/5 border-l-[3px] border-l-success hover:bg-success/10">
-            <td class="w-14 min-w-14 text-center bg-base-200 text-base-content/60 text-[11px] font-mono sticky left-0 z-30 border-r-2 border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">
+            <td class="w-12 min-w-12 text-center bg-base-100 text-base-content/40 text-[11px] font-mono sticky left-0 z-30 border-r border-b border-base-content/10 px-2 py-2 align-middle whitespace-nowrap">
               <span class="text-success font-bold text-sm">+</span>
             </td>
             <td v-for="col in columns" :key="col"
@@ -137,8 +143,8 @@
               </template>
             </td>
             <td v-if="newRowData" class="w-15 text-center bg-base-200 border-r border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">
-              <button class="btn btn-ghost btn-xs" @click.stop="saveNewRow" title="保存新行"><SvgIcon name="download" size="14" /> </button>
-              <button class="btn btn-ghost btn-xs" @click.stop="cancelNewRow" title="取消新增">✖</button>
+              <button class="btn btn-ghost btn-xs btn-square" @click.stop="saveNewRow" title="保存新行"><SvgIcon name="download" size="14" /> </button>
+              <button class="btn btn-ghost btn-xs btn-square text-error" @click.stop="cancelNewRow" title="取消新增"><SvgIcon name="x" size="14" /></button>
             </td>
           </tr>
         </tbody>
@@ -149,14 +155,42 @@
     <pre v-if="viewMode === 'json' && rows.length > 0" class="flex-1 p-4 m-0 overflow-auto font-mono text-xs leading-5 bg-base-200 text-base-content">{{ formatJson(rows) }}</pre>
 
     <!-- Pagination -->
-    <div v-if="total > pageSize" class="flex items-center justify-center gap-3 px-3 py-2 border-t border-base-content/10 bg-base-100 shrink-0 min-h-[38px]">
-      <button class="btn btn-ghost btn-sm" :disabled="page <= 1" @click="handlePrevPage">
-        ‹ 上一页
-      </button>
-      <span class="text-xs text-base-content/60">第 {{ page }} / {{ totalPages }} 页</span>
-      <button class="btn btn-ghost btn-sm" :disabled="page >= totalPages" @click="handleNextPage">
-        下一页 ›
-      </button>
+    <div v-if="total > pageSize" class="flex items-center justify-between px-3 py-1.5 border-t border-base-content/10 bg-base-100 shrink-0 min-h-[38px] gap-2">
+      <div class="flex items-center gap-1.5 text-xs text-base-content/60">
+        <span>共 {{ total }} 条</span>
+        <span class="text-base-content/30">·</span>
+        <span>每页</span>
+        <select v-model.number="localPageSize" class="select select-bordered select-xs h-6 min-h-0 py-0 pr-6 text-xs" @change="onPageSizeChange">
+          <option :value="50">50</option>
+          <option :value="100">100</option>
+          <option :value="200">200</option>
+          <option :value="500">500</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-1">
+        <button class="btn btn-ghost btn-xs btn-square" :disabled="page <= 1" @click="handleFirstPage" title="首页">
+          <SvgIcon name="chevronLeft" size="12" />
+          <SvgIcon name="chevronLeft" size="12" class="-ml-2" />
+        </button>
+        <button class="btn btn-ghost btn-xs gap-1" :disabled="page <= 1" @click="handlePrevPage">
+          <SvgIcon name="chevronLeft" size="12" /> 上一页
+        </button>
+        <span class="text-xs text-base-content/60 px-2 tabular-nums">
+          <input
+            v-model.number="jumpPageInput"
+            class="input input-bordered input-xs w-12 h-6 text-center px-1 font-mono"
+            @keydown.enter="handleJumpPage"
+          />
+          <span class="mx-1">/ {{ totalPages }}</span>
+        </span>
+        <button class="btn btn-ghost btn-xs gap-1" :disabled="page >= totalPages" @click="handleNextPage">
+          下一页 <SvgIcon name="chevronRight" size="12" />
+        </button>
+        <button class="btn btn-ghost btn-xs btn-square" :disabled="page >= totalPages" @click="handleLastPage" title="末页">
+          <SvgIcon name="chevronRight" size="12" />
+          <SvgIcon name="chevronRight" size="12" class="-ml-2" />
+        </button>
+      </div>
     </div>
 
     <!-- Context Menu -->
@@ -179,7 +213,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { useToast } from '../../composables/useToast'
 import FilterBar, { type FilterCondition } from './FilterBar.vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
@@ -199,6 +233,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'prev-page': []
   'next-page': []
+  'page-size-change': [size: number]
+  'jump-page': [page: number]
   'filter': [conditions: FilterCondition[]]
   'filter-clear': []
   'update-row': [index: number, oldRow: Record<string, unknown>, newRow: Record<string, unknown>]
@@ -226,6 +262,50 @@ function handleNextPage() {
   originalRows.value.clear()
   localEdits.value.clear()
   emit('next-page')
+}
+
+// ============ Pagination extras (page size + jump) ============
+const localPageSize = ref(props.pageSize)
+watch(() => props.pageSize, (val) => { localPageSize.value = val })
+
+const jumpPageInput = ref(props.page)
+watch(() => props.page, (val) => { jumpPageInput.value = val })
+
+function onPageSizeChange() {
+  emit('page-size-change', localPageSize.value)
+  dirtyRows.value.clear()
+  originalRows.value.clear()
+  localEdits.value.clear()
+}
+
+function handleFirstPage() {
+  if (props.page <= 1) {return}
+  dirtyRows.value.clear()
+  originalRows.value.clear()
+  localEdits.value.clear()
+  emit('jump-page', 1)
+}
+
+function handleLastPage() {
+  if (props.page >= totalPages.value) {return}
+  dirtyRows.value.clear()
+  originalRows.value.clear()
+  localEdits.value.clear()
+  emit('jump-page', totalPages.value)
+}
+
+function handleJumpPage() {
+  const target = Number(jumpPageInput.value)
+  if (!target || target < 1 || target > totalPages.value) {
+    toast.warning(`页码范围: 1-${totalPages.value}`)
+    jumpPageInput.value = props.page
+    return
+  }
+  if (target === props.page) {return}
+  dirtyRows.value.clear()
+  originalRows.value.clear()
+  localEdits.value.clear()
+  emit('jump-page', target)
 }
 
 const viewMode = ref<'table' | 'json'>('table')

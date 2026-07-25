@@ -3,7 +3,7 @@
     <div class="bg-base-100 rounded-2xl w-[520px] max-h-[85vh] overflow-y-auto shadow-2xl" @click.stop>
       <div class="flex items-center justify-between p-5 border-b border-base-content/10 sticky top-0 bg-base-100 z-10 rounded-t-2xl">
         <h3 class="m-0 text-lg font-semibold"><template v-if="isEditing"><SvgIcon name="pencil" size="14" class="inline-block" /> 编辑连接</template><template v-else><SvgIcon name="archive" size="14" class="inline-block align-text-bottom" /> 添加数据库连接</template></h3>
-        <button @click="$emit('close')" class="btn btn-ghost btn-sm btn-square">×</button>
+        <button @click="$emit('close')" class="btn btn-ghost btn-sm btn-square"><SvgIcon name="x" size="16" /></button>
       </div>
       <div class="p-6">
         <div class="flex gap-4">
@@ -70,28 +70,32 @@
 
           <div class="my-2 border-t border-base-content/10"></div>
 
-          <label class="flex items-center gap-2 p-2 bg-amber-50/60 dark:bg-amber-900/10 rounded-lg border border-amber-200/30 dark:border-amber-500/15 cursor-pointer">
+          <label class="flex items-center gap-2 p-2 bg-warning/5 rounded-lg border border-warning/20 cursor-pointer">
             <input v-model="localForm.requiresApproval" type="checkbox" class="checkbox checkbox-sm" />
             <span class="flex flex-col gap-0.5">
-              <span>🔒 SQL 执行审核</span>
+              <span class="flex items-center gap-1.5"><SvgIcon name="lock" size="14" /> SQL 执行审核</span>
               <span class="text-xs text-base-content/60">开启后 CLI 无法执行 SQL，GUI 执行前需要确认</span>
             </span>
           </label>
         </template>
       </div>
 
-      <div class="flex justify-end gap-3 p-4 border-t border-base-content/10">
-        <button @click="$emit('test', localForm)" class="btn btn-ghost" :disabled="testing">
-          <SvgIcon name="checkCircle" size="14" />
+      <div class="flex justify-end gap-2 p-4 border-t border-base-content/10">
+        <button @click="$emit('test', localForm)" class="btn btn-ghost btn-sm gap-1.5" :disabled="testing">
+          <SvgIcon v-if="testing" name="refresh" size="14" class="animate-spin" />
+          <SvgIcon v-else name="checkCircle" size="14" />
           {{ testing ? '测试中...' : '测试连接' }}
         </button>
-        <button @click="$emit('close')" class="btn btn-ghost">取消</button>
-        <button @click="$emit('save', localForm)" class="btn btn-primary">保存</button>
+        <button @click="$emit('close')" class="btn btn-ghost btn-sm">取消</button>
+        <button @click="$emit('save', localForm)" class="btn btn-primary btn-sm gap-1.5">
+          <SvgIcon name="save" size="14" /> 保存
+        </button>
       </div>
 
       <div v-if="testResult" :class="testResult.success ? 'alert alert-success' : 'alert alert-error'"
-        class="mx-6 mb-5 rounded-lg">
-        <span>{{ testResult.success ? '✅ 连接成功！' : '❌ 连接失败: ' + testResult.error }}</span>
+        class="mx-6 mb-5 rounded-lg text-sm">
+        <SvgIcon :name="testResult.success ? 'checkCircle' : 'alertCircle'" size="16" />
+        <span>{{ testResult.success ? '连接成功！' : '连接失败: ' + testResult.error }}</span>
       </div>
     </div>
   </div>

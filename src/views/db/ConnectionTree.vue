@@ -18,10 +18,14 @@
       </div>
     </div>
 
-    <div v-if="sortedConnections.length === 0" class="flex flex-col items-center justify-center gap-2 py-8 px-4 text-base-content/50">
-      <SvgIcon name="database" size="16" class="w-8 h-8 text-base-content/30" />
-      <p class="text-sm">暂无数据库连接</p>
-      <button @click="$emit('add-connection')" class="btn btn-primary btn-sm mt-1">添加连接</button>
+    <div v-if="sortedConnections.length === 0" class="flex flex-col items-center justify-center gap-3 py-10 px-4 text-base-content/50">
+      <div class="w-14 h-14 rounded-2xl bg-base-200 border border-base-content/10 flex items-center justify-center">
+        <SvgIcon name="database" size="28" stroke-width="1.5" class="text-base-content/30" />
+      </div>
+      <p class="text-sm m-0">暂无数据库连接</p>
+      <button @click="$emit('add-connection')" class="btn btn-primary btn-sm gap-1.5 mt-1">
+        <SvgIcon name="plus" size="14" /> 添加连接
+      </button>
     </div>
 
     <div v-for="conn in sortedConnections" :key="conn.id">
@@ -56,10 +60,12 @@
         leave-to-class="opacity-0 max-h-0"
         leave-active-class="transition-all duration-[120ms] ease overflow-hidden"
       >
-        <div v-show="isConnectionExpanded(conn.id)" class="ml-4 pl-2 border-l border-base-200/60">
+        <div v-show="isConnectionExpanded(conn.id)" class="ml-4 pl-2 border-l border-base-content/10">
           <!-- Redis: database -> path-based folder tree -->
           <template v-if="conn.type === 'redis'">
-            <div v-if="loadingRedisDatabases[conn.id]" class="px-3 py-2 text-xs text-base-content/50 italic">加载中...</div>
+            <div v-if="loadingRedisDatabases[conn.id]" class="flex items-center gap-2 px-3 py-2 text-xs text-base-content/50">
+              <span class="loading loading-spinner loading-xs"></span> 加载中...
+            </div>
             <template v-else>
               <div
                 v-for="redisDb in getFilteredRedisDatabases(conn.id)"
@@ -86,8 +92,10 @@
                   leave-to-class="opacity-0 max-h-0"
                   leave-active-class="transition-all duration-[120ms] ease overflow-hidden"
                 >
-                  <div v-show="isRedisDatabaseExpanded(conn.id, redisDb.db)" class="ml-4 pl-2 border-l border-base-200/40">
-                    <div v-if="loadingRedisKeyTrees[redisDbKey(conn.id, redisDb.db)]" class="px-3 py-2 text-xs text-base-content/50 italic">加载中...</div>
+                  <div v-show="isRedisDatabaseExpanded(conn.id, redisDb.db)" class="ml-4 pl-2 border-l border-base-content/10">
+                    <div v-if="loadingRedisKeyTrees[redisDbKey(conn.id, redisDb.db)]" class="flex items-center gap-2 px-3 py-2 text-xs text-base-content/50">
+                      <span class="loading loading-spinner loading-xs"></span> 加载中...
+                    </div>
                     <template v-else-if="redisKeyTrees[redisDbKey(conn.id, redisDb.db)]">
                       <!-- Render root-level folder nodes -->
                       <RedisFolderNode
@@ -120,7 +128,9 @@
           <!-- MySQL / PostgreSQL: database list -->
           <template v-else-if="conn.type === 'mysql' || conn.type === 'postgresql'">
             <!-- Loading databases -->
-            <div v-if="loadingDatabases[conn.id]" class="px-3 py-2 text-xs text-base-content/50 italic">加载中...</div>
+            <div v-if="loadingDatabases[conn.id]" class="flex items-center gap-2 px-3 py-2 text-xs text-base-content/50">
+              <span class="loading loading-spinner loading-xs"></span> 加载中...
+            </div>
 
             <!-- Database list -->
             <template v-else>
@@ -148,7 +158,7 @@
                   leave-to-class="opacity-0 max-h-0"
                   leave-active-class="transition-all duration-[120ms] ease overflow-hidden"
                 >
-                  <div v-show="isDatabaseExpanded(conn.id, dbName)" class="ml-4 pl-2 border-l border-base-200/40">
+                  <div v-show="isDatabaseExpanded(conn.id, dbName)" class="ml-4 pl-2 border-l border-base-content/10">
                     <!-- Tables folder -->
                     <div
                       class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-base-200/70 transition-colors group whitespace-nowrap"
@@ -173,7 +183,9 @@
                       leave-active-class="transition-all duration-[120ms] ease overflow-hidden"
                     >
                       <div v-show="areDbTablesExpanded(conn.id, dbName)" class="ml-3 pl-1">
-                        <div v-if="loadingTables[dbKey(conn.id, dbName)]" class="px-3 py-2 text-xs text-base-content/50 italic">加载中...</div>
+                        <div v-if="loadingTables[dbKey(conn.id, dbName)]" class="flex items-center gap-2 px-3 py-2 text-xs text-base-content/50">
+                          <span class="loading loading-spinner loading-xs"></span> 加载中...
+                        </div>
                         <div v-else-if="(getFilteredTables(conn.id, dbName).length ?? 0) === 0" class="px-3 py-2 text-xs text-base-content/40 italic">{{ searchQuery ? '无匹配表' : '无表' }}</div>
                         <div
                           v-for="table in getFilteredTables(conn.id, dbName)"
@@ -214,7 +226,9 @@
                       leave-active-class="transition-all duration-[120ms] ease overflow-hidden"
                     >
                       <div v-show="areDbViewsExpanded(conn.id, dbName)" class="ml-3 pl-1">
-                        <div v-if="loadingViews[dbKey(conn.id, dbName)]" class="px-3 py-2 text-xs text-base-content/50 italic">加载中...</div>
+                        <div v-if="loadingViews[dbKey(conn.id, dbName)]" class="flex items-center gap-2 px-3 py-2 text-xs text-base-content/50">
+                          <span class="loading loading-spinner loading-xs"></span> 加载中...
+                        </div>
                         <div v-else-if="(getFilteredViews(conn.id, dbName).length ?? 0) === 0" class="px-3 py-2 text-xs text-base-content/40 italic">{{ searchQuery ? '无匹配视图' : '无视图' }}</div>
                         <div
                           v-for="view in getFilteredViews(conn.id, dbName)"
@@ -255,7 +269,7 @@
                 leave-to-class="opacity-0 max-h-0"
                 leave-active-class="transition-all duration-[120ms] ease overflow-hidden"
               >
-                <div v-show="isDatabaseExpanded(conn.id, 'sqlite_main')" class="ml-4 pl-2 border-l border-base-200/40">
+                <div v-show="isDatabaseExpanded(conn.id, 'sqlite_main')" class="ml-4 pl-2 border-l border-base-content/10">
                   <!-- Tables folder -->
                   <div
                     class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-base-200/70 transition-colors group whitespace-nowrap"
@@ -279,7 +293,9 @@
                     leave-active-class="transition-all duration-[120ms] ease overflow-hidden"
                   >
                     <div v-show="areDbTablesExpanded(conn.id, 'sqlite_main')" class="ml-3 pl-1">
-                      <div v-if="loadingTables[dbKey(conn.id, 'sqlite_main')]" class="px-3 py-2 text-xs text-base-content/50 italic">加载中...</div>
+                      <div v-if="loadingTables[dbKey(conn.id, 'sqlite_main')]" class="flex items-center gap-2 px-3 py-2 text-xs text-base-content/50">
+                      <span class="loading loading-spinner loading-xs"></span> 加载中...
+                    </div>
                       <div v-else-if="(getFilteredTables(conn.id, 'sqlite_main').length ?? 0) === 0" class="px-3 py-2 text-xs text-base-content/40 italic">{{ searchQuery ? '无匹配表' : '无表' }}</div>
                       <div
                         v-for="table in getFilteredTables(conn.id, 'sqlite_main')"
@@ -319,7 +335,9 @@
                     leave-active-class="transition-all duration-[120ms] ease overflow-hidden"
                   >
                     <div v-show="areDbViewsExpanded(conn.id, 'sqlite_main')" class="ml-3 pl-1">
-                      <div v-if="loadingViews[dbKey(conn.id, 'sqlite_main')]" class="px-3 py-2 text-xs text-base-content/50 italic">加载中...</div>
+                      <div v-if="loadingViews[dbKey(conn.id, 'sqlite_main')]" class="flex items-center gap-2 px-3 py-2 text-xs text-base-content/50">
+                      <span class="loading loading-spinner loading-xs"></span> 加载中...
+                    </div>
                       <div v-else-if="(getFilteredViews(conn.id, 'sqlite_main').length ?? 0) === 0" class="px-3 py-2 text-xs text-base-content/40 italic">{{ searchQuery ? '无匹配视图' : '无视图' }}</div>
                       <div
                         v-for="view in getFilteredViews(conn.id, 'sqlite_main')"
@@ -345,20 +363,21 @@
     <Teleport to="body">
       <div
         v-if="contextMenu.visible"
-        class="fixed z-50 min-w-44 rounded-lg bg-base-100 shadow-xl border border-base-300 py-1 text-sm"
-        :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
+        class="fixed z-50 min-w-[180px] rounded-xl bg-base-100 shadow-2xl border border-base-content/10 py-1.5 text-sm overflow-hidden"
+        :style="menuStyle"
         @click.stop
       >
         <template v-for="(item, idx) in contextMenu.items" :key="idx">
           <div
             v-if="!item.separator"
-            class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-base-200 transition-colors text-sm whitespace-nowrap"
+            class="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer transition-colors text-sm whitespace-nowrap mx-1 rounded-md"
+            :class="isDangerItem(item.label) ? 'hover:bg-error/10 text-error' : 'hover:bg-base-200 text-base-content'"
             @click="item.action"
           >
-            <span class="w-5 text-center flex-shrink-0 text-base">{{ item.icon }}</span>
+            <span class="w-4 text-center flex-shrink-0 text-[13px]">{{ item.icon }}</span>
             <span class="flex-1">{{ item.label }}</span>
           </div>
-          <div v-else class="border-t border-base-200 my-1"></div>
+          <div v-else class="border-t border-base-content/10 my-1 mx-2"></div>
         </template>
       </div>
     </Teleport>
@@ -369,6 +388,7 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
+import { computed } from 'vue'
 import { useConnectionTree } from './composables/useConnectionTree'
 import type { DBConnection } from '../../composables/useDBManager'
 import RedisFolderNode from './RedisFolderNode.vue'
@@ -433,4 +453,24 @@ const {
 } = ct
 
 defineExpose({ refreshTables })
+
+// Context menu boundary detection — keep menu within viewport
+const menuStyle = computed(() => {
+  const cm = contextMenu.value
+  if (!cm.visible) {return {}}
+  const menuWidth = 200
+  const menuHeight = Math.min(cm.items.length * 32 + 16, 400)
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  let x = cm.x
+  let y = cm.y
+  if (x + menuWidth > vw - 8) {x = Math.max(8, vw - menuWidth - 8)}
+  if (y + menuHeight > vh - 8) {y = Math.max(8, vh - menuHeight - 8)}
+  return { top: y + 'px', left: x + 'px' }
+})
+
+// Detect danger items by label for red highlight
+function isDangerItem(label: string): boolean {
+  return /删除|清空|DROP|drop/.test(label)
+}
 </script>

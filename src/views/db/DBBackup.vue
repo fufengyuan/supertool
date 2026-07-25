@@ -228,7 +228,6 @@ async function onConnectionChange() {
 
   loadingObjects.value = true
   try {
-    console.log("[onConnectionChange] called")
     const conn = nonRedisConnections.value.find(c => c.id === localConnectionId.value)
     if (conn) {
       const connectResult = await getTauriAPI().dbConnect(JSON.parse(JSON.stringify(conn)))
@@ -263,7 +262,6 @@ async function loadObjects() {
   selectedObjects.value = new Set()
   dataIncluded.value = new Set()
   try {
-    console.log("[loadObjects] called")
     const [tablesResult, viewsResult] = await Promise.all([
       getTauriAPI().dbGetTables(localConnectionId.value, selectedDb.value),
       getTauriAPI().dbGetViews(localConnectionId.value, selectedDb.value),
@@ -317,14 +315,12 @@ function selectNone() {
 }
 
 async function createBackup() {
-    console.log("[selectNone] called")
   if (!canBackup.value) {return}
   creating.value = true
   backupInProgress.value = true
   progressMessage.value = '正在生成备份...'
 
   try {
-    console.log("[createBackup] called")
     const backupObjects: BackupObject[] = []
     for (const name of selectedObjects.value) {
       const obj = objects.value.find(o => o.name === name)
@@ -356,7 +352,6 @@ async function createBackup() {
 async function loadBackupHistory() {
   loadingHistory.value = true
   try {
-    console.log("[loadBackupHistory] called")
     const result = await getTauriAPI().dbBackupList(localConnectionId.value || undefined)
     backups.value = (result || []).map((b: any) => ({
       file: b.file,
@@ -390,7 +385,6 @@ function restoreBackup(backup: BackupFile | null) {
 }
 
 async function doRestore() {
-    console.log("[restoreBackup] called")
   if (!restoreConfirm.value || !localConnectionId.value) {return}
   const backup = restoreConfirm.value
   restoreConfirm.value = null
@@ -398,7 +392,6 @@ async function doRestore() {
   progressMessage.value = '正在还原备份...'
 
   try {
-    console.log("[doRestore] called")
     const result = await getTauriAPI().dbBackupRestore(localConnectionId.value, backup.file)
     if (result?.success) {
       toast.success(`还原成功 (执行了 ${result.executed} 条 SQL)`)
@@ -418,7 +411,6 @@ async function deleteBackup(backup: BackupFile | null) {
   if (!backup) {return}
   contextMenu.value.visible = false
   try {
-    console.log("[deleteBackup] called")
     const result = await getTauriAPI().dbBackupDelete(backup.file)
     if (result) {
       toast.success('已删除备份')
@@ -443,7 +435,6 @@ function formatTime(iso: string): string {
 }
 
 onMounted(() => {
-    console.log("[components/db/DBBackup.vue] mounted")
   loadBackupHistory()
   if (props.connectionId) {
     localConnectionId.value = props.connectionId
