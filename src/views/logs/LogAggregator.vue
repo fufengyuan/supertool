@@ -180,12 +180,20 @@
             <p>未找到匹配结果</p>
           </div>
 
+          <!-- 手动加载更多历史日志按钮（仅 stream 模式） -->
+          <div v-if="queryMode === 'stream' && isStreaming && streamId && displayLines.length > 0" class="text-center py-1">
+            <button
+              @click="loadMoreHistory"
+              :disabled="loadingMore"
+              class="btn btn-ghost btn-xs text-[10px] text-base-content/50 hover:text-base-content"
+            >
+              <SvgIcon v-if="loadingMore" name="refresh" size="11" class="animate-spin" />
+              {{ loadingMore ? '加载中...' : '加载更多历史日志' }}
+            </button>
+          </div>
+
           <!-- 虚拟滚动容器：用 paddingTop/Bottom 撑起全量滚动空间，只渲染视口附近的行 -->
           <div v-if="displayLines.length > 0" :style="{ paddingTop: (visibleStart * VIRTUAL_LINE_HEIGHT) + 'px', paddingBottom: ((totalItems - visibleEnd) * VIRTUAL_LINE_HEIGHT) + 'px' }">
-            <!-- 滚动到顶部时自动加载更多历史日志 -->
-            <div v-if="loadingMore" class="text-center py-2 text-base-content/40 text-[10px]">
-              <SvgIcon name="refresh" size="12" class="inline-block animate-spin" /> 加载更多历史日志...
-            </div>
             <div
               v-for="line in visibleLines"
               :key="line.id"
@@ -2167,11 +2175,6 @@ function onScroll() {
   }
 
   showScrollBottom.value = userScrolledUp.value && isStreaming.value
-
-  // 滚动到顶部时自动加载更多历史日志
-  if (el.scrollTop < 50 && isStreaming.value && streamId.value && !loadingMore.value) {
-    loadMoreHistory()
-  }
 }
 // 继续查询（终止后重新启动同一预设，不清除日志）
 async function resumeQuery() {
