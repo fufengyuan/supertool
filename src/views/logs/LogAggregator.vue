@@ -2073,22 +2073,32 @@ async function loadMoreHistory() {
 
       // 历史日志按时间正序回填：服务器返回的是"更早的行"，需要插入到现有头部之前
       // 为保证 sortKey 单调，给每条历史行分配一个递减的小数偏移
+
+      // 去重：后端用 current_count=tail 偏移估算历史位置，但 logLines.length 含
+      // 已加载历史行 + stream 实时追加行，导致窗口偏移不准、返回重复历史日志。
+      // 用 Set 过滤掉已存在的行，避免"越滚越多"。
+      const existingKeys = new Set(
+        logLines.value.map(l => `${l.serverId}|${l.content}`))
+
       const baseSortKey = (logLines.value[0]?.sortKey ?? Date.now())
       const newLines: any[] = []
       const now = Date.now()
       let addedCount = 0
+      let dupCount = 0
       for (const serverResult of result.results) {
         if (!serverResult.lines || serverResult.lines.length === 0) continue
         // 服务器返回顺序假设是"由新到旧"，倒序插入让最早的在最前
         for (let i = serverResult.lines.length - 1; i >= 0; i--) {
           const content = serverResult.lines[i]
           if (!content) continue
+          const dedupKey = `${serverResult.serverId}|${content}`
+          if (existingKeys.has(dedupKey)) { dupCount++; continue }
+          existingKeys.add(dedupKey)
           const parsedTime = parseLogTimestamp(content)
           newLines.push({
             id: `${serverResult.serverId}-more-${now}-${Math.random()}-${i}`,
             serverId: serverResult.serverId,
             serverName: serverResult.serverName || '',
-            // 历史日志优先用内容解析到的时间，否则用 baseSortKey 递减保证排在最前
             timestamp: parsedTime ?? now,
             content,
             level: detectLevel(content),
@@ -2119,6 +2129,10 @@ async function loadMoreHistory() {
         // 设置 2 秒冷却，避免连续触发
         _loadMoreCooldownUntil = Date.now() + 2000
         toast.info(`已加载 ${addedCount} 条历史日志`)
+      } else if (dupCount > 0) {
+        // 返回的全是重复行 → 已到历史尽头，设长冷却避免空转
+        _loadMoreCooldownUntil = Date.now() + 30000
+        toast.info('没有更多历史日志了')
       }
     }
   } catch (e) {
