@@ -1015,27 +1015,86 @@ function fullLogJumpToMatch(idx: number) {
   session.currentMatchLineNo = targetLineNo
   fullLogCurrentMatchIndex.value = idx
   fullLogCurrentMatchLineNo.value = targetLineNo
-  if (fullLogContainer.value) {
-    // 先按估算行高滚动到大致位置（让目标行进入可见区间，触发加载）
-    const targetScrollTop = Math.max(0, targetLineNo * FULL_LOG_LINE_HEIGHT - fullLogContainerHeight.value / 3)
-    fullLogContainer.value.scrollTop = targetScrollTop
-    fullLogScrollTop.value = targetScrollTop
-    // 加载该区间后，用 scrollIntoView 精确对齐（避免估算行高与真实行高偏差导致定位偏下）
+  if (!fullLogContainer.value) return
+
+  const container = fullLogContainer.value
+  const containerH = fullLogContainerHeight.value || container.clientHeight || 600
+  // 直接按估算行高将目标行置于视口中央，同时同步 ref 让 visibleStart/End 覆盖目标行
+  const targetScrollTop = Math.max(0, targetLineNo * FULL_LOG_LINE_HEIGHT - containerH / 2)
+  container.scrollTop = targetScrollTop
+  fullLogScrollTop.value = targetScrollTop
+
+  // 确保 cache 包含目标行所在区间后再用真实 DOM 元素居中
+  // 不依赖 ensureVisibleRangeLoaded（它基于可能还未更新的 fullLogScrollTop 判断区间）
+  const loadStart = Math.max(0, Math.floor((targetLineNo - FULL_LOG_OVERSCAN - Math.floor(FULL_LOG_BATCH / 3)) / FULL_LOG_LOAD_STEP) * FULL_LOG_LOAD_STEP)
+  const loadCount = Math.min(FULL_LOG_BATCH, session.totalLines > 0 ? session.totalLines - loadStart : FULL_LOG_BATCH)
+
+  const doCenter = () => {
     nextTick(() => {
-      ensureVisibleRangeLoaded().then(() => {
+      const el = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
+      if (el) {
+        el.scrollIntoView({ block: 'center', behavior: 'auto' })
+        fullLogScrollTop.value = container.scrollTop
+        if (session) session.scrollTop = container.scrollTop
+      } else {
+        // 元素仍未渲染（极少见），兜底再加载一次后重试
+        refreshVisibleLines()
         nextTick(() => {
-          const container = fullLogContainer.value
-          if (!container) return
-          const el = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
-          if (el) {
-            el.scrollIntoView({ block: 'center', behavior: 'auto' })
-            // scrollIntoView 会触发 scroll 事件，同步 scrollTop ref
+          const el2 = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
+          if (el2) {
+            el2.scrollIntoView({ block: 'center', behavior: 'auto' })
             fullLogScrollTop.value = container.scrollTop
             if (session) session.scrollTop = container.scrollTop
           }
         })
-      })
+      }
     })
+  }
+
+  // 检查目标行是否已在 cache 中
+  if (session.cache.has(targetLineNo)) {
+    // 确保 visibleStart/End 覆盖目标行（基于刚设置的 fullLogScrollTop）
+    refreshVisibleLines()
+    doCenter()
+  } else {
+    // 需要从后端加载包含目标行的区间
+    session.lastLoadRange = { start: loadStart, end: loadStart + loadCount }
+    session.loadingPromise = (async () => {
+      try {
+        const result = await getTauriAPI().readLogFileLines(
+          session.localPath,
+          loadStart,
+          loadCount,
+          _fullLogCurrentKeyword || undefined
+        )
+        if (session.cache.size > FULL_LOG_CACHE_LIMIT) {
+          const keys = Array.from(session.cache.keys()).sort((a, b) => a - b)
+          for (let i = 0; i < 1000 && i < keys.length; i++) {
+            session.cache.delete(keys[i])
+          }
+        }
+        for (let i = 0; i < result.lines.length; i++) {
+          session.cache.set(result.start + i, {
+            lineNo: result.lines[i].lineNo,
+            html: result.lines[i].html,
+          })
+        }
+        if (result.totalLines !== session.totalLines) {
+          session.totalLines = result.totalLines
+          if (fullLogActiveSession.value === session) {
+            fullLogTotalLines.value = result.totalLines
+          }
+        }
+        if (fullLogActiveSession.value === session) {
+          refreshVisibleLines()
+        }
+      } catch (e: any) {
+        console.error('[LogAggregator] jump load failed:', e)
+      } finally {
+        session.loadingPromise = null
+      }
+    })()
+    session.loadingPromise.then(() => doCenter())
   }
 }
 
