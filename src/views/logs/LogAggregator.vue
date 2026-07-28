@@ -1650,10 +1650,6 @@ const visibleLines = computed(() => {
   return displayLines.value.slice(visibleStart.value, visibleEnd.value)
 })
 
-// 可见行渲染完成后采样真实行高，动态校正 spacer 估算（消除触底反弹）
-watch(visibleLines, () => {
-  nextTick(() => measureRealLineHeight())
-})
 
 // 预设分组折叠状态
 const collapsedPresetGroups = ref(new Set<string>())
@@ -1860,6 +1856,13 @@ const displayLines = computed(() => {
     return logLines.value
   }
   return logLines.value.filter(line => line.matched !== false)
+})
+
+// 可见行渲染完成后采样真实行高，动态校正 spacer 估算（消除触底反弹）
+// 注意：必须放在 displayLines 声明之后，否则 watch 首次求值 visibleLines
+// 时 displayLines 仍在暂时性死区(TDZ)，报 "Cannot access before initialization"
+watch(visibleLines, () => {
+  nextTick(() => measureRealLineHeight())
 })
 
 // 预设分组折叠
