@@ -1030,25 +1030,36 @@ function fullLogJumpToMatch(idx: number) {
   const loadCount = Math.min(FULL_LOG_BATCH, session.totalLines > 0 ? session.totalLines - loadStart : FULL_LOG_BATCH)
 
   const doCenter = () => {
-    nextTick(() => {
-      const el = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
-      if (el) {
-        el.scrollIntoView({ block: 'center', behavior: 'auto' })
-        fullLogScrollTop.value = container.scrollTop
-        if (session) session.scrollTop = container.scrollTop
-      } else {
-        // 元素仍未渲染（极少见），兜底再加载一次后重试
-        refreshVisibleLines()
-        nextTick(() => {
-          const el2 = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
-          if (el2) {
-            el2.scrollIntoView({ block: 'center', behavior: 'auto' })
-            fullLogScrollTop.value = container.scrollTop
-            if (session) session.scrollTop = container.scrollTop
-          }
-        })
-      }
-    })
+    // 用真实 DOM 位置精确居中，不依赖 scrollIntoView（虚拟滚动 spacer 用固定行高估算，
+    // 实际行高因换行可变，scrollIntoView 在聚簇长行场景下定位偏移甚至元素不可见）
+    const centerElement = (el: HTMLElement): void => {
+      const containerRect = container.getBoundingClientRect()
+      const elRect = el.getBoundingClientRect()
+      const elTopInContent = container.scrollTop + (elRect.top - containerRect.top)
+      const newScrollTop = Math.max(0, elTopInContent - container.clientHeight / 2 + elRect.height / 2)
+      container.scrollTop = newScrollTop
+      fullLogScrollTop.value = newScrollTop
+      if (session) session.scrollTop = newScrollTop
+    }
+    const tryCenter = (attempts: number): void => {
+      nextTick(() => {
+        const el = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
+        if (el) {
+          centerElement(el)
+        } else if (attempts > 0) {
+          // 元素未渲染，重试（虚拟滚动需要一帧渲染可见区间）
+          setTimeout(() => tryCenter(attempts - 1), 30)
+        } else {
+          // 多次重试后仍未渲染，兜底：触发可见区间刷新后再试一次
+          refreshVisibleLines()
+          nextTick(() => {
+            const el2 = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
+            if (el2) centerElement(el2)
+          })
+        }
+      })
+    }
+    tryCenter(5)
   }
 
   // 检查目标行是否已在 cache 中
