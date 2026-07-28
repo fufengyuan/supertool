@@ -775,31 +775,48 @@ fn build_context_command(log_type: &str, log_path: &str, start: usize, end: usiz
 fn parse_grep_output(output: &str, keyword: &str) -> Vec<Value> {
     let kw_lower = keyword.to_lowercase();
 
-    output
-        .lines()
-        .filter(|l| !l.trim().is_empty() && *l != "--")
-        .filter_map(|line| {
-            // grep -n output: "filename:lineNum:content" or "lineNum:content"
-            // match line: lineNum:content, context line: lineNum-content
-            let match_line = regex_match(line, r"^(?:[^:]*:)?(\d+):(.*)$");
-            let context_line = regex_match(line, r"^(?:[^:]*:)?(\d+)-(.*)$");
-            let parsed = match_line.or(context_line);
+    // 按 lineNum 去重：grep -C 上下文行在多匹配邻近时会重叠，且 docker 多容器/多文件
+    // 场景同一物理行可能被多个 grep 重复匹配。同一 lineNum 只保留一条，
+    // 匹配行(isMatch=true)优先于上下文行。
+    let mut seen: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
+    let mut order: Vec<String> = Vec::new();
 
-            parsed.map(|(line_num, content)| {
-                // Strip ANSI color codes
-                let content = content
-                    .replace("\x1b[0m", "")
-                    .replace("\x1b[31m", "")
-                    .replace("\x1b[32m", "");
-                let is_match = content.to_lowercase().contains(&kw_lower);
-                json!({
+    for line in output.lines() {
+        if line.trim().is_empty() || line == "--" {
+            continue;
+        }
+        let match_line = regex_match(line, r"^(?:[^:]*:)?(\d+):(.*)$");
+        let context_line = regex_match(line, r"^(?:[^:]*:)?(\d+)-(.*)$");
+        let parsed = match_line.or(context_line);
+        if let Some((line_num, content)) = parsed {
+            // Strip ANSI color codes
+            let content = content
+                .replace("\x1b[0m", "")
+                .replace("\x1b[31m", "")
+                .replace("\x1b[32m", "");
+            let is_match = content.to_lowercase().contains(&kw_lower);
+            if let Some(existing) = seen.get(&line_num) {
+                // 已存在：仅当新行是匹配行、旧行不是时才替换（匹配行优先）
+                let existing_match = existing["isMatch"].as_bool().unwrap_or(false);
+                if is_match && !existing_match {
+                    seen.insert(line_num.clone(), json!({
+                        "content": content,
+                        "isMatch": is_match,
+                        "lineNum": line_num
+                    }));
+                }
+            } else {
+                seen.insert(line_num.clone(), json!({
                     "content": content,
                     "isMatch": is_match,
                     "lineNum": line_num
-                })
-            })
-        })
-        .collect()
+                }));
+                order.push(line_num);
+            }
+        }
+    }
+
+    order.into_iter().filter_map(|k| seen.remove(&k)).collect()
 }
 
 fn regex_match(line: &str, pattern: &str) -> Option<(String, String)> {
@@ -847,4 +864,58 @@ fn regex_match(line: &str, pattern: &str) -> Option<(String, String)> {
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_grep_output_dedupes_overlapping_context_lines() {
+        // grep -C 输出：匹配行 10 的上下文(8,9,10,11,12) 与匹配行 12 的上下文(10,11,12,13,14)
+        // 重叠，10/11/12 各出现两次。同一 lineNum 只保留一条，匹配行优先。
+        let output = "\
+8-before line 8
+9-before line 9
+10:match keyword here
+11-context line 11
+12-match keyword too
+--
+10-context line 10 dup
+11-context line 11 dup
+12:match keyword too
+13-after line 13
+14-after line 14
+";
+        let lines = parse_grep_output(output, "keyword");
+        let nums: Vec<String> = lines
+            .iter()
+            .map(|l| l["lineNum"].as_str().unwrap_or("").to_string())
+            .collect();
+        // 每个 lineNum 只出现一次
+        assert_eq!(
+            nums,
+            vec!["8", "9", "10", "11", "12", "13", "14"],
+            "lineNum 不应重复"
+        );
+        // lineNum=10 和 12 应标记为匹配行（isMatch=true）
+        let l10 = lines.iter().find(|l| l["lineNum"] == "10").unwrap();
+        let l12 = lines.iter().find(|l| l["lineNum"] == "12").unwrap();
+        assert_eq!(l10["isMatch"], true, "lineNum=10 应为匹配行");
+        assert_eq!(l12["isMatch"], true, "lineNum=12 应为匹配行");
+    }
+
+    #[test]
+    fn parse_grep_output_prefers_match_over_context_for_same_lineno() {
+        // 同一 lineNum 既是上下文行又是匹配行时，保留匹配行版本
+        let output = "\
+5-keyword appears here
+--
+5-context only line
+";
+        let lines = parse_grep_output(output, "keyword");
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0]["lineNum"], "5");
+        assert_eq!(lines[0]["isMatch"], true);
+    }
 }

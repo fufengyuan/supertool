@@ -649,6 +649,8 @@ const FULL_LOG_LOAD_STEP = 150  // loadStart 对齐步长，避免微小滚动�
 const FULL_LOG_CACHE_LIMIT = 5000  // LRU 缓存上限
 let _fullLogResizeHandler: (() => void) | null = null
 let _fullLogScrollHandler: (() => void) | null = null
+// 跳转进行中标志：阻止 scroll handler 在用户未操作时清除跳转锚点
+let _fullLogJumping = false
 let _fullLogRafId = 0
 
 // 单个服务器节点的离线日志会话状态
@@ -745,8 +747,25 @@ const fullLogCurrentMatchLineNo = ref(-1)
 let _fullLogFindingMatches = false
 let _fullLogCurrentKeyword = ''    // 当前生效的关键字（全局共享，搜索时对所有 session 生效）
 
-const fullLogVisibleStart = computed(() => Math.max(0, Math.floor(fullLogScrollTop.value / FULL_LOG_LINE_HEIGHT) - FULL_LOG_OVERSCAN))
+// 跳转锚点：当设置时，visibleStart/End 直接以该行为中心计算（而非 scrollTop 估算行高反推），
+// 确保跳转目标行一定落在渲染窗口内。这是修复"跳转前几次正常、之后失效"的关键——
+// 真实行高因换行可变，scrollTop/18 反推行号会随累积偏差越来越大而错位。
+const fullLogAnchorLine = ref(-1)
+// 跳转后用户手动滚动时清除锚点，恢复 scrollTop 驱动的虚拟滚动
+function clearFullLogAnchor() { fullLogAnchorLine.value = -1 }
+
+const fullLogVisibleStart = computed(() => {
+  if (fullLogAnchorLine.value >= 0) {
+    return Math.max(0, fullLogAnchorLine.value - FULL_LOG_OVERSCAN - 5)
+  }
+  return Math.max(0, Math.floor(fullLogScrollTop.value / FULL_LOG_LINE_HEIGHT) - FULL_LOG_OVERSCAN)
+})
 const fullLogVisibleEnd = computed(() => {
+  if (fullLogAnchorLine.value >= 0) {
+    // 锚点模式下渲染一个足够大的窗口（约容器行数+overscan），确保目标行及其上下文都可见
+    const windowLines = Math.ceil(fullLogContainerHeight.value / FULL_LOG_LINE_HEIGHT) + FULL_LOG_OVERSCAN + 10
+    return Math.min(fullLogTotalLines.value, fullLogAnchorLine.value + windowLines)
+  }
   const end = Math.ceil((fullLogScrollTop.value + fullLogContainerHeight.value) / FULL_LOG_LINE_HEIGHT) + FULL_LOG_OVERSCAN
   return Math.min(fullLogTotalLines.value, end)
 })
@@ -875,6 +894,9 @@ watch([fullLogVisibleStart, fullLogVisibleEnd], () => {
 
 // 将激活 session 的状态同步到视图代理 ref
 function syncActiveSessionToView() {
+  // 切换 session 时清除跳转锚点和标志，恢复正常虚拟滚动
+  _fullLogJumping = false
+  clearFullLogAnchor()
   const session = fullLogActiveSession.value
   if (!session) {
     fullLogScrollTop.value = 0
@@ -1006,6 +1028,7 @@ async function fullLogSearch() {
 }
 
 // 跳转到第 idx 个匹配（滚动到对应行，触发按需加载）
+// 跳转到第 idx 个匹配（滚动到对应行，触发按需加载）
 function fullLogJumpToMatch(idx: number) {
   const session = fullLogActiveSession.value
   if (!session) return
@@ -1018,57 +1041,61 @@ function fullLogJumpToMatch(idx: number) {
   if (!fullLogContainer.value) return
 
   const container = fullLogContainer.value
-  const containerH = fullLogContainerHeight.value || container.clientHeight || 600
-  // 直接按估算行高将目标行置于视口中央，同时同步 ref 让 visibleStart/End 覆盖目标行
-  const targetScrollTop = Math.max(0, targetLineNo * FULL_LOG_LINE_HEIGHT - containerH / 2)
-  container.scrollTop = targetScrollTop
-  fullLogScrollTop.value = targetScrollTop
 
-  // 确保 cache 包含目标行所在区间后再用真实 DOM 元素居中
-  // 不依赖 ensureVisibleRangeLoaded（它基于可能还未更新的 fullLogScrollTop 判断区间）
-  const loadStart = Math.max(0, Math.floor((targetLineNo - FULL_LOG_OVERSCAN - Math.floor(FULL_LOG_BATCH / 3)) / FULL_LOG_LOAD_STEP) * FULL_LOG_LOAD_STEP)
-  const loadCount = Math.min(FULL_LOG_BATCH, session.totalLines > 0 ? session.totalLines - loadStart : FULL_LOG_BATCH)
+  // 核心修复：进入锚点模式，让 visibleStart/End 直接以目标行为中心计算，
+  // 而非 scrollTop/估算行高反推行号（真实行高可变会导致累积错位）。
+  _fullLogJumping = true
+  fullLogAnchorLine.value = targetLineNo
+
+  // 用真实 DOM 位置精确居中目标行
+  const centerElement = (el: HTMLElement): void => {
+    const containerRect = container.getBoundingClientRect()
+    const elRect = el.getBoundingClientRect()
+    const elTopInContent = container.scrollTop + (elRect.top - containerRect.top)
+    const newScrollTop = Math.max(0, elTopInContent - container.clientHeight / 2 + elRect.height / 2)
+    container.scrollTop = newScrollTop
+    fullLogScrollTop.value = newScrollTop
+    if (session) session.scrollTop = newScrollTop
+  }
 
   const doCenter = () => {
-    // 用真实 DOM 位置精确居中，不依赖 scrollIntoView（虚拟滚动 spacer 用固定行高估算，
-    // 实际行高因换行可变，scrollIntoView 在聚簇长行场景下定位偏移甚至元素不可见）
-    const centerElement = (el: HTMLElement): void => {
-      const containerRect = container.getBoundingClientRect()
-      const elRect = el.getBoundingClientRect()
-      const elTopInContent = container.scrollTop + (elRect.top - containerRect.top)
-      const newScrollTop = Math.max(0, elTopInContent - container.clientHeight / 2 + elRect.height / 2)
-      container.scrollTop = newScrollTop
-      fullLogScrollTop.value = newScrollTop
-      if (session) session.scrollTop = newScrollTop
-    }
+    // 锚点模式下 visibleStart/End 已确保目标行在渲染窗口内，
+    // 直接刷新渲染并居中。重试等待 watch 触发的 ensureVisibleRangeLoaded 完成。
     const tryCenter = (attempts: number): void => {
       nextTick(() => {
         const el = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
         if (el) {
           centerElement(el)
+          // 居中完成，退出跳转模式。此后用户滚动会清除锚点，恢复正常虚拟滚动。
+          _fullLogJumping = false
         } else if (attempts > 0) {
-          // 元素未渲染，重试（虚拟滚动需要一帧渲染可见区间）
           setTimeout(() => tryCenter(attempts - 1), 30)
         } else {
-          // 多次重试后仍未渲染，兜底：触发可见区间刷新后再试一次
-          refreshVisibleLines()
-          nextTick(() => {
-            const el2 = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
-            if (el2) centerElement(el2)
-          })
+          // 兜底：cache 可能尚未加载目标行，强制刷新可见区间后重试
+          ensureVisibleRangeLoaded().then(() => {
+            nextTick(() => {
+              const el2 = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
+              if (el2) centerElement(el2)
+              _fullLogJumping = false
+            })
+          }).catch(() => { _fullLogJumping = false })
         }
       })
     }
-    tryCenter(5)
+    tryCenter(8)
   }
 
-  // 检查目标行是否已在 cache 中
+  // 确保目标行所在区间已加载到 cache（锚点模式已让 visibleStart/End 覆盖目标行，
+  // watch 会自动触发 ensureVisibleRangeLoaded，但首次跳转需主动加载目标行附近区间）
+  const loadStart = Math.max(0, Math.floor((targetLineNo - FULL_LOG_OVERSCAN - Math.floor(FULL_LOG_BATCH / 3)) / FULL_LOG_LOAD_STEP) * FULL_LOG_LOAD_STEP)
+  const loadCount = Math.min(FULL_LOG_BATCH, session.totalLines > 0 ? session.totalLines - loadStart : FULL_LOG_BATCH)
+
   if (session.cache.has(targetLineNo)) {
-    // 确保 visibleStart/End 覆盖目标行（基于刚设置的 fullLogScrollTop）
+    // 已缓存：直接刷新渲染并居中
     refreshVisibleLines()
     doCenter()
   } else {
-    // 需要从后端加载包含目标行的区间
+    // 未缓存：加载目标行所在区间后居中
     session.lastLoadRange = { start: loadStart, end: loadStart + loadCount }
     session.loadingPromise = (async () => {
       try {
@@ -1105,7 +1132,7 @@ function fullLogJumpToMatch(idx: number) {
         session.loadingPromise = null
       }
     })()
-    session.loadingPromise.then(() => doCenter())
+    session.loadingPromise.then(() => doCenter()).catch(() => { _fullLogJumping = false })
   }
 }
 
@@ -1124,6 +1151,8 @@ function fullLogPrevMatch() {
 }
 
 function closeFullLogDialog() {
+  _fullLogJumping = false
+  clearFullLogAnchor()
   if (fullLogDialog.value) {
     fullLogDialog.value.close()
   }
@@ -1475,6 +1504,11 @@ async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boole
           if (fullLogContainer.value) {
             const cur = fullLogActiveSession.value
             const st = fullLogContainer.value!.scrollTop
+            // 程序化跳转期间（_fullLogJumping=true）不清除锚点，避免跳转后 scrollTop 估算
+            // 行号又接管渲染导致目标行移出窗口。用户手动滚动时才清除锚点恢复正常虚拟滚动。
+            if (!_fullLogJumping) {
+              clearFullLogAnchor()
+            }
             fullLogScrollTop.value = st
             if (cur) cur.scrollTop = st
           }
