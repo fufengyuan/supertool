@@ -193,11 +193,10 @@
           </div>
 
           <!-- 虚拟滚动容器：用 paddingTop/Bottom 撑起全量滚动空间，只渲染视口附近的行 -->
-          <div v-if="displayLines.length > 0" :style="{ paddingTop: (visibleStart * lineHeightPx) + 'px', paddingBottom: ((totalItems - visibleEnd) * lineHeightPx) + 'px' }">
+          <div v-if="displayLines.length > 0" :style="{ paddingTop: (visibleStart * VIRTUAL_LINE_HEIGHT) + 'px', paddingBottom: ((totalItems - visibleEnd) * VIRTUAL_LINE_HEIGHT) + 'px' }">
             <div
               v-for="line in visibleLines"
               :key="line.id"
-              data-log-row
               class="flex gap-2 py-0.5 hover:bg-white/5"
               :class="{
                 'bg-warning/10 border-l-4 border-warning': line.isMatch,
@@ -1574,60 +1573,10 @@ async function copyFullLog() {
 // 滚动状态
 const showScrollBottom = ref(false)
 // 虚拟滚动：只渲染可视区内的行
-// 行高用响应式 ref：日志行因 whitespace-pre-wrap 换行真实高度可变，固定 24px 估算
-// 会导致 spacer 总高(=totalItems*行高)与真实内容高度不符，快速滚动触底被浏览器回弹。
-// 渲染后采样可见行真实平均高度并收敛校正，spacer 逐渐贴合真实高度，消除反弹。
-const lineHeightPx = ref(24)
+const VIRTUAL_LINE_HEIGHT = 24    // px，匹配 contain-intrinsic-size: 1.5rem
 const OVERSCAN = 10                // 视口上下额外渲染的行数（5-15 足够流畅，原值 100 浪费 DOM）
 const scrollTop = ref(0)
 const containerHeight = ref(0)
-
-// 采样可见行真实平均高度，收敛校正 lineHeightPx（指数滑动平均，避免单次抖动）
-// 关键：更新行高会导致 paddingTop/Bottom 变化使内容瞬间位移（另一种反弹），
-// 因此校正时用第一个可见行的真实位置作锚点，校正后恢复其视口位置保持内容稳定。
-let _lineHeightSampled = false
-function measureRealLineHeight() {
-  const container = logContainer.value
-  if (!container) return
-  const rows = container.querySelectorAll('[data-log-row]')
-  if (rows.length === 0) return
-  let total = 0
-  let count = 0
-  rows.forEach(r => {
-    const h = (r as HTMLElement).offsetHeight
-    if (h > 0) { total += h; count++ }
-  })
-  if (count === 0) return
-  const avg = total / count
-  // 仅在偏差显著时更新，EMA 平滑（0.3 权重），避免频繁重排
-  if (Math.abs(avg - lineHeightPx.value) <= 1) return
-
-  // 记录锚点：第一个可见行的索引及其相对视口顶部的偏移
-  const firstRow = rows[0] as HTMLElement
-  const anchorIdx = visibleStart.value
-  const containerRect = container.getBoundingClientRect()
-  const anchorOffset = firstRow.getBoundingClientRect().top - containerRect.top
-
-  const newH = _lineHeightSampled
-    ? lineHeightPx.value * 0.7 + avg * 0.3
-    : avg
-  lineHeightPx.value = newH
-  _lineHeightSampled = true
-
-  // 校正后恢复锚点行的视口位置：scrollTop = 锚点索引*新行高 + 原偏移
-  // 这样 paddingTop 变化不会让当前可见内容跳动
-  nextTick(() => {
-    if (!logContainer.value) return
-    const newScrollTop = Math.max(0, anchorIdx * newH + anchorOffset)
-    scrollingFromRAFCount++
-    logContainer.value.scrollTop = newScrollTop
-    scrollTop.value = logContainer.value.scrollTop
-    requestAnimationFrame(() => { requestAnimationFrame(() => {
-      scrollingFromRAFCount--
-      if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
-    }) })
-  })
-}
 
 // 流式日志保留上限：优先用预设的 maxLines，默认 3000
 const MAX_LINES = computed(() => {
@@ -1638,18 +1587,17 @@ const MAX_LINES = computed(() => {
 const totalItems = computed(() => displayLines.value.length)
 
 const visibleStart = computed(() => {
-  return Math.max(0, Math.floor(scrollTop.value / lineHeightPx.value) - OVERSCAN)
+  return Math.max(0, Math.floor(scrollTop.value / VIRTUAL_LINE_HEIGHT) - OVERSCAN)
 })
 
 const visibleEnd = computed(() => {
-  return Math.min(totalItems.value, Math.ceil((scrollTop.value + containerHeight.value) / lineHeightPx.value) + OVERSCAN)
+  return Math.min(totalItems.value, Math.ceil((scrollTop.value + containerHeight.value) / VIRTUAL_LINE_HEIGHT) + OVERSCAN)
 })
 
 // 模板只渲染这部分行，其余行用 paddingTop/paddingBottom 撑开滚动空间
 const visibleLines = computed(() => {
   return displayLines.value.slice(visibleStart.value, visibleEnd.value)
 })
-
 
 // 预设分组折叠状态
 const collapsedPresetGroups = ref(new Set<string>())
@@ -1856,13 +1804,6 @@ const displayLines = computed(() => {
     return logLines.value
   }
   return logLines.value.filter(line => line.matched !== false)
-})
-
-// 可见行渲染完成后采样真实行高，动态校正 spacer 估算（消除触底反弹）
-// 注意：必须放在 displayLines 声明之后，否则 watch 首次求值 visibleLines
-// 时 displayLines 仍在暂时性死区(TDZ)，报 "Cannot access before initialization"
-watch(visibleLines, () => {
-  nextTick(() => measureRealLineHeight())
 })
 
 // 预设分组折叠
@@ -2108,7 +2049,7 @@ function scheduleFlush() {
       logLines.value.splice(0, overflow)
       // 同步调整虚拟滚动偏移量，避免裁剪后 visibleStart 索引错位（paddingTop 跳跃）
       if (!followMode.value && logContainer.value && scrollTop.value > 0) {
-        const adjustedScroll = Math.max(0, scrollTop.value - overflow * lineHeightPx.value)
+        const adjustedScroll = Math.max(0, scrollTop.value - overflow * VIRTUAL_LINE_HEIGHT)
         // 标记程序化滚动，避免 onScroll 把 followMode 翻转为 false
         scrollingFromRAFCount++
         logContainer.value.scrollTop = adjustedScroll
@@ -2186,7 +2127,7 @@ function updateMatchIndices() {
 
 function scrollToLineIndex(idx: number) {
   // scroll the target line into view
-  const targetTop = idx * lineHeightPx.value
+  const targetTop = idx * VIRTUAL_LINE_HEIGHT
   const halfVisible = containerHeight.value / 2
   if (logContainer.value) {
     scrollingFromRAFCount++
@@ -2283,7 +2224,7 @@ async function loadMoreHistory() {
         // 一次性插入，避免多次响应式触发
         logLines.value.splice(0, 0, ...newLines)
         // Adjust scroll position so the visible content doesn't jump
-        const addedHeight = addedCount * lineHeightPx.value
+        const addedHeight = addedCount * VIRTUAL_LINE_HEIGHT
         if (!followMode.value && logContainer.value && scrollTop.value >= 0) {
           scrollingFromRAFCount++
           // 确保加载后 scrollTop 离开触发区（>100），避免 onScroll 立刻再次触发 loadMoreHistory
