@@ -1375,8 +1375,13 @@ export function useDataBackupAPI() {
         rustArgs[rustKey] = v
       }
       const res = await tauriInvoke<any>('import_json', rustArgs)
-      // 后端返回 { success, importedCount, skippedCount, errors }，失败时也要保留这些字段
-      // 供前端区分"完全失败"与"部分成功"
+      // 后端返回 { success, importedCount, skippedCount, errors }（无 data/error 字段），
+      // isStandardResponse 判定为非标准格式，tauriInvoke 会再包一层 { success:true, data:{...真实响应} }。
+      // 这里需解包 data 把真实响应字段提到顶层，否则前端 result.importedCount 为 undefined。
+      if (res && typeof res === 'object' && res.data && typeof res.data === 'object'
+          && ('importedCount' in res.data || 'skippedCount' in res.data)) {
+        return res.data
+      }
       return res
     },
     exportCsv: async (options: Record<string, unknown>): Promise<any> => {
