@@ -31,7 +31,7 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                 })
                 .map_err(|e| anyhow::anyhow!("查询仓库列表失败: {}", e))?;
 
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&repos);
             } else {
                 println!("\n  Git 仓库 ({}):", repos.len());
@@ -48,7 +48,7 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                 .git_status(path)
                 .await
                 .map_err(|e| anyhow::anyhow!("状态查询失败: {}", e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&resp);
             } else {
                 let branch = resp
@@ -94,7 +94,7 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                 .git_log(path, Some(*limit))
                 .await
                 .map_err(|e| anyhow::anyhow!("日志查询失败: {}", e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&resp);
             } else {
                 let logs: Vec<serde_json::Value> = resp.as_array().cloned().unwrap_or_default();
@@ -125,7 +125,7 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                 .git_branches(path)
                 .await
                 .map_err(|e| anyhow::anyhow!("分支查询失败: {}", e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&resp);
             } else {
                 let branches: Vec<serde_json::Value> = resp.as_array().cloned().unwrap_or_default();
@@ -138,7 +138,8 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                 }
             }
         }
-        GitCommands::Pull { path } => {
+        GitCommands::Pull { path, json } => {
+            runtime.set_json(*json);
             let resp = runtime
                 .core
                 .git_pull(path)
@@ -149,7 +150,11 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
             {
-                print_success(&format!("Pull 成功: {}", path));
+                if runtime.json_mode {
+                    print_json(&resp);
+                } else {
+                    print_success(&format!("Pull 成功: {}", path));
+                }
             } else {
                 anyhow::bail!(
                     "Pull 失败: {}",
@@ -159,7 +164,8 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                 );
             }
         }
-        GitCommands::Push { path } => {
+        GitCommands::Push { path, json } => {
+            runtime.set_json(*json);
             let resp = runtime
                 .core
                 .git_push(path)
@@ -170,7 +176,11 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
             {
-                print_success(&format!("Push 成功: {}", path));
+                if runtime.json_mode {
+                    print_json(&resp);
+                } else {
+                    print_success(&format!("Push 成功: {}", path));
+                }
             } else {
                 anyhow::bail!(
                     "Push 失败: {}",
@@ -184,7 +194,9 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
             path,
             message,
             files,
+            json,
         } => {
+            runtime.set_json(*json);
             let file_refs: Vec<String> = files.as_ref().cloned().unwrap_or_default();
             let resp = if file_refs.is_empty() {
                 runtime.core.git_commit(path, message, None).await
@@ -199,8 +211,12 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
             {
-                let hash = resp_val.get("hash").and_then(|v| v.as_str()).unwrap_or("");
-                print_success(&format!("提交成功: {} ({})", message, hash));
+                if runtime.json_mode {
+                    print_json(&resp_val);
+                } else {
+                    let hash = resp_val.get("hash").and_then(|v| v.as_str()).unwrap_or("");
+                    print_success(&format!("提交成功: {} ({})", message, hash));
+                }
             } else {
                 anyhow::bail!(
                     "提交失败: {}",
@@ -211,7 +227,8 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                 );
             }
         }
-        GitCommands::Checkout { path, branch } => {
+        GitCommands::Checkout { path, branch, json } => {
+            runtime.set_json(*json);
             let resp = runtime
                 .core
                 .git_checkout(path, branch)
@@ -222,7 +239,11 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
             {
-                print_success(&format!("已切换到分支: {}", branch));
+                if runtime.json_mode {
+                    print_json(&resp);
+                } else {
+                    print_success(&format!("已切换到分支: {}", branch));
+                }
             } else {
                 anyhow::bail!(
                     "切换失败: {}",

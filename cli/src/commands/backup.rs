@@ -1,4 +1,4 @@
-use crate::output::print_success;
+use crate::output::{print_json, print_success};
 use crate::runtime::CliRuntime;
 use anyhow::{Result, anyhow};
 use std::io::{Cursor, Read, Write};
@@ -10,7 +10,8 @@ pub async fn cmd_backup(
 ) -> Result<()> {
     use crate::types::BackupCommands;
     match action {
-        BackupCommands::Export { output } => {
+        BackupCommands::Export { output, json } => {
+            runtime.set_json(*json);
             let result = runtime
                 .core
                 .export_all_tables()
@@ -68,10 +69,19 @@ pub async fn cmd_backup(
                         .sum()
                 })
                 .unwrap_or(0);
-            print_success(&format!("数据已导出到: {}", path));
-            println!("  表数: {}, 总记录数: {}", table_count, total_items);
+            if runtime.json_mode {
+                print_json(&serde_json::json!({
+                    "path": path,
+                    "tableCount": table_count,
+                    "totalItems": total_items,
+                }));
+            } else {
+                print_success(&format!("数据已导出到: {}", path));
+                println!("  表数: {}, 总记录数: {}", table_count, total_items);
+            }
         }
-        BackupCommands::Import { file, mode } => {
+        BackupCommands::Import { file, mode, json } => {
+            runtime.set_json(*json);
             let zip_data = std::fs::read(file).map_err(|e| anyhow!("读取文件失败: {}", e))?;
             let mut archive = zip::ZipArchive::new(Cursor::new(zip_data))
                 .map_err(|e| anyhow!("ZIP解析失败: {}", e))?;
@@ -120,19 +130,31 @@ pub async fn cmd_backup(
                 .map_err(|e| anyhow!(e))?;
 
             if import_errors.is_empty() {
-                print_success(&format!(
-                    "数据导入成功: 导入 {} 条, 跳过 {} 条",
-                    imported, skipped
-                ));
+                if runtime.json_mode {
+                    print_json(&serde_json::json!({"imported": imported, "skipped": skipped, "errors": []}));
+                } else {
+                    print_success(&format!(
+                        "数据导入成功: 导入 {} 条, 跳过 {} 条",
+                        imported, skipped
+                    ));
+                }
             } else {
-                print_success(&format!(
-                    "数据导入完成（含 {} 个错误）: 导入 {} 条, 跳过 {} 条",
-                    import_errors.len(),
-                    imported,
-                    skipped
-                ));
-                for e in import_errors.iter().take(10) {
-                    println!("  - {}", e);
+                if runtime.json_mode {
+                    print_json(&serde_json::json!({
+                        "imported": imported,
+                        "skipped": skipped,
+                        "errors": import_errors.iter().take(10).collect::<Vec<_>>(),
+                    }));
+                } else {
+                    print_success(&format!(
+                        "数据导入完成（含 {} 个错误）: 导入 {} 条, 跳过 {} 条",
+                        import_errors.len(),
+                        imported,
+                        skipped
+                    ));
+                    for e in import_errors.iter().take(10) {
+                        println!("  - {}", e);
+                    }
                 }
             }
         }

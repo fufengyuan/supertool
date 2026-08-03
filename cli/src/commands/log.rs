@@ -12,7 +12,7 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             let presets = presets.as_array().cloned().unwrap_or_default();
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&presets);
             } else {
                 println!("\n  日志预设 ({}):", presets.len());
@@ -79,14 +79,20 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
             preset_id,
             keyword,
             lines,
+            json,
         } => {
+            runtime.set_json(*json);
             let actual_id = resolve_preset_id(runtime, preset_id).await?;
             let resp: serde_json::Value = runtime
                 .core
                 .log_search(&actual_id, keyword, *lines)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            
+
+            if runtime.json_mode {
+                print_json(&resp);
+                return Ok(());
+            }
             let preset_name = resp
                 .get("presetId")
                 .and_then(|v| v.as_str())
@@ -125,7 +131,8 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
                 }
             }
         }
-        LogCommands::Tail { preset_id, lines } => {
+        LogCommands::Tail { preset_id, lines, json } => {
+            runtime.set_json(*json);
             let actual_id = resolve_preset_id(runtime, preset_id).await?;
             // CoreService log_tail returns a static result (not streaming)
             let resp: serde_json::Value = runtime
@@ -133,6 +140,10 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
                 .log_tail(&actual_id, *lines)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
+            if runtime.json_mode {
+                print_json(&resp);
+                return Ok(());
+            }
             if let Some(results) = resp.get("results").and_then(|v| v.as_array()) {
                 for r in results {
                     let sname = r.get("serverName").and_then(|v| v.as_str()).unwrap_or("");
@@ -157,13 +168,19 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
             server_id,
             line_num,
             context_lines,
+            json,
         } => {
+            runtime.set_json(*json);
             let actual_id = resolve_preset_id(runtime, preset_id).await?;
             let resp: serde_json::Value = runtime
                 .core
                 .log_context(&actual_id, server_id, *line_num, *context_lines)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
+            if runtime.json_mode {
+                print_json(&resp);
+                return Ok(());
+            }
             let sname = resp
                 .get("serverName")
                 .and_then(|v| v.as_str())

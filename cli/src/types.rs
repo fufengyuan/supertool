@@ -6,6 +6,9 @@ use clap::{Parser, Subcommand};
     about = "SuperTool CLI v4.1.0 — AI Agent 专属运维工具\\n直连 supertool-core 共享库，零 UDS/HTTP 依赖，完全独立运行"
 )]
 pub struct Cli {
+    /// 全局 JSON 输出模式（等价于各命令的 -j；开启后所有命令输出 `{"ok": ..., "data": ...}` envelope）
+    #[arg(global = true, long, help = "以 JSON envelope 格式输出（与各命令 -j 等价）")]
+    pub json: bool,
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -231,6 +234,8 @@ pub enum ServerCommands {
         command: String,
         #[arg(long, default_value = "60")]
         timeout: u64,
+        #[arg(short, long)]
+        json: bool,
     },
     Health {
         id: String,
@@ -248,6 +253,8 @@ pub enum ServerCommands {
     Read {
         id: String,
         path: String,
+        #[arg(short, long)]
+        json: bool,
     },
     Ls {
         id: String,
@@ -261,10 +268,14 @@ pub enum ServerCommands {
         remote: String,
         #[arg(long)]
         output: Option<String>,
+        #[arg(short, long)]
+        json: bool,
     },
     Mkdir {
         id: String,
         path: String,
+        #[arg(short, long)]
+        json: bool,
     },
     JavaPs {
         id: String,
@@ -277,16 +288,22 @@ pub enum ServerCommands {
         script: String,
         #[arg(long, default_value = "120")]
         timeout: u64,
+        #[arg(short, long)]
+        json: bool,
     },
     Rm {
         id: String,
         path: String,
+        #[arg(short, long)]
+        json: bool,
     },
     JavaRestart {
         id: String,
         name: String,
         #[arg(long, default_value = "60")]
         timeout: u64,
+        #[arg(short, long)]
+        json: bool,
     },
 }
 
@@ -310,6 +327,8 @@ pub enum CicdCommands {
         /// 部署分支，覆盖配置中的 deployBranch
         #[arg(short, long)]
         branch: Option<String>,
+        #[arg(short, long)]
+        json: bool,
     },
     History {
         config_id: String,
@@ -328,9 +347,13 @@ pub enum CicdCommands {
     Rollback {
         config_id: String,
         deploy_log_id: String,
+        #[arg(short, long)]
+        json: bool,
     },
     Cancel {
         config_id: String,
+        #[arg(short, long)]
+        json: bool,
     },
     Modules {
         config_id: String,
@@ -341,6 +364,8 @@ pub enum CicdCommands {
         config_id: String,
         #[arg(short = 'l', long, default_value = "20")]
         limit: usize,
+        #[arg(short, long)]
+        json: bool,
     },
     Tools {
         #[arg(long)]
@@ -405,6 +430,8 @@ pub enum DbCommands {
     Redis {
         #[arg(short = 'd')]
         db_id: String,
+        #[arg(short, long)]
+        json: bool,
         #[command(subcommand)]
         action: RedisCommands,
     },
@@ -468,11 +495,15 @@ pub enum LogCommands {
         keyword: String,
         #[arg(short = 'l', long, default_value = "50")]
         lines: usize,
+        #[arg(short, long)]
+        json: bool,
     },
     Tail {
         preset_id: String,
         #[arg(short = 'l', long, default_value = "100")]
         lines: usize,
+        #[arg(short, long)]
+        json: bool,
     },
     Context {
         preset_id: String,
@@ -480,6 +511,8 @@ pub enum LogCommands {
         line_num: usize,
         #[arg(short = 'c', long, default_value = "20")]
         context_lines: usize,
+        #[arg(short, long)]
+        json: bool,
     },
     Add {
         name: String,
@@ -524,10 +557,14 @@ pub enum GitCommands {
     Pull {
         #[arg(long)]
         path: String,
+        #[arg(short, long)]
+        json: bool,
     },
     Push {
         #[arg(long)]
         path: String,
+        #[arg(short, long)]
+        json: bool,
     },
     Commit {
         #[arg(long)]
@@ -536,12 +573,16 @@ pub enum GitCommands {
         message: String,
         #[arg(long)]
         files: Option<Vec<String>>,
+        #[arg(short, long)]
+        json: bool,
     },
     Checkout {
         #[arg(long)]
         path: String,
         #[arg(long)]
         branch: String,
+        #[arg(short, long)]
+        json: bool,
     },
 }
 
@@ -570,9 +611,17 @@ pub enum MfaCommands {
     /// 删除 MFA 密钥
     Delete { id: String },
     /// 生成 TOTP 验证码（支持按 ID 或序号）
-    Code { identifier: String },
+    Code {
+        identifier: String,
+        #[arg(short, long)]
+        json: bool,
+    },
     /// 解析 otpauth:// URI
-    ParseUri { uri: String },
+    ParseUri {
+        uri: String,
+        #[arg(short, long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -779,17 +828,23 @@ pub enum NginxCommands {
     Fetch {
         server_id: String,
         config_path: String,
+        #[arg(short, long)]
+        json: bool,
     },
     /// 测试远程 Nginx 配置
     Test {
         server_id: String,
         config_path: String,
+        #[arg(short, long)]
+        json: bool,
     },
     /// 部署配置到远程服务器
     Deploy {
         server_id: String,
         config_path: String,
         content: String,
+        #[arg(short, long)]
+        json: bool,
     },
     /// 列出配置版本历史
     Versions {
@@ -805,12 +860,16 @@ pub enum BackupCommands {
     Export {
         #[arg(long)]
         output: Option<String>,
+        #[arg(short, long)]
+        json: bool,
     },
     /// 从文件导入数据
     Import {
         file: String,
         #[arg(long, default_value = "merge")]
         mode: String,
+        #[arg(short, long)]
+        json: bool,
     },
     /// 导出 CSV（todo 数据）
     ExportCsv,
