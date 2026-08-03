@@ -131,12 +131,12 @@
       </div>
 
       <!-- Right: Log Viewer -->
-      <div class="flex-1 flex flex-col bg-base-100 rounded-box overflow-hidden min-w-0">
+      <div class="flex-1 flex flex-col bg-base-100 rounded-box overflow-hidden min-w-0 relative">
         <div class="flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-base-content/60 border-b border-base-200">
           <span>连接日志</span>
-          <button class="btn btn-xs btn-ghost" @click="logs = []">清空</button>
+          <button class="btn btn-xs btn-ghost" @click="clearLogsAndReset">清空</button>
         </div>
-        <div class="flex-1 overflow-y-auto p-3 font-mono text-xs leading-relaxed bg-[#1e1e2e] text-[#cdd6f4]" ref="logRef">
+        <div class="flex-1 overflow-y-auto p-3 font-mono text-xs leading-relaxed bg-[#1e1e2e] text-[#cdd6f4]" ref="logRef" @scroll="onLogScroll">
           <div
             v-for="(line, i) in logs"
             :key="i"
@@ -145,6 +145,14 @@
           >{{ line }}</div>
           <div v-if="logs.length === 0" class="flex items-center justify-center h-full text-[#6c7086] text-[13px]">等待连接...</div>
         </div>
+        <button
+          v-if="logUserScrolledUp"
+          @click="scrollLogToBottom"
+          class="btn btn-primary btn-sm rounded-full absolute bottom-2 right-2 z-10 shadow-lg hover:scale-105 transition-all"
+          title="回到底部"
+        >
+          <SvgIcon name="arrowDown" size="14" /> 回到底部
+        </button>
       </div>
     </div>
 
@@ -229,6 +237,22 @@ const logs = ref<string[]>([])
 const openvpnAvailable = ref(true)
 const checking = ref(false)
 const logRef = ref<HTMLElement | null>(null)
+// 连接日志智能吸底：用户上翻查看历史时暂停自动跟随，点"回到底部"恢复
+const logUserScrolledUp = ref(false)
+function onLogScroll() {
+  const el = logRef.value
+  if (!el) return
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50
+  logUserScrolledUp.value = !atBottom
+}
+function clearLogsAndReset() {
+  logUserScrolledUp.value = false
+  logs.value = []
+}
+function scrollLogToBottom() {
+  logUserScrolledUp.value = false
+  if (logRef.value) logRef.value.scrollTop = logRef.value.scrollHeight
+}
 const connectionDuration = ref('')
 const trafficStats = ref<{ bytesSent: number; bytesReceived: number; bytesSentHuman: string; bytesReceivedHuman: string } | null>(null)
 let pollingTimer: ReturnType<typeof setInterval> | null = null
@@ -284,10 +308,10 @@ async function loadTrafficStats() {
   }
 }
 
-// Auto-scroll logs
+// Auto-scroll logs（用户上翻查看历史时暂停跟随）
 watch(logs, () => {
   nextTick(() => {
-    if (logRef.value) {
+    if (logRef.value && !logUserScrolledUp.value) {
       logRef.value.scrollTop = logRef.value.scrollHeight
     }
   })
