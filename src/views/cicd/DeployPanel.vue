@@ -171,12 +171,12 @@
       <!-- Right: Log + History -->
       <div class="flex flex-col gap-3 min-w-0">
         <!-- Real-time Log -->
-        <div class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden" v-if="deploying || realtimeLogs.length > 0">
+        <div class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden relative" v-if="deploying || realtimeLogs.length > 0">
           <div class="flex justify-between items-center px-4 py-3 bg-base-200 border-b border-base-content/10">
             <span class="text-sm font-semibold text-base-content"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 实时日志</span>
             <button @click="clearRealtimeLogs" class="px-2 py-0.5 bg-transparent text-base-content/60 border border-base-content/10 rounded cursor-pointer text-xs hover:bg-base-100 hover:text-base-content transition-colors">清空</button>
           </div>
-          <div ref="logContainer" class="max-h-[500px] overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed">
+          <div ref="logContainer" @scroll="onRealtimeLogScroll" class="max-h-[500px] overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed">
             <div v-for="(line, i) in realtimeLogs" :key="i" class="flex gap-2 py-0.5">
               <span class="text-base-content/60 shrink-0 min-w-[75px]">{{ line.time }}</span>
               <span class="shrink-0 min-w-[55px]" :class="{
@@ -195,6 +195,14 @@
               <span class="text-base-content break-all opacity-70">⠋ 部署进行中...</span>
             </div>
           </div>
+          <button
+            v-if="realtimeUserScrolledUp"
+            @click="scrollToBottom(true)"
+            class="btn btn-primary btn-sm rounded-full absolute bottom-2 right-2 z-10 shadow-lg hover:scale-105 transition-all"
+            title="回到底部"
+          >
+            <SvgIcon name="arrowDown" size="14" /> 回到底部
+          </button>
         </div>
 
         <!-- Deploy History -->
@@ -505,6 +513,15 @@ const rollingBack = ref(false);
 const rollingBackId = ref<string | null>(null);
 const preflightResults = ref<{ name: string; passed: boolean; message: string }[]>([]);
 const logContainer = ref(null);
+// 实时日志智能吸底：用户上翻查看历史时暂停自动跟随，点"回到底部"恢复
+const realtimeUserScrolledUp = ref(false);
+
+function onRealtimeLogScroll() {
+  const el = logContainer.value;
+  if (!el) return;
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+  realtimeUserScrolledUp.value = !atBottom;
+}
 
 // Approval confirmation modal
 const showApprovalDialog = ref(false);
@@ -878,6 +895,8 @@ async function startDeploy() {
   }
 
   // 初始化当前配置的部署状态（通过 updateDeployState 保证响应式）
+  // 新部署替换 realtimeLogs 数组，重置上翻状态让新日志自动跟随到底部
+  realtimeUserScrolledUp.value = false;
   updateDeployState(selectedConfigId.value, {
     deploying: true,
     currentStep: '开始部署...',
@@ -1122,12 +1141,17 @@ function formatDate(dateStr: string) {
 }
 
 function clearRealtimeLogs() {
+  realtimeUserScrolledUp.value = false;
   if (selectedConfigId.value) {
     updateDeployState(selectedConfigId.value, { realtimeLogs: [] });
   }
 }
 
-function scrollToBottom() {
+function scrollToBottom(force = false) {
+  // 用户已上翻查看历史时不再自动吸底（除非点"回到底部"按钮强制）
+  if (!force && realtimeUserScrolledUp.value) return;
+  // 程序化赋值 scrollTop 不触发 scroll 事件，必须手动重置，否则按钮不消失、后续吸底被永久跳过
+  realtimeUserScrolledUp.value = false;
   nextTick(() => {
     if (logContainer.value) {
       logContainer.value.scrollTop = logContainer.value.scrollHeight
