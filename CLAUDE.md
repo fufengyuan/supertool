@@ -146,6 +146,10 @@ src/
 - **RequiresApproval** — production environment CLI operations require GUI approval; test/dev can bypass
 - **Git workflow**: commit immediately after code changes, don't stack uncommitted modifications
 
+## Iteration Plans
+
+- [AI 工具增强迭代计划](docs/ai-tooling-iteration-plan.md) — 定位 AI Agent 运维工具箱：CLI 输出结构化 → MCP server → core 能力扩展 → 审批闭环 + 审计，GUI 只做辅助
+
 ## Git Commit 规范 (自动版本号)
 
 **遵循 Conventional Commits 规范，版本号自动更新**：
