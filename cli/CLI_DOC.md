@@ -14,6 +14,20 @@ trigger: Using stool CLI commands, checking CLI command syntax, debugging stool 
 **Golden rule**: Use `-j` for programmatic output. All list commands support `-j` short alias.
 **Design principle**: All list commands output only `ID + name`. Operation commands only need `ID + business params`.
 
+## JSON Output Convention (AI parsing contract)
+
+All `-j` / global `--json` output uses a unified **envelope**:
+
+```json
+{"ok": true,  "data": <result object/array>}
+{"ok": false, "error": {"code": 1, "message": "error message"}}
+```
+
+- Error envelope goes to **stderr**, success envelope to **stdout**
+- Global `--json`: `stool --json <any command>`, equivalent to per-command `-j`
+- Exit codes: `0`=success, `1`=business error, `2`=usage (clap), `3`=approval required, `4`=connection failure, `5`=dangerous command blocked
+- Example: `stool server list -j` → `{"ok": true, "data": [...]}`
+
 ## Quick Start
 
 ```bash

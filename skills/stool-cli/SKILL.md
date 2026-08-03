@@ -32,6 +32,20 @@ cli/             # stool CLI — 直连 core，独立二进制
 tauri/           # Tauri GUI — 直连 core + Vue 3 前端
 ```
 
+## JSON 输出规范（AI 解析约定）
+
+所有命令的 `-j` / 全局 `--json` 输出统一为 **envelope**：
+
+```json
+{"ok": true,  "data": <结果对象/数组>}
+{"ok": false, "error": {"code": 1, "message": "错误信息"}}
+```
+
+- 错误 envelope 输出到 **stderr**，成功 envelope 输出到 **stdout**（分离，AI 可分别读取）
+- **全局 `--json`**：`stool --json <任意命令>`，与各命令级 `-j` 等价，可放在任何位置
+- **exit code 规范**：`0`=成功，`1`=业务错误，`2`=参数错误(clap)，`3`=需审批/未授权，`4`=连接失败，`5`=高危命令拦截
+- 示例：`stool server list -j` → `{"ok": true, "data": [...]}`；`stool cicd deploy <id> --json`（需审批）→ stderr `{"ok": false, "error": {"code": 3, ...}}` 且 exit 3
+
 ## 全命令速查
 
 ### 基础
@@ -156,8 +170,38 @@ stool log add "名称" --server-ids "id1,id2" --log-path /var/log/app.log [--log
 stool log delete <id>
 ```
 
-**`preset` 智能解析**: 可用序号（1-based），CLI 自动转 UUID。
-**`log context`**: 显示 `行号` 周边上下文，目标行用 `▶` 标记。
+**`preset` 智能解析**: 可用序号（1-based），CLI 自动转 UUID。 **`log context`**: 显示 `行号` 周边上下文，目标行用 `▶` 标记。 **`-l` 限制**: `log search` 默认只搜最近 `maxLines` 行（预设配置，如 500），历史日志可能搜不到，需增大 `-l` 或用 `log tail` 翻更多。
+
+#### 日志排查实战经验
+
+**场景：通过追踪号(traceId)还原完整调用链路**
+
+Java 日志通常带 `[traceId]` 前缀（如 `[11091235193656539418624]`），一次请求内所有日志共享同一 traceId。
+
+```bash
+# 1. 先用业务关键词（订单号/交易号）搜到一条日志，拿到 traceId
+stool log search 9 "2026073000152601000000000005" -l 80
+
+# 2. 用 traceId 搜完整链路（-l 加大确保覆盖全量）
+stool log search 9 "11091235193656539418624" -l 200
+
+# 3. 过滤关键行（排除 SQL DEBUG 噪音），快速定位问题
+stool log search 9 "11091235193656539418624" -l 200 | grep -v "Preparing\|Parameters\|<==" | grep -i "ERROR\|核销\|status=\|结果"
+```
+
+**关键词搜索支持 `\|` 多选**（grep 风格）：
+
+```bash
+stool log search 9 "预付卡核销失败\|status=5\|支付中\|doPrePay" -l 50
+```
+
+**排查顺序**：
+
+1. `stool log list -j` 找到目标环境的日志预设（序号即可）
+2. 用业务唯一标识（tradeNo/orderNo/userId）搜到入口日志，提取 traceId
+3. 用 traceId 搜全链路，`-l` 设大（200+）避免遗漏
+4. `grep -v "Preparing\|Parameters\|<=="` 过滤 MyBatis SQL 噪音
+5. `grep -i` 聚焦 ERROR/INFO 关键行，确认执行顺序和状态流转
 
 ### 🔧 Git
 ```bash
