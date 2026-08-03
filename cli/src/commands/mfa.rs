@@ -11,7 +11,7 @@ pub async fn cmd_mfa(runtime: &mut CliRuntime, action: &crate::types::MfaCommand
                 .get_all_mfa_secrets()
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&result);
             } else {
                 print_mfa_list(&result);
@@ -58,7 +58,8 @@ pub async fn cmd_mfa(runtime: &mut CliRuntime, action: &crate::types::MfaCommand
                 print_error(&format!("删除失败: {}", result));
             }
         }
-        MfaCommands::Code { identifier } => {
+        MfaCommands::Code { identifier, json } => {
+            runtime.set_json(*json);
             let secrets = runtime
                 .core
                 .get_all_mfa_secrets()
@@ -100,6 +101,15 @@ pub async fn cmd_mfa(runtime: &mut CliRuntime, action: &crate::types::MfaCommand
                         .get("remaining")
                         .and_then(|v| v.as_u64())
                         .unwrap_or(0);
+                    if runtime.json_mode {
+                        print_json(&serde_json::json!({
+                            "name": name,
+                            "code": code,
+                            "remainingSeconds": remaining,
+                            "id": s.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        }));
+                        return Ok(());
+                    }
                     println!(
                         "[1;36m{}[0m  [1;32m{}[0m  ({}s 后过期)",
                         name, code, remaining
@@ -108,7 +118,8 @@ pub async fn cmd_mfa(runtime: &mut CliRuntime, action: &crate::types::MfaCommand
                 None => print_error(&format!("未找到 MFA 密钥: {}", identifier)),
             }
         }
-        MfaCommands::ParseUri { uri } => {
+        MfaCommands::ParseUri { uri, json } => {
+            runtime.set_json(*json);
             if !uri.starts_with("otpauth://") {
                 print_error("Invalid URI: must start with otpauth://");
                 return Ok(());
@@ -142,6 +153,15 @@ pub async fn cmd_mfa(runtime: &mut CliRuntime, action: &crate::types::MfaCommand
                         issuer = value.to_string();
                     }
                 }
+            }
+            if runtime.json_mode {
+                print_json(&serde_json::json!({
+                    "type": auth_type,
+                    "name": name,
+                    "issuer": issuer,
+                    "secret": secret,
+                }));
+                return Ok(());
             }
             println!("类型: {}", auth_type);
             println!("名称: {}", name);

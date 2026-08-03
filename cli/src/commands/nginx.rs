@@ -15,7 +15,7 @@ pub async fn cmd_nginx(
                 .await
                 .map_err(|e| anyhow!(e))?;
             let data = serde_json::to_value(&resp.data.unwrap_or_default()).unwrap_or_default();
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&data);
             } else {
                 print_nginx_list(&data);
@@ -92,14 +92,23 @@ pub async fn cmd_nginx(
         NginxCommands::Fetch {
             server_id,
             config_path,
+            json,
         } => {
+            runtime.set_json(*json);
             let resp = runtime
                 .core
                 .fetch_nginx_config(server_id, config_path)
                 .await
                 .map_err(|e| anyhow!(e))?;
             if resp.success {
-                if let Some(content) = resp.data {
+                if runtime.json_mode {
+                    print_json(&serde_json::json!({
+                        "ok": true,
+                        "serverId": server_id,
+                        "configPath": config_path,
+                        "content": resp.data.unwrap_or_default(),
+                    }));
+                } else if let Some(content) = resp.data {
                     println!("{}", content);
                 }
             } else {
@@ -109,14 +118,20 @@ pub async fn cmd_nginx(
         NginxCommands::Test {
             server_id,
             config_path,
+            json,
         } => {
+            runtime.set_json(*json);
             let resp = runtime
                 .core
                 .test_nginx_config(server_id, config_path)
                 .await
                 .map_err(|e| anyhow!(e))?;
             if resp.success {
-                print_success("Nginx 配置测试通过");
+                if runtime.json_mode {
+                    print_json(&serde_json::json!({"ok": true, "serverId": server_id, "configPath": config_path}));
+                } else {
+                    print_success("Nginx 配置测试通过");
+                }
             } else {
                 print_error(&format!("测试失败: {}", resp.error.unwrap_or_default()));
             }
@@ -125,14 +140,20 @@ pub async fn cmd_nginx(
             server_id,
             config_path,
             content,
+            json,
         } => {
+            runtime.set_json(*json);
             let resp = runtime
                 .core
                 .deploy_nginx_config(server_id, config_path, content)
                 .await
                 .map_err(|e| anyhow!(e))?;
             if resp.success {
-                print_success("Nginx 配置已部署");
+                if runtime.json_mode {
+                    print_json(&serde_json::json!({"ok": true, "serverId": server_id, "configPath": config_path}));
+                } else {
+                    print_success("Nginx 配置已部署");
+                }
             } else {
                 print_error(&format!("部署失败: {}", resp.error.unwrap_or_default()));
             }
@@ -144,7 +165,7 @@ pub async fn cmd_nginx(
                 .await
                 .map_err(|e| anyhow!(e))?;
             let data = serde_json::to_value(&resp.data.unwrap_or_default()).unwrap_or_default();
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&data);
             } else {
                 print_nginx_versions(&data);

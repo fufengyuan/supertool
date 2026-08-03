@@ -1,3 +1,4 @@
+use crate::output;
 use crate::output::*;
 use crate::runtime::CliRuntime;
 use crate::types::*;
@@ -13,7 +14,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             let servers = servers.as_array().cloned().unwrap_or_default();
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&servers);
             } else {
                 println!("\n  服务器 ({}):", servers.len());
@@ -149,10 +150,15 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             id,
             command,
             timeout,
+            json,
         } => {
+            runtime.set_json(*json);
             // 拦截高危命令（CLI 层防护，防止 AI 误操作）
             if is_dangerous_command(command) {
-                anyhow::bail!("⚠️ 检测到高危命令，CLI 已拦截。如需执行请在 GUI 中手动操作。");
+                return Err(output::fail(
+                    output::EXIT_DANGEROUS,
+                    "检测到高危命令，CLI 已拦截。如需执行请在 GUI 中手动操作。",
+                ));
             }
             // 检查服务器是否开启执行审核
             let servers: serde_json::Value = runtime
@@ -171,10 +177,13 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                     .unwrap_or(false)
                 {
                     let name = server.get("name").and_then(|v| v.as_str()).unwrap_or(id);
-                    anyhow::bail!(
-                        "⚠️ 服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
-                        name
-                    );
+                    return Err(output::fail(
+                        output::EXIT_UNAUTHORIZED,
+                        format!(
+                            "服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
+                            name
+                        ),
+                    ));
                 }
             }
             let resp: serde_json::Value = runtime
@@ -187,7 +196,9 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
             {
-                if let Some(output) = resp.get("output").and_then(|v| v.as_str()) {
+                if runtime.json_mode {
+                    print_json(&resp);
+                } else if let Some(output) = resp.get("output").and_then(|v| v.as_str()) {
                     println!("{}", output);
                 }
             } else {
@@ -251,7 +262,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                     "ps aux | grep -E 'java|nginx|node|python' | grep -v grep | head -5 || echo '无关键进程'",
                 ),
             ];
-            if *json {
+            if *json || runtime.json_mode {
                 let mut results = serde_json::Map::new();
                 results.insert("server".into(), serde_json::json!({"name": name, "id": id}));
                 let mut items = Vec::new();
@@ -341,7 +352,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .exec_ssh_command(id, script)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&serde_json::json!({
                     "server": name,
                     "success": resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false),
@@ -370,7 +381,8 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 }
             }
         }
-        ServerCommands::Read { id, path } => {
+        ServerCommands::Read { id, path, json } => {
+            runtime.set_json(*json);
             // Try SFTP download first (returns base64 content)
             let result = runtime.core.sftp_download_file(id, path).await;
             if let Ok(resp) = result {
@@ -378,14 +390,22 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                     // Try to decode base64
                     if let Ok(decoded) = base64_decode(content) {
                         if let Ok(text) = String::from_utf8(decoded) {
-                            println!("  📄 {}\n  {}", path, "─".repeat(40));
-                            println!("{}", text);
+                            if runtime.json_mode {
+                                print_json(&serde_json::json!({"path": path, "content": text}));
+                            } else {
+                                println!("  📄 {}\n  {}", path, "─".repeat(40));
+                                println!("{}", text);
+                            }
                             return Ok(());
                         }
                     }
                     // Not valid UTF-8, print as text anyway
-                    println!("  📄 {}\n  {}", path, "─".repeat(40));
-                    println!("{}", content);
+                    if runtime.json_mode {
+                        print_json(&serde_json::json!({"path": path, "content": content}));
+                    } else {
+                        println!("  📄 {}\n  {}", path, "─".repeat(40));
+                        println!("{}", content);
+                    }
                     return Ok(());
                 }
             }
@@ -400,7 +420,9 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
             {
-                if let Some(output) = resp.get("output").and_then(|v| v.as_str()) {
+                if runtime.json_mode {
+                    print_json(&resp);
+                } else if let Some(output) = resp.get("output").and_then(|v| v.as_str()) {
                     println!("  📄 {}\n  {}", path, "─".repeat(40));
                     println!("{}", output);
                 }
@@ -424,7 +446,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 anyhow::bail!("{}", error);
             }
             let files: Vec<serde_json::Value> = resp.as_array().cloned().unwrap_or_default();
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&files);
             } else {
                 println!(
@@ -447,7 +469,13 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 }
             }
         }
-        ServerCommands::Download { id, remote, output } => {
+        ServerCommands::Download {
+            id,
+            remote,
+            output,
+            json,
+        } => {
+            runtime.set_json(*json);
             let local_path = output
                 .as_deref()
                 .unwrap_or(&remote.split('/').last().unwrap_or("downloaded"));
@@ -462,10 +490,18 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .unwrap_or(false)
             {
                 let size = std::fs::metadata(local_path).map(|m| m.len()).unwrap_or(0);
-                print_success(&format!(
-                    "已下载: {} → {} ({} bytes)",
-                    remote, local_path, size
-                ));
+                if runtime.json_mode {
+                    print_json(&serde_json::json!({
+                        "remote": remote,
+                        "local": local_path,
+                        "bytes": size,
+                    }));
+                } else {
+                    print_success(&format!(
+                        "已下载: {} → {} ({} bytes)",
+                        remote, local_path, size
+                    ));
+                }
             } else {
                 anyhow::bail!(
                     "{}",
@@ -475,7 +511,8 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 );
             }
         }
-        ServerCommands::Mkdir { id, path } => {
+        ServerCommands::Mkdir { id, path, json } => {
+            runtime.set_json(*json);
             let resp: serde_json::Value = runtime
                 .core
                 .sftp_create_dir(id, path)
@@ -486,7 +523,11 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
             {
-                print_success(&format!("目录已创建: {}", path));
+                if runtime.json_mode {
+                    print_json(&serde_json::json!({"ok": true, "path": path}));
+                } else {
+                    print_success(&format!("目录已创建: {}", path));
+                }
             } else {
                 anyhow::bail!(
                     "创建失败: {}",
@@ -510,7 +551,7 @@ done || echo "未找到 Java 进程""#;
                 .exec_ssh_command(id, cmd)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 let output = resp.get("output").and_then(|v| v.as_str()).unwrap_or("");
                 print_json(&serde_json::json!({
                     "processes": output.lines().map(|l| l.to_string()).collect::<Vec<_>>()
@@ -547,10 +588,15 @@ done || echo "未找到 Java 进程""#;
             id,
             script,
             timeout,
+            json,
         } => {
+            runtime.set_json(*json);
             // 拦截高危命令
             if is_dangerous_command(script) {
-                anyhow::bail!("⚠️ 检测到高危命令，CLI 已拦截。如需执行请在 GUI 中手动操作。");
+                return Err(output::fail(
+                    output::EXIT_DANGEROUS,
+                    "检测到高危命令，CLI 已拦截。如需执行请在 GUI 中手动操作。",
+                ));
             }
             // 检查服务器是否开启执行审核
             let servers: serde_json::Value = runtime
@@ -569,10 +615,13 @@ done || echo "未找到 Java 进程""#;
                     .unwrap_or(false)
                 {
                     let name = server.get("name").and_then(|v| v.as_str()).unwrap_or(id);
-                    anyhow::bail!(
-                        "⚠️ 服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
-                        name
-                    );
+                    return Err(output::fail(
+                        output::EXIT_UNAUTHORIZED,
+                        format!(
+                            "服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
+                            name
+                        ),
+                    ));
                 }
             }
             // Split script into lines (commands), filter empty lines
@@ -584,44 +633,62 @@ done || echo "未找到 Java 进程""#;
             if commands.is_empty() {
                 anyhow::bail!("脚本为空或全是注释行");
             }
-            println!("  📦 批量执行 ({} 条命令)...", commands.len());
-            // Execute each command sequentially
+            // JSON 模式：收集每步结果（不打印进度行，避免 stdout 混流）；人读模式：逐行打印
+            let mut results: Vec<serde_json::Value> = Vec::new();
+            let human = !runtime.json_mode;
+            if human {
+                println!("  📦 批量执行 ({} 条命令)...", commands.len());
+            }
             for (i, cmd) in commands.iter().enumerate() {
-                println!("  [{}] $ {}", i + 1, cmd);
+                if human {
+                    println!("  [{}] $ {}", i + 1, cmd);
+                }
                 let resp: serde_json::Value = runtime
                     .core
                     .exec_ssh_command(id, cmd)
                     .await
                     .map_err(|e| anyhow::anyhow!("{}", e))?;
-                if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
-                    if let Some(output) = resp.get("output").and_then(|v| v.as_str()) {
-                        if !output.trim().is_empty() {
-                            for line in output.lines() {
-                                println!("        {}", line);
-                            }
+                let ok = resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+                let output = resp.get("output").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let err = resp.get("error").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                results.push(serde_json::json!({
+                    "index": i + 1,
+                    "command": cmd,
+                    "success": ok,
+                    "output": output,
+                    "error": err,
+                }));
+                if ok {
+                    if human && !output.trim().is_empty() {
+                        for line in output.lines() {
+                            println!("        {}", line);
                         }
                     }
                 } else {
-                    let err = resp
-                        .get("error")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("未知错误");
-                    eprintln!("        ❌ 失败: {}", err);
+                    // 失败：由 main 统一输出错误 envelope（exit 1），JSON 模式下不在此打印
+                    if human {
+                        eprintln!("        ❌ 失败: {}", err);
+                    }
                     anyhow::bail!("命令 #{} 执行失败: {}", i + 1, err);
                 }
             }
-            print_success(&format!("批量执行完成 ({} 条命令)", commands.len()));
+            if runtime.json_mode {
+                print_json(&serde_json::json!({"ok": true, "results": results}));
+            } else {
+                print_success(&format!("批量执行完成 ({} 条命令)", commands.len()));
+            }
             let _ = timeout;
         }
-        ServerCommands::Rm { id, path } => {
+        ServerCommands::Rm { id, path, json } => {
+            runtime.set_json(*json);
             // 拦截高危路径
             let dangerous_paths = ["/", "/etc", "/usr", "/bin", "/boot", "/sys", "/proc"];
             let normalized = path.trim_end_matches('/');
             if dangerous_paths.contains(&normalized) {
-                anyhow::bail!(
-                    "⚠️ 拒绝删除高危路径: {}。如需删除请在 GUI 中手动操作。",
-                    path
-                );
+                return Err(output::fail(
+                    output::EXIT_DANGEROUS,
+                    format!("拒绝删除高危路径: {}。如需删除请在 GUI 中手动操作。", path),
+                ));
             }
             let resp: serde_json::Value = runtime
                 .core
@@ -629,7 +696,11 @@ done || echo "未找到 Java 进程""#;
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
-                print_success(&format!("已删除: {}", path));
+                if runtime.json_mode {
+                    print_json(&serde_json::json!({"ok": true, "path": path}));
+                } else {
+                    print_success(&format!("已删除: {}", path));
+                }
             } else {
                 anyhow::bail!(
                     "删除失败: {}",
@@ -641,7 +712,9 @@ done || echo "未找到 Java 进程""#;
             id,
             name,
             timeout,
+            json,
         } => {
+            runtime.set_json(*json);
             // Check server approval
             let servers: serde_json::Value = runtime
                 .core
@@ -659,10 +732,13 @@ done || echo "未找到 Java 进程""#;
                     .unwrap_or(false)
                 {
                     let sname = server.get("name").and_then(|v| v.as_str()).unwrap_or(id);
-                    anyhow::bail!(
-                        "⚠️ 服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
-                        sname
-                    );
+                    return Err(output::fail(
+                        output::EXIT_UNAUTHORIZED,
+                        format!(
+                            "服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
+                            sname
+                        ),
+                    ));
                 }
             }
 
@@ -751,11 +827,20 @@ done || echo "未找到 Java 进程""#;
                 std::thread::sleep(std::time::Duration::from_secs(2));
             }
 
-            print_success(&format!(
-                "Java 进程 '{}' 已停止 ({} 个 PID)。请通过部署或启动脚本重新启动服务。",
-                name,
-                pids.len()
-            ));
+            if runtime.json_mode {
+                print_json(&serde_json::json!({
+                    "ok": true,
+                    "name": name,
+                    "pids": pids,
+                    "stoppedGracefully": stopped,
+                }));
+            } else {
+                print_success(&format!(
+                    "Java 进程 '{}' 已停止 ({} 个 PID)。请通过部署或启动脚本重新启动服务。",
+                    name,
+                    pids.len()
+                ));
+            }
         }
     }
     Ok(())

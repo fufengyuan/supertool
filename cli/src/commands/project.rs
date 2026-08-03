@@ -12,7 +12,7 @@ pub async fn cmd_project(runtime: &mut CliRuntime, action: &ProjectCommands) -> 
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             let projects = projects.as_array().cloned().unwrap_or_default();
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&projects);
             } else {
                 println!("\n  项目 ({}):", projects.len());
@@ -156,7 +156,7 @@ pub async fn cmd_project(runtime: &mut CliRuntime, action: &ProjectCommands) -> 
                 .get_project_stats(id)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&stats);
             } else {
                 println!("\n  项目统计: {}", id);
@@ -182,7 +182,7 @@ pub async fn cmd_project(runtime: &mut CliRuntime, action: &ProjectCommands) -> 
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             let todos = todos.as_array().cloned().unwrap_or_default();
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&todos);
             } else {
                 println!("\n  项目任务 ({}):", todos.len());

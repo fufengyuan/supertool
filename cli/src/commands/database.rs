@@ -9,7 +9,7 @@ pub async fn cmd_db(rt: &mut CliRuntime, action: &DbCommands) -> Result<()> {
     match action {
         DbCommands::List { json } => {
             let conns = get_db_connections(rt).await?;
-            if *json {
+            if *json || rt.json_mode {
                 print_json(&conns);
             } else {
                 println!("\n  数据库连接 ({}):", conns.len());
@@ -50,7 +50,7 @@ pub async fn cmd_db(rt: &mut CliRuntime, action: &DbCommands) -> Result<()> {
                 .execute_db_query(config, sql)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if *json {
+            if *json || rt.json_mode {
                 print_json(&resp);
             } else {
                 print_query_result(&resp, sql);
@@ -64,7 +64,7 @@ pub async fn cmd_db(rt: &mut CliRuntime, action: &DbCommands) -> Result<()> {
                 .db_get_tables(&config, db_name)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if *json {
+            if *json || rt.json_mode {
                 print_json(&resp);
             } else {
                 print_tables(&resp, db_name);
@@ -77,7 +77,7 @@ pub async fn cmd_db(rt: &mut CliRuntime, action: &DbCommands) -> Result<()> {
                 .db_get_databases(&config)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if *json {
+            if *json || rt.json_mode {
                 print_json(&resp);
             } else {
                 print_databases(&resp);
@@ -96,7 +96,7 @@ pub async fn cmd_db(rt: &mut CliRuntime, action: &DbCommands) -> Result<()> {
                 .db_get_table_structure(&config, db_ref, table)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if *json {
+            if *json || rt.json_mode {
                 print_json(&resp);
             } else {
                 print_table_structure(&resp, table);
@@ -117,13 +117,15 @@ pub async fn cmd_db(rt: &mut CliRuntime, action: &DbCommands) -> Result<()> {
                 .db_get_table_data(&config, db_ref, table, *limit, *offset)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if *json {
+            if *json || rt.json_mode {
                 print_json(&resp);
             } else {
                 print_table_data(&resp, table);
             }
         }
-        DbCommands::Redis { db_id, action } => cmd_redis(rt, db_id, action).await?,
+        DbCommands::Redis { db_id, action, json } => {
+            cmd_redis(rt, db_id, *json, action).await?
+        }
     }
     Ok(())
 }
@@ -131,8 +133,11 @@ pub async fn cmd_db(rt: &mut CliRuntime, action: &DbCommands) -> Result<()> {
 pub async fn cmd_redis(
     rt: &mut CliRuntime,
     db_id: &str,
+    json: bool,
     action: &RedisCommands,
 ) -> Result<()> {
+    // 命令级 -j 或全局 --json 任一开启即 JSON 输出
+    rt.set_json(json);
     let config = get_db_config(rt, db_id).await?;
     let db_index = config.db_index.unwrap_or(0);
 
@@ -149,7 +154,9 @@ pub async fn cmd_redis(
                 .and_then(|v| v.as_array())
                 .cloned()
                 .unwrap_or_default();
-            if keys.is_empty() {
+            if rt.json_mode {
+                print_json(&resp);
+            } else if keys.is_empty() {
                 println!("  (无匹配 key)");
             } else {
                 println!("  Redis keys ({}):", keys.len());
@@ -164,23 +171,37 @@ pub async fn cmd_redis(
                 .db_redis_get_value(&config, db_index, key)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            let key_type = resp.get("type").and_then(|v| v.as_str()).unwrap_or("unknown");
-            let value = resp.get("value").cloned().unwrap_or(serde_json::Value::Null);
-            println!("  {} ({}) = {}", key, key_type, format_json_value(&value));
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                let key_type = resp.get("type").and_then(|v| v.as_str()).unwrap_or("unknown");
+                let value = resp.get("value").cloned().unwrap_or(serde_json::Value::Null);
+                println!("  {} ({}) = {}", key, key_type, format_json_value(&value));
+            }
         }
         RedisCommands::Set { key, value } => {
-            rt.core
+            let resp = rt
+                .core
                 .db_redis_set_key(&config, db_index, key, value, 0)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            print_success(&format!("SET {} = OK", key));
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                print_success(&format!("SET {} = OK", key));
+            }
         }
         RedisCommands::Delete { key } => {
-            rt.core
+            let resp = rt
+                .core
                 .db_redis_delete_key(&config, db_index, key)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            print_success(&format!("DEL {} = OK", key));
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                print_success(&format!("DEL {} = OK", key));
+            }
         }
         RedisCommands::Type { key } => {
             let resp = rt
@@ -188,8 +209,12 @@ pub async fn cmd_redis(
                 .db_redis_key_info(&config, db_index, key)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            let key_type = resp.get("type").and_then(|v| v.as_str()).unwrap_or("none");
-            println!("  {} → {}", key, key_type);
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                let key_type = resp.get("type").and_then(|v| v.as_str()).unwrap_or("none");
+                println!("  {} → {}", key, key_type);
+            }
         }
         RedisCommands::Ttl { key } => {
             let resp = rt
@@ -197,13 +222,17 @@ pub async fn cmd_redis(
                 .db_redis_key_info(&config, db_index, key)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            let ttl = resp.get("ttl").and_then(|v| v.as_i64()).unwrap_or(-2);
-            let desc = match ttl {
-                -1 => "永不过期".to_string(),
-                -2 => "key 不存在".to_string(),
-                n => format!("{} 秒", n),
-            };
-            println!("  {} TTL: {}", key, desc);
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                let ttl = resp.get("ttl").and_then(|v| v.as_i64()).unwrap_or(-2);
+                let desc = match ttl {
+                    -1 => "永不过期".to_string(),
+                    -2 => "key 不存在".to_string(),
+                    n => format!("{} 秒", n),
+                };
+                println!("  {} TTL: {}", key, desc);
+            }
         }
         RedisCommands::HGet { key, field } => {
             let cmd_str = format!("HGET {} {}", key, field);
@@ -212,7 +241,11 @@ pub async fn cmd_redis(
                 .db_redis_exec(&config, db_index, &cmd_str)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            println!("  {}:{} = {}", key, field, format_json_value(&resp));
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                println!("  {}:{} = {}", key, field, format_json_value(&resp));
+            }
         }
         RedisCommands::HGetAll { key } => {
             let cmd_str = format!("HGETALL {}", key);
@@ -221,8 +254,12 @@ pub async fn cmd_redis(
                 .db_redis_exec(&config, db_index, &cmd_str)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            println!("  {} (hash):", key);
-            println!("    {}", format_json_value(&resp));
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                println!("  {} (hash):", key);
+                println!("    {}", format_json_value(&resp));
+            }
         }
         RedisCommands::HLen { key } => {
             let cmd_str = format!("HLEN {}", key);
@@ -231,7 +268,11 @@ pub async fn cmd_redis(
                 .db_redis_exec(&config, db_index, &cmd_str)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            println!("  {} HLEN = {}", key, format_json_value(&resp));
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                println!("  {} HLEN = {}", key, format_json_value(&resp));
+            }
         }
         RedisCommands::LRange { key, start, stop } => {
             let s = start.unwrap_or(0);
@@ -242,8 +283,12 @@ pub async fn cmd_redis(
                 .db_redis_exec(&config, db_index, &cmd_str)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            println!("  {} [{}..{}] (list):", key, s, e);
-            println!("    {}", format_json_value(&resp));
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                println!("  {} [{}..{}] (list):", key, s, e);
+                println!("    {}", format_json_value(&resp));
+            }
         }
         RedisCommands::LLen { key } => {
             let cmd_str = format!("LLEN {}", key);
@@ -252,7 +297,11 @@ pub async fn cmd_redis(
                 .db_redis_exec(&config, db_index, &cmd_str)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            println!("  {} LLEN = {}", key, format_json_value(&resp));
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                println!("  {} LLEN = {}", key, format_json_value(&resp));
+            }
         }
         RedisCommands::SMembers { key } => {
             let cmd_str = format!("SMEMBERS {}", key);
@@ -261,8 +310,12 @@ pub async fn cmd_redis(
                 .db_redis_exec(&config, db_index, &cmd_str)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            println!("  {} (set):", key);
-            println!("    {}", format_json_value(&resp));
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                println!("  {} (set):", key);
+                println!("    {}", format_json_value(&resp));
+            }
         }
         RedisCommands::SCard { key } => {
             let cmd_str = format!("SCARD {}", key);
@@ -271,7 +324,11 @@ pub async fn cmd_redis(
                 .db_redis_exec(&config, db_index, &cmd_str)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            println!("  {} SCARD = {}", key, format_json_value(&resp));
+            if rt.json_mode {
+                print_json(&resp);
+            } else {
+                println!("  {} SCARD = {}", key, format_json_value(&resp));
+            }
         }
     }
     Ok(())

@@ -23,7 +23,7 @@ pub async fn cmd_accounting(
                 .get_accounting_records(params)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&result);
             } else {
                 print_accounting_list(&result);
@@ -110,7 +110,7 @@ pub async fn cmd_accounting(
                 .get_accounting_categories()
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&result);
             } else {
                 print_categories(&result);
@@ -145,7 +145,7 @@ pub async fn cmd_accounting(
         }
         AccountingCommands::Budgets { json } => {
             let result = runtime.core.get_budgets().await.map_err(|e| anyhow!(e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&result);
             } else {
                 print_budgets(&result);
@@ -189,7 +189,7 @@ pub async fn cmd_accounting(
                 .get_accounting_stats(params)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&result);
             } else {
                 print_stats(&result);
@@ -201,7 +201,7 @@ pub async fn cmd_accounting(
                 .get_accounting_trend(*months)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&result);
             } else {
                 print_trend(&result);

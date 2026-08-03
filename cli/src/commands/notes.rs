@@ -15,7 +15,7 @@ pub async fn cmd_note(runtime: &mut CliRuntime, action: &crate::types::NoteComma
                 .get_all_notes(query.clone(), group_id.clone())
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&result);
             } else {
                 print_notes_list(&result);
@@ -92,7 +92,7 @@ pub async fn cmd_note(runtime: &mut CliRuntime, action: &crate::types::NoteComma
                 .get_all_note_groups()
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&result);
             } else {
                 print_note_groups(&result);

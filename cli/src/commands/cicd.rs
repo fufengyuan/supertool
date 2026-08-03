@@ -1,3 +1,4 @@
+use crate::output;
 use crate::output::*;
 use crate::runtime::CliRuntime;
 use crate::types::*;
@@ -12,7 +13,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 .core
                 .get_cicd_configs()
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if *json {
+            if *json || rt.json_mode {
                 print_json(&configs);
             } else {
                 println!("\n  CI/CD 配置 ({}):", configs.len());
@@ -46,7 +47,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             let config = configs.iter().find(|c| c.id == *project_id);
             if let Some(c) = config {
-                if *json {
+                if *json || rt.json_mode {
                     print_json(c);
                 } else {
                     let name = if !c.name.is_empty() {
@@ -95,7 +96,9 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
             stream,
             watch,
             branch,
+            json,
         } => {
+            rt.set_json(*json);
             if *stream && *watch {
                 eprintln!("  ⚠️ --stream 和 --watch 互斥，同时指定时 --stream 优先");
             }
@@ -111,11 +114,14 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                     .map_err(|e| anyhow::anyhow!("{}", e))?;
                 if resp.get("success").and_then(|v| v.as_bool()) == Some(false) {
                     if resp.get("requiresApproval").and_then(|v| v.as_bool()) == Some(true) {
-                        let name = resolve_cicd_name(rt, config_id);
-                        anyhow::bail!(
-                            "⚠️ 配置「{}」已开启部署审核，请在 GUI 中手动确认部署。",
-                            name
-                        );
+                        // 需审批：结构化错误（exit 3），AI/CLI 可据此转 GUI 审批
+                        return Err(output::fail(
+                            output::EXIT_UNAUTHORIZED,
+                            format!(
+                                "配置「{}」已开启部署审核，请在 GUI 中手动确认部署",
+                                resolve_cicd_name(rt, config_id)
+                            ),
+                        ));
                     }
                     anyhow::bail!(
                         "部署失败: {}",
@@ -130,10 +136,14 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                     .get("logFilePath")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                print_success(&format!(
-                    "部署完成: {} (ID: {})\n日志: {}",
-                    name, deploy_id, log_path
-                ));
+                if rt.json_mode {
+                    print_json(&resp);
+                } else {
+                    print_success(&format!(
+                        "部署完成: {} (ID: {})\n日志: {}",
+                        name, deploy_id, log_path
+                    ));
+                }
             } else {
                 let resp = rt
                     .core
@@ -142,11 +152,13 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                     .map_err(|e| anyhow::anyhow!("{}", e))?;
                 if resp.get("success").and_then(|v| v.as_bool()) == Some(false) {
                     if resp.get("requiresApproval").and_then(|v| v.as_bool()) == Some(true) {
-                        let name = resolve_cicd_name(rt, config_id);
-                        anyhow::bail!(
-                            "⚠️ 配置「{}」已开启部署审核，请在 GUI 中手动确认部署。",
-                            name
-                        );
+                        return Err(output::fail(
+                            output::EXIT_UNAUTHORIZED,
+                            format!(
+                                "配置「{}」已开启部署审核，请在 GUI 中手动确认部署",
+                                resolve_cicd_name(rt, config_id)
+                            ),
+                        ));
                     }
                     anyhow::bail!(
                         "部署失败: {}",
@@ -162,8 +174,11 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
                 if *watch {
-                    // Poll deploy status until complete
-                    println!("  🚀 部署已启动: {} ({}), 等待完成...", name, config_id);
+                    // Poll deploy status until complete（JSON 模式下进度行走 stderr，避免 stdout 混流）
+                    let human = !rt.json_mode;
+                    if human {
+                        println!("  🚀 部署已启动: {} ({}), 等待完成...", name, config_id);
+                    }
                     let mut attempts = 0;
                     loop {
                         std::thread::sleep(std::time::Duration::from_secs(5));
@@ -174,12 +189,14 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                         if let Some(latest) = history.first() {
                             let status = &latest.status;
                             let deployed = &latest.deployed_at;
-                            println!(
-                                "    [{}] 部署时间: {} | 状态: {}",
-                                attempts * 5,
-                                deployed.get(..16).unwrap_or(""),
-                                status
-                            );
+                            if human {
+                                println!(
+                                    "    [{}] 部署时间: {} | 状态: {}",
+                                    attempts * 5,
+                                    deployed.get(..16).unwrap_or(""),
+                                    status
+                                );
+                            }
                             if status == "success" || status.contains("success") {
                                 print_success(&format!("部署完成: {}", name));
                                 break;
@@ -207,14 +224,23 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 }
             }
         }
-        CicdCommands::Logs { config_id, limit } => {
+        CicdCommands::Logs {
+            config_id,
+            limit,
+            json,
+        } => {
+            rt.set_json(*json);
             let logs = rt
                 .core
                 .get_deploy_logs_by_config(config_id, *limit as i64)
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            println!("  部署日志 ({} 条):", logs.len());
-            for l in &logs {
-                println!("    {} {}", l.start_time, l.status);
+            if rt.json_mode {
+                print_json(&logs);
+            } else {
+                println!("  部署日志 ({} 条):", logs.len());
+                for l in &logs {
+                    println!("    {} {}", l.start_time, l.status);
+                }
             }
         }
         CicdCommands::StepLogs {
@@ -225,7 +251,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 .core
                 .get_deploy_step_logs(deploy_log_id)
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if *json {
+            if *json || rt.json_mode {
                 print_json(&step_logs);
             } else {
                 if !step_logs.is_empty() {
@@ -254,7 +280,9 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
         CicdCommands::Rollback {
             config_id,
             deploy_log_id,
+            json,
         } => {
+            rt.set_json(*json);
             let resp = rt
                 .core
                 .cicd_rollback(config_id, deploy_log_id)
@@ -262,7 +290,11 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             if resp.get("success").and_then(|v| v.as_bool()) == Some(true) {
                 let name = resolve_cicd_name(rt, config_id);
-                print_success(&format!("回滚成功: {} → 版本 {}", name, deploy_log_id));
+                if rt.json_mode {
+                    print_json(&resp);
+                } else {
+                    print_success(&format!("回滚成功: {} → 版本 {}", name, deploy_log_id));
+                }
             } else {
                 let errors = resp
                     .get("errors")
@@ -280,7 +312,8 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 }
             }
         }
-        CicdCommands::Cancel { config_id } => {
+        CicdCommands::Cancel { config_id, json } => {
+            rt.set_json(*json);
             // Get latest running deploy for this config
             let history = rt
                 .core
@@ -298,7 +331,11 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             if resp.get("success").and_then(|v| v.as_bool()) == Some(true) {
                 let name = resolve_cicd_name(rt, config_id);
-                print_success(&format!("部署已取消: {} ({})", name, config_id));
+                if rt.json_mode {
+                    print_json(&resp);
+                } else {
+                    print_success(&format!("部署已取消: {} ({})", name, config_id));
+                }
             } else {
                 anyhow::bail!(
                     "取消失败: {}",
@@ -313,7 +350,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 .core
                 .get_deploy_modules(config_id)
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if *json {
+            if *json || rt.json_mode {
                 print_json(&modules);
             } else {
                 println!("  部署模块 ({}):", modules.len());
@@ -344,7 +381,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 history.iter().collect()
             };
 
-            if *json {
+            if *json || rt.json_mode {
                 print_json(&filtered);
             } else if filtered.is_empty() {
                 println!("  无部署记录");
@@ -387,7 +424,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 output["projectScan"] = scan_result;
             }
 
-            if *json {
+            if *json || rt.json_mode {
                 print_json(&output);
             } else {
                 println!("\n  🔧 构建工具检测:");

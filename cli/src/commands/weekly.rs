@@ -14,7 +14,7 @@ pub async fn cmd_weekly(
                 .get_weekly_reports(*limit)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&result);
             } else {
                 print_weekly_list(&result);
@@ -26,7 +26,7 @@ pub async fn cmd_weekly(
                 .get_weekly_report(*id)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&result);
             } else {
                 print_weekly_detail(&result);

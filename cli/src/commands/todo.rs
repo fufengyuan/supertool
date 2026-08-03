@@ -70,7 +70,7 @@ pub async fn cmd_subtask(runtime: &mut CliRuntime, action: &SubtaskCommands) -> 
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             let subtasks = subtasks.as_array().cloned().unwrap_or_default();
-            if *json {
+            if *json || runtime.json_mode {
                 print_json(&subtasks);
             } else {
                 println!("  子任务 ({}):", subtasks.len());
@@ -268,7 +268,7 @@ pub async fn cmd_list(
     filtered.sort_by(|a, b| a.created_at.cmp(&b.created_at).reverse());
     filtered.truncate(limit);
 
-    if json {
+    if json || runtime.json_mode {
         print_json(&filtered);
     } else {
         if filtered.is_empty() {
@@ -348,7 +348,7 @@ pub async fn cmd_show(runtime: &mut CliRuntime, id: &str, json: bool) -> Result<
     {
         let todo: Todo = serde_json::from_value(todo_json.clone())
             .map_err(|e| anyhow::anyhow!("解析任务数据失败: {}", e))?;
-        if json {
+        if json || runtime.json_mode {
             print_json(&todo);
         } else {
             // Load projects for name resolution
@@ -410,7 +410,7 @@ pub async fn cmd_stats(runtime: &mut CliRuntime, json: bool) -> Result<()> {
                     .unwrap_or(false)
         })
         .count();
-    if json {
+    if json || runtime.json_mode {
         print_json(&serde_json::json!({
             "total": total,
             "completed": completed,
@@ -480,7 +480,7 @@ pub async fn cmd_search(runtime: &mut CliRuntime, keyword: &str, json: bool) -> 
         })
         .filter_map(|v| serde_json::from_value::<Todo>(v.clone()).ok())
         .collect();
-    if json {
+    if json || runtime.json_mode {
         print_json(&matched);
     } else {
         if matched.is_empty() {
