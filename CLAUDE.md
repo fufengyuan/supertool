@@ -135,6 +135,8 @@ src/
 
 ## Important Notes
 
+- **日志聚合（LogAggregator）搜索模式必须全量渲染**：日志行 `whitespace-pre-wrap break-all` 长行会换行，固定行高（24px）虚拟滚动会导致滚动时 `scrollHeight` 波动、浏览器钳制 `scrollTop` 造成回弹（"无法滑到底部"）。历史上两次尝试动态行高测量均失败回滚（`1536e7ce`、`35a263cf`）。搜索模式用 `renderedLines` 全量渲染 + 真实 DOM 定位跳转（`data-log-idx`），流式模式保留虚拟滚动。
+
 - **`cargo fmt` may produce false positives** with edition 2024 — use `cargo check --workspace` zero errors as the standard
 - **CLI is fully standalone** — no GUI dependency required, ~12MB binary
 - **No UDS/HTTP communication** — everything goes through direct `supertool-core` function calls
