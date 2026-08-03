@@ -414,7 +414,7 @@
             日志为空
           </div>
           <div v-else :style="{ overflowAnchor: 'none' }">
-            <div :style="{ height: (fullLogVisibleStart * FULL_LOG_LINE_HEIGHT) + 'px' }"></div>
+            <div :style="{ height: fullLogPrefixAt(fullLogVisibleStart) + 'px' }"></div>
             <div
               v-for="item in fullLogVisibleLines"
               :key="item.lineNo"
@@ -428,7 +428,7 @@
                 v-html="item.html"
               ></span>
             </div>
-            <div :style="{ height: ((fullLogTotalLines - fullLogVisibleEnd) * FULL_LOG_LINE_HEIGHT) + 'px' }"></div>
+            <div :style="{ height: (fullLogPrefixAt(fullLogTotalLines) - fullLogPrefixAt(fullLogVisibleEnd)) + 'px' }"></div>
           </div>
         </div>
         <div class="flex items-center justify-between px-4 py-1.5 border-t border-white/10 bg-[#252526] text-[11px] text-white/50">
@@ -668,6 +668,8 @@ interface FullLogSession {
   localPath: string
   totalLines: number
   cache: Map<number, { lineNo: number; html: string }>
+  // 逐行真实行高（未测量行用默认 FULL_LOG_LINE_HEIGHT 估算，滚动经过时采样填充）
+  rowHeights: number[]
   scrollTop: number
   lastLoadRange: { start: number; end: number }
   loadingPromise: Promise<void> | null
@@ -760,20 +762,97 @@ const fullLogAnchorLine = ref(-1)
 // 跳转后用户手动滚动时清除锚点，恢复 scrollTop 驱动的虚拟滚动
 function clearFullLogAnchor() { fullLogAnchorLine.value = -1 }
 
+// 当前激活 session 的行高前缀和：prefix[i] = Σ rowHeights[0..i)，未测量行按默认行高估算。
+// 与 scrollTop→行号二分反推共用，spacer 撑高逐步贴合真实内容高度，消除固定行高虚拟滚动回弹。
+// 性能：computed 惰性求值，仅在测量批次写入后重建一次（O(totalLines)，10 万行约 1ms），滚动本身只做二分 O(log n)。
+const fullLogHeightPrefix = computed(() => {
+  const session = fullLogActiveSession.value
+  const total = session ? session.totalLines : 0
+  const prefix = new Array(total + 1)
+  prefix[0] = 0
+  if (total > 0) {
+    const h = session?.rowHeights ?? []
+    for (let i = 0; i < total; i++) {
+      prefix[i + 1] = prefix[i] + (h[i] ?? FULL_LOG_LINE_HEIGHT)
+    }
+  }
+  return prefix
+})
+
+// scrollTop 落在哪一行（二分前缀和），供 visibleStart/End 反推渲染窗口
+function fullLogRowAtScrollTop(): number {
+  const prefix = fullLogHeightPrefix.value
+  const st = fullLogScrollTop.value
+  if (prefix.length === 0) return 0
+  if (st <= 0) return 0
+  let lo = 0, hi = prefix.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (prefix[mid] <= st) { lo = mid + 1 } else { hi = mid }
+  }
+  // lo 是第一个 prefix[lo] > st 的位置；scrollTop 落在行 lo-1
+  if (prefix[lo] <= st) return Math.max(0, prefix.length - 2)
+  return Math.max(0, lo - 1)
+}
+
+// 行号 → 前缀高度（spacer 撑高用，越界钳制到总高）
+function fullLogPrefixAt(row: number): number {
+  if (row <= 0) return 0
+  const prefix = fullLogHeightPrefix.value
+  return prefix[Math.min(row, prefix.length - 1)] ?? 0
+}
+
 const fullLogVisibleStart = computed(() => {
   if (fullLogAnchorLine.value >= 0) {
     return Math.max(0, fullLogAnchorLine.value - FULL_LOG_OVERSCAN - 5)
   }
-  return Math.max(0, Math.floor(fullLogScrollTop.value / FULL_LOG_LINE_HEIGHT) - FULL_LOG_OVERSCAN)
+  return Math.max(0, fullLogRowAtScrollTop() - FULL_LOG_OVERSCAN)
 })
 const fullLogVisibleEnd = computed(() => {
   if (fullLogAnchorLine.value >= 0) {
-    // 锚点模式下渲染一个足够大的窗口（约容器行数+overscan），确保目标行及其上下文都可见
-    const windowLines = Math.ceil(fullLogContainerHeight.value / FULL_LOG_LINE_HEIGHT) + FULL_LOG_OVERSCAN + 10
-    return Math.min(fullLogTotalLines.value, fullLogAnchorLine.value + windowLines)
+    // 锚点模式：用前缀和精确计算"目标行 + 容器高度"覆盖到的行号（真实行高可变的固定 18px 估算
+    // 会低估窗口导致目标行下方渲染不足），再保底至少 anchor + overscan*2 行
+    const anchor = fullLogAnchorLine.value
+    const prefix = fullLogHeightPrefix.value
+    const targetBottom = fullLogPrefixAt(anchor) + fullLogContainerHeight.value
+    let lo = anchor, hi = prefix.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (prefix[mid] <= targetBottom) { lo = mid + 1 } else { hi = mid }
+    }
+    const endRow = prefix[lo] <= targetBottom ? prefix.length - 2 : lo - 1
+    const minEnd = Math.min(fullLogTotalLines.value, anchor + FULL_LOG_OVERSCAN * 2 + 10)
+    return Math.max(endRow, minEnd)
   }
-  const end = Math.ceil((fullLogScrollTop.value + fullLogContainerHeight.value) / FULL_LOG_LINE_HEIGHT) + FULL_LOG_OVERSCAN
-  return Math.min(fullLogTotalLines.value, end)
+  // 视口底边所在行（二分前缀和），再加 overscan
+  const prefix = fullLogHeightPrefix.value
+  const bottom = fullLogScrollTop.value + fullLogContainerHeight.value
+  let lo = 0, hi = prefix.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (prefix[mid] <= bottom) { lo = mid + 1 } else { hi = mid }
+  }
+  const endRow = prefix[lo] <= bottom ? prefix.length - 2 : lo - 1
+  return Math.min(fullLogTotalLines.value, endRow + FULL_LOG_OVERSCAN + 1)
+})
+
+// 可见行渲染完成后采样真实行高写入 session.rowHeights，前缀和随之精确，
+// spacer 逐步贴合真实内容高度（每行只在首次进入视口时测量一次，滚动中渐进收敛）
+watch(fullLogVisibleLines, () => {
+  nextTick(() => {
+    const container = fullLogContainer.value
+    const session = fullLogActiveSession.value
+    if (!container || !session?.rowHeights) return
+    const rows = container.querySelectorAll('[data-line-no]')
+    for (const r of rows) {
+      const el = r as HTMLElement
+      const lineNo = Number(el.dataset.lineNo)
+      const h = el.offsetHeight
+      if (h > 0 && session.rowHeights[lineNo] !== h) {
+        session.rowHeights[lineNo] = h
+      }
+    }
+  })
 })
 
 // 从激活 session 的 cache 中拉取当前可见行段（同步操作，无 IO）
@@ -1385,6 +1464,7 @@ async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boole
         localPath,
         totalLines: 0,
         cache: new Map<number, { lineNo: number; html: string }>(),
+        rowHeights: [],
         scrollTop: 0,
         lastLoadRange: { start: -1, end: -1 },
         loadingPromise: null,
