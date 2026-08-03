@@ -192,11 +192,17 @@
             </button>
           </div>
 
-          <!-- 虚拟滚动容器：用 paddingTop/Bottom 撑起全量滚动空间，只渲染视口附近的行 -->
-          <div v-if="displayLines.length > 0" :style="{ paddingTop: (visibleStart * VIRTUAL_LINE_HEIGHT) + 'px', paddingBottom: ((totalItems - visibleEnd) * VIRTUAL_LINE_HEIGHT) + 'px' }">
+          <!-- 虚拟滚动容器：流式模式用 paddingTop/Bottom 撑起全量滚动空间，只渲染视口附近的行；
+               搜索模式全量渲染——日志行 whitespace-pre-wrap 长行会换行，固定行高估算的 spacer
+               与真实内容高度不符，滚动时 scrollHeight 波动导致浏览器把 scrollTop 钳回（无法滑到底部） -->
+          <div
+            v-if="displayLines.length > 0"
+            :style="queryMode === 'stream' ? { paddingTop: (visibleStart * VIRTUAL_LINE_HEIGHT) + 'px', paddingBottom: ((totalItems - visibleEnd) * VIRTUAL_LINE_HEIGHT) + 'px' } : undefined"
+          >
             <div
-              v-for="line in visibleLines"
+              v-for="(line, i) in renderedLines"
               :key="line.id"
+              :data-log-idx="queryMode === 'search' ? i : undefined"
               class="flex gap-2 py-0.5 hover:bg-white/5"
               :class="{
                 'bg-warning/10 border-l-4 border-warning': line.isMatch,
@@ -208,7 +214,7 @@
               <span
                 class="log-line-text flex-1 whitespace-pre-wrap break-all"
                 :class="{ 'text-error': line.level === 'error', 'text-warning': line.level === 'warn', 'text-base-content/40': line.level === 'debug' }"
-                v-html="highlightSearchResult(line.content)"
+                v-html="line.html ?? highlightSearchResult(line.content)"
               ></span>
             </div>
           </div>
@@ -1575,6 +1581,8 @@ const showScrollBottom = ref(false)
 // 虚拟滚动：只渲染可视区内的行
 const VIRTUAL_LINE_HEIGHT = 24    // px，匹配 contain-intrinsic-size: 1.5rem
 const OVERSCAN = 10                // 视口上下额外渲染的行数（5-15 足够流畅，原值 100 浪费 DOM）
+// 搜索模式全量渲染的行数上限：超出截断并提示，避免超大结果集卡死渲染
+const SEARCH_MAX_LINES = 20000
 const scrollTop = ref(0)
 const containerHeight = ref(0)
 
@@ -1597,6 +1605,12 @@ const visibleEnd = computed(() => {
 // 模板只渲染这部分行，其余行用 paddingTop/paddingBottom 撑开滚动空间
 const visibleLines = computed(() => {
   return displayLines.value.slice(visibleStart.value, visibleEnd.value)
+})
+
+// 渲染数据源：流式模式虚拟滚动（只渲染视口附近行）；搜索模式全量渲染
+// （搜索结果行数有限，且固定行高虚拟滚动在长行换行时会滚动回弹，全量渲染交给浏览器原生滚动）
+const renderedLines = computed(() => {
+  return queryMode.value === 'stream' ? visibleLines.value : displayLines.value
 })
 
 // 预设分组折叠状态
@@ -1946,6 +1960,10 @@ async function doSearch() {
   isSearching.value = true
   hasSearched.value = true
   logLines.value = []
+  // 同步清空导航状态：搜索失败/重新搜索时避免残留旧匹配索引（跳转会指向失效行）
+  matchIndices.value = []
+  currentMatchIndex.value = -1
+  currentMatchId.value = null
   toast.info('正在搜索...')
 
   try {
@@ -1956,6 +1974,8 @@ async function doSearch() {
     })
 
     if (result?.matches) {
+      // 高亮预计算：全量渲染下逐行 v-html 在每次跳转（currentMatchId 变化）时都会重跑正则替换，
+      // 预先生成 html 字段后渲染与跳转都只读缓存，避免大结果集卡顿
       for (const match of (result.matches || [])) {
         for (const m of match.lines) {
           const parsedTime = parseLogTimestamp(m.content)
@@ -1965,6 +1985,7 @@ async function doSearch() {
             serverName: match.serverName,
             timestamp: parsedTime ?? Date.now(),
             content: m.content,
+            html: highlightSearchResult(m.content),
             level: detectLevel(m.content),
             isMatch: m.isMatch,
             lineNum: String(m.lineNum),
@@ -1972,14 +1993,18 @@ async function doSearch() {
           } as any)
         }
       }
-	      // 清除之前的搜索导航状态
-	      matchIndices.value = []
-	      currentMatchIndex.value = -1
-	      currentMatchId.value = null
-	      const totalMatches = result.matches?.reduce((s: number, m: any) => s + (m.matchCount || 0), 0) || 0
-	      toast.success(`搜索完成：${totalMatches} 个匹配，${logLines.value.length} 行结果`)
-	      // 搜索完成后更新匹配索引
-	      nextTick(() => updateMatchIndices())
+
+      // 行数上限保护：后端 grep 输出无限制，超大结果集全量渲染会卡死，截断并提示
+      let truncated = false
+      if (logLines.value.length > SEARCH_MAX_LINES) {
+        logLines.value.splice(SEARCH_MAX_LINES)
+        truncated = true
+      }
+
+      const totalMatches = result.matches?.reduce((s: number, m: any) => s + (m.matchCount || 0), 0) || 0
+      toast.success(`搜索完成：${totalMatches} 个匹配，${logLines.value.length} 行结果${truncated ? '（结果过多，已截断显示前 ' + SEARCH_MAX_LINES + ' 行）' : ''}`)
+      // 搜索完成后更新匹配索引
+      nextTick(() => updateMatchIndices())
     } else {
       toast.error(result?.error || '搜索失败')
     }
@@ -2126,7 +2151,28 @@ function updateMatchIndices() {
 }
 
 function scrollToLineIndex(idx: number) {
-  // scroll the target line into view
+  if (!logContainer.value) return
+  // 搜索模式全量渲染：用真实 DOM 位置精确居中目标行（行高真实可变，idx*估算行高会累积错位）
+  if (queryMode.value === 'search') {
+    const container = logContainer.value
+    const el = container.querySelector(`[data-log-idx="${idx}"]`) as HTMLElement | null
+    if (el) {
+      const containerRect = container.getBoundingClientRect()
+      const elRect = el.getBoundingClientRect()
+      const elTopInContent = container.scrollTop + (elRect.top - containerRect.top)
+      const newScrollTop = Math.max(0, elTopInContent - container.clientHeight / 2 + elRect.height / 2)
+      scrollingFromRAFCount++
+      container.scrollTop = newScrollTop
+      // ⚡ 同步更新虚拟滚动 ref，与真实 DOM 位置保持一致
+      scrollTop.value = container.scrollTop
+      requestAnimationFrame(() => { requestAnimationFrame(() => {
+        scrollingFromRAFCount--
+        if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
+      }) })
+    }
+    return
+  }
+  // 流式模式：虚拟滚动，按估算行高滚动到目标行附近
   const targetTop = idx * VIRTUAL_LINE_HEIGHT
   const halfVisible = containerHeight.value / 2
   if (logContainer.value) {
