@@ -102,15 +102,23 @@
             </div>
           </div>
         </div>
-        <div class="flex-1 flex flex-col bg-base-100 rounded-box overflow-hidden min-w-0">
+        <div class="flex-1 flex flex-col bg-base-100 rounded-box overflow-hidden min-w-0 relative">
           <div class="flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-base-content/60 border-b border-base-200">
             <span>连接日志</span>
-            <button class="btn btn-xs btn-ghost" @click="ovpnLogs = []">清空</button>
+            <button class="btn btn-xs btn-ghost" @click="ovpnUserScrolledUp = false; ovpnLogs = []">清空</button>
           </div>
-          <div class="flex-1 overflow-y-auto p-3 font-mono text-xs leading-relaxed bg-[#1e1e2e] text-[#cdd6f4]" ref="ovpnLogRef">
+          <div class="flex-1 overflow-y-auto p-3 font-mono text-xs leading-relaxed bg-[#1e1e2e] text-[#cdd6f4]" ref="ovpnLogRef" @scroll="onOvpnLogScroll">
             <div v-for="(line, i) in ovpnLogs" :key="i" class="whitespace-pre-wrap break-all" :class="getLogClass(line)">{{ line }}</div>
             <div v-if="ovpnLogs.length === 0" class="flex items-center justify-center h-full text-[#6c7086] text-[13px]">等待连接...</div>
           </div>
+          <button
+            v-if="ovpnUserScrolledUp"
+            @click="scrollOvpnToBottom"
+            class="btn btn-primary btn-sm rounded-full absolute bottom-2 right-2 z-10 shadow-lg hover:scale-105 transition-all"
+            title="回到底部"
+          >
+            <SvgIcon name="arrowDown" size="14" /> 回到底部
+          </button>
         </div>
       </div>
 
@@ -197,15 +205,23 @@
             </div>
           </div>
         </div>
-        <div class="flex-1 flex flex-col bg-base-100 rounded-box overflow-hidden min-w-0">
+        <div class="flex-1 flex flex-col bg-base-100 rounded-box overflow-hidden min-w-0 relative">
           <div class="flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-base-content/60 border-b border-base-200">
             <span>连接日志</span>
-            <button class="btn btn-xs btn-ghost" @click="wgLogs = []">清空</button>
+            <button class="btn btn-xs btn-ghost" @click="wgUserScrolledUp = false; wgLogs = []">清空</button>
           </div>
-          <div class="flex-1 overflow-y-auto p-3 font-mono text-xs leading-relaxed bg-[#1e1e2e] text-[#cdd6f4]" ref="wgLogRef">
+          <div class="flex-1 overflow-y-auto p-3 font-mono text-xs leading-relaxed bg-[#1e1e2e] text-[#cdd6f4]" ref="wgLogRef" @scroll="onWgLogScroll">
             <div v-for="(line, i) in wgLogs" :key="i" class="whitespace-pre-wrap break-all" :class="getLogClass(line)">{{ line }}</div>
             <div v-if="wgLogs.length === 0" class="flex items-center justify-center h-full text-[#6c7086] text-[13px]">等待连接...</div>
           </div>
+          <button
+            v-if="wgUserScrolledUp"
+            @click="scrollWgToBottom"
+            class="btn btn-primary btn-sm rounded-full absolute bottom-2 right-2 z-10 shadow-lg hover:scale-105 transition-all"
+            title="回到底部"
+          >
+            <SvgIcon name="arrowDown" size="14" /> 回到底部
+          </button>
         </div>
       </div>
     </div>
@@ -298,6 +314,18 @@ const checking = ref(false)
 const ovpnDuration = ref('')
 const ovpnTraffic = ref<any>(null)
 const ovpnLogRef = ref<HTMLElement | null>(null)
+// 连接日志智能吸底：用户上翻查看历史时暂停自动跟随，点"回到底部"恢复
+const ovpnUserScrolledUp = ref(false)
+function onOvpnLogScroll() {
+  const el = ovpnLogRef.value
+  if (!el) return
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50
+  ovpnUserScrolledUp.value = !atBottom
+}
+function scrollOvpnToBottom() {
+  ovpnUserScrolledUp.value = false
+  if (ovpnLogRef.value) ovpnLogRef.value.scrollTop = ovpnLogRef.value.scrollHeight
+}
 let ovpnPolling: any = null
 let ovpnDurationTimer: any = null
 let ovpnTrafficTimer: any = null
@@ -317,6 +345,17 @@ const wgStatus = ref<WgStatus>({ connected: false, configId: null, configName: n
 const wgLogs = ref<string[]>([])
 const wgDuration = ref('')
 const wgLogRef = ref<HTMLElement | null>(null)
+const wgUserScrolledUp = ref(false)
+function onWgLogScroll() {
+  const el = wgLogRef.value
+  if (!el) return
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50
+  wgUserScrolledUp.value = !atBottom
+}
+function scrollWgToBottom() {
+  wgUserScrolledUp.value = false
+  if (wgLogRef.value) wgLogRef.value.scrollTop = wgLogRef.value.scrollHeight
+}
 let wgPolling: any = null
 let wgDurationTimer: any = null
 
@@ -349,8 +388,8 @@ onUnmounted(() => {
   if (wgDurationTimer) {clearInterval(wgDurationTimer)}
 })
 
-watch(ovpnLogs, () => { nextTick(() => { if (ovpnLogRef.value) {ovpnLogRef.value.scrollTop = ovpnLogRef.value.scrollHeight} }) })
-watch(wgLogs, () => { nextTick(() => { if (wgLogRef.value) {wgLogRef.value.scrollTop = wgLogRef.value.scrollHeight} }) })
+watch(ovpnLogs, () => { nextTick(() => { if (ovpnLogRef.value && !ovpnUserScrolledUp.value) {ovpnLogRef.value.scrollTop = ovpnLogRef.value.scrollHeight} }) })
+watch(wgLogs, () => { nextTick(() => { if (wgLogRef.value && !wgUserScrolledUp.value) {wgLogRef.value.scrollTop = wgLogRef.value.scrollHeight} }) })
 
 // ============ OpenVPN Methods ============
 async function loadOvpnAll() { try { ovpnConfigs.value = await getTauriAPI().openvpnGetAll() } catch(e:any) { console.error(e) } }
