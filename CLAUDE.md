@@ -136,6 +136,8 @@ src/
 ## Important Notes
 
 - **日志聚合（LogAggregator）搜索模式必须全量渲染**：日志行 `whitespace-pre-wrap break-all` 长行会换行，固定行高（24px）虚拟滚动会导致滚动时 `scrollHeight` 波动、浏览器钳制 `scrollTop` 造成回弹（"无法滑到底部"）。历史上两次尝试动态行高测量均失败回滚（`1536e7ce`、`35a263cf`）。搜索模式用 `renderedLines` 全量渲染 + 真实 DOM 定位跳转（`data-log-idx`），流式模式保留虚拟滚动。
+- **日志虚拟滚动行高策略**：行高固定的虚拟滚动（spacer = 行数 × 固定高度）在 `whitespace-pre-wrap` 长行下必然回弹。离线日志弹窗（fullLog，大文件无法全量渲染）用"逐行真实行高测量 + 前缀和二分反推"（`fullLogHeightPrefix`/`fullLogRowAtScrollTop`/`fullLogPrefixAt`），行高数组挂在 session（`rowHeights`）上，滚动渐进收敛。
+- **实时/连接日志智能吸底约定**：DeployPanel 实时日志、OpenVPNManager/VPNManager 连接日志都实现了"用户上翻暂停自动跟随 + 回到底部按钮"（`xxxUserScrolledUp` + `@scroll` 判断）。注意：程序化赋值 `scrollTop` 不触发 scroll 事件，吸底/回底部后必须手动重置标志，否则按钮不消失、自动吸底被永久跳过（曾因漏重置被 review 拦截）。
 
 - **`cargo fmt` may produce false positives** with edition 2024 — use `cargo check --workspace` zero errors as the standard
 - **CLI is fully standalone** — no GUI dependency required, ~12MB binary
