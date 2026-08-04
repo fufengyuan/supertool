@@ -358,6 +358,7 @@
           </button>
         </div>
         <div ref="fullLogContainer" class="flex-1 overflow-auto px-4 py-2 text-xs leading-relaxed font-mono">
+          <!-- loading 遮罩：仅在任何节点展示前全屏显示 -->
           <div v-if="fullLogLoading" class="flex flex-col items-center justify-center h-full text-white/60 gap-4">
             <div class="flex items-center">
               <SvgIcon name="refresh" size="14" class="animate-spin inline-block mr-2" />
@@ -414,6 +415,12 @@
             日志为空
           </div>
           <div v-else :style="{ overflowAnchor: 'none' }">
+            <!-- 首节点已显示、其余节点仍在后台下载：日志顶部紧凑进度条（不遮挡日志） -->
+            <div v-if="fullLogHasPending" class="sticky top-0 z-10 -mx-4 px-4 py-1.5 bg-[#252526]/95 border-b border-white/10 flex items-center gap-2">
+              <SvgIcon name="refresh" size="12" class="animate-spin text-primary inline-block" />
+              <span class="text-[11px] text-white/70">正在下载剩余节点...</span>
+              <span class="text-[11px] text-white/50 font-mono">{{ fullLogDownloadProgress.done }}/{{ fullLogDownloadProgress.count }} 完成 · {{ fullLogDownloadProgress.percent }}%</span>
+            </div>
             <div :style="{ height: fullLogPrefixAt(fullLogVisibleStart) + 'px' }"></div>
             <div
               v-for="item in fullLogVisibleLines"
@@ -658,6 +665,13 @@ let _fullLogScrollHandler: (() => void) | null = null
 // 跳转进行中标志：阻止 scroll handler 在用户未操作时清除跳转锚点
 let _fullLogJumping = false
 let _fullLogRafId = 0
+// 离线查看调用代数：新一次 downloadAndShowLogs / 关闭弹窗时自增，
+// 使旧调用的异步回调（下载完成、进度、激活）不再污染新视图
+let _fullLogGen = 0
+// 本次离线查看是否已展示首个成功节点（只展示一次，其余节点后台预读）
+let _fullLogFirstShown = false
+// 首个节点激活进行中标志：多个节点同时完成下载时，防止并发重复激活
+let _fullLogActivating = false
 
 // 单个服务器节点的离线日志会话状态
 interface FullLogSession {
@@ -692,6 +706,11 @@ const fullLogSessions = ref<FullLogSession[]>([])
 const fullLogActiveIndex = ref(0)
 // 当前激活的会话（computed）
 const fullLogActiveSession = computed<FullLogSession | null>(() => fullLogSessions.value[fullLogActiveIndex.value] ?? null)
+
+// 是否还有节点在下载（首节点激活后进度面板仍需保持可见）
+const fullLogHasPending = computed(() =>
+  fullLogSessions.value.some(s => s.downloadStatus === 'downloading' || s.downloadStatus === 'pending')
+)
 
 // 整体下载进度汇总（所有 session 合计）
 const fullLogDownloadProgress = computed(() => {
@@ -1236,6 +1255,10 @@ function fullLogPrevMatch() {
 }
 
 function closeFullLogDialog() {
+  // 使进行中的下载/激活回调失效，避免关闭后旧回调把 sessions 填回视图
+  _fullLogGen++
+  _fullLogFirstShown = false
+  _fullLogActivating = false
   _fullLogJumping = false
   clearFullLogAnchor()
   if (fullLogDialog.value) {
@@ -1437,6 +1460,93 @@ async function confirmFilePickerSelection() {
   await downloadAndShowLogs(selectedFiles, true)
 }
 
+// 激活并展示指定 session：读取首段、绑定滚动/缩放监听、渲染可见行
+async function activateFullLogSession(idx: number, gen: number) {
+  const session = fullLogSessions.value[idx]
+  if (!session) { return }
+  fullLogActiveIndex.value = idx
+  fullLogLoadingText.value = '正在读取日志...'
+  const firstBatch = await getTauriAPI().readLogFileLines(session.localPath, 0, FULL_LOG_BATCH)
+  // await 期间弹窗可能已被关闭/重新打开，旧调用不得污染新视图
+  if (gen !== _fullLogGen) { return }
+  session.totalLines = firstBatch.totalLines
+  session.cache.clear()
+  for (let i = 0; i < firstBatch.lines.length; i++) {
+    session.cache.set(i, {
+      lineNo: firstBatch.lines[i].lineNo,
+      html: firstBatch.lines[i].html,
+    })
+  }
+  fullLogTotalLines.value = session.totalLines
+  fullLogLoading.value = false
+  fullLogLoadingText.value = ''
+  await nextTick()
+  if (gen !== _fullLogGen) { return }
+  if (fullLogContainer.value) {
+    fullLogContainerHeight.value = fullLogContainer.value.clientHeight
+    fullLogContainer.value.scrollTop = 0
+    fullLogScrollTop.value = 0
+    // 用局部引用绑定，避免交错激活时互相 remove 掉对方的 handler
+    const scrollHandler = () => {
+      if (_fullLogRafId) { return }
+      _fullLogRafId = requestAnimationFrame(() => {
+        _fullLogRafId = 0
+        if (fullLogContainer.value) {
+          const cur = fullLogActiveSession.value
+          const st = fullLogContainer.value!.scrollTop
+          // 程序化跳转期间（_fullLogJumping=true）不清除锚点，避免跳转后 scrollTop 估算
+          // 行号又接管渲染导致目标行移出窗口。用户手动滚动时才清除锚点恢复正常虚拟滚动。
+          if (!_fullLogJumping) {
+            clearFullLogAnchor()
+          }
+          fullLogScrollTop.value = st
+          if (cur) { cur.scrollTop = st }
+        }
+      })
+    }
+    if (_fullLogScrollHandler && fullLogContainer.value) {
+      fullLogContainer.value.removeEventListener('scroll', _fullLogScrollHandler)
+    }
+    _fullLogScrollHandler = scrollHandler
+    fullLogContainer.value.addEventListener('scroll', scrollHandler, { passive: true })
+    const resizeHandler = () => {
+      if (fullLogContainer.value) {
+        const newH = fullLogContainer.value.clientHeight
+        if (newH > 0 && newH !== fullLogContainerHeight.value) {
+          fullLogContainerHeight.value = newH
+        }
+      }
+    }
+    if (_fullLogResizeHandler) {
+      window.removeEventListener('resize', _fullLogResizeHandler)
+    }
+    _fullLogResizeHandler = resizeHandler
+    window.addEventListener('resize', resizeHandler, { passive: true })
+    refreshVisibleLines()
+  }
+}
+
+// 后台预读 session 首段（切换 Tab 时立即可见）
+async function preloadFullLogSession(s: FullLogSession) {
+  if (!s.downloaded || s.totalLines > 0) { return }
+  try {
+    const batch = await getTauriAPI().readLogFileLines(s.localPath, 0, FULL_LOG_BATCH)
+    s.totalLines = batch.totalLines
+    for (let j = 0; j < batch.lines.length; j++) {
+      s.cache.set(j, {
+        lineNo: batch.lines[j].lineNo,
+        html: batch.lines[j].html,
+      })
+    }
+    // 若该 session 恰为当前激活 Tab，同步行数到视图，避免停留在"日志为空"
+    if (fullLogActiveSession.value === s) {
+      syncActiveSessionToView()
+    }
+  } catch (e: any) {
+    s.loadError = `读取失败: ${e.message || String(e)}`
+  }
+}
+
 // 通用：根据所选文件 + 所有服务器节点创建 session，并行下载并展示
 // isHistorical=true 时按"每 (server, file) 一个 session"展开；isHistorical=false 时 fileName 来自预设单个 logPath
 async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boolean) {
@@ -1486,7 +1596,10 @@ async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boole
     return
   }
 
-  // 重置视图状态
+  // 重置视图状态；自增代数使旧调用的异步回调不再污染本次视图
+  const gen = ++_fullLogGen
+  _fullLogFirstShown = false
+  _fullLogActivating = false
   fullLogError.value = ''
   _fullLogCurrentKeyword = ''
   fullLogSearchKeyword.value = ''
@@ -1507,6 +1620,7 @@ async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boole
   }
   try {
     _downloadProgressUnlisten = await getTauriAPI().onSftpDownloadProgress((payload) => {
+      if (gen !== _fullLogGen) return
       const s = sessions.find(s => s.downloadId === payload.downloadId)
       if (!s) return
       s.downloadDownloaded = payload.downloaded
@@ -1518,10 +1632,10 @@ async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boole
     console.warn('[LogAggregator] 注册下载进度监听失败:', e)
   }
 
-  // 并行下载，.gz 文件下载后自动解压
-  const downloadPromises = sessions.map(async (s) => {
+  // 并行下载：每个节点下载完成后立即尝试展示（首个成功节点即出），其余后台预读
+  const downloadPromises = sessions.map(async (s, idx) => {
     s.downloadStatus = 'downloading'
-    fullLogSessions.value = [...sessions]
+    if (gen === _fullLogGen) { fullLogSessions.value = [...sessions] }
     try {
       await getTauriAPI().downloadFileWithProgress(
         s.downloadId,
@@ -1549,104 +1663,53 @@ async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boole
       s.downloaded = false
       s.downloadStatus = 'failed'
     }
+    // 本次调用已被更新的调用取代，丢弃旧回调结果
+    if (gen !== _fullLogGen) { return }
     fullLogSessions.value = [...sessions]
+    // 首个成功节点立即激活展示，不必等所有节点下载完；
+    // _fullLogActivating 防止多个节点同时完成时并发重复激活
+    if (!_fullLogFirstShown && !_fullLogActivating && s.downloaded && !s.loadError) {
+      _fullLogActivating = true
+      try {
+        await activateFullLogSession(idx, gen)
+        if (gen !== _fullLogGen) { return }
+        _fullLogFirstShown = true
+      } catch (e: any) {
+        // gen 可能已在读取期间变化（关闭后重开），旧 catch 不得覆盖新视图
+        if (gen !== _fullLogGen) { return }
+        s.loadError = `读取失败: ${e.message || String(e)}`
+        fullLogSessions.value = [...sessions]
+      } finally {
+        // 仅当仍是本代调用时才复位标志，避免误清新调用的激活中状态
+        if (gen === _fullLogGen) { _fullLogActivating = false }
+      }
+    } else if (s.downloaded && !s.loadError) {
+      // 其余成功节点后台预读首段，切换 Tab 时立即可见
+      preloadFullLogSession(s)
+    }
   })
   await Promise.all(downloadPromises)
+  if (gen !== _fullLogGen) { return }
 
-  // 找第一个下载成功的 session 作为激活
-  const okIdx = sessions.findIndex(s => s.downloaded)
-  if (okIdx < 0) {
+  const okCount = sessions.filter(s => s.downloaded).length
+  const failCount = sessions.length - okCount
+  if (okCount === 0) {
     fullLogLoading.value = false
     fullLogLoadingText.value = ''
     fullLogError.value = '所有节点下载失败'
     return
   }
-
-  fullLogActiveIndex.value = okIdx
-  fullLogLoadingText.value = '正在读取日志...'
-
-  try {
-    const firstSession = sessions[okIdx]
-    const firstBatch = await getTauriAPI().readLogFileLines(firstSession.localPath, 0, FULL_LOG_BATCH)
-    firstSession.totalLines = firstBatch.totalLines
-    for (let i = 0; i < firstBatch.lines.length; i++) {
-      firstSession.cache.set(i, {
-        lineNo: firstBatch.lines[i].lineNo,
-        html: firstBatch.lines[i].html,
-      })
-    }
-    fullLogTotalLines.value = firstSession.totalLines
+  // 兜底：节点下载成功但激活读取全部失败时，不能一直转圈
+  if (fullLogLoading.value) {
     fullLogLoading.value = false
     fullLogLoadingText.value = ''
-    await nextTick()
-    if (fullLogContainer.value) {
-      fullLogContainerHeight.value = fullLogContainer.value.clientHeight
-      fullLogContainer.value.scrollTop = 0
-      fullLogScrollTop.value = 0
-      _fullLogScrollHandler = () => {
-        if (_fullLogRafId) return
-        _fullLogRafId = requestAnimationFrame(() => {
-          _fullLogRafId = 0
-          if (fullLogContainer.value) {
-            const cur = fullLogActiveSession.value
-            const st = fullLogContainer.value!.scrollTop
-            // 程序化跳转期间（_fullLogJumping=true）不清除锚点，避免跳转后 scrollTop 估算
-            // 行号又接管渲染导致目标行移出窗口。用户手动滚动时才清除锚点恢复正常虚拟滚动。
-            if (!_fullLogJumping) {
-              clearFullLogAnchor()
-            }
-            fullLogScrollTop.value = st
-            if (cur) cur.scrollTop = st
-          }
-        })
-      }
-      fullLogContainer.value.addEventListener('scroll', _fullLogScrollHandler, { passive: true })
-      _fullLogResizeHandler = () => {
-        if (fullLogContainer.value) {
-          const newH = fullLogContainer.value.clientHeight
-          if (newH > 0 && newH !== fullLogContainerHeight.value) {
-            fullLogContainerHeight.value = newH
-          }
-        }
-      }
-      window.addEventListener('resize', _fullLogResizeHandler, { passive: true })
-      refreshVisibleLines()
-    }
-
-    const okCount = sessions.filter(s => s.downloaded).length
-    const failCount = sessions.length - okCount
-    let msg = `已加载 ${okCount} 个文件，当前：${firstSession.serverName} · ${firstSession.fileName}（${firstSession.totalLines} 行）`
-    if (failCount > 0) msg += `，${failCount} 个文件下载失败`
-    toast.success(msg)
-
-    // 后台并行预加载其他成功 session 的首段
-    for (let i = 0; i < sessions.length; i++) {
-      if (i === okIdx || !sessions[i].downloaded) continue
-      setTimeout(async () => {
-        try {
-          const batch = await getTauriAPI().readLogFileLines(sessions[i].localPath, 0, FULL_LOG_BATCH)
-          sessions[i].totalLines = batch.totalLines
-          for (let j = 0; j < batch.lines.length; j++) {
-            sessions[i].cache.set(j, {
-              lineNo: batch.lines[j].lineNo,
-              html: batch.lines[j].html,
-            })
-          }
-        } catch (e: any) {
-          sessions[i].loadError = `读取失败: ${e.message || String(e)}`
-        }
-      }, 500 + i * 200)
-    }
-  } catch (e: any) {
-    console.error('[LogAggregator] downloadAndShowLogs failed:', e)
-    fullLogError.value = e.message || String(e)
-    toast.error('离线查看失败: ' + (e.message || String(e)))
-  } finally {
-    if (fullLogLoading.value) {
-      fullLogLoading.value = false
-      fullLogLoadingText.value = ''
-    }
+    fullLogError.value = '节点已下载但读取失败，请查看 Tab 上的错误标记'
   }
+  const shown = fullLogSessions.value[fullLogActiveIndex.value]
+  let msg = `已加载 ${okCount} 个文件`
+  if (shown && shown.totalLines > 0) msg += `，当前：${shown.serverName} · ${shown.fileName}（${shown.totalLines} 行）`
+  if (failCount > 0) msg += `，${failCount} 个文件下载失败`
+  toast.success(msg)
 }
 
 // 完整日志搜索匹配的上下导航已移至 fullLogNextMatch/fullLogPrevMatch（vim 式实现）
@@ -2766,6 +2829,15 @@ onUnmounted(async () => {
   if (_downloadProgressUnlisten) {
     try { _downloadProgressUnlisten() } catch {}
     _downloadProgressUnlisten = null
+  }
+  // 清理离线日志滚动/缩放监听，避免组件卸载后回调残留
+  if (_fullLogScrollHandler && fullLogContainer.value) {
+    fullLogContainer.value.removeEventListener('scroll', _fullLogScrollHandler)
+    _fullLogScrollHandler = null
+  }
+  if (_fullLogResizeHandler) {
+    window.removeEventListener('resize', _fullLogResizeHandler)
+    _fullLogResizeHandler = null
   }
 })
 
