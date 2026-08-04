@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(
     name = "stool",
     about = "SuperTool CLI v4.1.0 — AI Agent 专属运维工具\\n直连 supertool-core 共享库，零 UDS/HTTP 依赖，完全独立运行"
@@ -13,7 +13,7 @@ pub struct Cli {
     pub command: Commands,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum Commands {
     Version,
     Guide,
@@ -79,6 +79,11 @@ pub enum Commands {
         #[command(subcommand)]
         action: BackupCommands,
     },
+    /// 操作审计 — 查询 CLI/GUI 的写操作记录（参数已脱敏）
+    Audit {
+        #[command(subcommand)]
+        action: AuditCommands,
+    },
     /// WireGuard tunnel 后台进程 — 由 GUI 通过 sudo 调起，普通用户不要直接运行
     #[command(name = "wg-tunnel", hide = true)]
     WgTunnel {
@@ -91,7 +96,7 @@ pub enum Commands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum TodoCommands {
     Add {
         text: String,
@@ -155,7 +160,7 @@ pub enum TodoCommands {
     Clear,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum SubtaskCommands {
     List {
         todo_id: String,
@@ -176,7 +181,7 @@ pub enum SubtaskCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum ProjectCommands {
     List {
         #[arg(short, long)]
@@ -214,7 +219,7 @@ pub enum ProjectCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum ServerCommands {
     List {
         #[arg(short, long)]
@@ -307,7 +312,7 @@ pub enum ServerCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum CicdCommands {
     List {
         #[arg(short, long)]
@@ -375,7 +380,7 @@ pub enum CicdCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum DbCommands {
     List {
         #[arg(short, long)]
@@ -437,7 +442,7 @@ pub enum DbCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum RedisCommands {
     Keys {
         pattern: Option<String>,
@@ -484,7 +489,7 @@ pub enum RedisCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum LogCommands {
     List {
         #[arg(short, long)]
@@ -528,7 +533,7 @@ pub enum LogCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum GitCommands {
     List {
         #[arg(short, long)]
@@ -588,7 +593,7 @@ pub enum GitCommands {
 
 // ============ 新增命令枚举 ============
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum MfaCommands {
     /// 列出所有 MFA 密钥
     List {
@@ -624,7 +629,7 @@ pub enum MfaCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum NoteCommands {
     /// 列出笔记
     List {
@@ -682,7 +687,7 @@ pub enum NoteCommands {
     DeleteGroup { id: String },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum AccountingCommands {
     /// 列出账单记录
     List {
@@ -768,7 +773,7 @@ pub enum AccountingCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum WeeklyCommands {
     /// 列出周报
     List {
@@ -795,7 +800,7 @@ pub enum WeeklyCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum NginxCommands {
     /// 列出配置预设
     List {
@@ -854,7 +859,7 @@ pub enum NginxCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum BackupCommands {
     /// 导出所有数据到文件
     Export {
@@ -894,4 +899,21 @@ pub struct Todo {
     pub updated_at: String,
     #[serde(default)]
     pub project_id: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AuditCommands {
+    /// 列出审计记录（写操作，参数已脱敏）
+    List {
+        /// 按发起方过滤：cli / gui / ai / user
+        #[arg(long)]
+        actor: Option<String>,
+        /// 按结果过滤：success / failed / blocked
+        #[arg(long)]
+        result: Option<String>,
+        #[arg(short = 'l', long, default_value = "50")]
+        limit: usize,
+        #[arg(short, long)]
+        json: bool,
+    },
 }
