@@ -600,6 +600,21 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             updatedAt TEXT NOT NULL
         );
 
+        -- 操作审计：CLI/GUI/AI 的写操作记录（参数已脱敏）
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            actor_type TEXT NOT NULL DEFAULT 'cli',
+            actor_name TEXT NOT NULL DEFAULT '',
+            command TEXT NOT NULL,
+            args_json TEXT NOT NULL DEFAULT '',
+            target TEXT NOT NULL DEFAULT '',
+            result TEXT NOT NULL DEFAULT 'success',
+            duration_ms INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+
         "#,
     )?;
     // Migration: add keywords column for databases created before v3.1.9
