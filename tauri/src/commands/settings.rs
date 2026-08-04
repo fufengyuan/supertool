@@ -23,6 +23,25 @@ pub async fn set_setting(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub async fn get_db_connections(
+    core: State<'_, CoreService>,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] get_db_connections() called");
+    let result = core.get_db_connections().await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn set_db_connections(
+    core: State<'_, CoreService>,
+    connections: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] set_db_connections() called");
+    let result = core.set_db_connections(connections).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub async fn get_notification_settings(
     core: State<'_, CoreService>,
 ) -> Result<serde_json::Value, String> {

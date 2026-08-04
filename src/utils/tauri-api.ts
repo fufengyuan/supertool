@@ -1345,6 +1345,15 @@ export function useSettingsAPI() {
       const res = await tauriInvoke<string>('set_setting', { key, value })
       if (!res.success) {throw new Error(res.error)}
     },
+    // db_connections 专用接口：get 解密密码，set 加密密码后落盘
+    getDbConnections: async (): Promise<any[]> => {
+      const res = await tauriInvoke<any[]>('get_db_connections')
+      return res.success ? (res.data ?? []) : []
+    },
+    setDbConnections: async (connections: any[]): Promise<void> => {
+      const res = await tauriInvoke<string>('set_db_connections', { connections })
+      if (!res.success) {throw new Error(res.error)}
+    },
     getNotificationSettings: async (): Promise<NotificationSettings | null> => {
       const res = await tauriInvoke<NotificationSettings | null>('get_notification_settings')
       return res.success ? (res.data ?? null) : null
@@ -1650,6 +1659,8 @@ export interface TauriAPI {
   getMenuIcon: (key: string) => Promise<string | null>
   getSetting: (key: string) => Promise<any>
   setSetting: (key: string, value: any) => Promise<void>
+  getDbConnections: () => Promise<any[]>
+  setDbConnections: (connections: any[]) => Promise<void>
   getNotificationSettings: () => Promise<NotificationSettings | null>
   setNotificationSettings: (settings: NotificationSettings) => Promise<void>
   // App
@@ -1885,6 +1896,8 @@ export interface TauriAPI {
   checkNodeAvailable: () => Promise<any>
   screenshot: () => Promise<any>
   exportWordReport: (params: Record<string, unknown>) => Promise<any>
+  // 操作审计
+  auditList: (actor?: string, result?: string, limit?: number) => Promise<any>
   // Nginx
   getNginxPresets: () => Promise<any>
   addNginxPreset: (preset: any) => Promise<any>
@@ -2222,6 +2235,8 @@ export function getTauriAPI(): TauriAPI {
     getMenuIcon: settings.getMenuIcon,
     getSetting: settings.getSetting,
     setSetting: settings.setSetting,
+    getDbConnections: settings.getDbConnections,
+    setDbConnections: settings.setDbConnections,
     getNotificationSettings: settings.getNotificationSettings,
     setNotificationSettings: settings.setNotificationSettings,
     // App
@@ -2766,6 +2781,10 @@ export function getTauriAPI(): TauriAPI {
     readFileContent: async (repoPath: string, filePath: string) => tauriCall<string>('read_file_content', { repoPath, filePath }),
     saveFileContent: async (repoPath: string, filePath: string, content: string) => tauriCall<void>('save_file_content', { repoPath, filePath, content }),
 
+
+    // ============ 操作审计 ============
+    auditList: async (actor?: string, result?: string, limit = 100): Promise<any> =>
+      tauriCall('audit_list', { actor: actor ?? null, result: result ?? null, limit }),
 
     // ============ Floating Todo ============
     openFloatingTodo: async () => tauriCall('open_floating_todo'),

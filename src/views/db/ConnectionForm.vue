@@ -54,7 +54,17 @@
             </div>
             <div class="flex-1 min-w-0" :class="{ 'basis-full': localForm.type === 'redis' }">
               <label class="label"><span class="label-text">密码</span></label>
-              <input v-model="localForm.password" type="password" class="input input-bordered w-full" autocomplete="off" :placeholder="localForm.type === 'redis' ? '无密码留空' : '密码'" />
+              <div class="relative">
+                <input v-model="localForm.password" :type="showPassword ? 'text' : 'password'" class="input input-bordered w-full pr-10" autocomplete="off" :placeholder="localForm.type === 'redis' ? '无密码留空' : '密码'" />
+                <button
+                  type="button"
+                  class="absolute right-2.5 top-1/2 -translate-y-1/2 text-base-content/50 hover:text-base-content"
+                  :title="showPassword ? '隐藏密码' : '显示密码'"
+                  @click="showPassword = !showPassword"
+                >
+                  <SvgIcon :name="showPassword ? 'eyeOff' : 'eye'" :size="16" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -127,6 +137,9 @@ const emit = defineEmits<{
 
 // Local reactive wrapper to avoid mutating props directly
 const localForm = ref<DBConfig>({ ...props.form })
+
+// 密码框明文/掩码切换
+const showPassword = ref(false)
 
 // Sync localForm when parent updates the form prop (e.g. switching edit target)
 watch(() => props.form, (newVal) => {
