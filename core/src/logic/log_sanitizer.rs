@@ -109,7 +109,22 @@ pub fn sanitize_string(input: &str) -> String {
             .to_string();
     }
 
-    // 2. 遮蔽键值对格式的敏感字段: smtpPassword=xxx、dbPassword=xxx
+    // 2. 遮蔽 Rust Debug 格式的敏感字段（须在键值对规则之前，否则 kv 规则会先吞掉值头）
+    //    覆盖: secret: "xxx"、password: Some("xxx")、token: Some("a b c")（含空格值）
+    //    限制: 数组形式（secret: ["a", ...]）与内部转义引号（\"）不在覆盖范围
+    let debug_pattern = format!(
+        r#"(?i){}([=:]\s*)(?:Some\()*"([^"]*)""#,
+        SENSITIVE_FIELD_PATTERN
+    );
+    if let Ok(re) = regex::Regex::new(&debug_pattern) {
+        result = re
+            .replace_all(&result, |caps: &regex::Captures| {
+                format!("{}{}\"**\"", &caps[1], &caps[2])
+            })
+            .to_string();
+    }
+
+    // 2b. 遮蔽键值对格式的敏感字段: smtpPassword=xxx、dbPassword=xxx
     let kv_pattern = format!(r#"(?i){}([=:]\s*)([^\s&",]+)"#, SENSITIVE_FIELD_PATTERN);
     if let Ok(re) = regex::Regex::new(&kv_pattern) {
         result = re
@@ -337,6 +352,31 @@ mod tests {
                 !s.contains("secret123"),
                 "Field {} still has plaintext: {}",
                 field_name,
+                s
+            );
+        }
+    }
+
+    #[test]
+    fn test_sanitize_rust_debug_format() {
+        // cli 审计用 format!("{:?}", command) 的 Debug 字符串，key 不带引号、值带引号
+        let cases = vec![
+            // 直接字符串值
+            (r#"Mfa { action: Add { secret: "JBSWY3DPEHPK3PXP", digits: 6 } }"#, "JBSWY3DPEHPK3PXP"),
+            // Option 包裹（Some("...")）—— 曾绕过
+            (r#"Add { password: Some("hunter2"), user: "root" }"#, "hunter2"),
+            // Option + 含空格值 —— 曾绕过
+            (r#"Add { token: Some("my secret value"), name: "x" }"#, "my secret value"),
+            // 嵌套 Option 结构
+            (r#"Server { password: Some(Some("deep-secret")) }"#, "deep-secret"),
+        ];
+        for (input, secret) in cases {
+            let s = sanitize_string(input);
+            assert!(s.contains("**"), "Debug 未脱敏: {}", input);
+            assert!(
+                !s.contains(secret),
+                "Debug 明文泄漏: {} → {}",
+                input,
                 s
             );
         }
