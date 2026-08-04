@@ -189,15 +189,24 @@ build_macos_all() {
 set -e
 # postinstall 参数: $1=包路径, $2=目标卷("/"), $3=安装位置("/" for --root)
 # 硬编码路径，因为一定安装到 /Applications
-APP_DIR="/Applications/SuperTool.app"
-echo "🔧 SuperTool postinstall..."
+# 安装位置推导：优先 $3（pkg 安装目标根），兜底 /Applications（兼容默认安装）
+APP_DIR="${3:-/}/Applications/SuperTool.app"
+[ -d "$APP_DIR" ] || APP_DIR="/Applications/SuperTool.app"
+echo "🔧 SuperTool postinstall... (APP_DIR=$APP_DIR)"
 
 CLI_SRC="${APP_DIR}/Contents/Resources/_up_/target/release/stool"
 if [ -f "$CLI_SRC" ]; then
     mkdir -p /usr/local/bin
-    cp -f "$CLI_SRC" /usr/local/bin/stool
+    if ! cp -f "$CLI_SRC" /usr/local/bin/stool; then
+        echo "❌ 复制 stool 到 /usr/local/bin 失败（请检查权限/空间）" >&2
+        exit 1
+    fi
     chmod 755 /usr/local/bin/stool
-    echo "✅ stool → /usr/local/bin/stool"
+    CLI_VER=$(/usr/local/bin/stool version 2>/dev/null | grep -o 'v[0-9.]*' | head -1 || echo "?")
+    echo "✅ stool → /usr/local/bin/stool (${CLI_VER:-?})"
+else
+    # 不因 CLI 缺失让整个 pkg 安装失败（app 已装好，用户可用 GUI；CLI 可由 App 启动检测补装）
+    echo "⚠️ 未找到 app 内置 CLI: ${CLI_SRC}（App 启动时会检测并提示一键安装）" >&2
 fi
 
 SKILLS_SRC="${APP_DIR}/Contents/Resources/_up_/skills"
@@ -205,6 +214,8 @@ if [ -d "$SKILLS_SRC" ]; then
     mkdir -p /usr/local/share/supertool/skills
     cp -R "$SKILLS_SRC"/* /usr/local/share/supertool/skills/ 2>/dev/null || true
     echo "✅ skills → /usr/local/share/supertool/skills"
+else
+    echo "⚠️ 未找到内置 skills 目录，跳过技能分发" >&2
 fi
 
 LOGGED_IN_USER=$(stat -f '%Su' /dev/console 2>/dev/null || echo "")
@@ -588,15 +599,24 @@ PLIST
 set -e
 # postinstall 参数: $1=包路径, $2=目标卷("/"), $3=安装位置("/" for --root)
 # 硬编码路径，因为一定安装到 /Applications
-APP_DIR="/Applications/SuperTool.app"
-echo "🔧 SuperTool postinstall..."
+# 安装位置推导：优先 $3（pkg 安装目标根），兜底 /Applications（兼容默认安装）
+APP_DIR="${3:-/}/Applications/SuperTool.app"
+[ -d "$APP_DIR" ] || APP_DIR="/Applications/SuperTool.app"
+echo "🔧 SuperTool postinstall... (APP_DIR=$APP_DIR)"
 
 CLI_SRC="${APP_DIR}/Contents/Resources/_up_/target/release/stool"
 if [ -f "$CLI_SRC" ]; then
     mkdir -p /usr/local/bin
-    cp -f "$CLI_SRC" /usr/local/bin/stool
+    if ! cp -f "$CLI_SRC" /usr/local/bin/stool; then
+        echo "❌ 复制 stool 到 /usr/local/bin 失败（请检查权限/空间）" >&2
+        exit 1
+    fi
     chmod 755 /usr/local/bin/stool
-    echo "✅ stool → /usr/local/bin/stool"
+    CLI_VER=$(/usr/local/bin/stool version 2>/dev/null | grep -o 'v[0-9.]*' | head -1 || echo "?")
+    echo "✅ stool → /usr/local/bin/stool (${CLI_VER:-?})"
+else
+    # 不因 CLI 缺失让整个 pkg 安装失败（app 已装好，用户可用 GUI；CLI 可由 App 启动检测补装）
+    echo "⚠️ 未找到 app 内置 CLI: ${CLI_SRC}（App 启动时会检测并提示一键安装）" >&2
 fi
 
 SKILLS_SRC="${APP_DIR}/Contents/Resources/_up_/skills"
@@ -604,6 +624,8 @@ if [ -d "$SKILLS_SRC" ]; then
     mkdir -p /usr/local/share/supertool/skills
     cp -R "$SKILLS_SRC"/* /usr/local/share/supertool/skills/ 2>/dev/null || true
     echo "✅ skills → /usr/local/share/supertool/skills"
+else
+    echo "⚠️ 未找到内置 skills 目录，跳过技能分发" >&2
 fi
 
 LOGGED_IN_USER=$(stat -f '%Su' /dev/console 2>/dev/null || echo "")
