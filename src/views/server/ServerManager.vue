@@ -396,14 +396,27 @@ function onTerminalOpenSftp(server: Server, path: string) {
   openSftp(server, path);
 }
 
-function editServer(server) {
+async function editServer(server) {
   editingServer.value = server;
-  // BUG 6 FIX: Do NOT populate password from server object — leave it blank
-  // so user can optionally set a new password. Existing password is preserved on save.
-  const { password, ...serverWithoutPassword } = server;
+  // 列表接口不返回密码（get_all_servers 会移除 password），编辑时单独按 id 获取解密后的密码回填
+  let password = '';
+  try {
+    const full = await getTauriAPI().getServerById(server.id);
+    // 竞态保护：等待期间用户可能已切换编辑其他服务器，旧响应不得覆盖新表单
+    if (editingServer.value !== server) { return; }
+    const p = full?.password || '';
+    // 解密失败时后端会原样返回密文（Electron 格式 salt:iv:authTag:data 含冒号），
+    // 不回填以免保存时被当作明文二次加密、破坏原密码
+    if (p && !p.includes(':')) {
+      password = p;
+    }
+  } catch (e) {
+    // 获取密码失败时静默留空，保存时仍会保留原密码
+  }
+  const { password: _pw, ...serverWithoutPassword } = server;
   serverForm.value = {
     ...serverWithoutPassword,
-    password: '',
+    password,
     tagsInput: server.tags?.join(',') || '',
   };
 }

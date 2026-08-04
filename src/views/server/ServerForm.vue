@@ -41,13 +41,23 @@
 
           <div class="mb-4">
             <label class="block mb-1.5 text-xs font-medium text-base-content/60">密码</label>
-            <input
-              v-model="localForm.password"
-              type="password"
-              class="input input-bordered w-full"
-              autocomplete="off"
-              :placeholder="isEditing ? '留空则保留原密码' : '留空则使用 Key 认证'"
-            />
+            <div class="relative">
+              <input
+                v-model="localForm.password"
+                :type="showPassword ? 'text' : 'password'"
+                class="input input-bordered w-full pr-10"
+                autocomplete="off"
+                :placeholder="isEditing ? '留空则保留原密码' : '留空则使用 Key 认证'"
+              />
+              <button
+                type="button"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-base-content/50 hover:text-base-content"
+                :title="showPassword ? '隐藏密码' : '显示密码'"
+                @click="showPassword = !showPassword"
+              >
+                <SvgIcon :name="showPassword ? 'eyeOff' : 'eye'" :size="16" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -175,6 +185,9 @@ const emit = defineEmits(['close', 'test-connection', 'save', 'update:form']);
 
 // Local reactive wrapper to avoid mutating props directly
 const localForm = ref({ ...props.form });
+
+// 密码框明文/掩码切换
+const showPassword = ref(false);
 
 // Sync localForm changes back to parent — batch rapid input events
 let emitTimer: ReturnType<typeof setTimeout> | null = null;
