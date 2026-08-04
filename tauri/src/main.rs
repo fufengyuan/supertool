@@ -894,6 +894,9 @@ fn main() {
             // Alert commands
             commands::alert::get_email_config,
             commands::audit::audit_list,
+            commands::cli_install::check_cli_version,
+            commands::cli_install::install_cli,
+            commands::cli_install::sync_user_skills,
             commands::alert::test_email_config,
             commands::alert::save_email_config,
             commands::alert::get_alert_services,

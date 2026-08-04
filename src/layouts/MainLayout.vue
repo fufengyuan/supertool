@@ -1,5 +1,13 @@
 <template>
   <div class="h-screen flex flex-col bg-base-200">
+    <!-- stool CLI 版本更新提示横幅（dmg 安装无 postinstall，靠 App 检测自动安装） -->
+    <div v-if="cliUpdate.needUpdate" class="flex items-center gap-3 px-4 py-2 bg-warning/10 border-b border-warning/30 text-xs">
+      <span class="text-base-content">🔧 stool CLI 有新版本（{{ cliUpdate.installed || '未安装' }} → {{ cliUpdate.bundled }}）</span>
+      <button class="btn btn-primary btn-xs" :disabled="cliInstalling" @click="updateCli">
+        {{ cliInstalling ? '安装中...' : '一键更新' }}
+      </button>
+      <button class="btn btn-ghost btn-xs ml-auto" @click="cliUpdate.needUpdate = false">忽略</button>
+    </div>
     <!-- 无自定义标题栏 — 使用原生窗口边框 -->
     <div class="flex flex-1 overflow-hidden">
       <!-- 左侧导航栏 -->
@@ -205,6 +213,39 @@ const iconMap: Record<string, any> = {
 const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
+
+// stool CLI 版本检测与一键更新（dmg 安装场景的 CLI 分发入口）
+const cliUpdate = ref<{ installed: string; bundled: string; needUpdate: boolean }>({ installed: '', bundled: '', needUpdate: false })
+const cliInstalling = ref(false)
+
+async function checkCliVersion() {
+  try {
+    const api = getTauriAPI()
+    const res = await api.checkCliVersion()
+    if (res?.success && res.data?.needUpdate) {
+      cliUpdate.value = res.data
+    }
+    // 静默同步内置 skills 到用户技能目录（失败忽略，不影响启动）
+    api.syncUserSkills().catch(() => {})
+  } catch { /* 非 Tauri 环境（浏览器预览）忽略 */ }
+}
+
+async function updateCli() {
+  cliInstalling.value = true
+  try {
+    const api = getTauriAPI()
+    const res = await api.installCli()
+    if (res?.success) {
+      cliUpdate.value = { ...cliUpdate.value, needUpdate: false, installed: res.data?.installed || cliUpdate.value.bundled }
+    } else {
+      console.warn('CLI 更新失败:', res?.error)
+    }
+  } catch (e: any) {
+    console.warn('CLI 更新失败:', e?.message || e)
+  } finally {
+    cliInstalling.value = false
+  }
+}
 const tabStore = useTabStore()
 const lanStore = useLanStore()
 
@@ -295,6 +336,8 @@ let unlistenFns: (() => void)[] = []
 
 onMounted(async () => {
   const api = getTauriAPI()
+  // 启动时检测 CLI 版本差异（dmg 用户也能拿到新 CLI）
+  checkCliVersion()
   try {
     const theme = await api.getSetting('theme')
     isDark.value = theme === 'dark'

@@ -1898,6 +1898,10 @@ export interface TauriAPI {
   exportWordReport: (params: Record<string, unknown>) => Promise<any>
   // 操作审计
   auditList: (actor?: string, result?: string, limit?: number) => Promise<any>
+  // CLI 安装器
+  checkCliVersion: () => Promise<any>
+  installCli: () => Promise<any>
+  syncUserSkills: () => Promise<any>
   // Nginx
   getNginxPresets: () => Promise<any>
   addNginxPreset: (preset: any) => Promise<any>
@@ -2785,6 +2789,11 @@ export function getTauriAPI(): TauriAPI {
     // ============ 操作审计 ============
     auditList: async (actor?: string, result?: string, limit = 100): Promise<any> =>
       tauriCall('audit_list', { actor: actor ?? null, result: result ?? null, limit }),
+
+    // ============ CLI 安装器 ============
+    checkCliVersion: async (): Promise<any> => tauriCall('check_cli_version'),
+    installCli: async (): Promise<any> => tauriCall('install_cli'),
+    syncUserSkills: async (): Promise<any> => tauriCall('sync_user_skills'),
 
     // ============ Floating Todo ============
     openFloatingTodo: async () => tauriCall('open_floating_todo'),

@@ -2,6 +2,7 @@ pub mod accounting;
 pub mod alert;
 pub mod audit;
 pub mod cicd;
+pub mod cli_install;
 pub mod data_backup;
 pub mod database;
 pub mod disk_cleaner;
