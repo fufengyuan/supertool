@@ -68,6 +68,11 @@ const routes = [
         component: () => import('../views/logs/LogAggregator.vue'),
       },
       {
+        path: 'audit',
+        name: 'Audit',
+        component: () => import('../views/audit/AuditView.vue'),
+      },
+      {
         path: 'nginx',
         name: 'Nginx',
         component: () => import('../views/nginx/NginxManager.vue'),
