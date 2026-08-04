@@ -242,6 +242,7 @@ const navGroups = {
     { path: '/mfa', icon: '🔐', label: 'MFA', viewId: 'mfa' },
     { path: '/vpn', icon: '🌐', label: 'VPN', viewId: 'vpn' },
     { path: '/backup', icon: '💾', label: '备份', viewId: 'data-backup' },
+    { path: '/audit', icon: '📜', label: '审计', viewId: 'audit' },
     { path: '/disk-cleaner', icon: '🧹', label: '磁盘清理', viewId: 'disk-cleaner' },
   ],
 }

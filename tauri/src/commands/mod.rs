@@ -1,5 +1,6 @@
 pub mod accounting;
 pub mod alert;
+pub mod audit;
 pub mod cicd;
 pub mod data_backup;
 pub mod database;

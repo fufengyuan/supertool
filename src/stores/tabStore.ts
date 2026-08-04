@@ -46,6 +46,7 @@ export const KNOWN_ROUTES: Record<string, RouteInfo> = {
   '/servers':   { label: '服务器',  viewId: 'servers',          componentNames: ['ServerManager'] },
   '/cicd':      { label: 'CI/CD',   viewId: 'cicd',             componentNames: ['CiCdConfig'] },
   '/logs':      { label: '日志聚合',viewId: 'log-aggregator',   componentNames: ['LogAggregator'] },
+  '/audit':     { label: '审计', viewId: 'audit',              componentNames: ['AuditView'] },
   '/nginx':     { label: 'Nginx',   viewId: 'nginx',            componentNames: ['NginxManager'] },
   '/database':  { label: '数据库',  viewId: 'database',         componentNames: ['DBManager'] },
   // No agent routes anymore
