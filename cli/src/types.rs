@@ -84,6 +84,11 @@ pub enum Commands {
         #[command(subcommand)]
         action: AuditCommands,
     },
+    /// MCP server — 供 Claude Code / Cursor 等 AI 工具原生调用 stool 能力
+    Mcp {
+        #[command(subcommand)]
+        action: McpCommands,
+    },
     /// WireGuard tunnel 后台进程 — 由 GUI 通过 sudo 调起，普通用户不要直接运行
     #[command(name = "wg-tunnel", hide = true)]
     WgTunnel {
@@ -916,4 +921,15 @@ pub enum AuditCommands {
         #[arg(short, long)]
         json: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum McpCommands {
+    /// 启动 MCP stdio server（每行一条 JSON-RPC 消息，供 AI 客户端接入）
+    Serve {
+        #[arg(long, default_value = "stool")]
+        name: String,
+    },
+    /// 打印 MCP 工具清单（调试用）
+    ListTools,
 }
