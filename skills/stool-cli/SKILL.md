@@ -403,11 +403,16 @@ cli/src/
 
 ## CLI 自动分发
 
-打包安装时 `build.sh` 会将本项目 `skills/*/SKILL.md` 自动复制到：
-- `/usr/local/share/supertool/skills/<name>/SKILL.md`
-- `~/.hermes/skills/<name>/SKILL.md`
-- `~/.claw/skills/<name>/SKILL.md`
-- `~/.trae-cn/skills/<name>/SKILL.md`（Trae IDE）
-- `~/.supertool/skills` → 符号链接到 `/usr/local/share/supertool/skills`
+## CLI 自动分发（双通道）
 
-App 启动时 `cli_installer` 检测版本差异，通过 AppleScript 提权自动安装 `/usr/local/bin/stool`。
+**通道 1 — pkg 安装 postinstall（默认安装）**：`build.sh` 构建 pkg 时把 CLI 与 skills 打进 app bundle 的 `Contents/Resources/_up_/`，安装时 postinstall 脚本：
+- 复制 `_up_/target/release/stool` → `/usr/local/bin/stool`（分发失败会报错退出，不再静默）
+- 复制 `_up_/skills/*` → `/usr/local/share/supertool/skills`
+- 复制到用户目录：`~/.hermes/skills/`、`~/.claw/skills/`、`~/.trae-cn/skills/`（Trae IDE）、`~/.supertool/skills` → 符号链接
+- 安装位置从 `$3`（pkg 安装目标）推导，兜底 `/Applications`（支持自定义安装卷）
+
+**通道 2 — App 启动检测（dmg 安装/升级场景）**：App 启动时对比 `/usr/local/bin/stool` 与内置 CLI（`_up_/target/release/stool`）版本：
+- 不一致 → 顶部横幅提示"一键更新"，osascript 管理员权限安装（`check_cli_version` / `install_cli` Tauri 命令）
+- 同时静默同步内置 skills 到用户技能目录（`sync_user_skills`）
+
+> 历史遗留：旧版本曾完全依赖 postinstall，dmg 用户 CLI 永远停在首装版本（如 4.2）。双通道已覆盖。
