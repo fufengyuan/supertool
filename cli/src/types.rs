@@ -3,7 +3,11 @@ use clap::{Parser, Subcommand};
 #[derive(Parser, Debug)]
 #[command(
     name = "stool",
-    about = "SuperTool CLI v4.1.0 — AI Agent 专属运维工具\\n直连 supertool-core 共享库，零 UDS/HTTP 依赖，完全独立运行"
+    about = concat!(
+        "SuperTool CLI v",
+        env!("CARGO_PKG_VERSION"),
+        " — AI Agent 专属运维工具\\n直连 supertool-core 共享库，零 UDS/HTTP 依赖，完全独立运行"
+    )
 )]
 pub struct Cli {
     /// 全局 JSON 输出模式（等价于各命令的 -j；开启后所有命令输出 `{"ok": ..., "data": ...}` envelope）
