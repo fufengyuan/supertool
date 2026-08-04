@@ -100,9 +100,12 @@ export function useDBManager() {
     console.log("[useDBManager.ts] loadConnections() called")
     if (isLoaded.value) {return}
     try {
-      const raw = await getTauriAPI().getSetting('db_connections')
-      if (raw) {
-        connections.value = JSON.parse(raw)
+      // 走专用接口：后端对 db_connections 里每项密码解密后返回（旧 Electron 密文也能解）
+      const raw = await getTauriAPI().getDbConnections()
+      if (Array.isArray(raw) && raw.length > 0) {
+        connections.value = raw
+      } else if (Array.isArray(raw) && raw.length === 0) {
+        connections.value = []
       }
       const lastId = await getTauriAPI().getSetting('db_active_connection')
       if (lastId) {
@@ -118,10 +121,8 @@ export function useDBManager() {
   const saveConnections = async () => {
     console.log("[useDBManager.ts] saveConnections() called")
     try {
-      await getTauriAPI().setSetting(
-        'db_connections',
-        JSON.stringify(connections.value)
-      )
+      // 走专用接口：后端对每项明文密码加密后落盘
+      await getTauriAPI().setDbConnections(connections.value)
       if (activeConnectionId.value) {
         await getTauriAPI().setSetting('db_active_connection', activeConnectionId.value)
       }

@@ -498,6 +498,8 @@ fn main() {
             // Settings commands
             commands::settings::get_setting,
             commands::settings::set_setting,
+            commands::settings::get_db_connections,
+            commands::settings::set_db_connections,
             commands::settings::get_notification_settings,
             commands::settings::set_notification_settings,
             commands::settings::get_app_version,
@@ -891,6 +893,7 @@ fn main() {
             commands::disk_cleaner::find_duplicates,
             // Alert commands
             commands::alert::get_email_config,
+            commands::audit::audit_list,
             commands::alert::test_email_config,
             commands::alert::save_email_config,
             commands::alert::get_alert_services,
