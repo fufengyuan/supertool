@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
     about = concat!(
         "SuperTool CLI v",
         env!("CARGO_PKG_VERSION"),
-        " — AI Agent 专属运维工具\\n直连 supertool-core 共享库，零 UDS/HTTP 依赖，完全独立运行"
+        " — AI Agent 运维工具箱\\n服务器·CI/CD·数据库·日志·Git·MFA·审计 | JSON结构化输出 | MCP接入 | 操作审计"
     )
 )]
 pub struct Cli {
