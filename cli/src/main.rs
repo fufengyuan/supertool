@@ -217,6 +217,10 @@ async fn dispatch(cli: &Cli) -> Result<(), anyhow::Error> {
             let mut rt = init_rt(cli)?;
             cmd_audit(&mut rt, action).await
         }
+        types::Commands::Mcp { action } => {
+            let mut rt = init_rt(cli)?;
+            cmd_mcp(&mut rt, action).await
+        }
         types::Commands::WgTunnel { conf, uds } => {
             supertool_core::logic::wireguard_tunnel::run_tunnel(conf, uds)
                 .await
