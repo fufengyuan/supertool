@@ -38,7 +38,7 @@ Settings → MCP → Add server：
 命令: /usr/local/bin/stool mcp serve
 ```
 
-## 工具清单（22 个）
+## 工具清单（19 个）
 
 | 分组 | 工具 | 说明 |
 |------|------|------|
@@ -47,13 +47,14 @@ Settings → MCP → Add server：
 | CI/CD | `cicd_list` | 部署配置列表 |
 | | `cicd_deploy` | 触发部署（⚠️ 需审批配置自动拦截，提示用户 GUI 确认） |
 | | `cicd_history` | 部署历史 |
-| 数据库 | `db_list` / `db_query` / `db_tables` | SQL 查询与表结构 |
+| 数据库 | `db_list` / `db_query` / `db_tables` | SQL 查询与表结构（db_query 仅只读 SQL） |
 | Redis | `redis_keys` / `redis_get` | key 浏览与取值 |
 | 日志 | `log_list` / `log_search` / `log_tail` / `log_context` | 搜索与上下文定位 |
-| Git | `git_status` / `git_log` / `git_branches` | 仓库状态与历史 |
 | MFA | `mfa_code` | 生成 TOTP 验证码 |
 | 任务 | `todo_list` / `todo_add` / `todo_complete` | 任务管理 |
 | 审计 | `audit_list` | 操作审计查询 |
+
+> **为什么没有 Git 工具**：AI 客户端（Claude Code / Cursor）原生支持 git 命令，`stool` 的 Git 包装层价值在 GUI 展示与审计集成，MCP 里再包一层纯属冗余，故不提供。需要 git 时直接用系统命令即可。
 
 资源（resources）：`stool://servers`、`stool://log-presets`、`stool://cicd-configs`（只读，AI 可直接查询）。
 

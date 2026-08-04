@@ -224,28 +224,6 @@ fn list_tools() -> Value {
             }),
             &["preset", "server_id", "line_num"],
         ),
-        // ---- git ----
-        tool(
-            "git_status",
-            "查看 Git 仓库工作区状态",
-            json!({ "path": { "type": "string", "description": "仓库路径" } }),
-            &["path"],
-        ),
-        tool(
-            "git_log",
-            "查看 Git 提交历史",
-            json!({
-                "path": { "type": "string" },
-                "limit": { "type": "integer", "description": "条数，默认 20" },
-            }),
-            &["path"],
-        ),
-        tool(
-            "git_branches",
-            "列出 Git 分支",
-            json!({ "path": { "type": "string" } }),
-            &["path"],
-        ),
         // ---- mfa ----
         tool(
             "mfa_code",
@@ -342,9 +320,6 @@ async fn call_tool(rt: &mut CliRuntime, name: &str, args: &Value) -> Value {
         "log_search" => log_search(rt, args).await,
         "log_tail" => log_tail(rt, args).await,
         "log_context" => log_context(rt, args).await,
-        "git_status" => git_status(rt, args).await,
-        "git_log" => git_log(rt, args).await,
-        "git_branches" => git_branches(rt, args).await,
         "mfa_code" => mfa_code(rt, args).await,
         "todo_list" => rt.core.get_all_todos().await,
         "todo_add" => todo_add(rt, args).await,
@@ -535,24 +510,6 @@ async fn log_context(rt: &mut CliRuntime, args: &Value) -> Result<Value, String>
     let ctx = args.get("context_lines").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
     let id = resolve_preset(rt, preset).await?;
     rt.core.log_context(&id, server_id, line_num, ctx).await
-}
-
-// ---- git ----
-
-async fn git_status(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> {
-    let path = req_str(args, "path")?;
-    rt.core.git_status(path).await
-}
-
-async fn git_log(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> {
-    let path = req_str(args, "path")?;
-    let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
-    rt.core.git_log(path, Some(limit)).await
-}
-
-async fn git_branches(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> {
-    let path = req_str(args, "path")?;
-    rt.core.git_branches(path).await
 }
 
 // ---- mfa ----
