@@ -2147,23 +2147,51 @@ function scheduleFlush() {
     }
 
     // 智能裁剪：仅在超出上限时裁剪，避免每次 flush 都排序
+    // 历史日志行（isHistory，用户主动加载并插入头部）不参与裁剪——
+    // 否则 tail 持续追加触发裁剪时，splice(0, overflow) 会从头部把刚加载的历史日志
+    // 当"最早的实时行"删掉（表现为加载几秒后消失）
     const maxLines = MAX_LINES.value
     if (logLines.value.length > maxLines) {
-      const overflow = logLines.value.length - maxLines
-      // 原地删除头部多余元素，保持数组引用不变
-      logLines.value.splice(0, overflow)
-      // 同步调整虚拟滚动偏移量，避免裁剪后 visibleStart 索引错位（paddingTop 跳跃）
-      if (!followMode.value && logContainer.value && scrollTop.value > 0) {
-        const adjustedScroll = Math.max(0, scrollTop.value - overflow * VIRTUAL_LINE_HEIGHT)
-        // 标记程序化滚动，避免 onScroll 把 followMode 翻转为 false
-        scrollingFromRAFCount++
-        logContainer.value.scrollTop = adjustedScroll
-        scrollTop.value = adjustedScroll
-        // 用 rAF 重置，等浏览器派发完 scroll 事件后再放行 onScroll
-        requestAnimationFrame(() => { requestAnimationFrame(() => {
-          scrollingFromRAFCount--
-          if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
-        }) })
+      let historyCount = 0
+      while (historyCount < logLines.value.length && (logLines.value[historyCount] as any).isHistory) {
+        historyCount++
+      }
+      const nonHistoryCount = logLines.value.length - historyCount
+      if (nonHistoryCount > maxLines) {
+        const overflow = nonHistoryCount - maxLines
+        // 从历史行之后开始删（最早的实时行），保留历史日志与最新日志
+        logLines.value.splice(historyCount, overflow)
+        // 同步调整虚拟滚动偏移量，避免裁剪后 visibleStart 索引错位（paddingTop 跳跃）
+        // 删除点位于历史区（cutPx）之后：仅当视口在删除点下方时才需要前移 scrollTop
+        const cutPx = historyCount * VIRTUAL_LINE_HEIGHT
+        if (!followMode.value && logContainer.value && scrollTop.value > cutPx) {
+          const adjustedScroll = Math.max(cutPx, scrollTop.value - overflow * VIRTUAL_LINE_HEIGHT)
+          // 标记程序化滚动，避免 onScroll 把 followMode 翻转为 false
+          scrollingFromRAFCount++
+          logContainer.value.scrollTop = adjustedScroll
+          scrollTop.value = adjustedScroll
+          // 用 rAF 重置，等浏览器派发完 scroll 事件后再放行 onScroll
+          requestAnimationFrame(() => { requestAnimationFrame(() => {
+            scrollingFromRAFCount--
+            if (scrollingFromRAFCount < 0) { scrollingFromRAFCount = 0 }
+          }) })
+        }
+      }
+      // 历史行同样设上限：避免用户反复点击加载更多导致历史区无限增长撑爆内存
+      const HISTORY_MAX_LINES = Math.max(maxLines, 5000)
+      if (historyCount > HISTORY_MAX_LINES) {
+        const overflow = historyCount - HISTORY_MAX_LINES
+        logLines.value.splice(0, overflow)
+        if (!followMode.value && logContainer.value && scrollTop.value > 0) {
+          const adjustedScroll = Math.max(0, scrollTop.value - overflow * VIRTUAL_LINE_HEIGHT)
+          scrollingFromRAFCount++
+          logContainer.value.scrollTop = adjustedScroll
+          scrollTop.value = adjustedScroll
+          requestAnimationFrame(() => { requestAnimationFrame(() => {
+            scrollingFromRAFCount--
+            if (scrollingFromRAFCount < 0) { scrollingFromRAFCount = 0 }
+          }) })
+        }
       }
     }
     if (followMode.value) {
@@ -2293,6 +2321,8 @@ let _loadMoreCooldownUntil = 0
 async function loadMoreHistory() {
   if (queryMode.value !== 'stream' || !selectedPreset.value || !streamId.value || loadingMore.value) return
   if (Date.now() < _loadMoreCooldownUntil) return
+  // 用户主动查看历史：退出自动吸底，避免后续实时追加把视图拉回底部
+  followMode.value = false
   loadingMore.value = true
   try {
     const result = await getTauriAPI().logsLoadMore({
@@ -2342,6 +2372,8 @@ async function loadMoreHistory() {
             level: detectLevel(content),
             matched: kwMatch(content),
             sortKey: parsedTime ?? (baseSortKey - (addedCount + 1)),
+            // 标记为历史行：流式智能裁剪时跳过，避免被当作"最早的实时行"从头删掉
+            isHistory: true,
           })
           addedCount++
         }
