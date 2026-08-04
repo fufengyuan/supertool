@@ -3,8 +3,11 @@ pub fn print_guide() {
         "\n  SuperTool CLI v{} 使用指南\n",
         env!("CARGO_PKG_VERSION")
     );
+    println!("  📦 JSON 结构化输出：全局 --json 或各命令 -j（envelope: {{\"ok\":true,\"data\":...}}）");
+    println!("  🤖 AI 接入：stool mcp serve 启动 MCP server（Claude Code/Cursor 直接调用）");
+    println!("  📜 操作审计：写操作自动落库（参数脱敏），stool audit list 可查\n");
     println!("  任务管理:");
-    println!("    stool todo add '任务' [-p high] [-d 2024-12-31] [-t 标签]");
+    println!("    stool todo add '任务' [-p high] [-d 2025-01-31] [-t 标签]");
     println!("    stool todo list [-j] [-l 10]       stool todo search '关键词' [-j]");
     println!("    stool todo complete <id>            stool todo stats [-j]");
     println!("  服务器管理:");
@@ -53,5 +56,9 @@ pub fn print_guide() {
         "    stool backup export [--output path]  stool backup import <file> [--mode merge|replace]"
     );
     println!("    stool backup export-csv");
-    println!("\n  直连 supertool-core 共享库，零 UDS/HTTP 依赖");
+    println!("  操作审计:");
+    println!("    stool audit list [-j]               stool audit list --actor ai [--result failed]");
+    println!("  MCP 接入:");
+    println!("    stool mcp serve [--name stool]      stool mcp list-tools");
+    println!("\n  直连 supertool-core 共享库，零 UDS/HTTP 依赖，完全独立运行");
 }
