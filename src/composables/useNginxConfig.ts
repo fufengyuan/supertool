@@ -121,12 +121,12 @@ export function useNginxConfig() {
   }
 
   // Deploy config to remote
-  const deployConfig = async (comment: string) => {
+  const deployConfig = async (comment: string, confirmed?: boolean) => {
     if (!currentPreset.value || !configContent.value) {return}
     try {
       loading.value = true
       const p = currentPreset.value
-      const result = await getTauriAPI().deployNginxConfig(p.serverId, p.configPath, configContent.value, comment)
+      const result = await getTauriAPI().deployNginxConfig(p.serverId, p.configPath, configContent.value, comment, confirmed)
       // tauriCall 已解包 .data，但 deployNginxConfig 可能返回 {success, data} 或直接返回数据
       const ok = result?.success || result?.data?.success
       if (ok) {
@@ -144,6 +144,9 @@ export function useNginxConfig() {
         const verResult = await getTauriAPI().getNginxConfigVersions(p.id)
         versions.value = verResult?.data || verResult || []
         toast.success('配置已发布')
+      } else if (result?.requiresApproval) {
+        // 审批未确认：不弹 error，由调用方（onDeploy）提示 warning 并走确认弹窗
+        return result
       } else {
         toast.error(result?.error || result?.data?.error || '发布失败')
       }
@@ -156,7 +159,7 @@ export function useNginxConfig() {
   }
 
   // Rollback to a specific version
-  const rollbackToVersion = async (versionId: string) => {
+  const rollbackToVersion = async (versionId: string, confirmed?: boolean) => {
     if (!currentPreset.value) {return}
     try {
       loading.value = true
@@ -168,7 +171,7 @@ export function useNginxConfig() {
 
       // Deploy the old version's content
       const p = currentPreset.value
-      const result = await getTauriAPI().deployNginxConfig(p.serverId, p.configPath, version.content, `回滚到版本: ${version.comment || versionId}`)
+      const result = await getTauriAPI().deployNginxConfig(p.serverId, p.configPath, version.content, `回滚到版本: ${version.comment || versionId}`, confirmed)
       const ok = result?.success || result?.data?.success
       if (ok) {
         configContent.value = version.content

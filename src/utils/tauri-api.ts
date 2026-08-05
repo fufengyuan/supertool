@@ -1236,15 +1236,15 @@ export function useNginxAPI() {
     fetchNginxConfig: async (serverId: string, configPath: string): Promise<any> => tauriCall('fetch_nginx_config', { serverId, configPath }),
     testNginxConfig: async (serverId: string, configPath: string): Promise<any> => tauriCall('test_nginx_config', { serverId, configPath }),
     testNginxConfigContent: async (serverId: string, configPath: string, content: string): Promise<any> => tauriCall('test_nginx_config_content', { serverId, configPath, content }),
-    deployNginxConfig: async (serverId: string, configPath: string, content: string, comment: string): Promise<any> => tauriCall('deploy_nginx_config', { serverId, configPath, content, comment }),
+    deployNginxConfig: async (serverId: string, configPath: string, content: string, comment: string, confirmed?: boolean): Promise<any> => tauriCall('deploy_nginx_config', { serverId, configPath, content, comment, confirmed: confirmed || undefined }),
     getNginxConfigVersions: async (presetId: string): Promise<any> => tauriCall('get_nginx_config_versions', { presetId }),
     saveNginxConfigVersion: async (version: any): Promise<any> => tauriCall('save_nginx_config_version', { version }),
     setActiveNginxVersion: async (presetId: string, versionId: string): Promise<any> => tauriCall('set_active_nginx_version', { presetId, versionId }),
     generateNginxConfig: async (presetId: string): Promise<any> => tauriCall('generate_nginx_config', { presetId }),
     generateNginxConfigDecomposed: async (presetId: string): Promise<any> => tauriCall('generate_nginx_config_decomposed', { presetId }),
     previewNginxServer: async (presetId: string, server: any, locations: any[]): Promise<any> => tauriCall('preview_nginx_server', { presetId, server, locations }),
-    deployNginxConfigDecomposed: async (serverId: string, configPath: string, mainContent: string, subFiles: Array<{filename: string, content: string}>, comment: string): Promise<any> =>
-      tauriCall('deploy_nginx_config_decomposed', { serverId, configPath, mainContent, subFiles, comment }),
+    deployNginxConfigDecomposed: async (serverId: string, configPath: string, mainContent: string, subFiles: Array<{filename: string, content: string}>, comment: string, confirmed?: boolean): Promise<any> =>
+      tauriCall('deploy_nginx_config_decomposed', { serverId, configPath, mainContent, subFiles, comment, confirmed: confirmed || undefined }),
     // Servers
     getServersByPreset: async (presetId: string): Promise<any> => tauriCall('get_servers_by_preset', { presetId }),
     addNginxServer: async (server: any): Promise<any> => tauriCall('add_nginx_server', { server }),
@@ -1910,14 +1910,14 @@ export interface TauriAPI {
   fetchNginxConfig: (serverId: string, configPath: string) => Promise<any>
   testNginxConfig: (serverId: string, configPath: string) => Promise<any>
   testNginxConfigContent: (serverId: string, configPath: string, content: string) => Promise<any>
-  deployNginxConfig: (serverId: string, configPath: string, content: string, comment: string) => Promise<any>
+  deployNginxConfig: (serverId: string, configPath: string, content: string, comment: string, confirmed?: boolean) => Promise<any>
   getNginxConfigVersions: (presetId: string) => Promise<any>
   saveNginxConfigVersion: (version: any) => Promise<any>
   setActiveNginxVersion: (presetId: string, versionId: string) => Promise<any>
   generateNginxConfig: (presetId: string) => Promise<any>
   generateNginxConfigDecomposed: (presetId: string) => Promise<any>
   previewNginxServer: (presetId: string, server: any, locations: any[]) => Promise<any>
-  deployNginxConfigDecomposed: (serverId: string, configPath: string, mainContent: string, subFiles: Array<{filename: string, content: string}>, comment: string) => Promise<any>
+  deployNginxConfigDecomposed: (serverId: string, configPath: string, mainContent: string, subFiles: Array<{filename: string, content: string}>, comment: string, confirmed?: boolean) => Promise<any>
   getServersByPreset: (presetId: string) => Promise<any>
   addNginxServer: (server: any) => Promise<any>
   updateNginxServer: (server: any) => Promise<any>
