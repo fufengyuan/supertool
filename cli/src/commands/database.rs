@@ -45,6 +45,10 @@ pub async fn cmd_db(rt: &mut CliRuntime, action: &DbCommands) -> Result<()> {
             print_success("CLI 无状态连接，无需断开。");
         }
         DbCommands::Query { db_id, sql, json } => {
+            // 生产环境护栏：审批连接上只读 SQL 放行，写 SQL 拦截
+            if !crate::utils::is_read_only_sql(sql) {
+                check_db_connection_write(rt, db_id).await?;
+            }
             let config = get_db_config(rt, db_id).await?;
             let resp = rt
                 .core
@@ -181,6 +185,8 @@ pub async fn cmd_redis(
             }
         }
         RedisCommands::Set { key, value } => {
+            // 生产环境护栏：写命令在审批连接上拦截
+            check_db_connection_write(rt, db_id).await?;
             let resp = rt
                 .core
                 .db_redis_set_key(&config, db_index, key, value, 0)
@@ -193,6 +199,8 @@ pub async fn cmd_redis(
             }
         }
         RedisCommands::Delete { key } => {
+            // 生产环境护栏：写命令在审批连接上拦截
+            check_db_connection_write(rt, db_id).await?;
             let resp = rt
                 .core
                 .db_redis_delete_key(&config, db_index, key)
@@ -390,19 +398,41 @@ async fn get_db_config(rt: &mut CliRuntime, db_id: &str) -> Result<DbConnectionC
         .iter()
         .find(|c| c.get("id").and_then(|v| v.as_str()) == Some(db_id))
         .ok_or_else(|| anyhow::anyhow!("未找到数据库连接: {}", db_id))?;
-    // 生产环境护栏：开了审批的数据库连接（requiresApproval=true）CLI 完全禁止操作
-    if conn.get("requiresApproval").and_then(|v| v.as_bool()).unwrap_or(false) {
+    serde_json::from_value(conn.clone())
+        .map_err(|e| anyhow::anyhow!("解析连接配置失败: {}", e))
+}
+
+/// 生产环境护栏：数据库连接开启审批（requiresApproval=true）时禁止写操作（只读查询放行）
+async fn check_db_connection_write(rt: &mut CliRuntime, db_id: &str) -> Result<()> {
+    let setting = rt
+        .core
+        .get_setting("db_connections")
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let connections: Vec<serde_json::Value> = match setting {
+        serde_json::Value::String(s) => serde_json::from_str(&s).unwrap_or_default(),
+        serde_json::Value::Array(arr) => arr,
+        _ => vec![],
+    };
+    let conn = connections
+        .iter()
+        .find(|c| c.get("id").and_then(|v| v.as_str()) == Some(db_id))
+        .ok_or_else(|| anyhow::anyhow!("未找到数据库连接: {}", db_id))?;
+    if conn
+        .get("requiresApproval")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
         let name = conn.get("name").and_then(|v| v.as_str()).unwrap_or(db_id);
         return Err(output::fail(
             output::EXIT_UNAUTHORIZED,
             format!(
-                "数据库连接「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
+                "数据库连接「{}」已开启审批（生产环境），CLI 禁止写操作。只读查询不受限，请在 GUI 中操作写操作。",
                 name
             ),
         ));
     }
-    serde_json::from_value(conn.clone())
-        .map_err(|e| anyhow::anyhow!("解析连接配置失败: {}", e))
+    Ok(())
 }
 
 // ── Output formatters ──

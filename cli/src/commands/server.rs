@@ -131,7 +131,6 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             print_success(&format!("服务器已删除: {}", name));
         }
         ServerCommands::Test { id } => {
-            check_server_approval(runtime, id).await?;
             let servers: serde_json::Value = runtime
                 .core
                 .get_all_servers()
@@ -255,20 +254,6 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .get("name")
                 .and_then(|v| v.as_str())
                 .unwrap_or(id.as_str());
-            // 检查服务器是否开启执行审核
-            if server
-                .get("requiresApproval")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
-                return Err(output::fail(
-                    output::EXIT_UNAUTHORIZED,
-                    format!(
-                        "服务器「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
-                        name
-                    ),
-                ));
-            }
             let checks = [
                 (
                     "磁盘",
@@ -364,20 +349,6 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .get("name")
                 .and_then(|v| v.as_str())
                 .unwrap_or(id.as_str());
-            // 检查服务器是否开启执行审核
-            if server
-                .get("requiresApproval")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
-                return Err(output::fail(
-                    output::EXIT_UNAUTHORIZED,
-                    format!(
-                        "服务器「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
-                        name
-                    ),
-                ));
-            }
             let script = r#"echo "=== SYSTEM ===" && uname -a && echo "=== DISK ===" && df -h / && echo "=== MEMORY ===" && free -m && echo "=== LOAD ===" && uptime && echo "=== DOCKER ===" && docker ps --format 'table {{.Names}}\t{{.Status}}' 2>/dev/null || echo "No Docker" && echo "=== ERRORS (syslog) ===" && tail -n 20 /var/log/syslog 2>/dev/null | grep -i error && echo "=== ERRORS (kern) ===" && dmesg 2>/dev/null | tail -n 10 && echo "=== TOP PROCESSES ===" && ps aux --sort=-%cpu | head -6"#;
             let resp: serde_json::Value = runtime
                 .core
@@ -414,7 +385,6 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             }
         }
         ServerCommands::Read { id, path, json } => {
-            check_server_approval(runtime, id).await?;
             runtime.set_json(*json);
             // Try SFTP download first (returns base64 content)
             let result = runtime.core.sftp_download_file(id, path).await;
@@ -469,7 +439,6 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             }
         }
         ServerCommands::Ls { id, path, json } => {
-            check_server_approval(runtime, id).await?;
             let path_ref = path.as_deref().unwrap_or("/");
             let resp: serde_json::Value = runtime
                 .core
@@ -509,7 +478,6 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             output,
             json,
         } => {
-            check_server_approval(runtime, id).await?;
             runtime.set_json(*json);
             let local_path = output
                 .as_deref()
@@ -574,7 +542,6 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             }
         }
         ServerCommands::JavaPs { id, json } => {
-            check_server_approval(runtime, id).await?;
             let cmd = r#"ps aux | grep 'java.*\.jar' | grep -v grep | while read line; do
   pid=$(echo "$line" | awk '{print $2}')
   port=$(ss -tlnp 2>/dev/null | grep "pid=$pid" | grep -oP '(?<=:)\d+' | sort -u | tr '\n' ',')

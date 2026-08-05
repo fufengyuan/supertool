@@ -121,7 +121,6 @@ pub async fn cmd_nginx(
             json,
         } => {
 
-            check_server_approval(runtime, server_id).await?;            runtime.set_json(*json);
             let resp = runtime
                 .core
                 .fetch_nginx_config(server_id, config_path)
@@ -148,7 +147,6 @@ pub async fn cmd_nginx(
             json,
         } => {
 
-            check_server_approval(runtime, server_id).await?;            runtime.set_json(*json);
             let resp = runtime
                 .core
                 .test_nginx_config(server_id, config_path)
@@ -171,7 +169,8 @@ pub async fn cmd_nginx(
             json,
         } => {
 
-            check_server_approval(runtime, server_id).await?;            runtime.set_json(*json);
+            check_server_approval(runtime, server_id).await?;
+            runtime.set_json(*json);
             let resp = runtime
                 .core
                 .deploy_nginx_config(server_id, config_path, content)

@@ -438,14 +438,11 @@ async fn db_list(rt: &mut CliRuntime) -> Result<Value, String> {
 async fn db_query(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> {
     let db_id = req_str(args, "db_id")?;
     let sql = req_str(args, "sql")?;
-    // 只读白名单：AI 遭 prompt injection 时可防 DROP/TRUNCATE/DELETE 等破坏（CLI 不限制，MCP 层加强）
-    let sql_upper = sql.trim_start().to_uppercase();
-    let read_only_prefixes = [
-        "SELECT ", "SHOW ", "EXPLAIN ", "DESC ", "DESCRIBE ", "PRAGMA ", "WITH ",
-    ];
-    if !read_only_prefixes.iter().any(|p| sql_upper.starts_with(p)) {
+    // 只读白名单：AI 遭 prompt injection 时可防 DROP/TRUNCATE/DELETE 等破坏
+    // （与 CLI 审批连接同规则：SELECT/SHOW/EXPLAIN/DESC/PRAGMA 查询；WITH 可携带写语句故不放行）
+    if !crate::utils::is_read_only_sql(sql) {
         return Err(
-            "MCP 仅允许只读 SQL（SELECT/SHOW/EXPLAIN/DESC/PRAGMA/WITH），写操作请使用 GUI 或 CLI".into(),
+            "MCP 仅允许只读 SQL（SELECT/SHOW/EXPLAIN/DESC/PRAGMA 查询），写操作请使用 GUI 或 CLI".into(),
         );
     }
     let config = get_db_config(rt, db_id).await?;
@@ -496,52 +493,11 @@ async fn resolve_preset(rt: &mut CliRuntime, preset: &str) -> Result<String, Str
 }
 
 
-/// 生产环境护栏（MCP）：日志预设关联的任一服务器开启审批时禁止查询
-async fn check_preset_approval(rt: &mut CliRuntime, preset_id: &str, explicit_server_id: &str) -> Result<(), String> {
-    let presets: Value = rt.core.get_log_presets().await?;
-    let preset = presets
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(preset_id));
-    let Some(preset) = preset else { return Ok(()); };
-    let mut server_ids: Vec<String> = match preset.get("serverIds") {
-        Some(Value::Array(arr)) => arr
-            .iter()
-            .filter_map(|v| v.as_str().map(String::from))
-            .collect(),
-        Some(Value::String(s)) => serde_json::from_str(s).unwrap_or_default(),
-        _ => vec![],
-    };
-    if server_ids.is_empty() && explicit_server_id.is_empty() {
-        return Ok(());
-    }
-    if !explicit_server_id.is_empty() && !server_ids.iter().any(|x| x == explicit_server_id) {
-        server_ids.push(explicit_server_id.to_string());
-    }
-    let servers: Value = rt.core.get_all_servers().await?;
-    for s in servers.as_array().cloned().unwrap_or_default() {
-        let sid = s.get("id").and_then(|v| v.as_str()).unwrap_or("");
-        if server_ids.iter().any(|x| x == sid)
-            && s.get("requiresApproval").and_then(|v| v.as_bool()).unwrap_or(false)
-        {
-            let name = s.get("name").and_then(|v| v.as_str()).unwrap_or(sid);
-            return Err(format!(
-                "日志预设关联的服务器「{}」已开启审批（生产环境），AI 禁止操作。请在 GUI 中操作。",
-                name
-            ));
-        }
-    }
-    Ok(())
-}
-
 async fn log_search(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> {
     let preset = req_str(args, "preset")?;
     let keyword = req_str(args, "keyword")?;
     let lines = args.get("lines").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
     let id = resolve_preset(rt, preset).await?;
-    check_preset_approval(rt, &id, "").await?;
     rt.core.log_search(&id, &keyword, lines).await
 }
 
@@ -549,7 +505,6 @@ async fn log_tail(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> {
     let preset = req_str(args, "preset")?;
     let lines = args.get("lines").and_then(|v| v.as_u64()).unwrap_or(100) as usize;
     let id = resolve_preset(rt, preset).await?;
-    check_preset_approval(rt, &id, "").await?;
     rt.core.log_tail(&id, lines).await
 }
 
@@ -559,7 +514,6 @@ async fn log_context(rt: &mut CliRuntime, args: &Value) -> Result<Value, String>
     let line_num = args.get("line_num").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
     let ctx = args.get("context_lines").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
     let id = resolve_preset(rt, preset).await?;
-    check_preset_approval(rt, &id, server_id).await?;
     rt.core.log_context(&id, server_id, line_num, ctx).await
 }
 
@@ -669,14 +623,6 @@ async fn get_db_config(
         .iter()
         .find(|c| c.get("id").and_then(|v| v.as_str()) == Some(db_id))
         .ok_or_else(|| format!("未找到数据库连接: {}", db_id))?;
-    // 生产环境护栏：开了审批的数据库连接（requiresApproval=true）MCP 完全禁止操作
-    if conn.get("requiresApproval").and_then(|v| v.as_bool()).unwrap_or(false) {
-        let name = conn.get("name").and_then(|v| v.as_str()).unwrap_or(db_id);
-        return Err(format!(
-            "数据库连接「{}」已开启审批（生产环境），AI 禁止操作。请在 GUI 中操作。",
-            name
-        ));
-    }
     serde_json::from_value(conn.clone()).map_err(|e| format!("解析连接配置失败: {}", e))
 }
 
