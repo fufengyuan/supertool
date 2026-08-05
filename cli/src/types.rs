@@ -624,9 +624,14 @@ pub enum MfaCommands {
     },
     /// 删除 MFA 密钥
     Delete { id: String },
-    /// 生成 TOTP 验证码（支持按 ID 或序号）
+    /// 生成 TOTP 验证码（支持按 ID / 序号 / 名称关键字）
     Code {
         identifier: String,
+        #[arg(short, long)]
+        json: bool,
+    },
+    /// 批量输出所有密钥的当前验证码（AI 登录被 MFA 拦截时直接挑选）
+    Codes {
         #[arg(short, long)]
         json: bool,
     },

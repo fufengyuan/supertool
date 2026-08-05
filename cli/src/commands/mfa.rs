@@ -73,8 +73,16 @@ pub async fn cmd_mfa(runtime: &mut CliRuntime, action: &crate::types::MfaCommand
                         None
                     }
                 } else {
+                    // 精确 ID → 名称模糊匹配（不区分大小写，AI 登录场景按名称最顺手）
+                    let kw = identifier.to_lowercase();
                     arr.iter()
-                        .find(|s| s.get("id").and_then(|v| v.as_str()) == Some(identifier.as_str()))
+                        .find(|s| {
+                            s.get("id").and_then(|v| v.as_str()) == Some(identifier.as_str())
+                                || s.get("name")
+                                    .and_then(|v| v.as_str())
+                                    .map(|n| n.to_lowercase().contains(&kw))
+                                    .unwrap_or(false)
+                        })
                         .cloned()
                 }
             } else {
@@ -116,6 +124,52 @@ pub async fn cmd_mfa(runtime: &mut CliRuntime, action: &crate::types::MfaCommand
                     );
                 }
                 None => print_error(&format!("未找到 MFA 密钥: {}", identifier)),
+            }
+        }
+        MfaCommands::Codes { json } => {
+            runtime.set_json(*json);
+            let secrets = runtime
+                .core
+                .get_all_mfa_secrets()
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let arr = secrets.as_array().cloned().unwrap_or_default();
+            if arr.is_empty() {
+                print_error("没有任何 MFA 密钥，请先 stool mfa add 添加");
+                return Ok(());
+            }
+            // 并行生成所有验证码（顺序输出，与 list 一致）
+            let mut results: Vec<serde_json::Value> = Vec::new();
+            for s in &arr {
+                let secret = s.get("secret").and_then(|v| v.as_str()).unwrap_or("");
+                let digits = s.get("digits").and_then(|v| v.as_u64()).unwrap_or(6) as u32;
+                let period = s.get("period").and_then(|v| v.as_u64()).unwrap_or(30) as u32;
+                let algorithm = s.get("algorithm").and_then(|v| v.as_str()).unwrap_or("SHA1");
+                if let Ok(result) = runtime
+                    .core
+                    .generate_totp(secret, digits, period, algorithm)
+                    .await
+                {
+                    results.push(serde_json::json!({
+                        "name": s.get("name").and_then(|v| v.as_str()).unwrap_or("?"),
+                        "code": result.get("code").and_then(|v| v.as_str()).unwrap_or("?"),
+                        "remainingSeconds": result.get("remaining").and_then(|v| v.as_u64()).unwrap_or(0),
+                        "id": s.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                    }));
+                }
+            }
+            if runtime.json_mode {
+                print_json(&results);
+                return Ok(());
+            }
+            println!("\n  当前验证码 ({}):", results.len());
+            for r in &results {
+                println!(
+                    "  \x1b[1;36m{:<24}\x1b[0m \x1b[1;32m{}\x1b[0m  ({}s 后过期)",
+                    r.get("name").and_then(|v| v.as_str()).unwrap_or("?"),
+                    r.get("code").and_then(|v| v.as_str()).unwrap_or("?"),
+                    r.get("remainingSeconds").and_then(|v| v.as_u64()).unwrap_or(0)
+                );
             }
         }
         MfaCommands::ParseUri { uri, json } => {

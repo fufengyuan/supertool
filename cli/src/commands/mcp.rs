@@ -227,9 +227,15 @@ fn list_tools() -> Value {
         // ---- mfa ----
         tool(
             "mfa_code",
-            "生成 MFA TOTP 验证码（按 ID 或序号）",
-            json!({ "identifier": { "type": "string", "description": "MFA 密钥 ID 或列表序号" } }),
+            "生成 MFA TOTP 验证码（按 ID / 序号 / 名称关键字）",
+            json!({ "identifier": { "type": "string", "description": "MFA 密钥 ID、列表序号或名称关键字" } }),
             &["identifier"],
+        ),
+        tool(
+            "mfa_codes",
+            "批量输出所有密钥的当前验证码（登录被 MFA 拦截时直接挑选）",
+            json!({}),
+            &[],
         ),
         // ---- todo ----
         tool("todo_list", "列出任务（支持按优先级/完成状态）", json!({}), &[]),
@@ -321,6 +327,7 @@ async fn call_tool(rt: &mut CliRuntime, name: &str, args: &Value) -> Value {
         "log_tail" => log_tail(rt, args).await,
         "log_context" => log_context(rt, args).await,
         "mfa_code" => mfa_code(rt, args).await,
+        "mfa_codes" => mfa_codes(rt).await,
         "todo_list" => rt.core.get_all_todos().await,
         "todo_add" => todo_add(rt, args).await,
         "todo_complete" => todo_complete(rt, args).await,
@@ -525,11 +532,19 @@ async fn mfa_code(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> {
             None
         }
     } else {
+        // 精确 ID → 名称模糊匹配（与 CLI mfa code 一致，AI 按名称最顺手）
+        let kw = identifier.to_lowercase();
         arr.iter()
-            .find(|s| s.get("id").and_then(|v| v.as_str()) == Some(identifier))
+            .find(|s| {
+                s.get("id").and_then(|v| v.as_str()) == Some(identifier)
+                    || s.get("name")
+                        .and_then(|v| v.as_str())
+                        .map(|n| n.to_lowercase().contains(&kw))
+                        .unwrap_or(false)
+            })
             .cloned()
     };
-    let s = target.ok_or_else(|| format!("未找到 MFA 密钥: {}", identifier))?;
+    let s = target.ok_or_else(|| format!("未找到 MFA 密钥: {}（可用 mfa_codes 查看全部）", identifier))?;
     let secret = s.get("secret").and_then(|v| v.as_str()).unwrap_or("");
     let digits = s.get("digits").and_then(|v| v.as_u64()).unwrap_or(6) as u32;
     let period = s.get("period").and_then(|v| v.as_u64()).unwrap_or(30) as u32;
@@ -541,6 +556,31 @@ async fn mfa_code(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> {
         "remainingSeconds": result.get("remaining").and_then(|v| v.as_u64()).unwrap_or(0),
         "id": s.get("id").and_then(|v| v.as_str()).unwrap_or(""),
     }))
+}
+
+/// 批量输出所有密钥的当前验证码（AI 登录被 MFA 拦截时直接挑选）
+async fn mfa_codes(rt: &mut CliRuntime) -> Result<Value, String> {
+    let secrets = rt.core.get_all_mfa_secrets().await?;
+    let arr = secrets.as_array().cloned().unwrap_or_default();
+    if arr.is_empty() {
+        return Ok(json!([]));
+    }
+    let mut results: Vec<Value> = Vec::new();
+    for s in &arr {
+        let secret = s.get("secret").and_then(|v| v.as_str()).unwrap_or("");
+        let digits = s.get("digits").and_then(|v| v.as_u64()).unwrap_or(6) as u32;
+        let period = s.get("period").and_then(|v| v.as_u64()).unwrap_or(30) as u32;
+        let algorithm = s.get("algorithm").and_then(|v| v.as_str()).unwrap_or("SHA1");
+        if let Ok(result) = rt.core.generate_totp(secret, digits, period, algorithm).await {
+            results.push(json!({
+                "name": s.get("name").and_then(|v| v.as_str()).unwrap_or("?"),
+                "code": result.get("code").and_then(|v| v.as_str()).unwrap_or("?"),
+                "remainingSeconds": result.get("remaining").and_then(|v| v.as_u64()).unwrap_or(0),
+                "id": s.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+            }));
+        }
+    }
+    Ok(Value::Array(results))
 }
 
 // ---- todo ----
