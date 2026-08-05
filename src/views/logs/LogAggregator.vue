@@ -147,6 +147,18 @@
             <span v-if="selectedPreset" class="text-primary font-medium">· 当前：{{ selectedPreset.name }}</span>
           </div>
           <div class="flex items-center gap-2">
+            <!-- 节点筛选：聚合全部 / 单节点切换 -->
+            <select
+              v-if="availableServers.length > 1"
+              v-model="selectedServerFilter"
+              class="select select-sm select-bordered h-8 min-h-0 text-xs w-[140px]"
+              :title="selectedServerFilter ? '当前仅显示该节点日志' : '聚合显示所有节点日志'"
+            >
+              <option :value="null">全部节点 ({{ availableServers.length }})</option>
+              <option v-for="s in availableServers" :key="s.id" :value="s.id">
+                {{ s.name }}{{ s.online ? ' ●' : '' }}
+              </option>
+            </select>
             <button
               @click="stopQuery"
               v-if="isStreaming"
@@ -623,6 +635,8 @@ const isStreaming = ref(false)
 const followMode = ref(true)
 const userScrolledUp = ref(false)
 const activeServers = ref(new Set<string>())
+// 节点筛选：null=聚合全部，否则只看某个 serverId（流式 + 搜索通用）
+const selectedServerFilter = ref<string | null>(null)
 const streamId = ref('')
 const logContainer = ref<HTMLElement | null>(null)
 // 计数器替代布尔标志：多个程序化滚动操作并发时（如 scrollToBottom + loadMoreHistory 同时触发）
@@ -1953,14 +1967,30 @@ const searchPlaceholder = computed(() => {
 // 流式模式：使用 flush 时预计算的 matched 标记，避免每次重扫
 // 优化：当无关键字时直接返回原数组（零拷贝），避免 computed 无谓重建
 const displayLines = computed(() => {
+  let lines: typeof logLines.value
   if (queryMode.value === 'search') {
-    return logLines.value
+    lines = logLines.value
+  } else if (!selectedPreset.value?.keywords?.length) {
+    lines = logLines.value
+  } else {
+    lines = logLines.value.filter(line => line.matched !== false)
   }
-  // 流式模式：无关键字直接显示全部（零过滤开销）
-  if (!selectedPreset.value?.keywords?.length) {
-    return logLines.value
+  // 节点筛选：选中某节点时只显示该节点的日志行
+  if (selectedServerFilter.value) {
+    lines = lines.filter(line => line.serverId === selectedServerFilter.value)
   }
-  return logLines.value.filter(line => line.matched !== false)
+  return lines
+})
+
+// 当前可选的节点列表（从预设配置 + 实际收到日志的节点合并）
+const availableServers = computed(() => {
+  const preset = selectedPreset.value
+  if (!preset?.serverIds?.length) return []
+  const presetServers = preset.serverIds.map((sid: string) => {
+    const s = allServers.value.find(srv => srv.id === sid)
+    return { id: sid, name: s?.name || sid, online: activeServers.value.has(sid) }
+  })
+  return presetServers
 })
 
 // 预设分组折叠
@@ -2011,6 +2041,7 @@ async function selectAndQuery(preset: any) {
   // 搜索模式下只选中预设
   if (queryMode.value === 'search') {
     selectedPreset.value = preset
+    selectedServerFilter.value = null
     return
   }
 
@@ -2021,6 +2052,7 @@ async function selectAndQuery(preset: any) {
   }
 
   selectedPreset.value = preset
+  selectedServerFilter.value = null  // 切换预设时重置节点筛选
   recalculateMatched()
   if (isStreaming.value) {
     await stopQuery()
@@ -2546,6 +2578,8 @@ async function switchQueryMode(mode: 'stream' | 'search') {
   pendingScroll = false
   logLines.value = []
   hasSearched.value = false
+  // 切换模式时重置节点筛选（搜索/流式共用同一筛选器，切换时清空避免困惑）
+  selectedServerFilter.value = null
   // 重置搜索导航状态，避免切回搜索模式时显示陈旧的匹配索引
   matchIndices.value = []
   currentMatchIndex.value = -1
@@ -2576,6 +2610,7 @@ async function switchQueryMode(mode: 'stream' | 'search') {
 function clearLogs() {
   logLines.value = []
   hasSearched.value = false
+  selectedServerFilter.value = null
 }
 
 // 导出日志
