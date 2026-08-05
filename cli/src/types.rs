@@ -19,36 +19,46 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// 显示版本号
     Version,
+    /// 使用指南 — 命令速查与 JSON 输出规范
     Guide,
+    /// 任务管理 — 增删改查/搜索/统计/子任务
     Todo {
         #[command(subcommand)]
         action: TodoCommands,
     },
+    /// 子任务管理 — 属于任务的子项增删改查
     Subtask {
         #[command(subcommand)]
         action: SubtaskCommands,
     },
+    /// 项目管理 — 项目 CRUD/统计/任务聚合
     Project {
         #[command(subcommand)]
         action: ProjectCommands,
     },
+    /// 服务器管理 — SSH 命令执行/文件操作/健康诊断/审批
     Server {
         #[command(subcommand)]
         action: ServerCommands,
     },
+    /// CI/CD 部署管理 — 部署/回滚/取消/历史/模块
     Cicd {
         #[command(subcommand)]
         action: CicdCommands,
     },
+    /// 数据库管理 — SQL 查询/表结构/Redis 操作
     Db {
         #[command(subcommand)]
         action: DbCommands,
     },
+    /// 日志管理 — 流式查询/搜索/上下文定位/预设
     Log {
         #[command(subcommand)]
         action: LogCommands,
     },
+    /// Git 仓库操作 — 状态/提交/拉取推送/分支切换
     Git {
         #[command(subcommand)]
         action: GitCommands,
