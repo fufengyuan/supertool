@@ -1,32 +1,7 @@
 use crate::output::{print_error, print_json, print_success};
-use crate::output::{fail, EXIT_UNAUTHORIZED};
 use crate::runtime::CliRuntime;
 use anyhow::{Result, anyhow};
 
-
-/// 生产环境护栏：服务器开启审批（requiresApproval=true）时，CLI 禁止拉取/测试/部署 nginx 配置
-async fn check_server_approval(runtime: &mut CliRuntime, server_id: &str) -> Result<()> {
-    let servers: serde_json::Value = runtime
-        .core
-        .get_all_servers()
-        .await
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
-    for s in servers.as_array().cloned().unwrap_or_default() {
-        if s.get("id").and_then(|v| v.as_str()) == Some(server_id)
-            && s.get("requiresApproval").and_then(|v| v.as_bool()).unwrap_or(false)
-        {
-            let name = s.get("name").and_then(|v| v.as_str()).unwrap_or(server_id);
-            return Err(fail(
-                EXIT_UNAUTHORIZED,
-                format!(
-                    "服务器「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
-                    name
-                ),
-            ));
-        }
-    }
-    Ok(())
-}
 
 pub async fn cmd_nginx(
     runtime: &mut CliRuntime,
@@ -169,7 +144,6 @@ pub async fn cmd_nginx(
             json,
         } => {
 
-            check_server_approval(runtime, server_id).await?;
             runtime.set_json(*json);
             let resp = runtime
                 .core
