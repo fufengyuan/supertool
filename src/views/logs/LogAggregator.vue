@@ -176,8 +176,6 @@
               <SvgIcon name="refresh" size="14" /> 继续
             </button>
             <button @click="clearLogs" class="btn btn-ghost btn-sm border border-base-content/10">清除</button>
-            <button @click="exportLogs" class="btn btn-ghost btn-sm border border-base-content/10"><SvgIcon name="download" size="14" /> 导出</button>
-            <button @click="downloadRemoteLogs" v-if="selectedPreset && selectedPreset.logType === 'file'" class="btn btn-ghost btn-sm border border-base-content/10" title="下载远程日志文件到本地"><SvgIcon name="download" size="14" /> 下载日志</button>
             <button @click="viewFullRemoteLog" v-if="selectedPreset && selectedPreset.logType === 'file'" class="btn btn-ghost btn-sm border border-base-content/10" title="下载远程日志文件到本地离线查看，支持多节点"><SvgIcon name="fileText" size="14" /> 离线查看</button>
             <!-- 全屏切换：隐藏侧栏 + 浮动覆盖整个窗口 -->
             <button @click="toggleFullscreen" class="btn btn-ghost btn-sm border border-base-content/10" :title="isFullscreen ? '退出全屏 (Esc)' : '全屏显示'">
@@ -691,6 +689,7 @@ const currentMatchId = ref<string | null>(null)
 const loadingMore = ref(false)
 
 // 下载状态
+// 下载状态（已移除导出/下载日志功能，isDownloadingLog 保留声明避免其他引用报错）
 const isDownloadingLog = ref(false)
 
 // ── 离线日志查看（多服务器节点，后端按需返回 HTML，前端只渲染） ──
@@ -1761,7 +1760,7 @@ async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boole
 
 async function copyFullLog() {
   // 提示用户：大文件不支持一次性复制全部
-  toast.info('完整日志过大，请使用"下载日志"按钮保存到本地后再复制')
+  toast.info('完整日志过大，请使用"离线查看"下载到本地后再复制')
 }
 
 // 滚动状态
@@ -2661,87 +2660,7 @@ function clearLogs() {
   selectedServerFilter.value = null
 }
 
-// 导出日志
-function exportLogs() {
-  const lines = logLines.value
-  if (lines.length === 0) {
-    toast.warning('没有可导出的日志')
-    return
-  }
-  const text = lines.map(l => {
-    // 优先用 sortKey（流式行有真实解析时间戳）；sortKey 缺失时退而求其次用 timestamp
-    const tsNum = l.sortKey ?? l.timestamp
-    const ts = tsNum ? new Date(tsNum).toISOString().slice(11, 19) : ''
-    const shown = l.matched !== false
-    return `[${ts}][${l.serverName}]${shown ? '' : ' [已过滤]'} ${l.content}`
-  }).join('\n')
-
-  const blob = new Blob([text], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `logs_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`
-  a.click()
-  URL.revokeObjectURL(url)
-  toast.success(`已导出 ${lines.length} 行日志`)
-}
-
-// 下载远程日志文件
-async function downloadRemoteLogs() {
-  if (!selectedPreset.value) {
-    toast.warning('请先选择预设')
-    return
-  }
-  if (!selectedPreset.value.logPath) {
-    toast.warning('预设未配置日志路径')
-    return
-  }
-  if (!selectedPreset.value.serverIds?.length) {
-    toast.warning('预设未配置服务器')
-    return
-  }
-
-  // 获取第一个日志路径
-  const paths = selectedPreset.value.logPath.split('\n').filter(p => p.trim())
-  if (paths.length === 0) {
-    toast.warning('日志路径为空')
-    return
-  }
-  const logPath = paths[0].trim()
-
-  // 获取第一个服务器
-  const serverId = selectedPreset.value.serverIds[0]
-  const server = allServers.value.find(s => s.id === serverId)
-  if (!server) {
-    toast.warning('服务器不存在')
-    return
-  }
-
-  try {
-    isDownloadingLog.value = true
-    toast.info(`正在从 ${server.name} 下载 ${logPath}...`)
-
-    // 获取下载目录
-    const downloadsDir = await getTauriAPI().getDownloadsDir()
-    const fileName = logPath.split('/').pop() || 'log.txt'
-    const timestamp = new Date().toISOString().slice(0, 10)
-    const localPath = downloadsDir.endsWith('/') || downloadsDir.endsWith('\\')
-      ? downloadsDir + `${server.name}_${timestamp}_${fileName}`
-      : downloadsDir + '/' + `${server.name}_${timestamp}_${fileName}`
-
-    // 下载文件
-    await getTauriAPI().downloadFile(serverId, logPath, localPath)
-
-    toast.success(`下载成功: ${localPath}`)
-
-    // 打开文件所在目录
-    await getTauriAPI().lanOpenFileFolder(localPath)
-  } catch (error: any) {
-    handleError(error, { context: 'downloadRemoteLogs' })
-  } finally {
-    isDownloadingLog.value = false
-  }
-}
+// 导出日志与下载远程日志功能已移除（离线查看已覆盖该需求）
 
 // 预设管理
 async function loadPresets() {
