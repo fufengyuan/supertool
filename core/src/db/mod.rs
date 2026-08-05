@@ -111,7 +111,8 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             digits INTEGER NOT NULL DEFAULT 6,
             period INTEGER NOT NULL DEFAULT 30,
             algorithm TEXT NOT NULL DEFAULT 'SHA1',
-            createdAt TEXT NOT NULL
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
         CREATE TABLE IF NOT EXISTS notes (
@@ -631,6 +632,11 @@ pub fn init_db(conn: &Connection) -> Result<()> {
     );
     let _ = conn.execute(
         "ALTER TABLE log_presets ADD COLUMN updatedAt TEXT",
+        [],
+    );
+    // Migration: mfa_secrets 早期版本缺失 updatedAt 列（add_mfa_secret 依赖）
+    let _ = conn.execute(
+        "ALTER TABLE mfa_secrets ADD COLUMN updatedAt TEXT DEFAULT (datetime('now'))",
         [],
     );
     // Migration: add smtp_encryption column for databases created before v4.1

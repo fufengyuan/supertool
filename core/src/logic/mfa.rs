@@ -46,8 +46,9 @@ impl super::CoreService {
         self.with_db(|db| {
             db.conn_mut()
                 .execute(
-                    "INSERT INTO mfa_secrets (id, name, secret, issuer, account, digits, period, algorithm, createdAt) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                    params![id, name, secret, issuer, account, digits as i64, period as i64, algorithm, now],
+                    // 显式写 updatedAt（旧库该列 NOT NULL 无默认值，不写会插入失败）
+                    "INSERT INTO mfa_secrets (id, name, secret, issuer, account, digits, period, algorithm, createdAt, updatedAt) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                    params![id, name, secret, issuer, account, digits as i64, period as i64, algorithm, now, now],
                 )
                 .map_err(|e| e.to_string())
         })
