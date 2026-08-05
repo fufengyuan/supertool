@@ -1,5 +1,24 @@
 use serde_json::{Value, json};
 
+/// snake_case → camelCase（nginx_servers → nginxServers）
+/// 仅用于备份导出/导入的固定表名集合转换（表名不含连续/首下划线，边界缺陷不会命中），
+/// 不要用于任意 key（settings 等用户自定义 key 保持原样）
+fn snake_to_camel(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut upper_next = false;
+    for c in s.chars() {
+        if c == '_' {
+            upper_next = true;
+        } else if upper_next {
+            out.push(c.to_ascii_uppercase());
+            upper_next = false;
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 impl super::CoreService {
     pub async fn export_all_data(&self) -> Result<Value, String> {
         let todos = self.get_all_todos().await?;
@@ -276,7 +295,8 @@ impl super::CoreService {
                         Ok(json!(map))
                     }) {
                         let arr: Vec<Value> = rows.flatten().collect();
-                        result.insert(table.to_string(), json!(arr));
+                        // key 统一驼峰（与导入端一致；旧格式下划线由导入端归一化兼容）
+                        result.insert(snake_to_camel(table).to_string(), json!(arr));
                     }
                 }
             }
@@ -294,6 +314,23 @@ impl super::CoreService {
         let mut imported = 0usize;
         let mut skipped = 0usize;
         let mut errors: Vec<String> = Vec::new();
+
+        // 兼容早期备份文件：导出端曾用下划线 key（nginx_servers），
+        // 导入端统一驼峰（nginxServers）。归一化一次，后续 data.get 全用驼峰。
+        let mut data = data;
+        if let Some(obj) = data.as_object_mut() {
+            let keys: Vec<String> = obj.keys().cloned().collect();
+            for k in keys {
+                if k.contains('_') {
+                    let camel = snake_to_camel(&k);
+                    if !obj.contains_key(&camel) {
+                        if let Some(v) = obj.remove(&k) {
+                            obj.insert(camel, v);
+                        }
+                    }
+                }
+            }
+        }
 
         // Get direct DB access for batch import
         self.db_write(|conn| {
