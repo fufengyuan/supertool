@@ -1993,6 +1993,23 @@ const availableServers = computed(() => {
   return presetServers
 })
 
+// 节点筛选切换时：重算搜索匹配索引（displayLines 变了）、重置导航、流式模式自动吸底
+watch(selectedServerFilter, () => {
+  // 搜索模式：displayLines 随节点筛选变化，匹配索引必须重算，否则 N/n 跳转指向失效行号
+  if (queryMode.value === 'search' && hasSearched.value) {
+    matchIndices.value = []
+    currentMatchIndex.value = -1
+    currentMatchId.value = null
+    nextTick(() => updateMatchIndices())
+  }
+  // 流式模式：切换节点后内容量可能骤变，若在跟随模式则自动吸底，否则保持当前位置
+  if (queryMode.value === 'stream' && followMode.value && logContainer.value) {
+    nextTick(() => {
+      if (followMode.value) scrollToBottomSilent()
+    })
+  }
+})
+
 // 预设分组折叠
 function togglePresetGroup(group: string) {
   if (collapsedPresetGroups.value.has(group)) {
