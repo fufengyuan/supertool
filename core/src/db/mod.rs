@@ -193,7 +193,9 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             logType TEXT NOT NULL DEFAULT 'file',
             maxLines INTEGER NOT NULL DEFAULT 100,
             presetGroup TEXT,
-            keywords TEXT NOT NULL DEFAULT '[]'
+            keywords TEXT NOT NULL DEFAULT '[]',
+            createdAt TEXT DEFAULT (datetime('now')),
+            updatedAt TEXT DEFAULT (datetime('now'))
         );
 
         CREATE TABLE IF NOT EXISTS openvpn_configs (
@@ -620,6 +622,15 @@ pub fn init_db(conn: &Connection) -> Result<()> {
     // Migration: add keywords column for databases created before v3.1.9
     let _ = conn.execute(
         "ALTER TABLE log_presets ADD COLUMN keywords TEXT NOT NULL DEFAULT '[]'",
+        [],
+    );
+    // Migration: add createdAt/updatedAt columns（add_log_preset 的 INSERT 一直依赖这两列，早期建表遗漏）
+    let _ = conn.execute(
+        "ALTER TABLE log_presets ADD COLUMN createdAt TEXT",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE log_presets ADD COLUMN updatedAt TEXT",
         [],
     );
     // Migration: add smtp_encryption column for databases created before v4.1
