@@ -5,6 +5,31 @@ use crate::types::*;
 use crate::utils::*;
 use anyhow::Result;
 
+/// 生产环境护栏：服务器开启审批（requiresApproval=true）时，CLI 完全禁止操作（读写都不行）。
+/// 命中返回 exit code 3（未授权），供 AI/脚本识别后转 GUI。
+async fn check_server_approval(rt: &mut CliRuntime, id: &str) -> Result<()> {
+    let servers: serde_json::Value = rt
+        .core
+        .get_all_servers()
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    for s in servers.as_array().cloned().unwrap_or_default() {
+        if s.get("id").and_then(|v| v.as_str()) == Some(id) {
+            if s.get("requiresApproval").and_then(|v| v.as_bool()).unwrap_or(false) {
+                let name = s.get("name").and_then(|v| v.as_str()).unwrap_or(id);
+                return Err(output::fail(
+                    output::EXIT_UNAUTHORIZED,
+                    format!(
+                        "服务器「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
+                        name
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Result<()> {
     match action {
         ServerCommands::List { json } => {
@@ -106,6 +131,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             print_success(&format!("服务器已删除: {}", name));
         }
         ServerCommands::Test { id } => {
+            check_server_approval(runtime, id).await?;
             let servers: serde_json::Value = runtime
                 .core
                 .get_all_servers()
@@ -180,7 +206,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                     return Err(output::fail(
                         output::EXIT_UNAUTHORIZED,
                         format!(
-                            "服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
+                            "服务器「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
                             name
                         ),
                     ));
@@ -235,10 +261,13 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
             {
-                anyhow::bail!(
-                    "⚠️ 服务器「{}」已开启执行审核，CLI 不支持健康检查（需执行命令）。请在 GUI 中操作。",
-                    name
-                );
+                return Err(output::fail(
+                    output::EXIT_UNAUTHORIZED,
+                    format!(
+                        "服务器「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
+                        name
+                    ),
+                ));
             }
             let checks = [
                 (
@@ -341,10 +370,13 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
             {
-                anyhow::bail!(
-                    "⚠️ 服务器「{}」已开启执行审核，CLI 不支持智能诊断（需执行命令）。请在 GUI 中操作。",
-                    name
-                );
+                return Err(output::fail(
+                    output::EXIT_UNAUTHORIZED,
+                    format!(
+                        "服务器「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
+                        name
+                    ),
+                ));
             }
             let script = r#"echo "=== SYSTEM ===" && uname -a && echo "=== DISK ===" && df -h / && echo "=== MEMORY ===" && free -m && echo "=== LOAD ===" && uptime && echo "=== DOCKER ===" && docker ps --format 'table {{.Names}}\t{{.Status}}' 2>/dev/null || echo "No Docker" && echo "=== ERRORS (syslog) ===" && tail -n 20 /var/log/syslog 2>/dev/null | grep -i error && echo "=== ERRORS (kern) ===" && dmesg 2>/dev/null | tail -n 10 && echo "=== TOP PROCESSES ===" && ps aux --sort=-%cpu | head -6"#;
             let resp: serde_json::Value = runtime
@@ -382,6 +414,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             }
         }
         ServerCommands::Read { id, path, json } => {
+            check_server_approval(runtime, id).await?;
             runtime.set_json(*json);
             // Try SFTP download first (returns base64 content)
             let result = runtime.core.sftp_download_file(id, path).await;
@@ -436,6 +469,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             }
         }
         ServerCommands::Ls { id, path, json } => {
+            check_server_approval(runtime, id).await?;
             let path_ref = path.as_deref().unwrap_or("/");
             let resp: serde_json::Value = runtime
                 .core
@@ -475,6 +509,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             output,
             json,
         } => {
+            check_server_approval(runtime, id).await?;
             runtime.set_json(*json);
             let local_path = output
                 .as_deref()
@@ -512,6 +547,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             }
         }
         ServerCommands::Mkdir { id, path, json } => {
+            check_server_approval(runtime, id).await?;
             runtime.set_json(*json);
             let resp: serde_json::Value = runtime
                 .core
@@ -538,6 +574,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             }
         }
         ServerCommands::JavaPs { id, json } => {
+            check_server_approval(runtime, id).await?;
             let cmd = r#"ps aux | grep 'java.*\.jar' | grep -v grep | while read line; do
   pid=$(echo "$line" | awk '{print $2}')
   port=$(ss -tlnp 2>/dev/null | grep "pid=$pid" | grep -oP '(?<=:)\d+' | sort -u | tr '\n' ',')
@@ -618,7 +655,7 @@ done || echo "未找到 Java 进程""#;
                     return Err(output::fail(
                         output::EXIT_UNAUTHORIZED,
                         format!(
-                            "服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
+                            "服务器「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
                             name
                         ),
                     ));
@@ -680,6 +717,7 @@ done || echo "未找到 Java 进程""#;
             let _ = timeout;
         }
         ServerCommands::Rm { id, path, json } => {
+            check_server_approval(runtime, id).await?;
             runtime.set_json(*json);
             // 拦截高危路径
             let dangerous_paths = ["/", "/etc", "/usr", "/bin", "/boot", "/sys", "/proc"];
@@ -735,7 +773,7 @@ done || echo "未找到 Java 进程""#;
                     return Err(output::fail(
                         output::EXIT_UNAUTHORIZED,
                         format!(
-                            "服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
+                            "服务器「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
                             sname
                         ),
                     ));
