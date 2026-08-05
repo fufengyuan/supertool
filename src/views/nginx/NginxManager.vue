@@ -75,6 +75,18 @@
               </div>
             </div>
             <div class="flex gap-1.5">
+              <label
+                class="flex items-center gap-1.5 text-xs text-base-content/60 cursor-pointer select-none mr-1"
+                title="开启后 CLI/AI 无法部署 nginx 配置，需在 GUI 操作"
+              >
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-sm"
+                  v-model="deployApproval"
+                  @change="onToggleDeployApproval"
+                />
+                部署需审批
+              </label>
               <button
                 @click="onGenerateConfig"
                 :disabled="!currentPreset || loading"
@@ -398,6 +410,19 @@ const toast = useToast()
 const showPresetForm = ref(false)
 const showDeployDialog = ref(false)
 const editingPreset = ref<any>(null)
+
+// nginx 模块级审批开关（settings: nginx_requires_approval）
+// 开启后 CLI/AI 无法部署 nginx 配置（fetch/test 只读不受限）
+const deployApproval = ref(false)
+const onToggleDeployApproval = async () => {
+  try {
+    await getTauriAPI().setSetting('nginx_requires_approval', deployApproval.value ? 'true' : 'false')
+    toast.success(deployApproval.value ? '已开启部署审批（CLI 将拦截 nginx deploy）' : '已关闭部署审批')
+  } catch (e) {
+    toast.error('保存失败: ' + String(e))
+    deployApproval.value = !deployApproval.value
+  }
+}
 const collapsedGroups = ref(new Set<string>())
 const deployComment = ref('')
 const showDeleteConfirm = ref(false)
@@ -516,6 +541,13 @@ async function loadTabComponent(tabKey: string) {
 
 onMounted(async () => {
   await Promise.all([loadPresets(), loadServers()])
+  // 读取 nginx 审批开关状态
+  try {
+    const setting = await getTauriAPI().getSetting('nginx_requires_approval')
+    deployApproval.value = setting === 'true'
+  } catch (e) {
+    // 忽略：开关保持默认关闭
+  }
   // Pre-load the default tab
   loadTabComponent('server')
 })
