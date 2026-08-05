@@ -282,6 +282,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
             deploy_log_id,
             json,
         } => {
+            check_cicd_approval(rt, config_id)?;
             rt.set_json(*json);
             let resp = rt
                 .core
@@ -313,6 +314,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
             }
         }
         CicdCommands::Cancel { config_id, json } => {
+            check_cicd_approval(rt, config_id)?;
             rt.set_json(*json);
             // Get latest running deploy for this config
             let history = rt
@@ -532,6 +534,28 @@ fn check_connection(rt: &CliRuntime) -> Result<()> {
     });
     if result.is_err() {
         anyhow::bail!("无法连接到 SuperTool 数据库\n请确保数据目录存在且数据库文件未损坏。");
+    }
+    Ok(())
+}
+
+/// 生产环境护栏：CICD 配置开启审批（requiresApproval=true）时，CLI 禁止执行部署/回滚/取消等变更操作。
+/// 命中返回 exit code 3（未授权），供 AI/脚本识别后转 GUI。
+fn check_cicd_approval(rt: &CliRuntime, config_id: &str) -> Result<(), anyhow::Error> {
+    let configs = match rt.core.get_cicd_configs() {
+        Ok(c) => c,
+        Err(e) => return Err(anyhow::anyhow!("{}", e)),
+    };
+    if let Some(c) = configs.iter().find(|c| c.id == config_id) {
+        if c.requires_approval {
+            let name = if c.name.is_empty() { config_id } else { &c.name };
+            return Err(output::fail(
+                output::EXIT_UNAUTHORIZED,
+                format!(
+                    "配置「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
+                    name
+                ),
+            ));
+        }
     }
     Ok(())
 }

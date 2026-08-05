@@ -1,3 +1,4 @@
+use crate::output;
 use crate::output::*;
 use crate::runtime::CliRuntime;
 use crate::types::*;
@@ -389,6 +390,17 @@ async fn get_db_config(rt: &mut CliRuntime, db_id: &str) -> Result<DbConnectionC
         .iter()
         .find(|c| c.get("id").and_then(|v| v.as_str()) == Some(db_id))
         .ok_or_else(|| anyhow::anyhow!("未找到数据库连接: {}", db_id))?;
+    // 生产环境护栏：开了审批的数据库连接（requiresApproval=true）CLI 完全禁止操作
+    if conn.get("requiresApproval").and_then(|v| v.as_bool()).unwrap_or(false) {
+        let name = conn.get("name").and_then(|v| v.as_str()).unwrap_or(db_id);
+        return Err(output::fail(
+            output::EXIT_UNAUTHORIZED,
+            format!(
+                "数据库连接「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
+                name
+            ),
+        ));
+    }
     serde_json::from_value(conn.clone())
         .map_err(|e| anyhow::anyhow!("解析连接配置失败: {}", e))
 }
