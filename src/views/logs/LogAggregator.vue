@@ -1,8 +1,8 @@
 <template>
-  <div class="h-full flex flex-col p-4 bg-base-200 text-base-content">
+  <div :class="['h-full flex flex-col bg-base-200 text-base-content', isFullscreen ? 'fixed inset-0 z-[9999] p-2' : 'p-4']">
     <div class="flex gap-4 flex-1 min-h-0">
-      <!-- 左侧：预设列表（按分组展示） -->
-      <div class="w-[260px] flex flex-col gap-4 overflow-y-auto">
+      <!-- 左侧：预设列表（按分组展示）- 全屏时隐藏 -->
+      <div v-show="!isFullscreen" class="w-[260px] flex flex-col gap-4 overflow-y-auto">
         <div class="bg-base-100 rounded-box p-3">
           <h3 class="text-sm text-base-content/70 mb-3 font-medium">查询预设</h3>
 
@@ -179,6 +179,10 @@
             <button @click="exportLogs" class="btn btn-ghost btn-sm border border-base-content/10"><SvgIcon name="download" size="14" /> 导出</button>
             <button @click="downloadRemoteLogs" v-if="selectedPreset && selectedPreset.logType === 'file'" class="btn btn-ghost btn-sm border border-base-content/10" title="下载远程日志文件到本地"><SvgIcon name="download" size="14" /> 下载日志</button>
             <button @click="viewFullRemoteLog" v-if="selectedPreset && selectedPreset.logType === 'file'" class="btn btn-ghost btn-sm border border-base-content/10" title="下载远程日志文件到本地离线查看，支持多节点"><SvgIcon name="fileText" size="14" /> 离线查看</button>
+            <!-- 全屏切换：隐藏侧栏 + 浮动覆盖整个窗口 -->
+            <button @click="toggleFullscreen" class="btn btn-ghost btn-sm border border-base-content/10" :title="isFullscreen ? '退出全屏 (Esc)' : '全屏显示'">
+              <SvgIcon :name="isFullscreen ? 'minimize' : 'maximize'" size="14" /> {{ isFullscreen ? '退出全屏' : '全屏' }}
+            </button>
           </div>
         </div>
 
@@ -637,6 +641,33 @@ const userScrolledUp = ref(false)
 const activeServers = ref(new Set<string>())
 // 节点筛选：null=聚合全部，否则只看某个 serverId（流式 + 搜索通用）
 const selectedServerFilter = ref<string | null>(null)
+// 全屏模式：fixed 覆盖整个窗口，隐藏左侧预设栏
+const isFullscreen = ref(false)
+
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value
+  // 全屏切换后容器尺寸变化，需等 DOM 更新后重新测量高度并刷新虚拟滚动
+  nextTick(() => {
+    if (logContainer.value) {
+      containerHeight.value = logContainer.value.clientHeight
+      // 流式跟随模式自动吸底，否则保持当前位置
+      if (followMode.value) scrollToBottomSilent()
+    }
+  })
+}
+
+// Esc 退出全屏
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && isFullscreen.value) {
+    isFullscreen.value = false
+    nextTick(() => {
+      if (logContainer.value) {
+        containerHeight.value = logContainer.value.clientHeight
+        if (followMode.value) scrollToBottomSilent()
+      }
+    })
+  }
+}
 const streamId = ref('')
 const logContainer = ref<HTMLElement | null>(null)
 // 计数器替代布尔标志：多个程序化滚动操作并发时（如 scrollToBottom + loadMoreHistory 同时触发）
@@ -2833,6 +2864,9 @@ onMounted(async () => {
     _resizeObserver.observe(logContainer.value)
   }
 
+  // Esc 退出全屏
+  window.addEventListener('keydown', onKeydown)
+
   /* Event listeners for log streaming from Tauri backend */
   cleanupLogsLine = await getTauriAPI().onLogsLine(onLineHandler);
   cleanupLogsServerEnd = await getTauriAPI().onLogsServerEnd(onEndHandler);
@@ -2875,6 +2909,7 @@ onUnmounted(async () => {
   _cleanupDataChanged?.()
   _resizeObserver?.disconnect()
   _resizeObserver = null
+  window.removeEventListener('keydown', onKeydown)
   serverColors.clear()
   colorIndex = 0
   // 清理下载进度监听
