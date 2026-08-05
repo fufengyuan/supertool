@@ -84,7 +84,6 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
         } => {
             runtime.set_json(*json);
             let actual_id = resolve_preset_id(runtime, preset_id).await?;
-            check_preset_approval(runtime, &actual_id, "").await?;
             let resp: serde_json::Value = runtime
                 .core
                 .log_search(&actual_id, keyword, *lines)
@@ -136,7 +135,6 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
         LogCommands::Tail { preset_id, lines, json } => {
             runtime.set_json(*json);
             let actual_id = resolve_preset_id(runtime, preset_id).await?;
-            check_preset_approval(runtime, &actual_id, "").await?;
             // CoreService log_tail returns a static result (not streaming)
             let resp: serde_json::Value = runtime
                 .core
@@ -175,7 +173,6 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
         } => {
             runtime.set_json(*json);
             let actual_id = resolve_preset_id(runtime, preset_id).await?;
-            check_preset_approval(runtime, &actual_id, server_id).await?;
             let resp: serde_json::Value = runtime
                 .core
                 .log_context(&actual_id, server_id, *line_num, *context_lines)
@@ -221,59 +218,6 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
     Ok(())
 }
 
-
-/// 生产环境护栏：日志预设关联的任一服务器开启审批（requiresApproval=true）时禁止查询
-/// （log_search/tail/context 会 SSH 到这些服务器执行命令）
-async fn check_preset_approval(runtime: &mut CliRuntime, preset_id: &str, explicit_server_id: &str) -> Result<()> {
-    let presets: serde_json::Value = runtime
-        .core
-        .get_log_presets()
-        .await
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
-    let preset = presets
-        .as_array()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(preset_id));
-    let Some(preset) = preset else { return Ok(()); };
-    let mut server_ids: Vec<String> = match preset.get("serverIds") {
-        Some(serde_json::Value::Array(arr)) => arr
-            .iter()
-            .filter_map(|v| v.as_str().map(String::from))
-            .collect(),
-        Some(serde_json::Value::String(s)) => serde_json::from_str(s).unwrap_or_default(),
-        _ => vec![],
-    };
-    if server_ids.is_empty() {
-        return Ok(());
-    }
-    // 显式传入的 server_id 不受预设约束（如 log context 可指定任意服务器），单独校验防绕过
-    if !explicit_server_id.is_empty() && !server_ids.iter().any(|x| x == explicit_server_id) {
-        server_ids.push(explicit_server_id.to_string());
-    }
-    let servers: serde_json::Value = runtime
-        .core
-        .get_all_servers()
-        .await
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
-    for s in servers.as_array().cloned().unwrap_or_default() {
-        let sid = s.get("id").and_then(|v| v.as_str()).unwrap_or("");
-        if server_ids.iter().any(|x| x == sid)
-            && s.get("requiresApproval").and_then(|v| v.as_bool()).unwrap_or(false)
-        {
-            let name = s.get("name").and_then(|v| v.as_str()).unwrap_or(sid);
-            return Err(output::fail(
-                output::EXIT_UNAUTHORIZED,
-                format!(
-                    "日志预设关联的服务器「{}」已开启审批（生产环境），CLI 禁止操作。请在 GUI 中操作。",
-                    name
-                ),
-            ));
-        }
-    }
-    Ok(())
-}
 
 async fn resolve_preset_id(runtime: &mut CliRuntime, preset_id: &str) -> Result<String> {
     if let Ok(idx) = preset_id.parse::<usize>() {
