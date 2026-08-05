@@ -1,4 +1,5 @@
 use crate::output::{print_error, print_json, print_success};
+use crate::output;
 use crate::runtime::CliRuntime;
 use anyhow::{Result, anyhow};
 
@@ -145,6 +146,20 @@ pub async fn cmd_nginx(
         } => {
 
             runtime.set_json(*json);
+            // 生产环境护栏：nginx 模块级审批开关（GUI Nginx 页面「部署需审批」）
+            // 开启后 CLI 禁止部署（fetch/test 只读不受限），AI 需提示用户到 GUI 部署
+            let approval: serde_json::Value = runtime
+                .core
+                .get_setting("nginx_requires_approval")
+                .await
+                .map_err(|e| anyhow!(e))?;
+            let approval_enabled = approval.as_str().map(|s| s == "true").unwrap_or(false);
+            if approval_enabled {
+                return Err(output::fail(
+                    output::EXIT_UNAUTHORIZED,
+                    "Nginx 已开启部署审批（生产环境），CLI 禁止部署。请在 GUI 中操作。",
+                ));
+            }
             let resp = runtime
                 .core
                 .deploy_nginx_config(server_id, config_path, content)

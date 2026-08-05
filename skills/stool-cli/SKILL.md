@@ -366,7 +366,8 @@ systemctl restart myapp"
    - `server`：写拦截 exec / exec-batch / mkdir / rm；只读放行 read / ls / download / java-ps / health / diagnose / test
    - `cicd`：写拦截 deploy / rollback / cancel（list/status/history/logs 读操作放行）
    - `db`：写拦截非只读 SQL（INSERT/UPDATE/DELETE/DROP/WITH 携带写语句等）与 redis set/delete；只读放行 SELECT/WITH 查询类白名单（SELECT/SHOW/EXPLAIN/DESC/PRAGMA 查询）、tables/structure/data、redis keys/get/type/ttl/h-get 等
-   - `log` / `nginx`：**无审批开关，全部放行**（不拦）
+   - `log`：无审批开关，全部放行（不拦）
+   - `nginx`：**模块级审批开关**（GUI Nginx 页面「部署需审批」，settings `nginx_requires_approval`）——开启后 `nginx deploy` 拦截（exit 3）；`fetch` / `test` 只读放行；开关默认关闭
    - MCP 同步：server_exec / cicd_deploy 拦截；db_query 独立只读白名单（所有连接只允许只读 SQL）；redis_keys / redis_get / log_* 放行
    - AI 遇到 exit 3 应提示用户到 GUI 操作，不要绕过
 6. **preset_id 智能解析** — `log search 1 "关键词"` 序号自动转 UUID
