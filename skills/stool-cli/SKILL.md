@@ -362,7 +362,14 @@ systemctl restart myapp"
 2. **UUID 不可截断** — 所有 list 输出完整 36 位 UUID
 3. **高危命令拦截** — `server exec` / `exec-batch` 拦截 `rm -rf`、`kill -9`、`shutdown`、`curl|sh` 等
 4. **`server rm` 路径拦截** — 系统目录（`/`、`/etc`、`/usr`、`/bin`、`/boot`、`/sys`、`/proc`）拒绝删除
-5. **requiresApproval 拦截** — 服务器/数据库/CICD 各自独立；CLI 拦截需审核的操作，请在 GUI 手动执行
+5. **requiresApproval 拦截（生产环境护栏）** — 开启审批的连接 = 生产环境，CLI **完全禁止操作**（读写都不行），拦截返回 exit 3：
+   - `server`：exec / test / read / ls / download / mkdir / java-ps / rm / exec-batch / health / diagnose 全部拦截（list/add/delete 配置操作放行）
+   - `cicd`：deploy / rollback / cancel 拦截（list/status/history/logs 读操作放行）
+   - `db`：query / tables / structure / data / redis 全部拦截（list 放行）
+   - `log`：search / tail / context 拦截（预设关联任一服务器为生产即拦；context 的显式 `server_id` 也单独校验，防止绕过预设）
+   - `nginx`：fetch / test / deploy 拦截
+   - MCP 同步：server_exec / cicd_deploy / db_query / redis_* / log_* 同样拦截（返回 isError）
+   - AI 遇到 exit 3 应提示用户到 GUI 操作，不要绕过
 6. **preset_id 智能解析** — `log search 1 "关键词"` 序号自动转 UUID
 7. **部署超时** — `--watch` 最长 10 分钟（每 5s 轮询）；`--stream` 阻塞直到完成
 8. **server download** — base64 传输，自动保存本地
