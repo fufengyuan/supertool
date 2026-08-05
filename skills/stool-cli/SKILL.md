@@ -362,13 +362,12 @@ systemctl restart myapp"
 2. **UUID 不可截断** — 所有 list 输出完整 36 位 UUID
 3. **高危命令拦截** — `server exec` / `exec-batch` 拦截 `rm -rf`、`kill -9`、`shutdown`、`curl|sh` 等
 4. **`server rm` 路径拦截** — 系统目录（`/`、`/etc`、`/usr`、`/bin`、`/boot`、`/sys`、`/proc`）拒绝删除
-5. **requiresApproval 拦截（生产环境护栏）** — 开启审批的连接 = 生产环境，CLI **只读操作放行、写/变更操作拦截**（exit 3）：
-   - `server`：写拦截 exec / exec-batch / mkdir / rm；只读放行 read / ls / download / java-ps / health / diagnose / test（list/add/delete 配置操作也放行）
+5. **requiresApproval 拦截（生产环境护栏）** — 审批开关只存在于 **服务器 / 数据库 / CICD** 三个模块（GUI 有对应审批配置）；只读操作放行，**写/变更操作拦截**（exit 3）：
+   - `server`：写拦截 exec / exec-batch / mkdir / rm；只读放行 read / ls / download / java-ps / health / diagnose / test
    - `cicd`：写拦截 deploy / rollback / cancel（list/status/history/logs 读操作放行）
-   - `db`：写拦截非只读 SQL（INSERT/UPDATE/DELETE/DROP...）与 redis set/delete；只读放行 SELECT/WITH/EXPLAIN/PRAGMA/SHOW/DESC、tables/structure/data、redis keys/get/type/ttl/h-get 等
-   - `log`：search / tail / context 全部放行（只读查询）
-   - `nginx`：写拦截 deploy；只读放行 fetch / test
-   - MCP 同步：server_exec / cicd_deploy 拦截；db_query 有独立只读白名单（所有连接只允许只读 SQL）；redis_keys / redis_get / log_* 放行
+   - `db`：写拦截非只读 SQL（INSERT/UPDATE/DELETE/DROP/WITH 携带写语句等）与 redis set/delete；只读放行 SELECT/WITH 查询类白名单（SELECT/SHOW/EXPLAIN/DESC/PRAGMA 查询）、tables/structure/data、redis keys/get/type/ttl/h-get 等
+   - `log` / `nginx`：**无审批开关，全部放行**（不拦）
+   - MCP 同步：server_exec / cicd_deploy 拦截；db_query 独立只读白名单（所有连接只允许只读 SQL）；redis_keys / redis_get / log_* 放行
    - AI 遇到 exit 3 应提示用户到 GUI 操作，不要绕过
 6. **preset_id 智能解析** — `log search 1 "关键词"` 序号自动转 UUID
 7. **部署超时** — `--watch` 最长 10 分钟（每 5s 轮询）；`--stream` 阻塞直到完成
