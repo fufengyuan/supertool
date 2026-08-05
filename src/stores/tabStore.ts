@@ -148,7 +148,8 @@ export const useTabStore = defineStore('tabs', () => {
 
   /**
    * 关闭指定标签页
-   * 自动切换到下一个/上一个标签页，关闭最后一个时打开看板
+   * 自动切换到下一个/上一个标签页，关闭最后一个时打开看板。
+   * 注意：本方法只管 tab 状态 + includeList，路由跳转由调用方（TabBar/watch）负责。
    */
   function closeTab(id: string) {
     const idx = tabs.value.findIndex(t => t.id === id)
@@ -156,15 +157,19 @@ export const useTabStore = defineStore('tabs', () => {
 
     tabs.value.splice(idx, 1)
 
-    // 如果关闭的是当前标签页，切换到相邻标签页
+    // 如果关闭的是当前标签页，切换到相邻标签页并返回新路径供调用方跳转
     if (activeTabId.value === id) {
       if (tabs.value.length > 0) {
         const newIdx = Math.min(idx, tabs.value.length - 1)
-        activeTabId.value = tabs.value[newIdx].id
+        const newTab = tabs.value[newIdx]
+        activeTabId.value = newTab.id
+        return newTab.currentPath
       } else {
         activeTabId.value = ''
+        return '/'
       }
     }
+    return undefined
   }
 
   /**

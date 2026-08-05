@@ -8,7 +8,7 @@
         ? 'bg-base-200 text-base-content font-medium'
         : 'text-base-content/60 hover:bg-base-200/50 hover:text-base-content'"
       @click="onTabClick(tab)"
-      @mousedown.middle.prevent="tabStore.closeTab(tab.id)"
+      @mousedown.middle.prevent="onCloseTab(tab.id)"
     >
       <component
         :is="iconMap[tab.viewId]"
@@ -20,7 +20,7 @@
       <span class="text-xs truncate max-w-[120px]">{{ tab.label }}</span>
       <button
         class="ml-1 w-4 h-4 flex items-center justify-center rounded hover:bg-base-300 opacity-0 group-hover:opacity-100 transition-opacity"
-        @click.stop="tabStore.closeTab(tab.id)"
+        @click.stop="onCloseTab(tab.id)"
         title="关闭"
       >
         <SvgIcon name="x" :size="10" />
@@ -66,6 +66,15 @@ function onTabClick(tab: Tab) {
   tabStore.activate(tab.id)
   if (route.fullPath !== tab.currentPath) {
     router.push(tab.currentPath)
+  }
+}
+
+// 关闭标签页：closeTab 返回需跳转的新路径（关闭当前 tab 时），路由必须同步跳转，
+// 否则 keep-alive 的 include 虽已移除组件名，但 router-view 仍在渲染旧组件 -> 页面"没关"
+function onCloseTab(id: string) {
+  const newPath = tabStore.closeTab(id)
+  if (newPath && route.fullPath !== newPath) {
+    router.push(newPath)
   }
 }
 </script>
