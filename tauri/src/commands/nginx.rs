@@ -87,8 +87,19 @@ pub async fn deploy_nginx_config(
     config_path: String,
     content: String,
     _comment: String,
+    confirmed: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] deploy_nginx_config() called");
+    // 与 cicd 部署一致的审批模式：开关开启时需前端二次确认（confirmed=true）才执行
+    let approval = core.get_setting("nginx_requires_approval").await?;
+    let approval_enabled = approval.as_str().map(|s| s == "true").unwrap_or(false);
+    if approval_enabled && confirmed != Some(true) {
+        return Ok(serde_json::json!({
+            "success": false,
+            "requiresApproval": true,
+            "message": "Nginx 已开启部署审批，请确认后再次部署"
+        }));
+    }
     let result = core
         .deploy_nginx_config(&server_id, &config_path, &content)
         .await?;
@@ -103,8 +114,19 @@ pub async fn deploy_nginx_config_decomposed(
     main_content: String,
     sub_files: Vec<NginxSubFile>,
     _comment: String,
+    confirmed: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] deploy_nginx_config_decomposed() called");
+    // 与 cicd 部署一致的审批模式：开关开启时需前端二次确认（confirmed=true）才执行
+    let approval = core.get_setting("nginx_requires_approval").await?;
+    let approval_enabled = approval.as_str().map(|s| s == "true").unwrap_or(false);
+    if approval_enabled && confirmed != Some(true) {
+        return Ok(serde_json::json!({
+            "success": false,
+            "requiresApproval": true,
+            "message": "Nginx 已开启部署审批，请确认后再次部署"
+        }));
+    }
     let result = core
         .deploy_nginx_config_decomposed(&server_id, &config_path, &main_content, sub_files)
         .await?;

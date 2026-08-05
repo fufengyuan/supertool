@@ -351,6 +351,31 @@
       </div>
     </div>
 
+    <!-- 部署审批确认弹窗（对齐 cicd 模式） -->
+    <div v-if="showApprovalDialog" class="modal modal-open">
+      <div class="modal-box relative">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center text-warning">
+            <SvgIcon name="lock" size="20" />
+          </div>
+          <div>
+            <h4 class="m-0 text-lg font-bold text-base-content">审核确认</h4>
+            <p class="m-0 text-sm text-base-content/60 mt-0.5">Nginx 已开启部署审批</p>
+          </div>
+        </div>
+        <p class="text-sm text-base-content/80 mb-5 leading-relaxed">
+          当前预设「<strong>{{ currentPreset?.name }}</strong>」的部署需要审核确认。
+          <br />请确认你已准备好部署，是否继续？
+        </p>
+        <div class="flex justify-end gap-2">
+          <button @click="cancelApproval" class="btn btn-ghost">取消</button>
+          <button @click="confirmApproval" class="btn bg-gradient-to-br from-warning to-amber-600 border-warning text-white hover:from-warning/90 hover:to-amber-600/90">
+            <SvgIcon name="rocket" size="14" class="inline-block align-text-bottom" /> 确认部署
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 删除确认弹窗 -->
     <div v-if="showDeleteConfirm" class="modal modal-open">
       <div class="modal-box relative">
@@ -425,6 +450,23 @@ const onToggleDeployApproval = async () => {
 }
 const collapsedGroups = ref(new Set<string>())
 const deployComment = ref('')
+// 部署审批确认弹窗（对齐 cicd DeployPanel 模式）
+const showApprovalDialog = ref(false)
+let approvalResolve: ((v: boolean) => void) | null = null
+function showApprovalConfirm(): Promise<boolean> {
+  showApprovalDialog.value = true
+  return new Promise(resolve => { approvalResolve = resolve })
+}
+function confirmApproval() {
+  showApprovalDialog.value = false
+  approvalResolve?.(true)
+  approvalResolve = null
+}
+function cancelApproval() {
+  showApprovalDialog.value = false
+  approvalResolve?.(false)
+  approvalResolve = null
+}
 const showDeleteConfirm = ref(false)
 const showRollbackConfirm = ref(false)
 const confirmDeleteId = ref('')
@@ -831,6 +873,11 @@ function computeUnifiedDiff(oldText: string, newText: string): string {
 
 async function onDeploy() {
   if (!deployComment.value.trim()) {return}
+  // 审批开关开启时二次确认（对齐 cicd：后端需 confirmed=true 才执行）
+  if (deployApproval.value) {
+    const proceed = await showApprovalConfirm()
+    if (!proceed) {return}
+  }
   // If we generated a new config for diffing and it differs, deploy the new config
   if (generatedNewConfig.value && !diffSame.value) {
     configContent.value = generatedNewConfig.value
@@ -841,10 +888,10 @@ async function onDeploy() {
     // Decomposed deploy: write main config + sub-files to conf.d/
     const p = currentPreset.value
     result = await getTauriAPI().deployNginxConfigDecomposed(
-      p.serverId, p.configPath, generatedNewConfig.value, decomposedSubFiles.value, deployComment.value
+      p.serverId, p.configPath, generatedNewConfig.value, decomposedSubFiles.value, deployComment.value, deployApproval.value || undefined
     )
   } else {
-    result = await deployConfig(deployComment.value)
+    result = await deployConfig(deployComment.value, deployApproval.value || undefined)
   }
 
   if (result?.success || result?.data?.success) {
@@ -856,6 +903,8 @@ async function onDeploy() {
     generatedNewConfig.value = ''
     decomposedSubFiles.value = []
     decomposeMode.value = false
+  } else if (result?.requiresApproval) {
+    toast.warning(result.message || 'Nginx 已开启部署审批，请确认后再次部署', 5000)
   } else {
     toast.error(result?.error || result?.data?.error || '部署失败，请检查服务器连接和配置')
   }
@@ -880,9 +929,14 @@ async function onRollback(versionId: string) {
 async function executeRollback() {
   const versionId = confirmRollbackId.value
   if (!versionId) {return}
+  // 回滚是部署类操作：审批开关开启时同样需要二次确认（对齐部署流程）
+  if (deployApproval.value) {
+    const proceed = await showApprovalConfirm()
+    if (!proceed) {return}
+  }
   // 确认已由弹窗按钮触发，无需再次 confirm
   deleting.value = true
-  await rollbackToVersion(versionId)
+  await rollbackToVersion(versionId, deployApproval.value || undefined)
   showRollbackConfirm.value = false
   confirmRollbackId.value = ''
   deleting.value = false
