@@ -1417,58 +1417,6 @@ export function useDataBackupAPI() {
   }
 }
 
-// ============ OpenVPN ============
-
-export function useOpenVPNAPI() {
-  return {
-    openvpnGetAll: async (): Promise<any[]> => {
-      const res = await tauriInvoke<any[]>('openvpn_get_all')
-      return res.success ? (res.data ?? []) : []
-    },
-    openvpnAdd: async (data: { name: string; filePath: string; content: string }): Promise<any> => {
-      const res = await tauriInvoke<any>('openvpn_add', { data })
-      if (!res.success) {throw new Error(res.error)}
-      return res.data!
-    },
-    openvpnDelete: async (id: string): Promise<void> => {
-      const res = await tauriInvoke<string>('openvpn_delete', { id })
-      if (!res.success) {throw new Error(res.error)}
-    },
-    openvpnConnect: async (configId: string, configName: string, content: string, sudoPassword?: string): Promise<any> => {
-      const res = await tauriInvoke<any>('openvpn_connect', { configId, configName, content, sudoPassword })
-      return res.success ? res.data : null
-    },
-    openvpnRetryWithPassword: async (password: string): Promise<any> => {
-      const res = await tauriInvoke<any>('openvpn_retry_with_password', { password })
-      return res.success ? res.data : null
-    },
-    openvpnDisconnect: async (): Promise<void> => {
-      const res = await tauriInvoke<string>('openvpn_disconnect')
-      if (!res.success) {throw new Error(res.error)}
-    },
-    openvpnGetStatus: async (): Promise<any> => {
-      const res = await tauriInvoke<any>('openvpn_get_status', {}, true)
-      return res.success ? res.data : null
-    },
-    openvpnGetLogs: async (): Promise<string> => {
-      const res = await tauriInvoke<string>('openvpn_get_logs')
-      return res.success ? (res.data ?? '') : ''
-    },
-    openvpnCheckAvailable: async (): Promise<boolean> => {
-      const res = await tauriInvoke<boolean>('openvpn_check_available')
-      return res.success ? (res.data ?? false) : false
-    },
-    openvpnValidateConfig: async (content: string): Promise<{ valid: boolean; error?: string }> => {
-      const res = await tauriInvoke<any>('openvpn_validate_config', { content })
-      return res.success ? (res.data ?? { valid: false }) : { valid: false, error: res.error }
-    },
-    openvpnGetTrafficStats: async (): Promise<any> => {
-      const res = await tauriInvoke<any>('openvpn_get_traffic_stats', {}, true)
-      return res.success ? res.data : null
-    },
-  }
-}
-
 // ============ WireGuard ============
 
 export function useWireGuardAPI() {
@@ -1675,18 +1623,6 @@ export interface TauriAPI {
   getAppPath: () => Promise<string>
   getDataDir: () => Promise<any>
   setDataDir: (path: string) => Promise<any>
-  // OpenVPN
-  openvpnGetAll: () => Promise<any[]>
-  openvpnAdd: (data: { name: string; filePath: string; content: string }) => Promise<any>
-  openvpnDelete: (id: string) => Promise<void>
-  openvpnConnect: (configId: string, configName: string, content: string, sudoPassword?: string) => Promise<any>
-  openvpnRetryWithPassword: (password: string) => Promise<any>
-  openvpnDisconnect: () => Promise<void>
-  openvpnGetStatus: () => Promise<any>
-  openvpnGetLogs: () => Promise<string>
-  openvpnCheckAvailable: () => Promise<boolean>
-  openvpnValidateConfig: (content: string) => Promise<{ valid: boolean; error?: string }>
-  openvpnGetTrafficStats: () => Promise<any>
   // WireGuard
   wireguardGetAll: () => Promise<any[]>
   wireguardGetById: (id: string) => Promise<any>
@@ -1768,7 +1704,6 @@ export interface TauriAPI {
   onAutoBackupCompleted: (callback: (data: any) => void) => () => void
   onCollaborationStarted: (callback: (data: any) => void) => () => void
   onCollaborationEnded: (callback: (data: any) => void) => () => void
-  importOvpnFile: () => Promise<any>
   readFileContent: (filePath: string) => Promise<string>
   getUserInfo: (userId: string) => Promise<any>
   lanGetUserInfo: () => Promise<any>
@@ -2061,7 +1996,6 @@ export function getTauriAPI(): TauriAPI {
   const logs = useLogsAPI()
   const settings = useSettingsAPI()
   const dataBackup = useDataBackupAPI()
-  const openvpn = useOpenVPNAPI()
   const wireguard = useWireGuardAPI()
   const nginx = useNginxAPI()
   const alert = useAlertAPI()
@@ -2261,19 +2195,7 @@ export function getTauriAPI(): TauriAPI {
     getAppPath: dataBackup.getAppPath,
     getDataDir: dataBackup.getDataDir,
     setDataDir: dataBackup.setDataDir,
-    // OpenVPN
-    openvpnGetAll: openvpn.openvpnGetAll,
-    openvpnAdd: openvpn.openvpnAdd,
-    openvpnDelete: openvpn.openvpnDelete,
-    openvpnConnect: openvpn.openvpnConnect,
-    openvpnRetryWithPassword: openvpn.openvpnRetryWithPassword,
-    openvpnDisconnect: openvpn.openvpnDisconnect,
-    openvpnGetStatus: openvpn.openvpnGetStatus,
-    openvpnGetLogs: openvpn.openvpnGetLogs,
-    openvpnCheckAvailable: openvpn.openvpnCheckAvailable,
-    openvpnValidateConfig: openvpn.openvpnValidateConfig,
-    openvpnGetTrafficStats: openvpn.openvpnGetTrafficStats,
-    // WireGuard
+      // WireGuard
     wireguardGetAll: wireguard.wireguardGetAll,
     wireguardGetById: wireguard.wireguardGetById,
     wireguardAdd: wireguard.wireguardAdd,
@@ -2549,14 +2471,7 @@ export function getTauriAPI(): TauriAPI {
     onAutoBackupCompleted: (callback: (data: any) => void) => { return listen('auto-backup-completed', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onCollaborationStarted: (callback: (data: any) => void) => { return listen('collaboration-started', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onCollaborationEnded: (callback: (data: any) => void) => { return listen('collaboration-ended', (e) => callback(e.payload)) as Promise<UnlistenFn> },
-    importOvpnFile: async (): Promise<any> => {
-      const selected = await open({
-        multiple: false,
-        filters: [{ name: 'OpenVPN', extensions: ['ovpn', 'conf'] }],
-      })
-      if (!selected) {return { canceled: true, filePaths: [] }}
-      return { canceled: false, filePaths: [selected] }
-    },
+
     // LAN Chat
     sendMessage: async (peerId: string, content: string): Promise<any> => { return tauriCall('lan_send_message', { peerId, content }); },
     sendFile: async (peerId: string, filePath: string, fileName: string): Promise<any> => { return tauriCall('lan_send_file', { peerId, filePath, fileName }); },
@@ -2784,7 +2699,6 @@ export function getTauriAPI(): TauriAPI {
     getFileTree: async (repoPath: string, subdir?: string) => tauriCall<FileTreeEntry[]>('get_file_tree', { repoPath, subdir }),
     readFileContent: async (repoPath: string, filePath: string) => tauriCall<string>('read_file_content', { repoPath, filePath }),
     saveFileContent: async (repoPath: string, filePath: string, content: string) => tauriCall<void>('save_file_content', { repoPath, filePath, content }),
-
 
     // ============ 操作审计 ============
     auditList: async (actor?: string, result?: string, limit = 100): Promise<any> =>

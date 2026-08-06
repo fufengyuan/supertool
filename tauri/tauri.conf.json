@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "SuperTool",
-  "version": "6.8.49",
+  "version": "6.8.50",
   "identifier": "com.fufengyuan.supertool.tauri",
   "build": {
     "beforeDevCommand": "pnpm run dev",
@@ -28,7 +28,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "deb", "msi", "nsis"],
+    "targets": [
+      "dmg",
+      "deb",
+      "msi",
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -41,9 +46,6 @@
       "entitlements": "SuperTool.entitlements"
     },
     "resources": [
-      "../resources/openvpn/linux-x64/openvpn",
-      "../resources/openvpn/macos-arm64",
-      "../resources/openvpn/macos-x64",
       "../target/release/stool",
       "../skills"
     ]

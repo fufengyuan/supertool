@@ -11,7 +11,7 @@ pub mod log_sanitizer;
 pub mod nginx;
 pub mod nginx_generator;
 pub mod nginx_parser;
-pub mod openvpn;
+
 pub mod ssh;
 pub mod wireguard;
 pub mod wireguard_tunnel;

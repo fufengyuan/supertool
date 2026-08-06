@@ -255,7 +255,7 @@ impl super::CoreService {
 
             // Generic table export
             let tables = [
-                "openvpn_configs", "wireguard_configs", "git_repos",
+                "wireguard_configs", "git_repos",
                 "calculator_history", "api_requests",
                 "nginx_presets", "nginx_config_versions", "nginx_servers",
                 "nginx_locations", "nginx_upstreams", "nginx_upstream_servers",
@@ -358,7 +358,6 @@ impl super::CoreService {
                     DELETE FROM budgets;
                     DELETE FROM templates;
                     DELETE FROM log_presets;
-                    DELETE FROM openvpn_configs;
                     DELETE FROM wireguard_configs;
                     DELETE FROM git_repos;
                     DELETE FROM calculator_history;
@@ -912,26 +911,6 @@ impl super::CoreService {
             // ======== Extra modules (previously missing from backup) ========
 
             let now_ts = chrono::Utc::now().to_rfc3339();
-
-            // OpenVPN configs
-            if let Some(items) = data.get("openvpnConfigs").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO openvpn_configs (id, name, filePath, content, createdAt, updatedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("filePath").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("content").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                            item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("openvpn_configs: {}", e)),
-                    }
-                }
-            }
 
             // WireGuard configs
             if let Some(items) = data.get("wireguardConfigs").and_then(|v| v.as_array()) {

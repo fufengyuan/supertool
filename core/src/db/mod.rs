@@ -9,7 +9,7 @@ pub mod database;
 pub mod git_repo;
 pub mod lan;
 pub mod nginx;
-pub mod openvpn;
+
 pub mod projects;
 pub mod servers;
 pub mod db_connections;

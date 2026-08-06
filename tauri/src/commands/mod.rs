@@ -18,7 +18,6 @@ pub mod logs;
 pub mod mfa;
 pub mod nginx;
 pub mod notes;
-pub mod openvpn;
 pub mod projects;
 pub mod servers;
 pub mod settings;

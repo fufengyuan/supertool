@@ -242,27 +242,6 @@ export interface AccountingRecord {
   updatedAt: string;
 }
 
-// ============ OpenVPN ============
-
-export interface OpenVPNConfig {
-  id: string;
-  name: string;
-  filePath: string;        // Full path to .ovpn file
-  content: string;         // Raw .ovpn content
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface OpenVPNStatus {
-  connected: boolean;
-  configId: string | null;   // Currently connected config ID
-  configName: string | null;
-  state: 'disconnected' | 'connecting' | 'connected' | 'error' | 'disconnecting';
-  log: string[];             // Recent connection log lines
-  connectedSince?: string;
-  remote?: string;
-}
-
 // ============ WireGuard ============
 
 export interface WireGuardConfig {
