@@ -6,7 +6,6 @@ mod system_logger;
 mod tray_notification;
 #[cfg(test)]
 mod tests;
-use supertool_core::logic::openvpn;
 use supertool_core::logic::wireguard;
 
 use std::sync::OnceLock;
@@ -220,9 +219,6 @@ fn main() {
             app.manage(core.clone());
             log::info!("[CoreService] 初始化完成");
 
-            // OpenVPN
-            app.manage(openvpn::OpenVPNManager::new());
-            log::info!("[OpenVPN] 管理器初始化完成");
 
             // WireGuard
             app.manage(wireguard::WireGuardManager::new());
@@ -568,18 +564,6 @@ fn main() {
             commands::data_backup::import_all_data,
             commands::data_backup::import_json,
             commands::data_backup::export_csv,
-            // OpenVPN commands
-            commands::openvpn::openvpn_get_all,
-            commands::openvpn::openvpn_add,
-            commands::openvpn::openvpn_delete,
-            commands::openvpn::openvpn_connect,
-            commands::openvpn::openvpn_retry_with_password,
-            commands::openvpn::openvpn_disconnect,
-            commands::openvpn::openvpn_get_status,
-            commands::openvpn::openvpn_get_logs,
-            commands::openvpn::openvpn_check_available,
-            commands::openvpn::openvpn_validate_config,
-            commands::openvpn::openvpn_get_traffic_stats,
             // WireGuard commands
             commands::wireguard::wireguard_get_all,
             commands::wireguard::wireguard_get_by_id,

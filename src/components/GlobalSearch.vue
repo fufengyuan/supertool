@@ -300,8 +300,8 @@ const loadData = async () => {
   try { mfaSecrets.value = await api.getAllMfaSecrets() || [] } catch {}
   // Git
   try { const res = await api.getGitRepos(); gitRepos.value = res?.data || [] } catch {}
-  // VPN (OpenVPN)
-  try { vpnConfigs.value = await api.openvpnGetAll() || [] } catch {}
+  // VPN (WireGuard 配置)
+  try { vpnConfigs.value = await api.wireguardGetAll() || [] } catch {}
 }
 
 // 模糊匹配
@@ -373,6 +373,7 @@ const gitResults = computed(() => {
     fuzzyMatch(g.path, query.value)
   ).slice(0, 5)
 })
+
 
 const vpnResults = computed(() => {
   if (!query.value.trim()) {return []}
