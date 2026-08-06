@@ -708,6 +708,40 @@ function goToConfig() {
   window.dispatchEvent(new CustomEvent('switch-cicd-tab', { detail: 'config' }));
 }
 
+// ─── 日志批量渲染节流 ───
+// maven/npm 构建是逐行输出（几百行/秒），后端每行 emit 一次 deploy-progress。
+// 若逐行 push + 响应式更新，事件风暴会打满 JS 主线程 → 全局 UI 卡顿（点击无响应）。
+// 改为按时间窗口批量追加日志行；progress/currentStep 仍即时更新。
+const pendingLogLines = new Map<string, Array<{ time: string; stage: string; message: string }>>();
+let logFlushTimer: number | null = null;
+const LOG_FLUSH_MS = 50;
+
+function flushPendingLogs() {
+  if (logFlushTimer !== null) {
+    clearTimeout(logFlushTimer);
+    logFlushTimer = null;
+  }
+  if (pendingLogLines.size === 0) {return;}
+  const needScroll: string[] = [];
+  pendingLogLines.forEach((lines, cfgId) => {
+    const state = deployStates.value.get(cfgId);
+    if (!state || lines.length === 0) {return;}
+    state.realtimeLogs.push(...lines);
+    if (state.realtimeLogs.length > MAX_REALTIME_LOGS) {
+      state.realtimeLogs.splice(0, state.realtimeLogs.length - MAX_REALTIME_LOGS);
+    }
+    updateDeployState(cfgId, { realtimeLogs: state.realtimeLogs });
+    needScroll.push(cfgId);
+  });
+  pendingLogLines.clear();
+  needScroll.forEach(cfgId => scrollToBottom());
+}
+
+function scheduleLogFlush() {
+  if (logFlushTimer !== null) {return;}
+  logFlushTimer = window.setTimeout(flushPendingLogs, LOG_FLUSH_MS);
+}
+
 const progressHandler = (data: { progress?: number; message?: string; stage?: string; status?: string; configId?: string; deployLogId?: string }) => {
   // 从事件中获取 configId，如果没有则使用当前选中的配置
   const cfgId = data.configId || selectedConfigId.value;
@@ -725,19 +759,18 @@ const progressHandler = (data: { progress?: number; message?: string; stage?: st
   if (!shouldThrottle) {
     if (isUploadProgress) {updates.lastLoggedProgress = pct;}
     const now = new Date().toLocaleTimeString('zh-CN');
-    // 直接 push 到原数组（避免每次事件都 O(n) 拷贝整个数组），超过上限则截断
-    state.realtimeLogs.push({ time: now, stage: data.stage || 'info', message: data.message || '' });
-    if (state.realtimeLogs.length > MAX_REALTIME_LOGS) {
-      state.realtimeLogs.splice(0, state.realtimeLogs.length - MAX_REALTIME_LOGS);
-    }
-    updates.realtimeLogs = state.realtimeLogs;
+    // 日志行先进缓冲，由 flushPendingLogs 批量追加（避免逐行渲染打满主线程）
+    const arr = pendingLogLines.get(cfgId) || [];
+    arr.push({ time: now, stage: data.stage || 'info', message: data.message || '' });
+    pendingLogLines.set(cfgId, arr);
+    scheduleLogFlush();
   }
   updates.currentStep = data.message || state.currentStep;
   if (data.deployLogId && !state.deployLogId) {
     updates.deployLogId = data.deployLogId;
   }
   updateDeployState(cfgId, updates);
-  if (!shouldThrottle) {scrollToBottom();}
+  // 滚动由 flushPendingLogs 统一处理
 };
 
 let cleanupDeployProgress: (() => void) | undefined;
@@ -776,6 +809,9 @@ onMounted(() => {
       const cfgId = (data as any).configId;
       if (!cfgId) {return;}
       
+      // 先 flush 缓冲日志，保证成功/失败消息排在所有日志之后
+      flushPendingLogs();
+
       const state = deployStates.value.get(cfgId);
       if (!state) {return;}
       
@@ -827,6 +863,12 @@ onUnmounted(() => {
   cleanupDeployProgress?.();
   cleanupDeployNotification?.();
   _cleanupDataChanged?.();
+  // 清理挂起的日志 flush 定时器，避免卸载后写入已销毁状态
+  if (logFlushTimer !== null) {
+    clearTimeout(logFlushTimer);
+    logFlushTimer = null;
+  }
+  pendingLogLines.clear();
 });
 
 async function loadConfigData(configId: string) {
@@ -930,6 +972,8 @@ async function startDeploy() {
       }
     }
   } catch (error) {
+    // 先 flush 缓冲日志，保证错误消息排在构建日志之后且不污染后续部署
+    flushPendingLogs();
     updateDeployState(selectedConfigId.value, {
       deploying: false,
       currentStep: '部署失败: ' + error.message,
