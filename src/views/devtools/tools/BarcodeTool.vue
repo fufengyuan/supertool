@@ -111,10 +111,7 @@ function downloadBarcode() {
     const dataUrl = barcodeCanvas.value.toDataURL('image/png')
     const base64 = dataUrl.split(',')[1]
     const byteCharacters = atob(base64)
-    const byteNumbers = new Array(byteCharacters.length)
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i)
-    }
+    const byteNumbers = Array.from({ length: byteCharacters.length }, (_, i) => byteCharacters.charCodeAt(i))
     const byteArray = new Uint8Array(byteNumbers)
     const blob = new Blob([byteArray], { type: 'image/png' })
     const url = URL.createObjectURL(blob)
