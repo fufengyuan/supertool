@@ -942,17 +942,26 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     const commit = logContextMenu.value.commit
     switch (action) {
       case 'cherry-pick':
+        // 只设置目标，由 GitConfirmDialogs 确认后再执行（避免确认框闪现即执行）
         cherryPickTarget.value = commit?.hash || ''
-        doCherryPick()
         break
       case 'revert':
         revertTarget.value = commit?.hash || ''
-        doRevert()
         break
       case 'create-tag':
         newTagName.value = ''
         newTagMessage.value = ''
         showCreateTagDialog.value = true
+        break
+      case 'cherry-pick-multi':
+        showCherryPickMultiDialog.value = true
+        break
+      case 'compare-commits':
+      case 'compare-with':
+        openCompareCommitsDialog()
+        break
+      case 'get-file':
+        openGetFileRevisionDialog()
         break
     }
     closeContextMenu()
@@ -1136,10 +1145,23 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   function stashContextAction(action: string) {
     const stash = stashContextMenu.value.stash
     switch (action) {
+      case 'apply': doStashApply(stash?.ref); break
       case 'pop': doStashPop(stash?.ref); break
       case 'drop': doStashDrop(stash?.ref); break
     }
     stashContextMenu.value.show = false
+  }
+
+  async function doStashApply(stashRef?: string) {
+    if (!repoPath.value) {return}
+    try {
+      await api.gitStashApply(repoPath.value, stashRef)
+      toast.success('Stash 应用成功')
+      await loadStashList()
+      await loadStatus()
+    } catch (e: any) {
+      toast.error('应用失败: ' + e.message)
+    }
   }
   function openStashSaveIncludeUntracked() {
     showStashSaveDialog.value = true
@@ -1368,6 +1390,8 @@ function confirmDeleteBranch(name: string) {
     try {
       const res = await api.gitGetFileAtRevision(repoPath.value, getFileCommit.value, getFilePath.value)
       getFileContent.value = res
+      // 拿到内容后打开预览框（原来永远不会显示）
+      showGetFilePreviewDialog.value = true
     } catch (e: any) {
       toast.error('获取失败: ' + e.message)
     }
@@ -1421,19 +1445,29 @@ function confirmDeleteBranch(name: string) {
     }
   }
   function getCommitMessage(commit: any): string { return commit?.message || '' }
-  function doCherryPickMulti() {
+  async function doCherryPickMulti() {
     const hashes = Array.from(selectedLogCommits.value)
-    if (hashes.length === 0) {return}
-    // 逐个 cherry-pick
-    hashes.forEach(async (hash) => {
-      try {
-        await api.gitCherryPick(repoPath.value, hash, cherryPickMultiNoCommit.value)
-      } catch (e: any) {
-        toast.error(`拣选提交 ${hash} 失败: ${e.message}`)
+    if (hashes.length === 0) {
+      toast.warning('请先选择要拣选的提交')
+      return
+    }
+    cherryPicking.value = true
+    try {
+      // 逐个串行 cherry-pick，避免并发冲突
+      for (const hash of hashes) {
+        try {
+          await api.gitCherryPick(repoPath.value, hash, cherryPickMultiNoCommit.value)
+        } catch (e: any) {
+          toast.error(`拣选提交 ${hash} 失败: ${e.message}`)
+        }
       }
-    })
-    toast.success('批量拣选提交完成')
-    refreshAll()
+      toast.success('批量拣选提交完成')
+      showCherryPickMultiDialog.value = false
+      selectedLogCommits.value.clear()
+      await refreshAll()
+    } finally {
+      cherryPicking.value = false
+    }
   }
   function openGitCleanDialog() { showGitCleanDialog.value = true }
 async function doGitCleanDryRun() {
