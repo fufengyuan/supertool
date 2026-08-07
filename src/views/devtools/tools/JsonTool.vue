@@ -170,7 +170,9 @@ function unicodeToChinese() {
 
 function chineseToUnicode() {
   if (!input.value.trim()) { toast.warning('请输入内容'); return }
-  output.value = input.value.replace(/[^\u0000-\u007f]/g, (c) => { return '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0') })
+  output.value = input.value.split('').map(c => {
+    return c.charCodeAt(0) > 127 ? '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0') : c
+  }).join('')
   toast.success('转换成功')
 }
 
