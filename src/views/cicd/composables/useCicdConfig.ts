@@ -759,7 +759,10 @@ export function useCicdConfig() {
     } catch (error) { handleError(error, { context: '删除配置' }); }
   }
 
+  const copyingConfig = ref(false);
   async function copyConfig(sourceId: string) {
+    if (copyingConfig.value) { return; }
+    copyingConfig.value = true;
     try {
       // 1. 获取源配置
       const source = await getTauriAPI().getCicdConfigById(sourceId) as CicdConfigEntry | undefined;
@@ -808,6 +811,7 @@ export function useCicdConfig() {
 
       toast.success('配置已复制');
     } catch (error) { handleError(error, { context: '复制配置' }); }
+    finally { copyingConfig.value = false; }
   }
 
   // Normalize old saved /bin/java or /bin/node paths to home directories
