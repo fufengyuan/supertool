@@ -79,29 +79,17 @@ export function useServers() {
 
   const addGroup = async (group: Partial<ServerGroup>): Promise<ServerGroup> => {
     console.log("[useServers.ts] addGroup() called")
-    try {
-      return await getTauriAPI().addServerGroup(group)
-    } catch (err) {
-      throw err
-    }
+    return await getTauriAPI().addServerGroup(group)
   }
 
   const updateGroup = async (groupId: string, updates: { name?: string; description?: string; parentId?: string | null; color?: string }): Promise<ServerGroup> => {
     console.log("[useServers.ts] updateGroup() called")
-    try {
-      return await getTauriAPI().updateServerGroup(groupId, updates)
-    } catch (err) {
-      throw err
-    }
+    return await getTauriAPI().updateServerGroup(groupId, updates)
   }
 
   const deleteGroup = async (groupId: string): Promise<void> => {
     console.log("[useServers.ts] deleteGroup() called")
-    try {
-      return await getTauriAPI().deleteServerGroup(groupId)
-    } catch (err) {
-      throw err
-    }
+    return await getTauriAPI().deleteServerGroup(groupId)
   }
 
   return {
