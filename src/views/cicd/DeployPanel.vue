@@ -518,7 +518,7 @@ const realtimeUserScrolledUp = ref(false);
 
 function onRealtimeLogScroll() {
   const el = logContainer.value;
-  if (!el) return;
+  if (!el) {return;}
   const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
   realtimeUserScrolledUp.value = !atBottom;
 }
@@ -1152,7 +1152,7 @@ async function toggleLogDetails(logId: string) {
 
 /** Get real-time logs for a running deploy from its deploy state */
 function runningRealtimeLogs(log: DeployLog) {
-  if (log.status !== 'running') return null;
+  if (log.status !== 'running') {return null;}
   const state = deployStates.value.get(log.configId);
   return state?.realtimeLogs || null;
 }
@@ -1193,7 +1193,7 @@ function clearRealtimeLogs() {
 
 function scrollToBottom(force = false) {
   // 用户已上翻查看历史时不再自动吸底（除非点"回到底部"按钮强制）
-  if (!force && realtimeUserScrolledUp.value) return;
+  if (!force && realtimeUserScrolledUp.value) {return;}
   // 程序化赋值 scrollTop 不触发 scroll 事件，必须手动重置，否则按钮不消失、后续吸底被永久跳过
   realtimeUserScrolledUp.value = false;
   nextTick(() => {

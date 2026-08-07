@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getErrorMessage } from '../../../utils/helpers'
 import { getTauriAPI } from '../../../utils/tauri-api'
 
@@ -785,20 +785,6 @@ function normalizeDefault(v: string | null | undefined): string | null {
   return String(v)
 }
 
-/** Build type string with length/decimals for DDL */
-function buildTypeString(col: ColumnDef): string {
-  let typeStr = col.type.toUpperCase()
-  if (col.length != null && col.length > 0) {
-    if (col.decimals != null && col.decimals >= 0 && ['DECIMAL', 'FLOAT', 'DOUBLE'].includes(typeStr)) {
-      typeStr += `(${col.length},${col.decimals})`
-    } else if (!['TEXT', 'BLOB', 'JSON', 'DATE', 'TIME', 'DATETIME', 'TIMESTAMP', 'YEAR', 'BOOLEAN'].includes(typeStr)) {
-      typeStr += `(${col.length})`
-    }
-  }
-  return typeStr
-}
-
-/** Build full type declaration for PG ALTER COLUMN TYPE */
 function buildTypeFull(col: ColumnDef, db: string): string {
   let typeStr = col.type.toUpperCase()
   if (col.length != null && col.length > 0) {

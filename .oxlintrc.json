@@ -2,8 +2,8 @@
     "extends": ["modern"],
     "rules": {
         "no-debugger": "error",
-        "no-unused-vars": "error",
-        "eqeqeq": ["error", "always"],
+        "no-unused-vars": ["error", { "caughtErrors": "none", "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+        "eqeqeq": ["error", "always", { "null": "ignore" }],
         "semi": ["error", "always"],
         "quotes": ["error", "double"],
         "curly": ["error", "all"],

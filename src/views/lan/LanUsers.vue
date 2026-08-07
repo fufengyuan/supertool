@@ -321,12 +321,12 @@ function cancelEditRemark() {
 }
 
 async function saveRemark(peer: LanPeer) {
-  if (editingPeerId.value !== peer.id) return;
+  if (editingPeerId.value !== peer.id) {return;}
   const val = editingRemarkInput.value.trim();
   const old = remarks.value[peer.id] || '';
   editingPeerId.value = null;
   editingRemarkInput.value = '';
-  if (val === old) return;
+  if (val === old) {return;}
   try {
     await getTauriAPI().lanSetPeerRemark(peer.id, val);
     if (val) {

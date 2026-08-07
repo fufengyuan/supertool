@@ -152,7 +152,7 @@ const pendingCount = computed(() => pendingTodos.value.length)
 
 const groupedTodos = computed<TodoGroup[]>(() => {
   const active = pendingTodos.value
-  if (active.length === 0) return []
+  if (active.length === 0) {return []}
 
   // Build project map
   const projectMap = new Map<string, Project>()
@@ -164,7 +164,7 @@ const groupedTodos = computed<TodoGroup[]>(() => {
   const groupMap = new Map<string | null, Todo[]>()
   for (const todo of active) {
     const pid = todo.projectId || null
-    if (!groupMap.has(pid)) groupMap.set(pid, [])
+    if (!groupMap.has(pid)) {groupMap.set(pid, [])}
     groupMap.get(pid)!.push(todo)
   }
 
@@ -182,8 +182,8 @@ const groupedTodos = computed<TodoGroup[]>(() => {
   const projectOrder = new Map<string, number>()
   projects.value.forEach((p, i) => projectOrder.set(p.id, i))
   groups.sort((a, b) => {
-    if (a.projectId === null) return 1
-    if (b.projectId === null) return -1
+    if (a.projectId === null) {return 1}
+    if (b.projectId === null) {return -1}
     return (projectOrder.get(a.projectId) ?? Infinity) - (projectOrder.get(b.projectId) ?? Infinity)
   })
 
@@ -201,7 +201,7 @@ async function loadTodos() {
 
 async function addTodo() {
   const text = newTodoText.value.trim()
-  if (!text) return
+  if (!text) {return}
   newTodoText.value = ''
   try {
     const todoData: any = { text, priority: 'medium' }
@@ -255,10 +255,10 @@ async function setMinSize(w: number, h: number) {
 // 展开模式：标题栏按下立即触发原生拖拽（无需焦点，跨应用可用）
 // 鼠标抬起时若未拖动，则视为点击 → 折叠为小球
 function onTitleMouseDown(e: MouseEvent) {
-  if (e.button !== 0) return
+  if (e.button !== 0) {return}
   const target = e.target as HTMLElement
   // 置顶按钮有自己的 click 处理，不参与折叠/拖拽
-  if (target.closest('button')) return
+  if (target.closest('button')) {return}
 
   const startX = e.clientX
   const startY = e.clientY
@@ -282,7 +282,7 @@ function onTitleMouseDown(e: MouseEvent) {
 // 同时记录起点，用全局 mouseup 判定是否为点击（没拖动就展开）
 // 原理：startDragging 是原生级别，若用户只是点击没移动，鼠标抬起后 JS 的 mouseup 仍会触发
 function onBallMouseDown(e: MouseEvent) {
-  if (e.button !== 0) return
+  if (e.button !== 0) {return}
   const startX = e.clientX
   const startY = e.clientY
   const startTime = Date.now()
@@ -338,7 +338,7 @@ onMounted(async () => {
     projects.value = raw as Project[]
   } catch { /* ignore */ }
   const htmlTheme = document.documentElement.getAttribute('data-theme')
-  if (htmlTheme) theme.value = htmlTheme
+  if (htmlTheme) {theme.value = htmlTheme}
   unlistenTodos = await getTauriAPI().onTodosChanged(() => loadTodos()).catch(() => null)
 })
 

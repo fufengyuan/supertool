@@ -175,13 +175,13 @@ const wgLogRef = ref<HTMLElement | null>(null)
 const wgUserScrolledUp = ref(false)
 function onWgLogScroll() {
   const el = wgLogRef.value
-  if (!el) return
+  if (!el) {return}
   const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50
   wgUserScrolledUp.value = !atBottom
 }
 function scrollWgToBottom() {
   wgUserScrolledUp.value = false
-  if (wgLogRef.value) wgLogRef.value.scrollTop = wgLogRef.value.scrollHeight
+  if (wgLogRef.value) {wgLogRef.value.scrollTop = wgLogRef.value.scrollHeight}
 }
 let wgPolling: any = null
 let wgDurationTimer: any = null

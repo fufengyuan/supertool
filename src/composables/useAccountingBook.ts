@@ -811,7 +811,7 @@ function formatFileSize(bytes: number): string {
 
 // Receipt preview
 function isImage(name: string | undefined | null): boolean {
-  if (!name) return false
+  if (!name) {return false}
   const ext = name.split('.').pop()?.toLowerCase()
   return ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext || '')
 }
