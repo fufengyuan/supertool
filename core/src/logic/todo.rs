@@ -195,7 +195,8 @@ impl super::CoreService {
                 vals.push(Some(v.to_string()));
             }
             if let Some(v) = params.get("completed") {
-                let completed = v.as_bool().unwrap_or(false);
+                // 兼容布尔与 0/1 数字，避免 "1" 等真值被误判为 false
+                let completed = v.as_bool().unwrap_or_else(|| v.as_i64().map(|n| n != 0).unwrap_or(false));
                 sets.push(format!("completed = ?{}", sets.len() + 1));
                 vals.push(Some(if completed { "1" } else { "0" }.to_string()));
                 sets.push(format!("completedAt = ?{}", sets.len() + 1));

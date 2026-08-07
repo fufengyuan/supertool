@@ -1344,7 +1344,7 @@ export function useSettingsAPI() {
       const res = await tauriInvoke<any>('get_setting', { key })
       return res.success ? res.data : null
     },
-    setSetting: async (key: string, value: any): Promise<{ key: string; value: string } | undefined> => {
+    setSetting: async (key: string, value: string): Promise<{ key: string; value: string } | undefined> => {
       const res = await tauriInvoke<{ key: string; value: string }>('set_setting', { key, value })
       if (!res.success) {throw new Error(res.error)}
       return res.data
@@ -1612,7 +1612,7 @@ export interface TauriAPI {
   // Settings
   getMenuIcon: (key: string) => Promise<string | null>
   getSetting: (key: string) => Promise<any>
-  setSetting: (key: string, value: any) => Promise<{ key: string; value: string } | undefined>
+  setSetting: (key: string, value: string) => Promise<{ key: string; value: string } | undefined>
   getDbConnections: () => Promise<any[]>
   setDbConnections: (connections: any[]) => Promise<void>
   getNotificationSettings: () => Promise<NotificationSettings | null>
