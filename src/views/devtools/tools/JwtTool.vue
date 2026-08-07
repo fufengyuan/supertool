@@ -1,84 +1,92 @@
 <template>
-  <div>
-    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="key" size="14" class="inline-block align-text-bottom" /> JWT 解码</h3>
-
-    <div class="mb-5">
-      <span class="label-text text-xs font-medium opacity-60 mb-1 block">JWT Token</span>
+  <ToolPage
+    icon="unlock"
+    name="JWT 解码"
+    description="解析 JWT Token 的 Header 与 Payload，展示常用声明字段"
+    @back="$emit('back')"
+  >
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="key" size="12" /> JWT Token</h4>
       <textarea
         v-model="input"
-        class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]"
+        class="textarea textarea-bordered w-full font-mono text-sm bg-base-200/60 min-h-[110px] resize-none"
         placeholder="输入 JWT token (eyJ...)"
-        rows="3"
         @input="decode"
       ></textarea>
-
-      <div class="flex flex-wrap gap-2.5 mb-3 mt-3">
-        <button class="btn btn-primary" @click="decode">解码</button>
-        <button class="btn btn-ghost" @click="copyHeader"><SvgIcon name="file" size="14" class="align-text-bottom" /> 复制 Header</button>
-        <button class="btn btn-ghost" @click="copyPayload"><SvgIcon name="file" size="14" class="align-text-bottom" /> 复制 Payload</button>
-        <button class="btn btn-ghost" @click="clear">清空</button>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button class="btn btn-primary btn-sm" @click="decode">解码</button>
+        <button class="btn btn-outline btn-sm" @click="copyHeader" :disabled="!header">复制 Header</button>
+        <button class="btn btn-outline btn-sm" @click="copyPayload" :disabled="!payload">复制 Payload</button>
+        <button class="btn btn-ghost btn-sm ml-auto" @click="clear" :disabled="!input">清空</button>
       </div>
+    </div>
 
-      <div v-if="error" class="mt-3 p-3 bg-error/10 border border-error/30 rounded-box text-error text-sm">{{ error }}</div>
+    <div v-if="error" class="p-3.5 bg-error/10 border border-error/30 rounded-xl text-error text-sm flex items-center gap-2">
+      <SvgIcon name="alertTriangle" size="15" /> {{ error }}
+    </div>
 
-      <div v-if="header" class="mt-4">
-        <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5"><SvgIcon name="file" size="14" class="align-text-bottom" /> Header</h4>
-        <div class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto">{{ header }}</div>
-        <div v-if="headerObj" class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2 mt-3">
-          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
-            <span class="text-xs font-medium opacity-60 mb-1">算法 (alg)</span>
-            <span class="text-sm text-base-content break-all">{{ headerObj.alg || '—' }}</span>
-          </div>
-          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
-            <span class="text-xs font-medium opacity-60 mb-1">类型 (typ)</span>
-            <span class="text-sm text-base-content break-all">{{ headerObj.typ || '—' }}</span>
-          </div>
+    <!-- Header -->
+    <div v-if="header" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> Header</h4>
+      <div class="p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-56 overflow-y-auto">{{ header }}</div>
+      <div v-if="headerObj" class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2 mt-3">
+        <div class="flex flex-col p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1">算法 (alg)</span>
+          <span class="text-sm text-base-content break-all font-mono">{{ headerObj.alg || '—' }}</span>
         </div>
-      </div>
-
-      <div v-if="payload" class="mt-4">
-        <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5"><SvgIcon name="file" size="14" class="align-text-bottom" /> Payload</h4>
-        <div class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto">{{ payload }}</div>
-        <div v-if="payloadObj" class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2 mt-3">
-          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
-            <span class="text-xs font-medium opacity-60 mb-1">签发者 (iss)</span>
-            <span class="text-sm text-base-content break-all">{{ payloadObj.iss || '—' }}</span>
-          </div>
-          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
-            <span class="text-xs font-medium opacity-60 mb-1">主体 (sub)</span>
-            <span class="text-sm text-base-content break-all">{{ payloadObj.sub || '—' }}</span>
-          </div>
-          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
-            <span class="text-xs font-medium opacity-60 mb-1">签发时间 (iat)</span>
-            <span class="text-sm text-base-content break-all">{{ payloadObj.iat ? formatDate(payloadObj.iat) : '—' }}</span>
-          </div>
-          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
-            <span class="text-xs font-medium opacity-60 mb-1">过期时间 (exp)</span>
-            <span class="text-sm text-base-content break-all">{{ payloadObj.exp ? formatDate(payloadObj.exp) : '—' }}</span>
-          </div>
-          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
-            <span class="text-xs font-medium opacity-60 mb-1">生效时间 (nbf)</span>
-            <span class="text-sm text-base-content break-all">{{ payloadObj.nbf ? formatDate(payloadObj.nbf) : '—' }}</span>
-          </div>
-          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
-            <span class="text-xs font-medium opacity-60 mb-1">JWT ID (jti)</span>
-            <span class="text-sm text-base-content break-all">{{ payloadObj.jti || '—' }}</span>
-          </div>
-          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
-            <span class="text-xs font-medium opacity-60 mb-1">受众 (aud)</span>
-            <span class="text-sm text-base-content break-all">{{ payloadObj.aud || '—' }}</span>
-          </div>
+        <div class="flex flex-col p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1">类型 (typ)</span>
+          <span class="text-sm text-base-content break-all font-mono">{{ headerObj.typ || '—' }}</span>
         </div>
       </div>
     </div>
-  </div>
+
+    <!-- Payload -->
+    <div v-if="payload" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> Payload</h4>
+      <div class="p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-56 overflow-y-auto">{{ payload }}</div>
+      <div v-if="payloadObj" class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2 mt-3">
+        <div class="flex flex-col p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1">签发者 (iss)</span>
+          <span class="text-sm text-base-content break-all">{{ payloadObj.iss || '—' }}</span>
+        </div>
+        <div class="flex flex-col p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1">主体 (sub)</span>
+          <span class="text-sm text-base-content break-all">{{ payloadObj.sub || '—' }}</span>
+        </div>
+        <div class="flex flex-col p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1">签发时间 (iat)</span>
+          <span class="text-sm text-base-content break-all">{{ payloadObj.iat ? formatDate(payloadObj.iat) : '—' }}</span>
+        </div>
+        <div class="flex flex-col p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1">过期时间 (exp)</span>
+          <span class="text-sm text-base-content break-all">{{ payloadObj.exp ? formatDate(payloadObj.exp) : '—' }}</span>
+        </div>
+        <div class="flex flex-col p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1">生效时间 (nbf)</span>
+          <span class="text-sm text-base-content break-all">{{ payloadObj.nbf ? formatDate(payloadObj.nbf) : '—' }}</span>
+        </div>
+        <div class="flex flex-col p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1">JWT ID (jti)</span>
+          <span class="text-sm text-base-content break-all font-mono">{{ payloadObj.jti || '—' }}</span>
+        </div>
+        <div class="flex flex-col p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1">受众 (aud)</span>
+          <span class="text-sm text-base-content break-all">{{ payloadObj.aud || '—' }}</span>
+        </div>
+      </div>
+    </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 const input = ref('')
