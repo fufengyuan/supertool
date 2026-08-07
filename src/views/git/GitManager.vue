@@ -321,6 +321,11 @@
       @checkout-remote-branch="checkoutRemoteBranch"
       @delete-remote-branch="confirmDeleteRemoteBranch"
       @merge="doMerge"
+      @compare-branch="openCompareBranchesDialog"
+      @push-branch="openPushDialog"
+      @pull-branch="openPullDialog"
+      @checkout-rebase-branch="checkoutBranch"
+      @checkout-merge-branch="checkoutBranch"
     />
 
     <!-- ===== 对话框子组件 ===== -->

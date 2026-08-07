@@ -95,21 +95,29 @@
     </div>
   </div>
 
-  <!-- 分支右键菜单 -->
+  <!-- 分支右键菜单（IDEA 风格） -->
   <Teleport to="body">
     <div v-if="ctxMenu.show" class="fixed z-[950]" :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }" @click.stop @contextmenu.prevent @keydown.esc="closeCtx">
       <div class="branch-ctx-menu">
         <template v-if="!ctxMenu.isRemote">
+          <!-- 本地分支 -->
           <button class="ctx-item" @click="$emit('checkout-branch', ctxMenu.branch); closeCtx()"><SvgIcon name="play" size="12" /> 签出</button>
           <button class="ctx-item" @click="$emit('open-new-branch-from', ctxMenu.branch); closeCtx()"><SvgIcon name="gitBranch" size="12" /> 新建分支（基于 {{ shortName(ctxMenu.branch) }}）</button>
           <div class="ctx-divider"></div>
           <button class="ctx-item" @click="$emit('open-merge-dialog', ctxMenu.branch); closeCtx()"><SvgIcon name="gitMerge" size="12" /> 合并到当前分支</button>
-          <button class="ctx-item" @click="$emit('open-branch-rename', ctxMenu.branch); closeCtx()"><SvgIcon name="pencil" size="12" /> 重命名</button>
+          <button class="ctx-item" @click="$emit('compare-branch', ctxMenu.branch); closeCtx()"><SvgIcon name="barChart" size="12" /> 与当前分支比较</button>
           <div class="ctx-divider"></div>
+          <button class="ctx-item" @click="$emit('push-branch', ctxMenu.branch); closeCtx()"><SvgIcon name="upload" size="12" /> 推送</button>
+          <button class="ctx-item" @click="$emit('pull-branch', ctxMenu.branch); closeCtx()"><SvgIcon name="download" size="12" /> 拉取</button>
+          <div class="ctx-divider"></div>
+          <button class="ctx-item" @click="$emit('open-branch-rename', ctxMenu.branch); closeCtx()"><SvgIcon name="pencil" size="12" /> 重命名</button>
           <button class="ctx-item danger" @click="$emit('delete-branch', ctxMenu.branch); closeCtx()"><SvgIcon name="trash" size="12" /> 删除</button>
         </template>
         <template v-else>
+          <!-- 远程分支 -->
           <button class="ctx-item" @click="$emit('checkout-remote-branch', ctxMenu.branch); closeCtx()"><SvgIcon name="play" size="12" /> 检出为本地分支</button>
+          <button class="ctx-item" @click="$emit('checkout-rebase-branch', ctxMenu.branch); closeCtx()"><SvgIcon name="gitBranch" size="12" /> 检出并变基</button>
+          <button class="ctx-item" @click="$emit('checkout-merge-branch', ctxMenu.branch); closeCtx()"><SvgIcon name="gitMerge" size="12" /> 检出并合并</button>
           <div class="ctx-divider"></div>
           <button class="ctx-item danger" @click="$emit('delete-remote-branch', ctxMenu.branch); closeCtx()"><SvgIcon name="trash" size="12" /> 删除远程分支</button>
         </template>
@@ -253,6 +261,11 @@ const emit = defineEmits<{
   'delete-remote-branch': [name: string]
   'open-new-branch-from': [name: string]
   'merge': []
+  'compare-branch': [name: string]
+  'push-branch': [name: string]
+  'pull-branch': [name: string]
+  'checkout-rebase-branch': [name: string]
+  'checkout-merge-branch': [name: string]
 }>()
 
 const createBranchInputRef = ref<HTMLInputElement | null>(null)
