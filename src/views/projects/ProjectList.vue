@@ -138,7 +138,6 @@ const filteredProjects = computed(() => {
 
 const loadProjects = async () => {
   try {
-    console.log("[loadProjects] called")
     const allProjects = await projectsApi.fetchProjects(false);
     // 加载统计
     projects.value = await Promise.all(
@@ -185,7 +184,6 @@ const resetModal = () => {
 
 const saveProject = async (formData: any) => {
   try {
-    console.log("[saveProject] called")
     const projectData: any = {
       ...formData,
       archived: editingProject.value?.archived ?? false,
@@ -209,7 +207,6 @@ const saveProject = async (formData: any) => {
 
 const toggleArchive = async (project: Project) => {
   try {
-    console.log("[toggleArchive] called")
     const updated = {
       ...project,
       archived: !project.archived,
@@ -233,7 +230,6 @@ const deleteProject = async (project: Project) => {
 };
 
 onMounted(async () => {
-    console.log("[components/ProjectList.vue] mounted")
   await loadProjects();
 });
 </script>

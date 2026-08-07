@@ -16,7 +16,6 @@ export function useTodoSync() {
   // ============ 协作广播 ============
 
   const broadcastTaskUpdate = async (todo: Todo): Promise<void> => {
-    console.log("[useTodoSync.ts] broadcastTaskUpdate() called")
     try {
       const plainTodo = JSON.parse(JSON.stringify(todo))
       await getTauriAPI().broadcastTaskUpdate(plainTodo);
@@ -26,7 +25,6 @@ export function useTodoSync() {
   };
 
   const broadcastTaskComment = async (todoId: string, comment: unknown): Promise<void> => {
-    console.log("[useTodoSync.ts] broadcastTaskComment() called")
     try {
       const plainComment = JSON.parse(JSON.stringify(comment))
       await getTauriAPI().broadcastTaskComment(todoId, plainComment);
@@ -36,7 +34,6 @@ export function useTodoSync() {
   };
 
   const broadcastCollaborationStarted = async (todoId: string, editorName: string): Promise<void> => {
-    console.log("[useTodoSync.ts] broadcastCollaborationStarted() called")
     try {
       await getTauriAPI().onCollaborationStarted(todoId, editorName);
     } catch (err) {
@@ -45,7 +42,6 @@ export function useTodoSync() {
   };
 
   const broadcastCollaborationEnded = async (todoId: string, editorName: string): Promise<void> => {
-    console.log("[useTodoSync.ts] broadcastCollaborationEnded() called")
     try {
       await getTauriAPI().onCollaborationEnded(todoId, editorName);
     } catch (err) {
@@ -67,7 +63,6 @@ export function useTodoSync() {
   // ============ 导入/导出 ============
 
   const exportData = async (options: ExportOptions): Promise<unknown> => {
-    console.log("[useTodoSync.ts] exportData() called")
     syncing.value = true;
     try {
       return await getTauriAPI().exportData(options);
@@ -80,7 +75,6 @@ export function useTodoSync() {
   };
 
   const importJson = async (options: ImportOptions): Promise<unknown> => {
-    console.log("[useTodoSync.ts] importJson() called")
     syncing.value = true;
     try {
       return await getTauriAPI().importJson(options);
@@ -93,7 +87,6 @@ export function useTodoSync() {
   };
 
   const exportCsv = async (options: ExportOptions): Promise<unknown> => {
-    console.log("[useTodoSync.ts] exportCsv() called")
     syncing.value = true;
     try {
       return await getTauriAPI().exportCsv(options);
@@ -106,7 +99,6 @@ export function useTodoSync() {
   };
 
   const exportWordReport = async (reportData: unknown): Promise<unknown> => {
-    console.log("[useTodoSync.ts] exportWordReport() called")
     try {
       return await getTauriAPI().exportWordReport(reportData);
     } catch (err) {

@@ -342,7 +342,6 @@ const exportFullBackup = async () => {
   message.value = '';
 
   try {
-    console.log("[exportFullBackup] called")
     const result = await getTauriAPI().exportData({}) as any;
 
     if (result.success) {
@@ -406,7 +405,6 @@ const importFullBackup = async () => {
 // 保存自动备份设置
 const saveAutoBackupSettings = async () => {
   try {
-    console.log("[saveAutoBackupSettings] called")
     await getTauriAPI().setAutoBackup({
       enabled: autoBackup.value.enabled,
       frequency: autoBackup.value.frequency,
@@ -421,7 +419,6 @@ const saveAutoBackupSettings = async () => {
 // 选择备份路径
 const selectBackupPath = async () => {
   try {
-    console.log("[selectBackupPath] called")
     const result = await getTauriAPI().showOpenDialogForDirs?.() as { filePaths?: string[] } | undefined
     if (result?.filePaths?.[0]) {
       autoBackup.value.path = result.filePaths[0]
@@ -434,7 +431,6 @@ const selectBackupPath = async () => {
 
 // 加载自动备份设置
 onMounted(async () => {
-    console.log("[views/DataBackup.vue] mounted")
   try {
     const enabled = await getTauriAPI().getSetting('auto_backup_enabled');
     const frequency = await getTauriAPI().getSetting('auto_backup_frequency');
@@ -559,7 +555,6 @@ async function resetDataDir() {
 // Git sync functions
 async function saveGitSyncConfig() {
   try {
-    console.log("[saveGitSyncConfig] called")
     await getTauriAPI().gitSyncConfigure({
       enabled: String(gitSyncConfig.value.enabled),
       remote_url: gitSyncConfig.value.remoteUrl,
@@ -607,7 +602,6 @@ async function initGitSync() {
 async function pullGit() {
   isGitSyncing.value = true;
   try {
-    console.log("[pullGit] called")
     const result = await getTauriAPI().gitSyncPull();
     if (result.success) {
       message.value = `拉取成功，导入 ${result.importedCount} 条，跳过 ${result.skippedCount} 条`;
@@ -628,7 +622,6 @@ async function pullGit() {
 async function pushGit() {
   isGitSyncing.value = true;
   try {
-    console.log("[pushGit] called")
     const result = await getTauriAPI().gitSyncPush();
     if (result.success) {
       message.value = '推送成功';

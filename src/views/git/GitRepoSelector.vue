@@ -159,7 +159,6 @@ const loadRepos = async () => {
   if (repos.value.length > 0 || loading.value) {return;}
   loading.value = true;
   try {
-    console.log("[GitRepoSelector.vue] loadRepos() called")
     repos.value = (await getTauriAPI().scanLocalGitRepos()) || [];
   } catch (error) {
     handleError(error, { context: '扫描本地仓库', showToast: true });
@@ -202,7 +201,6 @@ const onManualPathInput = () => {
 const validateManualPath = async () => {
   const p = manualPath.value.trim();
   if (!p) {
-    console.log("[GitRepoSelector.vue] validateManualPath() called")
     manualPathValid.value = false;
     manualPathInvalid.value = '';
     return;

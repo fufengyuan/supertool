@@ -26,7 +26,6 @@ export function useTodos() {
   // ============ 基础 CRUD ============
 
   const fetchTodos = async (): Promise<Todo[]> => {
-    console.log("[useTodos.ts] fetchTodos() called")
     loading.value = true;
     error.value = null;
     try {
@@ -42,7 +41,6 @@ export function useTodos() {
   };
 
   const addTodo = async (todoData: Partial<Todo>): Promise<Todo> => {
-    console.log("[useTodos.ts] addTodo() called")
     error.value = null;
     try {
       const plainTodo = JSON.parse(JSON.stringify(todoData))
@@ -62,7 +60,6 @@ export function useTodos() {
   };
 
   const updateTodo = async (todoData: Todo): Promise<Todo> => {
-    console.log("[useTodos.ts] updateTodo() called")
     error.value = null;
     try {
       const plainTodo = JSON.parse(JSON.stringify(todoData))
@@ -76,7 +73,6 @@ export function useTodos() {
   };
 
   const deleteTodo = async (id: string): Promise<string> => {
-    console.log("[useTodos.ts] deleteTodo() called")
     error.value = null;
     try {
       await getTauriAPI().deleteTodo(id);
@@ -89,7 +85,6 @@ export function useTodos() {
   };
 
   const deleteTodos = async (ids: string[]): Promise<string[]> => {
-    console.log("[useTodos.ts] deleteTodos() called")
     error.value = null;
     try {
       await getTauriAPI().deleteTodo(ids);
@@ -104,7 +99,6 @@ export function useTodos() {
   // ============ 排序 ============
 
   const updateTodoOrder = async (todos: Todo[]): Promise<void> => {
-    console.log("[useTodos.ts] updateTodoOrder() called")
     error.value = null;
     try {
       // ⚠️ 剥离 Vue Proxy
@@ -120,7 +114,6 @@ export function useTodos() {
   // ============ 重复任务 ============
 
   const createRepeatInstance = async (todo: Todo): Promise<Todo | undefined> => {
-    console.log("[useTodos.ts] createRepeatInstance() called")
     error.value = null;
     try {
       const plainTodo = JSON.parse(JSON.stringify(todo))
@@ -135,7 +128,6 @@ export function useTodos() {
   // ============ 子任务 ============
 
   const getSubtasks = async (todoId: string): Promise<Subtask[]> => {
-    console.log("[useTodos.ts] getSubtasks() called")
     error.value = null;
     try {
       return (await getTauriAPI().getSubtasksForTodo(todoId)) || [];
@@ -147,7 +139,6 @@ export function useTodos() {
   };
 
   const addSubtask = async (subtask: Subtask): Promise<Subtask> => {
-    console.log("[useTodos.ts] addSubtask() called")
     error.value = null;
     try {
       const plainSubtask = JSON.parse(JSON.stringify(subtask))
@@ -160,7 +151,6 @@ export function useTodos() {
   };
 
   const updateSubtask = async (subtask: Subtask): Promise<Subtask> => {
-    console.log("[useTodos.ts] updateSubtask() called")
     error.value = null;
     try {
       const plainSubtask = JSON.parse(JSON.stringify(subtask))
@@ -173,7 +163,6 @@ export function useTodos() {
   };
 
   const deleteSubtask = async (subtaskId: string): Promise<void> => {
-    console.log("[useTodos.ts] deleteSubtask() called")
     error.value = null;
     try {
       return await getTauriAPI().deleteSubtask(subtaskId);
@@ -185,7 +174,6 @@ export function useTodos() {
   };
 
   const updateTodoCompletionBasedOnSubtasks = async (todoId: string): Promise<void> => {
-    console.log("[useTodos.ts] updateTodoCompletionBasedOnSubtasks() called")
     error.value = null;
     try {
       return await getTauriAPI().updateTodoCompletionBasedOnSubtasks(todoId);
@@ -199,7 +187,6 @@ export function useTodos() {
   // ============ 标签 ============
 
   const fetchTags = async (): Promise<string[]> => {
-    console.log("[useTodos.ts] fetchTags() called")
     error.value = null;
     try {
       const tags = await getTauriAPI().getTags();
@@ -212,7 +199,6 @@ export function useTodos() {
   };
 
   const addTag = async (name: string): Promise<string> => {
-    console.log("[useTodos.ts] addTag() called")
     error.value = null;
     try {
       return await getTauriAPI().addTag(name);
@@ -224,7 +210,6 @@ export function useTodos() {
   };
 
   const deleteTag = async (name: string): Promise<void> => {
-    console.log("[useTodos.ts] deleteTag() called")
     error.value = null;
     try {
       return await getTauriAPI().deleteTag(name);
@@ -238,7 +223,6 @@ export function useTodos() {
   // ============ 设置 ============
 
   const getSetting = async (key: string): Promise<string | null> => {
-    console.log("[useTodos.ts] getSetting() called")
     try {
       return await getTauriAPI().getSetting(key);
     } catch (err) {

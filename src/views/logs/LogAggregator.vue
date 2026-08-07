@@ -2633,7 +2633,6 @@ async function switchQueryMode(mode: 'stream' | 'search') {
   currentMatchId.value = null
 
   if (mode === 'stream') {
-    console.log("[switchQueryMode] called")
     // 切换到流式模式：先停止旧查询，如果已有选中的预设则自动启动流式查询
     if (isStreaming.value) {
       await stopQuery()
@@ -2665,7 +2664,6 @@ function clearLogs() {
 // 预设管理
 async function loadPresets() {
   try {
-    console.log("[loadPresets] called")
     presets.value = await getTauriAPI().logPresetsGetAll()
   } catch (e) {
     console.error('Failed to load presets:', e)
@@ -2707,7 +2705,6 @@ async function savePreset() {
 
 async function doDeletePreset(id: string) {
   try {
-    console.log("[deletePreset] called")
     await getTauriAPI().logPresetsDelete(id)
     if (selectedPreset.value?.id === id) {
       if (isStreaming.value) {await stopQuery()}
@@ -2729,7 +2726,6 @@ async function goToServers() {
 
 async function loadServers() {
   try {
-    console.log("[loadServers] called")
     allServers.value = (await getTauriAPI().getAllServers()) || []
     allGroups.value = (await getTauriAPI().getServerGroups?.()) || []
   } catch (e) {
@@ -2768,7 +2764,6 @@ let _cleanupKeyDown: (() => void) | undefined
 let _resizeObserver: ResizeObserver | null = null
 
 onMounted(async () => {
-    console.log("[components/LogAggregator.vue] mounted")
   await Promise.all([loadPresets(), loadServers()])
 
   // 初始化虚拟滚动容器高度 + 监听后续尺寸变化（窗口 resize 等）

@@ -194,7 +194,6 @@ const wgForm = ref<Record<string, any>>({ name: '', privateKey: '', publicKey: '
 
 // ============ Lifecycle ============
 onMounted(async () => {
-  console.log('[VPNManager] mounted')
   await loadWgAll()
   await loadWgStatus()
   wgPolling = setInterval(loadWgStatus, 2000)

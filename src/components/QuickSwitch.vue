@@ -149,7 +149,6 @@ const handleGlobalKeydown = (e: KeyboardEvent): void => {
 
 // 监听全局快捷键
 onMounted(() => {
-    console.log("[components/QuickSwitch.vue] mounted")
   window.addEventListener('keydown', handleGlobalKeydown)
 })
 

@@ -27,7 +27,6 @@ export function useTodoCollaboration(todosApi: TodosApi) {
   const commentInputs: Ref<Record<string, string>> = ref<any>({});
 
   const addComment = async (todoId: string): Promise<void> => {
-    console.log("[useTodoCollaboration.ts] addComment() called")
     const content = commentInputs.value[todoId];
     if (!content || !content.trim()) {return;}
 
@@ -55,7 +54,6 @@ export function useTodoCollaboration(todosApi: TodosApi) {
   };
 
   const startCollaborationEdit = async (todo: Todo): Promise<void> => {
-    console.log("[useTodoCollaboration.ts] startCollaborationEdit() called")
     try {
       const userInfo = await todosApi.getUserInfo();
 
@@ -67,7 +65,6 @@ export function useTodoCollaboration(todosApi: TodosApi) {
   };
 
   const endCollaborationEdit = async (todoId: string): Promise<void> => {
-    console.log("[useTodoCollaboration.ts] endCollaborationEdit() called")
     try {
       const userInfo = await todosApi.getUserInfo();
 
@@ -80,7 +77,6 @@ export function useTodoCollaboration(todosApi: TodosApi) {
   };
 
   const handleMarkdownDoubleClick = async (todo: Todo, onEdit: (todo: Todo) => void): Promise<void> => {
-    console.log("[useTodoCollaboration.ts] handleMarkdownDoubleClick() called")
     const currentUser = await todosApi.getUserInfo();
     if (collaboratingUsers.value[todo.id] && collaboratingUsers.value[todo.id] !== currentUser.name) {
       if (confirm(`${collaboratingUsers.value[todo.id]} 正在编辑此任务，是否要覆盖其编辑？`)) {
@@ -94,7 +90,6 @@ export function useTodoCollaboration(todosApi: TodosApi) {
   };
 
   const setupLanListeners = (todoStore: TodoStore): void => {
-    console.log("[useTodoCollaboration.ts] setupLanListeners() called")
     getTauriAPI().onTaskUpdated((data) => {
       const todoIndex = todoStore.todos.value.findIndex(t => t.id === data.todo.id);
       if (todoIndex !== -1) {

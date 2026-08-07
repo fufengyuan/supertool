@@ -12,7 +12,6 @@ export function useTodoComments() {
 
   // 评论广播（通过 LAN 同步评论到其他客户端）
   const broadcastComment = async (todoId: string, comment: Comment): Promise<void> => {
-    console.log("[useTodoComments.ts] broadcastComment() called")
     try {
       const plainComment = JSON.parse(JSON.stringify(comment))
       await getTauriAPI().broadcastTaskComment(todoId, plainComment);

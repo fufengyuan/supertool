@@ -24,7 +24,6 @@ export function useTodoBatch(
   };
 
   const batchComplete = async (): Promise<void> => {
-    console.log("[useTodoBatch.ts] batchComplete() called")
     const selectedIds = [...selectedTodos.value];
     const snapshots: Array<{ id: string; completed: boolean; completedAt: string | null; updatedAt: string }> = [];
     const updates: Promise<Todo>[] = [];
@@ -55,7 +54,6 @@ export function useTodoBatch(
   };
 
   const batchDelete = async (): Promise<void> => {
-    console.log("[useTodoBatch.ts] batchDelete() called")
     const ids = [...selectedTodos.value];
     if (ids.length === 0) {return;}
     const snapshot = todoStore.todos.value.filter(t => ids.includes(t.id));

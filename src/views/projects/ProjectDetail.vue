@@ -195,7 +195,6 @@ const formatDate = (d: string) => d ? new Date(d).toLocaleDateString('zh-CN', { 
 const loadProjectData = async () => {
   if (!project.value) {return}
   try {
-    console.log("[loadProjectData] called");
     projectStats.value = await projectsApi.getProjectStats(project.value.id)
     projectTasks.value = await projectsApi.getProjectTodos(project.value.id)
   } catch (error) {
@@ -205,7 +204,6 @@ const loadProjectData = async () => {
 
 const handleAddTask = async (text: string) => {
   try {
-    console.log("[handleAddTask] called");
     const newTask = {
       id: crypto.randomUUID(), text, completed: false, priority: 'medium' as const,
       dueDate: null, description: '', tag: '默认', createdAt: new Date().toISOString(),
@@ -218,7 +216,6 @@ const handleAddTask = async (text: string) => {
 
 const handleToggleTask = async (task: any) => {
   try {
-    console.log("[handleToggleTask] called");
     await todoStore.toggleTodo(task.id)
     await loadProjectData()
   } catch (error) { handleError(error, { context: 'handleToggleTask' }) }
@@ -226,7 +223,6 @@ const handleToggleTask = async (task: any) => {
 
 const handleDeleteTask = async (task: any) => {
   try {
-    console.log("[handleDeleteTask] called");
     await todoStore.deleteTodo(task.id)
     await loadProjectData()
   } catch (error) { handleError(error, { context: 'handleDeleteTask' }) }
@@ -251,7 +247,6 @@ const saveProject = async (formData: any) => {
 const toggleArchive = async () => {
   if (!project.value) {return}
   try {
-    console.log("[toggleArchive] called");
     const updated = { ...project.value, archived: !project.value.archived, updatedAt: new Date().toISOString() }
     await projectsApi.updateProject(updated as unknown as Project)
     project.value = updated as unknown as Project
@@ -271,7 +266,6 @@ watch(() => projectStore.projects, () => {
 }, { immediate: true })
 
 onMounted(async () => {
-    console.log("[components/ProjectDetail.vue] mounted");
     // 确保项目列表已加载
     if (projectStore.projects.length === 0) {
       await projectStore.loadProjects()

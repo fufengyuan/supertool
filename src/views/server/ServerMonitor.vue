@@ -122,7 +122,6 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
-console.log("[components/server/ServerMonitor.vue] component loaded")
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
