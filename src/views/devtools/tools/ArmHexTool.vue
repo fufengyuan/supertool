@@ -1,57 +1,56 @@
 <template>
-  <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="settings" size="14" class="inline-block align-text-bottom" /> ARM / HEX 互转</h3>
-
-    <!-- Hex → ARM-like dump -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">Hex → ARM 指令 (解码)</h4>
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">Hex 输入 (空格分隔的 32-bit 指令)</label>
-      <textarea
-        v-model="hexInput"
-        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
-        placeholder="输入 ARM 机器码 Hex，如: E3A00000 E28F0000 ..."
-        rows="3"
-      ></textarea>
-
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
-        <button class="btn btn-primary btn-sm" @click="hexToArm">解码 →</button>
-        <button class="btn btn-ghost btn-sm" @click="copyArmResult"><SvgIcon name="file" size="14" class="align-text-bottom" /> 复制</button>
-        <button class="btn btn-ghost btn-sm" @click="clearHex">清空</button>
+  <ToolPage
+    icon="tool"
+    name="ARM / HEX"
+    description="ARM32 机器码与汇编指令互转（解码 / 编码）"
+    :offline="false"
+    @back="$emit('back')"
+  >
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Hex → ARM -->
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+        <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="arrowDown" size="12" /> Hex → ARM 指令（解码）</h4>
+        <textarea
+          v-model="hexInput"
+          class="textarea textarea-bordered w-full min-h-[110px] font-mono text-xs bg-base-200/60 resize-none"
+          placeholder="输入 ARM 机器码 Hex，如: E3A00000 E28F0000 ..."
+        ></textarea>
+        <div class="flex gap-2 mt-3">
+          <button class="btn btn-primary btn-sm" @click="hexToArm">解码 →</button>
+          <button class="btn btn-outline btn-sm" @click="copyArmResult" :disabled="!armOutput"><SvgIcon name="copy" size="12" /> 复制</button>
+          <button class="btn btn-ghost btn-xs ml-auto" @click="clearHex" :disabled="!hexInput">清空</button>
+        </div>
+        <div v-if="armOutput" class="mt-3 p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-base-content">{{ armOutput }}</div>
       </div>
 
-      <div v-if="armOutput" class="mt-2.5 p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">{{ armOutput }}</div>
-    </div>
-
-    <hr class="border-t border-base-content/10 my-5" />
-
-    <!-- ARM Assembly → Hex -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">ARM 汇编 → Hex (编码)</h4>
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">ARM 汇编输入 (简易模式)</label>
-      <textarea
-        v-model="armInput"
-        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
-        placeholder="输入 ARM 汇编指令，如: MOV R0, #0 ..."
-        rows="3"
-      ></textarea>
-
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
-        <button class="btn btn-primary btn-sm" @click="armToHex">编码 →</button>
-        <button class="btn btn-ghost btn-sm" @click="copyHexResult"><SvgIcon name="file" size="14" class="align-text-bottom" /> 复制</button>
-        <button class="btn btn-ghost btn-sm" @click="clearArm">清空</button>
+      <!-- ARM → Hex -->
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+        <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="arrowUp" size="12" /> ARM 汇编 → Hex（编码）</h4>
+        <textarea
+          v-model="armInput"
+          class="textarea textarea-bordered w-full min-h-[110px] font-mono text-xs bg-base-200/60 resize-none"
+          placeholder="输入 ARM 汇编指令，如: MOV R0, #0 ..."
+        ></textarea>
+        <div class="flex gap-2 mt-3">
+          <button class="btn btn-primary btn-sm" @click="armToHex">编码 →</button>
+          <button class="btn btn-outline btn-sm" @click="copyHexResult" :disabled="!hexOutput"><SvgIcon name="copy" size="12" /> 复制</button>
+          <button class="btn btn-ghost btn-xs ml-auto" @click="clearArm" :disabled="!armInput">清空</button>
+        </div>
+        <div v-if="hexOutput" class="mt-3 p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-64 overflow-y-auto text-base-content">{{ hexOutput }}</div>
+        <div v-if="armInfo" class="mt-3 p-2.5 bg-primary/10 border border-primary/25 rounded-lg text-xs text-primary">{{ armInfo }}</div>
       </div>
-
-      <div v-if="hexOutput" class="mt-2.5 p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">{{ hexOutput }}</div>
-      <div v-if="armInfo" class="info-box">{{ armInfo }}</div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 const hexInput = ref('')
