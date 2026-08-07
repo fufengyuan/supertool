@@ -188,56 +188,56 @@ impl super::CoreService {
         self.with_db(|db| {
             // PATCH 语义：只更新请求中提供的字段，避免误清空未传字段
             let mut sets: Vec<String> = Vec::new();
-            let mut vals: Vec<String> = Vec::new();
+            let mut vals: Vec<Option<String>> = Vec::new();
 
             if let Some(v) = params.get("text").and_then(|v| v.as_str()) {
                 sets.push(format!("text = ?{}", sets.len() + 1));
-                vals.push(v.to_string());
+                vals.push(Some(v.to_string()));
             }
             if let Some(v) = params.get("completed") {
                 let completed = v.as_bool().unwrap_or(false);
                 sets.push(format!("completed = ?{}", sets.len() + 1));
-                vals.push(if completed { "1" } else { "0" }.to_string());
+                vals.push(Some(if completed { "1" } else { "0" }.to_string()));
                 sets.push(format!("completedAt = ?{}", sets.len() + 1));
-                vals.push(if completed { now.clone() } else { String::new() });
+                vals.push(if completed { Some(now.clone()) } else { None });
             }
             if let Some(v) = params.get("priority").and_then(|v| v.as_str()) {
                 sets.push(format!("priority = ?{}", sets.len() + 1));
-                vals.push(v.to_string());
+                vals.push(Some(v.to_string()));
             }
             if let Some(v) = params.get("dueDate").and_then(|v| v.as_str()) {
                 sets.push(format!("dueDate = ?{}", sets.len() + 1));
-                vals.push(v.to_string());
+                vals.push(Some(v.to_string()));
             }
             if let Some(v) = params.get("description").and_then(|v| v.as_str()) {
                 sets.push(format!("description = ?{}", sets.len() + 1));
-                vals.push(v.to_string());
+                vals.push(Some(v.to_string()));
             }
             if let Some(v) = params.get("tag").and_then(|v| v.as_str()) {
                 sets.push(format!("tag = ?{}", sets.len() + 1));
-                vals.push(v.to_string());
+                vals.push(Some(v.to_string()));
             }
             if let Some(v) = params.get("orderNum") {
                 sets.push(format!("orderNum = ?{}", sets.len() + 1));
-                vals.push(v.as_i64().map(|n| n.to_string()).unwrap_or_else(|| "0".to_string()));
+                vals.push(Some(v.as_i64().map(|n| n.to_string()).unwrap_or_else(|| "0".to_string())));
             }
             if let Some(v) = params.get("projectId").and_then(|v| v.as_str()) {
                 sets.push(format!("projectId = ?{}", sets.len() + 1));
-                vals.push(v.to_string());
+                vals.push(Some(v.to_string()));
             }
 
             if sets.is_empty() {
                 return Err("update_todo: no fields to update".to_string());
             }
             sets.push(format!("updatedAt = ?{}", sets.len() + 1));
-            vals.push(now);
+            vals.push(Some(now));
 
             let sql = format!(
                 "UPDATE todos SET {} WHERE id = ?{}",
                 sets.join(", "),
                 sets.len() + 1
             );
-            vals.push(id.clone());
+            vals.push(Some(id.clone()));
             let param_refs: Vec<&dyn ToSql> = vals.iter().map(|v| v as &dyn ToSql).collect();
             db.conn_mut()
                 .execute(&sql, param_refs.as_slice())
