@@ -1,4 +1,3 @@
-<template>
   <Teleport to="body">
     <Transition
       enter-active-class="transition-opacity duration-150 ease"
@@ -228,7 +227,7 @@
   </Teleport>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import { getTauriAPI } from '../utils/tauri-api'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'

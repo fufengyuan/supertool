@@ -149,7 +149,7 @@ onMounted(async () => {
   unlistenFns.push(unlistenToggleTheme as () => void)
 
   const unlistenSearch = await api.onMenuSearch(() => {
-    globalSearchRef.value?.open()
+    (globalSearchRef.value as any)?.open()
   }).catch(() => () => {})
   unlistenFns.push(unlistenSearch as () => void)
 
