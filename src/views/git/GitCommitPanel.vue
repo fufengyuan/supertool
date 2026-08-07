@@ -519,19 +519,19 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 }
 
 .commit-header {
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
-  height: 22px;
+  min-height: 24px;
 }
 
 .commit-title {
-  font-weight: 500;
+  font-weight: 600;
   font-size: 11px;
 }
 
 .commit-message-input {
   width: 100%;
-  padding: 4px 8px;
+  padding: 6px 10px;
   border: none;
   background: var(--color-base-200);
   color: var(--color-base-content);
@@ -540,11 +540,13 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
   resize: vertical;
   outline: none;
   border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
-  min-height: 40px;
+  min-height: 44px;
+  line-height: 1.5;
 }
 
 .commit-message-input:focus {
   background: var(--color-base-200);
+  border-bottom-color: var(--color-primary);
 }
 
 .commit-message-input::placeholder {
@@ -552,10 +554,17 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
   opacity: 0.6;
 }
 
+.commit-options {
+  display: flex;
+  gap: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
+}
+
 .commit-actions {
   display: flex;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: 8px;
+  padding: 6px 10px;
 }
 
 /* ===================== 多选标签 ===================== */
