@@ -1144,15 +1144,20 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   if (Array.isArray(refs)) {return refs}
   return refs?.split(',').map(r => r.trim()).filter(Boolean) || []
 }
+  // stash 预览请求序号：快速切换 stash 时丢弃过期响应
+  let stashPreviewSeq = 0
   async function selectStash(stash: any) {
     selectedStash.value = stash
-    // 自动加载 stash diff 预览（原来 selectStash 只存对象，stashShowContent 永远空白）
     if (!repoPath.value || !stash) { return }
+    const seq = ++stashPreviewSeq
     stashShowContent.value = '加载中...'
     try {
       const res = await api.gitStashShow(repoPath.value, stash.ref)
-      stashShowContent.value = res?.content || '(无内容)'
+      // 请求返回前用户可能已切换到其他 stash，丢弃过期响应
+      if (seq !== stashPreviewSeq) { return }
+      stashShowContent.value = res?.diff || '(无内容)'
     } catch (e: any) {
+      if (seq !== stashPreviewSeq) { return }
       stashShowContent.value = '加载失败: ' + e.message
     }
   }
@@ -1470,16 +1475,21 @@ function confirmDeleteBranch(name: string) {
       return
     }
     cherryPicking.value = true
+    let successCount = 0
     try {
-      // 逐个串行 cherry-pick，避免并发冲突
+      // 逐个串行 cherry-pick，遇冲突中止避免后续连续失败
       for (const hash of hashes) {
         try {
           await api.gitCherryPick(repoPath.value, hash, cherryPickMultiNoCommit.value)
+          successCount++
         } catch (e: any) {
-          toast.error(`拣选提交 ${hash} 失败: ${e.message}`)
+          toast.error(`拣选 ${hash} 失败（已中止）: ${e.message}`)
+          break
         }
       }
-      toast.success('批量拣选提交完成')
+      if (successCount > 0) {
+        toast.success(`已拣选 ${successCount} 个提交`)
+      }
       showCherryPickMultiDialog.value = false
       selectedLogCommits.value.clear()
       await refreshAll()

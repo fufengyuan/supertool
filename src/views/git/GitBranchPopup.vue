@@ -168,7 +168,7 @@
           :key="b.name"
           class="merge-item"
           :class="{ 'merge-item-active': mergeTarget === b.name }"
-          @click="mergeTarget = b.name"
+          @click="$emit('update:mergeTarget', b.name)"
         >
           <SvgIcon name="gitBranch" size="13" class="shrink-0 text-base-content/40" />
           <span class="flex-1 truncate">{{ b.name }}</span>
@@ -183,6 +183,30 @@
           <span v-if="merging" class="loading loading-spinner loading-xs" />
           合并
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 分支重命名对话框 ===== -->
+  <div v-if="showBranchRenameDialog" class="modal-overlay" @click="$emit('update:showBranchRenameDialog', false)">
+    <div class="dialog-card" @click.stop @keydown.esc="$emit('update:showBranchRenameDialog', false)">
+      <h3 class="dialog-title">重命名分支</h3>
+      <div class="dialog-form">
+        <label class="form-label">当前名称</label>
+        <input :value="branchRenameOld" class="form-input" disabled />
+        <label class="form-label">新名称</label>
+        <input
+          :value="branchRenameNew"
+          class="form-input"
+          placeholder="输入新的分支名称..."
+          @input="$emit('update:branchRenameNew', ($event.target as HTMLInputElement).value)"
+          @keydown.enter="$emit('do-branch-rename')"
+          spellcheck="false"
+        />
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-ghost btn-sm" @click="$emit('update:showBranchRenameDialog', false)">取消</button>
+        <button class="btn btn-primary btn-sm" @click="$emit('do-branch-rename')" :disabled="!branchRenameNew.trim()">重命名</button>
       </div>
     </div>
   </div>
