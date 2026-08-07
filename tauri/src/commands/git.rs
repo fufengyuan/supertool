@@ -605,6 +605,18 @@ pub async fn git_stash_list(repo_path: String) -> Result<serde_json::Value, Stri
         .map_err(|e| format!("获取stash列表失败: {}", e))
 }
 
+/// Show stash diff content
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_stash_show(
+    repo_path: String,
+    stash_ref: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_stash_show() called");
+    supertool_core::logic::git::git_stash_show(&repo_path, stash_ref.as_deref())
+        .await
+        .map_err(|e| format!("获取stash内容失败: {}", e))
+}
+
 /// Apply stash
 #[tauri::command(rename_all = "camelCase")]
 pub async fn git_stash_apply(
