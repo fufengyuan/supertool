@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getTauriAPI } from '../utils/tauri-api'
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
@@ -175,7 +174,7 @@ const locale = ref(getLocale());
 
       // 保存 todoStore 的过滤/排序状态
       try {
-        const todoStore = window.__todoStore;
+        const todoStore = (window as any).__todoStore;
         if (todoStore) {
           promises.push(setSetting(STATE_KEYS.filter, todoStore.filter || 'all'));
           promises.push(setSetting(STATE_KEYS.tagFilter, todoStore.tagFilter || 'all'));

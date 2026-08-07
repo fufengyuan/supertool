@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getTauriAPI } from '../utils/tauri-api'
 /**
  * useDeployPreflight — 部署前预检 composable
