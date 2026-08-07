@@ -1,94 +1,85 @@
 <template>
-  <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5">🔢 Hex / Base64 转换</h3>
-
+  <ToolPage
+    icon="hash"
+    name="Hex 转换"
+    description="String ↔ Hex、Hex ↔ Base64 互转，以及一键多格式转换"
+    @back="$emit('back')"
+  >
     <!-- String ↔ Hex -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">String ↔ Hex</h4>
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">输入</label>
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> String ↔ Hex</h4>
       <textarea
         v-model="stringHexInput"
-        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
+        class="textarea textarea-bordered w-full font-mono text-sm bg-base-200/60 min-h-[100px] resize-none"
         placeholder="输入字符串或 Hex..."
       ></textarea>
-
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
+      <div class="flex flex-wrap gap-2 mt-3">
         <button class="btn btn-primary btn-sm" @click="stringToHex">String → Hex</button>
-        <button class="btn btn-ghost btn-sm" @click="hexToString">Hex → String</button>
-        <button class="btn btn-ghost btn-sm" @click="copyHexResult">复制结果</button>
-        <button class="btn btn-ghost btn-sm" @click="clearStringHex">清空</button>
+        <button class="btn btn-outline btn-sm" @click="hexToString">Hex → String</button>
+        <button class="btn btn-ghost btn-sm ml-auto" @click="clearStringHex" :disabled="!stringHexInput">清空</button>
       </div>
-
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">输出</label>
-      <div class="mt-2.5 p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">{{ stringHexOutput || '结果将显示在这里...' }}</div>
+      <div v-if="stringHexOutput" class="mt-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[11px] font-medium text-base-content/50">输出</span>
+          <button class="btn btn-primary btn-xs" @click="copyHexResult"><SvgIcon name="copy" size="11" /> 复制</button>
+        </div>
+        <div class="p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-52 overflow-y-auto">{{ stringHexOutput }}</div>
+      </div>
     </div>
-
-    <hr class="border-t border-base-content/10 my-5" />
 
     <!-- Hex ↔ Base64 -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">Hex ↔ Base64</h4>
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">输入</label>
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="refresh" size="12" /> Hex ↔ Base64</h4>
       <textarea
         v-model="hexBase64Input"
-        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
+        class="textarea textarea-bordered w-full font-mono text-sm bg-base-200/60 min-h-[100px] resize-none"
         placeholder="输入 Hex 或 Base64..."
       ></textarea>
-
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
+      <div class="flex flex-wrap gap-2 mt-3">
         <button class="btn btn-primary btn-sm" @click="hexToBase64">Hex → Base64</button>
-        <button class="btn btn-ghost btn-sm" @click="base64ToHex">Base64 → Hex</button>
-        <button class="btn btn-ghost btn-sm" @click="copyBase64Result">复制结果</button>
-        <button class="btn btn-ghost btn-sm" @click="clearHexBase64">清空</button>
+        <button class="btn btn-outline btn-sm" @click="base64ToHex">Base64 → Hex</button>
+        <button class="btn btn-ghost btn-sm ml-auto" @click="clearHexBase64" :disabled="!hexBase64Input">清空</button>
       </div>
-
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">输出</label>
-      <div class="mt-2.5 p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">{{ hexBase64Output || '结果将显示在这里...' }}</div>
+      <div v-if="hexBase64Output" class="mt-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[11px] font-medium text-base-content/50">输出</span>
+          <button class="btn btn-primary btn-xs" @click="copyBase64Result"><SvgIcon name="copy" size="11" /> 复制</button>
+        </div>
+        <div class="p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-52 overflow-y-auto">{{ hexBase64Output }}</div>
+      </div>
     </div>
 
-    <hr class="border-t border-base-content/10 my-5" />
-
-    <!-- Quick Convert -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">快速转换</h4>
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">输入文本</label>
+    <!-- 快速转换 -->
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="sparkles" size="12" /> 快速转换</h4>
       <textarea
         v-model="quickInput"
-        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
-        placeholder="输入任意文本..."
+        class="textarea textarea-bordered w-full font-mono text-sm bg-base-200/60 min-h-[80px] resize-none"
+        placeholder="输入任意文本，一键得到 Hex / Base64 / Unicode..."
       ></textarea>
-
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
+      <div class="flex flex-wrap gap-2 mt-3">
         <button class="btn btn-primary btn-sm" @click="quickConvert">转换</button>
-        <button class="btn btn-ghost btn-sm" @click="clearQuick">清空</button>
+        <button class="btn btn-ghost btn-sm" @click="clearQuick" :disabled="!quickInput">清空</button>
       </div>
-
-      <div v-if="quickResults" class="quick-results">
-        <div class="quick-result-item">
-          <span class="quick-label">Hex:</span>
-          <span class="quick-value">{{ quickResults.hex }}</span>
-          <button class="btn btn-ghost btn-sm" @click="doCopy(quickResults.hex)"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
-        </div>
-        <div class="quick-result-item">
-          <span class="quick-label">Base64:</span>
-          <span class="quick-value">{{ quickResults.base64 }}</span>
-          <button class="btn btn-ghost btn-sm" @click="doCopy(quickResults.base64)"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
-        </div>
-        <div class="quick-result-item">
-          <span class="quick-label">Unicode:</span>
-          <span class="quick-value">{{ quickResults.unicode }}</span>
-          <button class="btn btn-ghost btn-sm" @click="doCopy(quickResults.unicode)"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
+      <div v-if="quickResults" class="flex flex-col gap-2.5 mt-3">
+        <div v-for="(item, key) in quickRows" :key="key" class="flex items-start gap-2.5 p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg">
+          <span class="shrink-0 text-[11px] font-medium text-base-content/50 w-14 pt-0.5">{{ item.label }}</span>
+          <span class="flex-1 font-mono text-xs text-base-content whitespace-pre-wrap break-all">{{ item.value }}</span>
+          <button class="btn btn-ghost btn-xs shrink-0" @click="doCopy(item.value)"><SvgIcon name="copy" size="11" /></button>
         </div>
       </div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref } from 'vue'
+import ToolPage from '../components/ToolPage.vue'
+import { ref, computed } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 
@@ -103,6 +94,15 @@ const hexBase64Output = ref('')
 // Quick Convert
 const quickInput = ref('')
 const quickResults = ref<{ hex: string; base64: string; unicode: string } | null>(null)
+
+const quickRows = computed(() => {
+  if (!quickResults.value) { return [] }
+  return [
+    { label: 'Hex:', value: quickResults.value.hex },
+    { label: 'Base64:', value: quickResults.value.base64 },
+    { label: 'Unicode:', value: quickResults.value.unicode },
+  ]
+})
 
 // String → Hex
 function stringToHex() {

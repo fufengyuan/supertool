@@ -1,88 +1,116 @@
 <template>
-  <div class="flex flex-col h-full">
-    <h3 class="text-lg font-bold text-base-content mb-4"><SvgIcon name="file" size="14" class="align-text-bottom" /> BASE64 编码/解码</h3>
-
-    <!-- Mode Toggle -->
-    <div class="flex flex-wrap gap-2.5 mb-4 items-center">
-      <label class="text-xs text-base-content/60">模式</label>
+  <ToolPage
+    icon="file"
+    name="BASE64 编码/解码"
+    description="文本与 BASE64 互转，支持文件编码/解码，可选 URL-safe 模式"
+    @back="$emit('back')"
+  >
+    <!-- 模式与选项 -->
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 bg-base-100 border border-base-content/10 rounded-xl px-4 py-3">
       <div class="join">
-        <button class="btn btn-ghost join-item btn-sm" :class="{ 'btn-active': mode === 'encode' }" @click="mode = 'encode'">编码</button>
-        <button class="btn btn-ghost join-item btn-sm" :class="{ 'btn-active': mode === 'decode' }" @click="mode = 'decode'">解码</button>
+        <button class="btn btn-sm join-item" :class="mode === 'encode' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'encode'">编码</button>
+        <button class="btn btn-sm join-item" :class="mode === 'decode' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'decode'">解码</button>
       </div>
-
-      <label class="text-xs text-base-content/60 ml-2">URL-safe</label>
-      <input type="checkbox" v-model="urlSafe" class="toggle toggle-sm toggle-primary" />
-
-      <span v-if="parseError" class="text-error text-xs"><SvgIcon name="alertTriangle" size="14" class="align-text-bottom" /> {{ parseError }}</span>
+      <label class="flex items-center gap-2 text-xs text-base-content/70 cursor-pointer select-none">
+        <input type="checkbox" v-model="urlSafe" class="checkbox checkbox-sm checkbox-primary" />
+        URL-safe（`- _`，去除 `=` 填充）
+      </label>
+      <span v-if="parseError" class="text-error text-xs flex items-center gap-1">
+        <SvgIcon name="alertTriangle" size="13" /> {{ parseError }}
+      </span>
+      <button class="btn btn-ghost btn-sm ml-auto" @click="swapMode" :disabled="!inputText" title="把输出作为输入并切换模式">
+        <SvgIcon name="refresh" size="13" /> 互换
+      </button>
     </div>
 
-    <!-- Text Input/Output -->
-    <div class="grid grid-cols-2 gap-4 mb-4 flex-1 min-h-0">
-      <div class="flex flex-col">
-        <h4 class="text-sm font-semibold text-base-content mb-1.5">输入</h4>
+    <!-- 文本输入/输出 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[240px]">
+        <div class="flex items-center justify-between mb-2.5">
+          <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5">
+            <SvgIcon name="arrowDown" size="12" /> 输入
+          </h4>
+          <button class="btn btn-ghost btn-xs" @click="clearAll" :disabled="!inputText">清空</button>
+        </div>
         <textarea
           v-model="inputText"
-          class="textarea textarea-bordered w-full font-mono text-sm flex-1 min-h-[120px] resize-none"
+          class="textarea textarea-bordered w-full font-mono text-sm flex-1 resize-none bg-base-200/60 focus:bg-base-200"
           :placeholder="mode === 'encode' ? '输入要编码的文本...' : '输入要解码的 Base64...'"
         ></textarea>
       </div>
-      <div class="flex flex-col">
-        <div class="flex items-center justify-between mb-1.5">
-          <h4 class="text-sm font-semibold text-base-content">输出</h4>
+      <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[240px]">
+        <div class="flex items-center justify-between mb-2.5">
+          <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5">
+            <SvgIcon name="arrowUp" size="12" /> 输出
+          </h4>
           <div class="flex gap-1.5">
-            <button class="btn btn-ghost btn-xs" @click="copyResult" :disabled="!outputText">复制</button>
-            <button class="btn btn-ghost btn-xs" @click="useAsInput" :disabled="!outputText">→ 输入</button>
+            <button class="btn btn-ghost btn-xs" @click="useAsInput" :disabled="!outputText" title="把输出作为新的输入">→ 输入</button>
+            <button class="btn btn-primary btn-xs" @click="copyResult" :disabled="!outputText">
+              <SvgIcon name="copy" size="11" /> 复制
+            </button>
           </div>
         </div>
-        <textarea v-model="outputText" class="textarea textarea-bordered w-full font-mono text-sm flex-1 min-h-[120px] resize-none" readonly placeholder="结果将显示在这里..."></textarea>
+        <textarea
+          v-model="outputText"
+          readonly
+          class="textarea textarea-bordered w-full font-mono text-sm flex-1 resize-none bg-base-200/60"
+          placeholder="结果将显示在这里..."
+        ></textarea>
       </div>
     </div>
 
-    <div class="flex gap-2.5 mb-4">
-      <button class="btn btn-ghost btn-sm" @click="clearAll">清空</button>
-      <button class="btn btn-ghost btn-sm" @click="swapMode" :disabled="!inputText">⇄ 切换编/解码</button>
-    </div>
-
-    <hr class="border-t border-base-content/10 my-3" />
-
-    <!-- File Encoding -->
-    <div class="mb-4">
-      <h4 class="text-sm font-semibold text-base-content mb-2 flex items-center gap-1.5">文件编码</h4>
-      <input type="file" ref="fileInput" @change="handleFile" class="file-input file-input-bordered file-input-sm w-full max-w-xs" />
-      <div v-if="fileBase64" class="mt-2">
-        <div class="text-xs text-base-content/60 mb-1">
-          <span class="font-mono">{{ fileName }}</span> ({{ fileSize }})
+    <!-- 文件编码 / 解码 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+        <h4 class="text-xs font-semibold text-base-content/70 mb-3 flex items-center gap-1.5">
+          <SvgIcon name="upload" size="12" /> 文件 → Base64
+        </h4>
+        <input type="file" ref="fileInput" @change="handleFile" class="file-input file-input-bordered file-input-sm w-full max-w-xs" />
+        <div v-if="fileProcessing" class="mt-2 text-xs text-base-content/50 flex items-center gap-1.5">
+          <span class="loading loading-spinner loading-xs" /> 正在处理文件...
         </div>
-        <div class="p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto">{{ fileBase64 }}</div>
-        <div class="flex gap-2 mt-2">
-          <button class="btn btn-ghost btn-sm" @click="copyFileBase64">复制 Base64</button>
-          <button class="btn btn-ghost btn-sm" @click="downloadBase64File">下载文件</button>
+        <div v-if="fileBase64" class="mt-2">
+          <div class="text-xs text-base-content/60 mb-1.5">
+            <span class="font-mono">{{ fileName }}</span>
+            <span class="text-base-content/40">（{{ fileSize }}）</span>
+          </div>
+          <div class="p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[180px] overflow-y-auto">{{ fileBase64 }}</div>
+          <div class="flex gap-2 mt-2.5">
+            <button class="btn btn-ghost btn-xs" @click="copyFileBase64">复制 Base64</button>
+            <button class="btn btn-outline btn-xs" @click="downloadBase64File">
+              <SvgIcon name="download" size="11" /> 下载文件
+            </button>
+          </div>
         </div>
       </div>
-      <div v-if="fileProcessing" class="loading-text">正在处理文件...</div>
-    </div>
-
-    <!-- File Decode (Base64 → File) -->
-    <div class="mb-4">
-      <h4 class="text-sm font-semibold text-base-content mb-2 flex items-center gap-1.5">文件解码</h4>
-      <textarea
-        v-model="fileDecodeInput"
-        class="textarea textarea-bordered w-full font-mono text-xs min-h-[80px] mb-2"
-        placeholder="粘贴 Base64 字符串..."
-      ></textarea>
-      <div class="flex gap-2 items-center">
-        <input v-model="decodeFileName" class="input input-bordered font-mono text-xs" placeholder="decoded_file.txt" style="max-width: 240px;" />
-        <button class="btn btn-primary btn-sm" @click="decodeFile" :disabled="!fileDecodeInput.trim()">解码并下载</button>
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+        <h4 class="text-xs font-semibold text-base-content/70 mb-3 flex items-center gap-1.5">
+          <SvgIcon name="download" size="12" /> Base64 → 文件
+        </h4>
+        <textarea
+          v-model="fileDecodeInput"
+          class="textarea textarea-bordered w-full font-mono text-xs bg-base-200/60 min-h-[90px] mb-2.5"
+          placeholder="粘贴 Base64 字符串..."
+        ></textarea>
+        <div class="flex flex-wrap gap-2 items-center">
+          <input v-model="decodeFileName" class="input input-bordered input-sm font-mono text-xs flex-1 min-w-[160px]" placeholder="decoded_file.txt" />
+          <button class="btn btn-primary btn-sm" @click="decodeFile" :disabled="!fileDecodeInput.trim()">
+            <SvgIcon name="download" size="12" /> 解码并下载
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref, computed } from 'vue'
 import { copyText, readFileAsArrayBuffer } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 
