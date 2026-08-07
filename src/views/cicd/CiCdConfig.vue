@@ -908,13 +908,6 @@ function confirmDeleteModule(module: { id: string | null; moduleName: string }) 
 }
 
 // Git 仓库名称查找函数（供模板使用）
-function getGitRepoName(id?: string) {
-  if (!id) {return '';}
-  const repo = cicd.gitRepos.value.find((r: any) => r.id === id);
-  return repo ? repo.name : '';
-}
-
-// openInFileManager — opens a directory in the native file manager
 function openInFileManager(path: string) {
   import('../../utils/tauri-api').then(({ getTauriAPI }) => {
     getTauriAPI().openInFileManager(path).catch(() => {});
@@ -948,7 +941,7 @@ const {
   openGroupDialog, confirmGroupDialog, cancelGroupDialog, initExpandedGroups,
   makeDefaultServer, getServerName, onServerSelect, addServer, removeServer,
   testServerById, onJavaVersionSelected, onNodeVersionSelected, reDetectToolPaths,
-  getProjectName, getToolBadge, getBuildToolIcon, getBuildToolName, formatTime,
+  getProjectName, getGitRepoName, getToolBadge, getBuildToolIcon, getBuildToolName, formatTime,
   toggleGroup, renameGroup, addGroup, getServerLabel,
   loadConfigs, createNewConfig, selectConfig, onProjectChange, onGitRepoChange, selectLocalDir,
   selectServer, copyGitUrl, loadBranches, testConnection,
