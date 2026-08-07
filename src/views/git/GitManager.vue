@@ -157,26 +157,26 @@
 
           <!-- 选中提交详情（右窄栏） -->
           <div v-if="selectedCommit" class="w-[280px] shrink-0 border-l border-base-content/10 bg-base-200/30 flex flex-col overflow-hidden">
-            <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 shrink-0">
+            <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 shrink-0 bg-base-200/50">
               <span class="font-medium text-[11px]">提交详情</span>
               <button class="btn btn-ghost btn-xs" @click="selectedCommit = null; commitDiff = null" title="关闭"><SvgIcon name="x" :size="11" /></button>
             </div>
             <div class="flex-1 overflow-auto p-3 text-[11px]">
               <div class="font-mono text-xs font-semibold text-primary mb-1">{{ selectedCommit.hash?.substring(0, 7) }}</div>
-              <div class="text-base-content font-medium mb-2 leading-relaxed">{{ selectedCommit.message }}</div>
-              <div class="text-base-content/60 space-y-1">
-                <div>作者: {{ selectedCommit.author }}</div>
-                <div>时间: {{ formatFullDate(selectedCommit.date) }}</div>
+              <div class="text-base-content font-medium mb-2 leading-relaxed text-[12px]">{{ selectedCommit.message }}</div>
+              <div class="text-base-content/60 space-y-1.5 text-[11px]">
+                <div class="flex items-center gap-1.5"><SvgIcon name="user" :size="11" class="text-base-content/40 shrink-0" /> {{ selectedCommit.author }}</div>
+                <div class="flex items-center gap-1.5"><SvgIcon name="clock" :size="11" class="text-base-content/40 shrink-0" /> {{ formatFullDate(selectedCommit.date) }}</div>
                 <div v-if="selectedCommit.refs?.length" class="flex flex-wrap gap-1 mt-2">
-                  <span v-for="ref in parseRefs(selectedCommit.refs)" :key="ref" class="px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary font-mono">{{ ref }}</span>
+                  <span v-for="ref in parseRefs(selectedCommit.refs)" :key="ref" class="px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary font-mono border border-primary/20">{{ ref }}</span>
                 </div>
               </div>
             </div>
             <!-- Diff 预览 -->
             <div v-if="commitDiff" class="border-t border-base-content/10 flex flex-col min-h-[120px] max-h-[40%]">
-              <div class="px-3 py-1 border-b border-base-content/10 text-[11px] font-medium shrink-0">Diff</div>
+              <div class="px-3 py-1 border-b border-base-content/10 text-[11px] font-medium shrink-0 bg-base-200/50">Diff</div>
               <div class="flex-1 overflow-auto p-2">
-                <pre class="text-[10px] font-mono whitespace-pre-wrap break-all text-base-content">{{ commitDiff }}</pre>
+                <pre class="text-[10px] font-mono whitespace-pre-wrap break-all text-base-content leading-relaxed">{{ commitDiff }}</pre>
               </div>
             </div>
           </div>
@@ -580,26 +580,8 @@ import GitBranchPopup from './GitBranchPopup.vue'
 import GitConfirmDialogs from './GitConfirmDialogs.vue'
 import GitFormDialogs from './GitFormDialogs.vue'
 import GitAdvancedDialogs from './GitAdvancedDialogs.vue'
-import GitFileTree from './GitFileTree.vue'
-import GitCodeEditor from './GitCodeEditor.vue'
 import GitBranchTree from './GitBranchTree.vue'
 import SplitDiffViewer from '@/components/ui/SplitDiffViewer.vue'
-
-// 文件浏览状态（保留供 GitCodeEditor 使用）
-const selectedFilePath = ref<string | null>(null)
-
-function handleSelectFile(path: string) {
-  selectedFilePath.value = path
-}
-
-function closeFileEditor() {
-  selectedFilePath.value = null
-}
-
-function handleFileSaved(path: string) {
-  // 文件保存后刷新 Git status
-  loadStatus()
-}
 
 const props = defineProps<{
   repo: GitRepo
