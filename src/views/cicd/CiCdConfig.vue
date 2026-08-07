@@ -747,7 +747,7 @@
                     <label class="toggle" @click.stop>
                       <input type="checkbox" v-model="module.enabled" />
                     </label>
-                    <button @click.stop="deleteModule(module.id)" class="btn btn-ghost btn-sm btn-square text-error hover:bg-error/10" title="删除">
+                    <button @click.stop="confirmDeleteModule(module)" class="btn btn-ghost btn-sm btn-square text-error hover:bg-error/10" title="删除">
                       <SvgIcon name="x" size="14" />
                     </button>
                   </div>
