@@ -2,6 +2,33 @@ use hmac::{KeyInit, Mac};
 use rusqlite::params;
 use serde_json::{Value, json};
 
+/// RFC 4648 Base32 解码（MFA secret 的标准编码；TOTP key 必须是解码后的原始字节）
+fn base32_decode(input: &str) -> Result<Vec<u8>, String> {
+    let values: Vec<u8> = input
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .map(|c| c.to_ascii_uppercase())
+        .filter(|&c| c != '=')
+        .map(|c| match c {
+            'A'..='Z' => Ok((c as u8) - b'A'),
+            '2'..='7' => Ok((c as u8) - b'2' + 26),
+            _ => Err(format!("invalid base32 character: {}", c)),
+        })
+        .collect::<Result<_, _>>()?;
+    let mut out = Vec::with_capacity(values.len() * 5 / 8);
+    let mut buffer: u32 = 0;
+    let mut bits: u32 = 0;
+    for &v in &values {
+        buffer = (buffer << 5) | v as u32;
+        bits += 5;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((buffer >> bits) as u8);
+        }
+    }
+    Ok(out)
+}
+
 /// Mfa module — extracted from mod.rs
 ///
 
@@ -37,6 +64,9 @@ impl super::CoreService {
         let id = uuid::Uuid::new_v4().to_string();
         let name = params["name"].as_str().unwrap_or("").to_string();
         let secret = params["secret"].as_str().unwrap_or("").to_string();
+        // 添加时即校验 Base32 格式（曾接受非法 secret，直到生成 code 时才报错）
+        base32_decode(&secret)
+            .map_err(|e| format!("secret 不是合法的 Base32 编码: {}", e))?;
         let issuer = params.get("issuer").and_then(|v| v.as_str()).unwrap_or("");
         let account = params.get("account").and_then(|v| v.as_str()).unwrap_or("");
         let digits = params["digits"].as_u64().unwrap_or(6);
@@ -120,15 +150,19 @@ impl super::CoreService {
         let remaining = period - (epoch.as_secs() % period as u64) as u32;
         let time_bytes = time_step.to_be_bytes();
 
+        // RFC 6238：secret 必须 Base32 解码为原始字节作为 HMAC key（曾直接用 ASCII 字符串导致 code 与标准算法不一致）
+        let secret_bytes = base32_decode(secret)
+            .map_err(|e| format!("invalid base32 secret: {}", e))?;
+
         let full_code: Vec<u8> = match algorithm.to_uppercase().as_str() {
             "SHA256" | "SHA-256" => {
-                let mut mac = hmac::Hmac::<Sha256>::new_from_slice(secret.as_bytes())
+                let mut mac = hmac::Hmac::<Sha256>::new_from_slice(&secret_bytes)
                     .map_err(|e| e.to_string())?;
                 mac.update(&time_bytes);
                 mac.finalize().into_bytes().to_vec()
             }
             "SHA512" | "SHA-512" => {
-                let mut mac = hmac::Hmac::<Sha512>::new_from_slice(secret.as_bytes())
+                let mut mac = hmac::Hmac::<Sha512>::new_from_slice(&secret_bytes)
                     .map_err(|e| e.to_string())?;
                 mac.update(&time_bytes);
                 mac.finalize().into_bytes().to_vec()
@@ -136,7 +170,7 @@ impl super::CoreService {
             _ => {
                 // Default: SHA1
                 type HmacSha1 = hmac::Hmac<Sha1>;
-                let mut mac = HmacSha1::new_from_slice(secret.as_bytes())
+                let mut mac = HmacSha1::new_from_slice(&secret_bytes)
                     .map_err(|e| e.to_string())?;
                 mac.update(&time_bytes);
                 mac.finalize().into_bytes().to_vec()
