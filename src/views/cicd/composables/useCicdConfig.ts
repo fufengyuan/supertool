@@ -277,8 +277,6 @@ export function useCicdConfig() {
       // 更新 SDK 版本列表
       if (sdkResult && typeof sdkResult === 'object') {
         sdkVersions.value = {
-          sdkman: { java: [], maven: [], gradle: [] },
-          nvm: { node: [] },
           ...sdkResult,
           sdkman: { java: [], maven: [], gradle: [], ...(sdkResult as any)?.sdkman },
           nvm: { node: [], ...(sdkResult as any)?.nvm },
@@ -478,8 +476,6 @@ export function useCicdConfig() {
 
     if (sdkResult && typeof sdkResult === 'object') {
       sdkVersions.value = {
-        sdkman: { java: [], maven: [], gradle: [] },
-        nvm: { node: [] },
         ...sdkResult,
         sdkman: { java: [], maven: [], gradle: [], ...(sdkResult as any)?.sdkman },
         nvm: { node: [], ...(sdkResult as any)?.nvm },
@@ -958,7 +954,6 @@ export function useCicdConfig() {
   // ─── Init ───
   // 页面立即渲染，不做任何阻塞式加载
   const pageLoading = ref(false);
-  const dataLoading = ref(false); // 配置列表已通过共享数据加载
 
   onMounted(async () => {
     // 第一步：加载核心数据（配置列表、服务器、仓库等）- 这是轻量级DB查询，很快

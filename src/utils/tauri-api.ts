@@ -11,7 +11,6 @@ import type {
   Project, Server, ServerGroup, DbConnectionConfig, ApiResponse, ProjectStats,
   Todo, Tag, Subtask, Note, NoteGroup, WeeklyReport, MfaSecret,
   AccountingRecord, AccountingCategory, Budget, LogPreset, NotificationSettings,
-  WireGuardConfig, WireGuardStatus,
 } from '../types'
 
 // ============ 日志脱敏 ============
@@ -2138,7 +2137,6 @@ export function getTauriAPI(): TauriAPI {
     addMfaSecret: mfa.addMfaSecret,
     updateMfaSecret: mfa.updateMfaSecret,
     deleteMfaSecret: mfa.deleteMfaSecret,
-    generateTotp: mfa.generateTotp,
     // Accounting
     getAccountingRecords: accounting.getAccountingRecords,
     addAccountingRecord: accounting.addAccountingRecord,
@@ -2292,7 +2290,7 @@ export function getTauriAPI(): TauriAPI {
     getAlertHistory: alert.getAlertHistory,
     triggerAlertCheck: alert.triggerAlertCheck,
     // Events
-    onTaskUpdated: (callback: (data: any) => void) => { return () => {} },
+    onTaskUpdated: (_callback: (data: any) => void) => { return () => {} },
     onTaskStatusChanged: (_callback: (data: any) => void) => { return () => {} },
     gitSyncStatus: async (): Promise<any> => {
       const res = await tauriInvoke<any>('git_sync_status')
@@ -2361,7 +2359,6 @@ export function getTauriAPI(): TauriAPI {
     scanLocalGitRepos: async (directories: string[]): Promise<any> => tauriCall('scan_local_repos', { directories }),
     getGitBranches: async (path: string): Promise<any> => tauriCall('get_git_branches', { repoPath: path }),
     openInFileManager: async (path: string): Promise<any> => tauriCall('open_in_file_manager', { path }),
-    getGitCommitDetail: async (repoPath: string, commitHash: string): Promise<any> => tauriCall('get_git_commit_detail', { repoPath, commitHash }),
     fetchPageContent: async (url: string): Promise<string> => tauriCall('fetch_page_content', { url }),
     convertHtmlToMd: async (html: string): Promise<string> => tauriCall('convert_html_to_md', { html }),
     // Subtask
@@ -2470,9 +2467,7 @@ export function getTauriAPI(): TauriAPI {
     onServerConnected: (callback: (data: any) => void) => { return listen('server-connected', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onServerDisconnected: (callback: (data: any) => void) => { return listen('server-disconnected', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onServerHeartbeatFailed: (callback: (data: any) => void) => { return listen('server-heartbeat-failed', (e) => callback(e.payload)) as Promise<UnlistenFn> },
-    onSftpDownloadProgress: (callback: (data: any) => void) => { return listen('sftp-download-progress', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onSftpUploadDone: (callback: (data: any) => void) => { return listen('sftp-upload-done', (e) => callback(e.payload)) as Promise<UnlistenFn> },
-    onSftpUploadProgress: (callback: (data: any) => void) => { return listen('sftp-upload-progress', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onTerminalClose: (callback: (data: any) => void) => { return listen('terminal-close', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onTerminalData: (callback: (data: any) => void) => { return listen('terminal-data', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onAutoBackupCompleted: (callback: (data: any) => void) => { return listen('auto-backup-completed', (e) => callback(e.payload)) as Promise<UnlistenFn> },
@@ -2542,11 +2537,11 @@ export function getTauriAPI(): TauriAPI {
     },
     // LAN Chat
     startLan: async (userId: string, userName: string) => tauriCall("lan_start", { userId, userName }),
-    getUserInfo: async (userId: string) => tauriCall("lan_get_user_info"),
+    getUserInfo: async () => tauriCall("lan_get_user_info"),
     setStatus: async (status: string) => tauriCall("lan_set_status", { status }),
     refreshDiscovery: async () => tauriCall("lan_refresh_discovery"),
     getAllUnreadCounts: async (userId: string) => tauriCall("lan_get_all_unread_counts", { userId }),
-    getStatus: async (userId: string) => tauriCall("lan_get_status"),
+    getStatus: async () => tauriCall("lan_get_status"),
     getNetworkInfo: async () => tauriCall("lan_get_network_info"),
     getReceivePath: async () => {
       const res = await tauriCall("lan_get_receive_path")
