@@ -333,12 +333,16 @@ pub async fn delete_cicd_config(
     id: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] delete_cicd_config() called");
-    core.db_write(|conn| {
+    match core.db_write(|conn| -> Result<serde_json::Value, String> {
         conn.execute("DELETE FROM deploy_modules WHERE configId = ?", [&id])
-            .expect("db delete modules error");
-        cicd_delete_config(conn, &id).expect("db delete config error");
-        serde_json::json!({ "id": id })
-    })
+            .map_err(|e| supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string()))?;
+        cicd_delete_config(conn, &id)
+            .map_err(|e| supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string()))?;
+        Ok(serde_json::json!({ "id": id }))
+    }) {
+        Ok(Ok(v)) => Ok(v),
+        Ok(Err(e)) | Err(e) => Err(e),
+    }
 }
 
 // =================== Deploy Commands ===================
@@ -602,7 +606,8 @@ pub async fn cancel_deploy(
                 log.status = "cancelled".to_string();
                 log.end_time = Some(chrono::Utc::now().to_rfc3339());
                 log.error_message = Some("用户取消部署".to_string());
-                cicd_update_deploy_log(conn, &log).expect("db error");
+                cicd_update_deploy_log(conn, &log)
+                    .map_err(|e| supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string()))?;
                 Ok(serde_json::json!({ "success": true, "status": "cancelled" }))
             }
             Some(log) => Ok(serde_json::json!({
@@ -634,7 +639,7 @@ pub async fn rollback(
 
     // Get CICD config to read server info
     let cicd_config = core
-        .db_read(|conn| cicd_get_config_by_id(conn, &config_id).expect("db error"))?
+        .db_read(|conn| cicd_get_config_by_id(conn, &config_id).map_err(|e| e.to_string()))??
         .ok_or("CI/CD 配置不存在")?;
 
     let rollback_id = uuid::Uuid::new_v4().to_string();
@@ -1344,7 +1349,8 @@ pub async fn save_deploy_module(
         serde_json::from_value(module.clone()).map_err(|e| format!("解析模块失败: {}", e))?;
     dm.created_at = now.clone();
     dm.updated_at = now.clone();
-    let result = core.db_write(|conn| cicd_add_module(conn, &dm).expect("db error"))?;
+    let result = core
+        .db_write(|conn| cicd_add_module(conn, &dm).map_err(|e| e.to_string()))??;
     serde_json::to_value(&result).map_err(|e| e.to_string())
 }
 
