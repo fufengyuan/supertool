@@ -1,85 +1,93 @@
 <template>
-  <div class="crontab-tool">
-    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="clock" size="14" class="align-text-bottom" /> Crontab 校验</h3>
-
-    <!-- Input -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">Cron 表达式（5 字段）</h4>
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center">
+  <ToolPage
+    icon="timer"
+    name="Crontab 校验"
+    description="Cron 表达式校验、中文描述、未来 10 次执行时间预览"
+    @back="$emit('back')"
+  >
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="clock" size="12" /> Cron 表达式（5 字段）</h4>
+      <div class="flex gap-2 flex-wrap items-center">
         <input
           v-model="cronInput"
           type="text"
-          class="tool-input mono"
+          class="input input-bordered input-sm font-mono flex-1 min-w-[180px] bg-base-200/60"
           placeholder="* * * * *"
           @input="validateCron"
         />
         <button class="btn btn-primary btn-sm" @click="validateCron">校验</button>
-        <button class="btn btn-ghost btn-sm" @click="copyText(cronDescription, toast)"><SvgIcon name="file" size="14" class="align-text-bottom" /> 复制</button>
+        <button class="btn btn-outline btn-sm" @click="copyText(cronDescription, toast)" :disabled="!cronDescription"><SvgIcon name="copy" size="11" /> 复制</button>
       </div>
+      <div v-if="cronDescription" class="mt-3 p-3 bg-success/10 border border-success/25 rounded-lg text-sm text-success">{{ cronDescription }}</div>
+      <div v-if="cronError" class="mt-3 p-3 bg-error/10 border border-error/25 rounded-lg text-sm text-error">{{ cronError }}</div>
+    </div>
 
-      <!-- Description -->
-      <div v-if="cronDescription" class="tool-result desc">{{ cronDescription }}</div>
-      <div v-if="cronError" class="tool-result error">{{ cronError }}</div>
-
-      <!-- Next execution times -->
-      <div v-if="nextTimes.length > 0" class="mb-5">
-        <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">接下来 10 次执行时间</h4>
-        <div class="mt-2.5 p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">
-          <div v-for="(t, i) in nextTimes" :key="i" class="next-time-item">
-            <span class="next-time-index">{{ i + 1 }}.</span>
-            <span class="next-time-value">{{ t }}</span>
-          </div>
+    <div v-if="nextTimes.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="calendar" size="12" /> 接下来 10 次执行时间</h4>
+      <div class="max-h-60 overflow-y-auto flex flex-col gap-1">
+        <div
+          v-for="(t, i) in nextTimes"
+          :key="i"
+          class="flex items-center gap-2.5 px-3 py-1.5 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs text-base-content"
+        >
+          <span class="text-base-content/40 w-6 text-right shrink-0">{{ i + 1 }}.</span>
+          <span class="flex-1">{{ t }}</span>
         </div>
       </div>
     </div>
 
-    <hr class="border-t border-base-content/10 my-5" />
-
-    <!-- Examples -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">常见示例</h4>
-      <div class="examples-grid">
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="sparkles" size="12" /> 常见示例</h4>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div
           v-for="ex in examples"
           :key="ex.expr"
-          class="example-item"
+          class="p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg cursor-pointer hover:border-primary/50 transition-colors flex items-center gap-2.5"
           @click="cronInput = ex.expr; validateCron()"
         >
-          <code class="example-expr">{{ ex.expr }}</code>
-          <span class="example-desc">{{ ex.desc }}</span>
+          <code class="font-mono text-primary text-xs shrink-0">{{ ex.expr }}</code>
+          <span class="text-xs text-base-content/60 truncate">{{ ex.desc }}</span>
         </div>
       </div>
     </div>
 
-    <hr class="border-t border-base-content/10 my-5" />
-
-    <!-- Field Explanation -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">字段说明</h4>
-      <div class="field-table">
-        <div class="field-row header">
-          <span>字段</span><span>允许值</span><span>特殊字符</span>
-        </div>
-        <div class="field-row" v-for="f in fieldRules" :key="f.name">
-          <span class="field-name">{{ f.name }}</span>
-          <span class="field-range">{{ f.range }}</span>
-          <span class="field-chars">{{ f.chars }}</span>
-        </div>
+    <div class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden">
+      <h4 class="text-xs font-semibold text-base-content/70 px-4 pt-4 pb-2.5">字段说明</h4>
+      <div class="overflow-x-auto pb-4 px-4">
+        <table class="w-full border-collapse text-xs">
+          <thead>
+            <tr class="text-left text-primary">
+              <th class="py-1.5 pr-3 font-semibold">字段</th>
+              <th class="py-1.5 pr-3 font-semibold">允许值</th>
+              <th class="py-1.5 font-semibold">特殊字符</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="f in fieldRules" :key="f.name" class="border-t border-base-content/5">
+              <td class="py-1.5 pr-3 font-mono text-base-content">{{ f.name }}</td>
+              <td class="py-1.5 pr-3 font-mono text-base-content/80">{{ f.range }}</td>
+              <td class="py-1.5 font-mono text-base-content/80">{{ f.chars }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-      <div class="field-note">
-        <p><strong>特殊字符说明：</strong></p>
-        <p><code>*</code> = 任意值 &nbsp; <code>,</code> = 列举 &nbsp; <code>-</code> = 范围 &nbsp; <code>/</code> = 步长 &nbsp; <code>?</code> = 不指定</p>
+      <div class="px-4 pb-4 pt-2 text-xs text-base-content/60 border-t border-base-content/10 leading-relaxed">
+        <strong class="text-base-content/80">特殊字符说明：</strong><br />
+        <code class="text-primary">*</code> 任意值 · <code class="text-primary">,</code> 列举 · <code class="text-primary">-</code> 范围 · <code class="text-primary">/</code> 步长 · <code class="text-primary">?</code> 不指定
       </div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref } from 'vue'
 import cronstrue from 'cronstrue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 

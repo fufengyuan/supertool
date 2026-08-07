@@ -1,7 +1,7 @@
 {
   "name": "supertool",
   "private": true,
-  "version": "6.8.56",
+  "version": "6.8.57",
   "type": "module",
   "scripts": {
     "postinstall": "./scripts/init-hooks.sh",

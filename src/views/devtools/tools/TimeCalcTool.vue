@@ -1,79 +1,81 @@
 <template>
-  <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="calendar" size="14" class="align-text-bottom" /> 时间计算器</h3>
-
-    <!-- Date Math -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">日期加减</h4>
-      <div class="flex flex-wrap gap-2.5 mb-3 items-end">
-        <input v-model="dateMathStart" type="date" class="input input-bordered" />
-        <select v-model="dateMathUnit" class="select select-bordered">
+  <ToolPage
+    icon="calendar"
+    name="时间计算器"
+    description="日期加减、日期差值、工作日（跳过周末）计算"
+    @back="$emit('back')"
+  >
+    <!-- 日期加减 -->
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-3 flex items-center gap-1.5"><SvgIcon name="calendar" size="12" /> 日期加减</h4>
+      <div class="flex flex-wrap gap-2 items-center">
+        <input v-model="dateMathStart" type="date" class="input input-bordered input-sm bg-base-200/60" />
+        <select v-model="dateMathUnit" class="select select-bordered select-sm">
           <option value="days">天</option>
           <option value="months">月</option>
           <option value="years">年</option>
         </select>
-        <input v-model.number="dateMathAmount" type="number" class="input input-bordered font-mono max-w-[100px]" placeholder="数量" />
-        <select v-model="dateMathOp" class="select select-bordered">
+        <input v-model.number="dateMathAmount" type="number" class="input input-bordered input-sm font-mono w-20 bg-base-200/60" placeholder="数量" />
+        <select v-model="dateMathOp" class="select select-bordered select-sm">
           <option value="add">加</option>
           <option value="sub">减</option>
         </select>
-        <button class="btn btn-primary" @click="calcDateMath">计算</button>
-        <button class="btn btn-ghost" @click="copyText(dateMathResult, toast)"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
+        <button class="btn btn-primary btn-sm" @click="calcDateMath">计算</button>
+        <button class="btn btn-outline btn-sm" @click="copyText(dateMathResult, toast)" :disabled="!dateMathResult"><SvgIcon name="copy" size="11" /> 复制</button>
       </div>
-      <div v-if="dateMathResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ dateMathResult }}</div>
+      <div v-if="dateMathResult" class="mt-3 p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-sm whitespace-pre-wrap break-all text-base-content">{{ dateMathResult }}</div>
     </div>
 
-    <hr class="border-base-content/10 my-5" />
-
-    <!-- Date Difference -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">日期差值</h4>
-      <div class="flex flex-wrap gap-2.5 mb-3 items-end">
+    <!-- 日期差值 -->
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-3 flex items-center gap-1.5"><SvgIcon name="clock" size="12" /> 日期差值</h4>
+      <div class="flex flex-wrap gap-2 items-end">
         <div>
-          <span class="label-text text-xs font-medium opacity-60 mb-1 block">开始日期</span>
-          <input v-model="diffStart" type="date" class="input input-bordered" />
+          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">开始日期</span>
+          <input v-model="diffStart" type="date" class="input input-bordered input-sm bg-base-200/60" />
         </div>
         <div>
-          <span class="label-text text-xs font-medium opacity-60 mb-1 block">结束日期</span>
-          <input v-model="diffEnd" type="date" class="input input-bordered" />
+          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">结束日期</span>
+          <input v-model="diffEnd" type="date" class="input input-bordered input-sm bg-base-200/60" />
         </div>
-        <button class="btn btn-primary self-end" @click="calcDateDiff">计算</button>
-        <button class="btn btn-ghost self-end" @click="copyText(diffResult, toast)"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
+        <button class="btn btn-primary btn-sm" @click="calcDateDiff">计算</button>
+        <button class="btn btn-outline btn-sm" @click="copyText(diffResult, toast)" :disabled="!diffResult"><SvgIcon name="copy" size="11" /> 复制</button>
       </div>
-      <div v-if="diffResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ diffResult }}</div>
+      <div v-if="diffResult" class="mt-3 p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-sm whitespace-pre-wrap break-all text-base-content">{{ diffResult }}</div>
     </div>
 
-    <hr class="border-base-content/10 my-5" />
-
-    <!-- Workday Calculator -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">工作日计算（跳过周末）</h4>
-      <div class="flex flex-wrap gap-2.5 mb-3 items-end">
+    <!-- 工作日计算 -->
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-3 flex items-center gap-1.5"><SvgIcon name="filter" size="12" /> 工作日计算（跳过周末）</h4>
+      <div class="flex flex-wrap gap-2 items-end">
         <div>
-          <span class="label-text text-xs font-medium opacity-60 mb-1 block">开始日期</span>
-          <input v-model="workdayStart" type="date" class="input input-bordered" />
+          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">开始日期</span>
+          <input v-model="workdayStart" type="date" class="input input-bordered input-sm bg-base-200/60" />
         </div>
         <div>
-          <span class="label-text text-xs font-medium opacity-60 mb-1 block">工作日数量</span>
-          <input v-model.number="workdayCount" type="number" class="input input-bordered font-mono max-w-[100px]" min="1" />
+          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">工作日数量</span>
+          <input v-model.number="workdayCount" type="number" class="input input-bordered input-sm font-mono w-24 bg-base-200/60" min="1" />
         </div>
-        <select v-model="workdayOp" class="select select-bordered self-end">
+        <select v-model="workdayOp" class="select select-bordered select-sm">
           <option value="add">加</option>
           <option value="sub">减</option>
         </select>
-        <button class="btn btn-primary self-end" @click="calcWorkday">计算</button>
-        <button class="btn btn-ghost self-end" @click="copyText(workdayResult, toast)"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
+        <button class="btn btn-primary btn-sm" @click="calcWorkday">计算</button>
+        <button class="btn btn-outline btn-sm" @click="copyText(workdayResult, toast)" :disabled="!workdayResult"><SvgIcon name="copy" size="11" /> 复制</button>
       </div>
-      <div v-if="workdayResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ workdayResult }}</div>
+      <div v-if="workdayResult" class="mt-3 p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-sm whitespace-pre-wrap break-all text-base-content">{{ workdayResult }}</div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 

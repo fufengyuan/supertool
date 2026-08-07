@@ -1,82 +1,85 @@
 <template>
-  <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5">📱 二维码工具</h3>
-
-    <!-- Generate QR -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">生成二维码</h4>
-      <textarea
-        v-model="qrInput"
-        class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]"
-        placeholder="输入文本、URL 等内容..."
-        rows="3"
-      ></textarea>
-      <div class="flex flex-wrap gap-2.5 mb-3 mt-3 items-end">
-        <div>
-          <span class="label-text text-xs font-medium opacity-60 mb-1 block">尺寸</span>
-          <input v-model.number="qrSize" type="number" class="input input-bordered font-mono w-20" min="100" max="1000" step="50" />
+  <ToolPage
+    icon="camera"
+    name="二维码工具"
+    description="文本 / URL 生成二维码，支持图片解析二维码，可下载 PNG"
+    @back="$emit('back')"
+  >
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- 生成二维码 -->
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+        <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="camera" size="12" /> 生成二维码</h4>
+        <textarea
+          v-model="qrInput"
+          class="textarea textarea-bordered w-full font-mono text-sm bg-base-200/60 min-h-[90px] resize-none"
+          placeholder="输入文本、URL 等内容..."
+        ></textarea>
+        <div class="flex flex-wrap gap-2 mt-3 items-end">
+          <div>
+            <span class="text-[11px] font-medium text-base-content/50 mb-1 block">尺寸</span>
+            <input v-model.number="qrSize" type="number" class="input input-bordered input-sm font-mono w-20 bg-base-200/60" min="100" max="1000" step="50" />
+          </div>
+          <div>
+            <span class="text-[11px] font-medium text-base-content/50 mb-1 block">容错级别</span>
+            <select v-model="qrErrorLevel" class="select select-bordered select-sm">
+              <option value="L">L (7%)</option>
+              <option value="M">M (15%)</option>
+              <option value="Q">Q (25%)</option>
+              <option value="H">H (30%)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-sm" @click="generateQR" :disabled="qrGenerating">
+            {{ qrGenerating ? '生成中...' : '生成' }}
+          </button>
         </div>
-        <div>
-          <span class="label-text text-xs font-medium opacity-60 mb-1 block">容错级别</span>
-          <select v-model="qrErrorLevel" class="select select-bordered">
-            <option value="L">L (7%)</option>
-            <option value="M" selected>M (15%)</option>
-            <option value="Q">Q (25%)</option>
-            <option value="H">H (30%)</option>
-          </select>
+        <div v-if="qrGenerating" class="flex items-center gap-3 mt-4 p-3 text-sm text-base-content/60">
+          <span class="loading loading-spinner loading-sm text-primary"></span>
+          <span>正在生成二维码...</span>
         </div>
-        <button class="btn btn-primary self-end" @click="generateQR" :disabled="qrGenerating">
-          {{ qrGenerating ? '生成中...' : '生成' }}
-        </button>
+        <div v-if="qrDataUrl" class="mt-4 flex flex-col items-center gap-3">
+          <img :src="qrDataUrl" alt="QR Code" class="border border-base-content/10 rounded-xl max-w-[280px] bg-white p-2" />
+          <button class="btn btn-outline btn-sm" @click="downloadQR"><SvgIcon name="download" size="12" /> 下载 PNG</button>
+        </div>
       </div>
 
-      <div v-if="qrGenerating" class="flex items-center gap-3 mt-4 p-3 opacity-60 text-sm">
-        <div class="w-5 h-5 border-2 border-base-content/10 border-t-primary rounded-full animate-spin"></div>
-        <span>正在生成二维码...</span>
-      </div>
-
-      <div v-if="qrDataUrl" class="mt-4 flex flex-col items-center gap-3">
-        <img :src="qrDataUrl" alt="QR Code" class="border border-base-content/10 rounded-box max-w-[300px] bg-white p-2" />
-        <button class="btn btn-ghost" @click="downloadQR"><SvgIcon name="arrowDown" size="14" class="align-text-bottom" /> 下载 PNG</button>
+      <!-- 解析二维码 -->
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+        <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="search" size="12" /> 解析二维码</h4>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <input
+            type="file"
+            accept="image/*"
+            class="file-input file-input-bordered file-input-sm w-full max-w-xs"
+            @change="handleFileUpload"
+            :disabled="parseLoading"
+          />
+        </div>
+        <div v-if="parseLoading" class="flex items-center gap-3 mt-4 p-3 text-sm text-base-content/60">
+          <span class="loading loading-spinner loading-sm text-primary"></span>
+          <span>正在解析二维码...</span>
+        </div>
+        <div v-if="parseResult" class="p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-sm whitespace-pre-wrap break-all max-h-60 overflow-y-auto mt-2">
+          {{ parseResult }}
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button class="btn btn-primary btn-xs" @click="doCopy(parseResult)"><SvgIcon name="copy" size="11" /> 复制</button>
+          </div>
+        </div>
+        <div v-if="parseError" class="p-3 bg-error/10 border border-error/30 rounded-lg font-mono text-sm whitespace-pre-wrap break-all max-h-60 overflow-y-auto mt-2 text-error">{{ parseError }}</div>
       </div>
     </div>
-
-    <hr class="border-base-content/10 my-5" />
-
-    <!-- Parse QR -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">解析二维码</h4>
-      <div class="flex flex-wrap gap-2.5 mb-3">
-        <input
-          type="file"
-          accept="image/*"
-          class="input input-bordered"
-          @change="handleFileUpload"
-          :disabled="parseLoading"
-        />
-      </div>
-      <div v-if="parseLoading" class="flex items-center gap-3 mt-4 p-3 opacity-60 text-sm">
-        <div class="w-5 h-5 border-2 border-base-content/10 border-t-primary rounded-full animate-spin"></div>
-        <span>正在解析二维码...</span>
-      </div>
-      <div v-if="parseResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto mt-2">
-        {{ parseResult }}
-        <div class="flex flex-wrap gap-2.5 mb-3 mt-2">
-          <button class="btn btn-ghost" @click="doCopy(parseResult)"><SvgIcon name="file" size="14" class="align-text-bottom" /> 复制</button>
-        </div>
-      </div>
-      <div v-if="parseError" class="bg-base-200 border border-error/30 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto mt-2 text-error">{{ parseError }}</div>
-    </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref } from 'vue'
 import qr from 'qrcode-generator'
 import jsQR from 'jsqr'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 
