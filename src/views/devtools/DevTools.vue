@@ -1,146 +1,89 @@
 <template>
-  <div class="flex h-full overflow-hidden bg-base-200">
-    <!-- Left Sidebar: Tool Navigation -->
-    <aside class="w-[260px] min-w-[220px] max-w-[300px] border-r border-base-content/10 bg-base-100 flex flex-col shrink-0">
-      <div class="px-4 pt-4 pb-3">
-        <h3 class="m-0 mb-3 text-base font-bold text-base-content"><SvgIcon name="tool" size="14" />  开发工具</h3>
-        <div class="relative">
-          <SvgIcon name="search" size="14" class="absolute left-[10px] top-1/2 -translate-y-1/2 text-base-content/60" />
-          <input
-            ref="searchInputRef"
-            v-model="searchQuery"
-            placeholder="搜索工具... (Ctrl+K)"
-            class="w-full py-[7px] pl-[30px] pr-[10px] border border-base-content/10 rounded-md text-xs bg-base-200 text-base-content outline-none focus:border-primary"
-            @focus="showSearchDropdown = true"
-            @blur="onSearchBlur"
-            @keydown.down.prevent="navigateSearch(1)"
-            @keydown.up.prevent="navigateSearch(-1)"
-            @keydown.enter.prevent="selectFromSearch"
-          />
-        </div>
-      </div>
-
-      <div class="flex-1 overflow-y-auto px-2 pb-3">
-        <!-- 搜索下拉面板 -->
-        <div
-          v-if="showSearchDropdown && searchQuery"
-          class="mb-2 rounded-md border border-base-content/10 bg-base-100 shadow-lg overflow-hidden"
-        >
-          <div
-            v-for="(tool, index) in searchResults"
-            :key="tool.id"
-            class="flex items-center gap-2 px-[10px] py-[7px] cursor-pointer transition-all duration-100 text-sm"
-            :class="{ 'bg-primary/10 text-primary': index === searchSelectedIndex }"
-            @mousedown.prevent="activateTool(tool.id)"
-            @mouseenter="searchSelectedIndex = index"
-          >
-            <span class="shrink-0 w-5 flex items-center justify-center"><SvgIcon :name="tool.icon" size="15" /></span>
-            <span class="flex-1 truncate">{{ tool.name }}</span>
-            <span class="text-[10px] text-base-content/50 truncate max-w-[120px]">{{ tool.description }}</span>
-          </div>
-          <div v-if="searchResults.length === 0" class="px-3 py-4 text-center text-xs text-base-content/50">
-            未找到匹配工具
-          </div>
-        </div>
-
-        <!-- 收藏分区 -->
-        <div v-if="favoriteTools.length > 0 && !searchQuery" class="mb-2">
-          <div class="text-[10px] font-semibold text-base-content/60 uppercase tracking-[0.5px] px-2 py-1 flex items-center gap-1">
-            <SvgIcon name="star" size="12" /> 收藏
-          </div>
-          <div class="flex flex-col">
-            <div
-              v-for="tool in favoriteTools"
-              :key="tool.id"
-              class="flex items-center gap-2 px-[10px] py-[7px] rounded-md cursor-pointer transition-all duration-100 text-sm text-base-content hover:bg-base-200 group"
-              :class="{ 'bg-primary/10 text-primary': activeTool === tool.id }"
-              :title="tool.description"
-              @click="activateTool(tool.id)"
-            >
-              <span class="shrink-0 w-5 flex items-center justify-center"><SvgIcon :name="tool.icon" size="15" /></span>
-              <span class="flex-1 truncate">{{ tool.name }}</span>
-              <span
-                class="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-                @click.stop="toggleFavorite(tool.id)"
+  <div class="flex flex-col h-full overflow-hidden bg-base-200">
+    <!-- 网格首页 -->
+    <template v-if="!activeTool">
+      <div class="flex-1 overflow-y-auto">
+        <div class="max-w-[1240px] mx-auto px-6 py-6">
+          <!-- 头部：标题 + 搜索 -->
+          <div class="flex flex-wrap items-end justify-between gap-4 mb-7">
+            <div>
+              <h1 class="m-0 text-xl font-bold text-base-content flex items-center gap-2.5">
+                <span class="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+                  <SvgIcon name="tool" size="18" />
+                </span>
+                开发工具
+              </h1>
+              <p class="text-xs text-base-content/50 mt-1.5">{{ filteredCount }} 个工具 · 全部本地运行 · 即开即用</p>
+            </div>
+            <div class="relative w-full max-w-sm">
+              <SvgIcon name="search" size="15" class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/50 pointer-events-none" />
+              <input
+                ref="searchInputRef"
+                v-model="searchQuery"
+                placeholder="搜索工具（名称 / 拼音 / 关键词）..."
+                class="w-full py-2.5 pl-9 pr-4 rounded-lg border border-base-content/10 bg-base-100 text-sm text-base-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-shadow"
+              />
+              <button
+                v-if="searchQuery"
+                class="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs btn-circle"
+                title="清空"
+                @click="searchQuery = ''"
               >
-                <SvgIcon name="star" size="13" class="text-yellow-500" />
-              </span>
+                <SvgIcon name="close" size="12" />
+              </button>
             </div>
           </div>
-        </div>
 
-        <!-- 最近使用分区 -->
-        <div v-if="recentTools.length > 0 && !searchQuery" class="mb-2">
-          <div class="text-[10px] font-semibold text-base-content/60 uppercase tracking-[0.5px] px-2 py-1 flex items-center gap-1">
-            <SvgIcon name="clock" size="12" /> 最近使用
+          <!-- 空结果 -->
+          <div v-if="filteredCategories.length === 0" class="flex flex-col items-center justify-center py-24 text-base-content/40 gap-3">
+            <SvgIcon name="search" size="40" class="opacity-30" />
+            <p class="text-sm">未找到匹配「{{ searchQuery }}」的工具</p>
           </div>
-          <div class="flex flex-col">
-            <div
-              v-for="tool in recentTools"
-              :key="tool.id"
-              class="flex items-center gap-2 px-[10px] py-[7px] rounded-md cursor-pointer transition-all duration-100 text-sm text-base-content hover:bg-base-200 group"
-              :class="{ 'bg-primary/10 text-primary': activeTool === tool.id }"
-              :title="tool.description"
-              @click="activateTool(tool.id)"
-            >
-              <span class="shrink-0 w-5 flex items-center justify-center"><SvgIcon :name="tool.icon" size="15" /></span>
-              <span class="flex-1 truncate">{{ tool.name }}</span>
-              <span
-                class="shrink-0 opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity"
-                @click.stop="toggleFavorite(tool.id)"
-              >
-                <SvgIcon :name="isFavorite(tool.id) ? 'star' : 'starOutline'" size="13" :class="isFavorite(tool.id) ? 'text-yellow-500' : ''" />
+
+          <!-- 分类分区 + 卡片网格 -->
+          <div v-for="cat in filteredCategories" :key="cat.key" class="mb-8">
+            <div class="flex items-center gap-2.5 mb-3.5">
+              <span class="w-7 h-7 rounded-lg bg-primary/12 text-primary flex items-center justify-center">
+                <SvgIcon :name="cat.icon" size="14" />
               </span>
+              <h2 class="m-0 text-sm font-semibold text-base-content">{{ cat.label }}</h2>
+              <span class="text-[11px] text-base-content/40">{{ cat.tools.length }} 个</span>
             </div>
-          </div>
-        </div>
-
-        <!-- 分类工具列表 -->
-        <div v-for="cat in filteredCategories" :key="cat.key" class="mb-2">
-          <div
-            class="text-[10px] font-semibold text-base-content/60 uppercase tracking-[0.5px] px-2 py-1 cursor-pointer select-none flex items-center gap-1 hover:text-base-content"
-            @click="toggleCategoryCollapsed(cat.key)"
-          >
-            <SvgIcon :name="isCategoryCollapsed(cat.key) ? 'chevronRight' : 'chevronDown'" size="10" />
-            {{ cat.label }}
-          </div>
-          <div v-show="!isCategoryCollapsed(cat.key)" class="flex flex-col">
-            <div
-              v-for="tool in cat.tools"
-              :key="tool.id"
-              class="flex items-center gap-2 px-[10px] py-[7px] rounded-md cursor-pointer transition-all duration-100 text-sm text-base-content hover:bg-base-200 group"
-              :class="{ 'bg-primary/10 text-primary': activeTool === tool.id }"
-              :title="tool.description"
-              @click="activateTool(tool.id)"
-            >
-              <span class="shrink-0 w-5 flex items-center justify-center"><SvgIcon :name="tool.icon" size="15" /></span>
-              <span class="flex-1 truncate">{{ tool.name }}</span>
-              <span v-if="!tool.offline" class="text-[10px] shrink-0" title="需要联网"><SvgIcon name="globe" size="14" class="align-text-bottom" /></span>
-              <span
-                class="shrink-0 opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity"
-                @click.stop="toggleFavorite(tool.id)"
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              <button
+                v-for="tool in cat.tools"
+                :key="tool.id"
+                class="group flex flex-col items-start gap-2.5 p-4 rounded-xl bg-base-100 border border-base-content/10 hover:border-primary/50 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 text-left cursor-pointer"
+                :title="tool.description"
+                @click="activateTool(tool.id)"
               >
-                <SvgIcon :name="isFavorite(tool.id) ? 'star' : 'starOutline'" size="13" :class="isFavorite(tool.id) ? 'text-yellow-500' : ''" />
-              </span>
+                <span class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-primary-content transition-colors duration-150">
+                  <SvgIcon :name="tool.icon" size="18" />
+                </span>
+                <span class="text-sm font-medium text-base-content leading-tight">{{ tool.name }}</span>
+                <span class="text-[11px] text-base-content/50 leading-snug line-clamp-2 min-h-[2.4em]">{{ tool.description }}</span>
+                <span
+                  v-if="!tool.offline"
+                  class="text-[10px] text-warning flex items-center gap-1 border border-warning/25 rounded-full px-1.5 py-px"
+                >
+                  <SvgIcon name="globe" size="9" /> 需联网
+                </span>
+              </button>
             </div>
           </div>
         </div>
       </div>
-    </aside>
+    </template>
 
-    <!-- Right Content Area -->
-    <main class="flex-1 overflow-y-auto p-6">
+    <!-- 工具页 -->
+    <template v-else>
       <component
         :is="currentToolComponent"
         v-if="currentToolComponent"
         :key="activeTool"
+        @back="activeTool = ''"
       />
-      <div v-else class="flex flex-col items-center justify-center h-full text-base-content/60 text-center gap-3">
-        <div class="text-[64px] opacity-30"><SvgIcon name="tool" size="14" /> </div>
-        <h3 class="text-lg font-semibold text-base-content m-0">选择左侧工具开始使用</h3>
-        <p class="text-sm m-0">{{ tools.length }} 个开发工具，全部支持离线使用</p>
-      </div>
-    </main>
+    </template>
   </div>
 </template>
 
@@ -149,67 +92,52 @@ defineOptions({ name: 'DevTools' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, defineAsyncComponent, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { DEV_TOOL_REGISTRY, type DevTool } from './DevToolRegistry'
-import { useDevTools } from './composables/useDevTools'
+import { DEV_TOOL_REGISTRY } from './DevToolRegistry'
 
 const route = useRoute()
 const searchQuery = ref('')
 const activeTool = ref('')
-const showSearchDropdown = ref(false)
-const searchSelectedIndex = ref(0)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
-const {
-  favoriteTools,
-  recentTools,
-  isFavorite,
-  toggleFavorite,
-  recordUsage,
-  isCategoryCollapsed,
-  toggleCategoryCollapsed,
-  searchTools,
-} = useDevTools()
-
-const searchResults = computed<DevTool[]>(() => searchTools(searchQuery.value))
-
-watch(searchQuery, () => {
-  searchSelectedIndex.value = 0
-})
-
-const tools = computed(() => {
-  if (!searchQuery.value) {return DEV_TOOL_REGISTRY}
-  return searchResults.value
-})
-
-const categoryMap: Record<string, string> = {
-  crypto: '加密/哈希',
-  encode: '编码/转换',
-  time: '时间/日期',
-  code: '代码/JSON',
-  text: '文本处理',
-  network: '网络工具',
-  convert: '进制/单位',
-  format: '格式化',
-  misc: '其他工具',
+const categoryMap: Record<string, { label: string; icon: string }> = {
+  crypto: { label: '加密 / 哈希', icon: 'lock' },
+  encode: { label: '编码 / 转换', icon: 'refresh' },
+  time: { label: '时间 / 日期', icon: 'clock' },
+  code: { label: '代码 / JSON', icon: 'code' },
+  text: { label: '文本处理', icon: 'notebook' },
+  network: { label: '网络工具', icon: 'globe' },
+  convert: { label: '进制 / 单位', icon: 'layers' },
+  format: { label: '格式化', icon: 'pencil' },
+  misc: { label: '其他工具', icon: 'grid' },
 }
 
 const categoryOrder = ['crypto', 'encode', 'time', 'code', 'text', 'network', 'convert', 'format', 'misc']
 
-const filteredCategories = computed(() => {
-  return categoryOrder
+const filteredTools = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) { return DEV_TOOL_REGISTRY }
+  return DEV_TOOL_REGISTRY.filter(t => {
+    if (t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)) { return true }
+    return t.keywords.toLowerCase().split(' ').some(k => k.startsWith(q))
+  })
+})
+
+const filteredCount = computed(() => filteredTools.value.length)
+
+const filteredCategories = computed(() =>
+  categoryOrder
     .map(key => ({
       key,
-      label: categoryMap[key] || key,
-      tools: tools.value.filter(t => t.category === key),
+      label: categoryMap[key]?.label || key,
+      icon: categoryMap[key]?.icon || 'tool',
+      tools: filteredTools.value.filter(t => t.category === key),
     }))
     .filter(cat => cat.tools.length > 0)
-})
+)
 
 function activateTool(id: string): void {
   activeTool.value = id
-  recordUsage(id)
   searchQuery.value = ''
-  showSearchDropdown.value = false
 }
 
 // 处理路由 ?tool=id 参数（来自全局 Cmd+K 弹窗）
@@ -226,25 +154,10 @@ watch(() => route.query.tool, (toolId) => {
   }
 })
 
-function onSearchBlur(): void {
-  // 延迟关闭，让 mousedown 事件先触发
-  setTimeout(() => {
-    showSearchDropdown.value = false
-  }, 150)
-}
-
-function navigateSearch(direction: number): void {
-  const max = searchResults.value.length
-  if (max === 0) return
-  searchSelectedIndex.value = (searchSelectedIndex.value + direction + max) % max
-}
-
-function selectFromSearch(): void {
-  const tool = searchResults.value[searchSelectedIndex.value]
-  if (tool) {
-    activateTool(tool.id)
-  }
-}
+// 快捷键：在工具页按 Esc 返回列表（输入框内不拦截）
+watch(activeTool, (v) => {
+  if (!v) { searchInputRef.value?.focus() }
+})
 
 const toolComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = {
   crypto: defineAsyncComponent(() => import('./tools/CryptoTool.vue')),
@@ -284,7 +197,7 @@ const toolComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = 
 }
 
 const currentToolComponent = computed(() => {
-  if (!activeTool.value) {return null}
+  if (!activeTool.value) { return null }
   return toolComponents[activeTool.value] || null
 })
 </script>
