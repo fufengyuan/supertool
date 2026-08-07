@@ -135,6 +135,8 @@ src/
 
 ## Important Notes
 
+- **开发工具模块（`src/views/devtools/`）设计约定**：2026-08 完成 UI 重构——`DevTools.vue` 为网格卡片首页（分类分区 + 大图标卡片 + 顶部搜索，无侧栏/收藏/最近/折叠菜单）；所有工具页必须套用 `components/ToolPage.vue` 统一外壳（返回按钮 + 图标 + 标题 + 描述，`emit('back')` 返回列表）；应用型工具（如 ApiDebugger）用 `no-scroll` prop 自管理滚动。工具页统一布局模式：`bg-base-100 border rounded-xl` 卡片分区、`btn-primary/btn-outline/btn-ghost` 按钮分级、输入/输出双栏 `textarea font-mono bg-base-200/60`。新增工具需在 `DevToolRegistry.ts` 注册（含 id/icon/category/offline/keywords）并在 `DevTools.vue` 的 `toolComponents` 挂载。`useDevTools.ts`（收藏/最近/折叠）已弃用但被 `ToolCommandPalette.vue` 引用，勿删。历史上部分工具使用过失效 CSS 类（`tool-input`/`result-card`/`hash-result-item` 等，无定义），重构时已全部替换为 tailwind/daisyUI 类。
+
 - **日志聚合（LogAggregator）搜索模式必须全量渲染**：日志行 `whitespace-pre-wrap break-all` 长行会换行，固定行高（24px）虚拟滚动会导致滚动时 `scrollHeight` 波动、浏览器钳制 `scrollTop` 造成回弹（"无法滑到底部"）。历史上两次尝试动态行高测量均失败回滚（`1536e7ce`、`35a263cf`）。搜索模式用 `renderedLines` 全量渲染 + 真实 DOM 定位跳转（`data-log-idx`），流式模式保留虚拟滚动。
 - **日志虚拟滚动行高策略**：行高固定的虚拟滚动（spacer = 行数 × 固定高度）在 `whitespace-pre-wrap` 长行下必然回弹。离线日志弹窗（fullLog，大文件无法全量渲染）用"逐行真实行高测量 + 前缀和二分反推"（`fullLogHeightPrefix`/`fullLogRowAtScrollTop`/`fullLogPrefixAt`），行高数组挂在 session（`rowHeights`）上，滚动渐进收敛。
 - **实时/连接日志智能吸底约定**：DeployPanel 实时日志、OpenVPNManager/VPNManager 连接日志都实现了"用户上翻暂停自动跟随 + 回到底部按钮"（`xxxUserScrolledUp` + `@scroll` 判断）。注意：程序化赋值 `scrollTop` 不触发 scroll 事件，吸底/回底部后必须手动重置标志，否则按钮不消失、自动吸底被永久跳过（曾因漏重置被 review 拦截）。
