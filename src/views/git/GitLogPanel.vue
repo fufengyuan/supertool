@@ -81,7 +81,7 @@
           <tr
             v-for="commit in filteredLog"
             :key="commit.hash"
-            class="cursor-pointer transition-colors duration-100 hover:bg-[var(--hover-bg)]"
+            class="cursor-pointer transition-colors duration-100 hover:bg-[var(--hover-bg)] leading-6"
             :class="{ 'bg-primary/10': (selectedCommit as any)?.hash === commit.hash || (selectedLogCommits as Set<string>).has(commit.hash) }"
             @click="$emit('select-commit', commit)"
             @contextmenu.prevent="$emit('log-context-menu', { event: $event, commit })"
