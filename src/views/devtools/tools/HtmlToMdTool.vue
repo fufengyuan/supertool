@@ -1,79 +1,78 @@
 <template>
-  <div class="max-w-[800px]">
-    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="download" size="14" class="align-text-bottom" /> HTML 转 Markdown</h3>
-
-    <div class="mb-4">
-      <label class="label-text text-xs text-base-content/60 mb-1 block">输入网址或直接粘贴 HTML</label>
-
-      <!-- URL Input -->
+  <ToolPage
+    icon="download"
+    name="HTML 转 Markdown"
+    description="输入网址自动抓取，或直接粘贴 HTML，一键转换为 Markdown"
+    @back="$emit('back')"
+  >
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-3 flex items-center gap-1.5"><SvgIcon name="globe" size="12" /> 输入网址或直接粘贴 HTML</h4>
       <div class="flex items-center gap-2 mb-3">
         <div class="flex-1 relative">
           <SvgIcon name="link" size="14" class="absolute left-[10px] top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none" />
           <input
             v-model="urlInput"
             placeholder="输入网址（如 https://example.com）..."
-            class="w-full py-[7px] pl-[30px] pr-[10px] border border-base-content/10 rounded-md text-xs bg-base-200 text-base-content outline-none focus:border-primary"
+            class="w-full py-2 pl-8 pr-3 border border-base-content/10 rounded-lg text-xs bg-base-200/60 text-base-content outline-none focus:border-primary"
             @keyup.enter="fetchUrl"
           />
         </div>
         <button class="btn btn-primary btn-sm gap-1.5" @click="fetchUrl" :disabled="loading">
           <span v-if="loading" class="loading loading-spinner loading-xs"></span>
-          <span v-else><SvgIcon name="globe" size="14" class="align-text-bottom" /></span>
+          <span v-else><SvgIcon name="globe" size="13" /></span>
           {{ loading ? '获取中...' : '获取并转换' }}
         </button>
       </div>
 
-      <!-- OR separator -->
       <div class="flex items-center gap-3 mb-3">
         <div class="flex-1 h-px bg-base-content/10"></div>
-        <span class="text-xs text-base-content/40">或者直接粘贴 HTML</span>
+        <span class="text-[11px] text-base-content/40">或者直接粘贴 HTML</span>
         <div class="flex-1 h-px bg-base-content/10"></div>
       </div>
 
-      <!-- HTML Input -->
       <textarea
         v-model="htmlInput"
-        class="textarea textarea-bordered w-full text-xs bg-base-200 font-mono min-h-[150px]"
+        class="textarea textarea-bordered w-full text-xs bg-base-200/60 font-mono min-h-[140px] resize-none"
         placeholder="粘贴 HTML 代码到这里..."
-        rows="6"
       ></textarea>
 
-      <!-- Action Buttons -->
-      <div class="flex flex-wrap gap-2.5 mt-3">
+      <div class="flex flex-wrap gap-2 mt-3">
         <button class="btn btn-primary btn-sm gap-1.5" @click="convert" :disabled="loading">
           <span v-if="loading" class="loading loading-spinner loading-xs"></span>
-          <SvgIcon name="check" size="14" class="align-text-bottom" v-else />
+          <SvgIcon name="check" size="12" v-else />
           转换为 Markdown
         </button>
-        <button class="btn btn-ghost btn-sm gap-1.5" @click="copyResult" :disabled="!output">
-          <SvgIcon name="file" size="14" class="align-text-bottom" /> 复制结果
+        <button class="btn btn-outline btn-sm gap-1.5" @click="copyResult" :disabled="!output">
+          <SvgIcon name="copy" size="12" /> 复制结果
         </button>
-        <button class="btn btn-ghost btn-sm gap-1.5" @click="clear">
-          <SvgIcon name="trash" size="14" class="align-text-bottom" /> 清空
+        <button class="btn btn-ghost btn-sm gap-1.5" @click="clear" :disabled="!htmlInput && !output">
+          <SvgIcon name="trash" size="12" /> 清空
         </button>
       </div>
     </div>
 
-    <!-- Markdown Output -->
-    <label class="label-text text-xs text-base-content/60 mb-1 block">Markdown 输出</label>
-    <div
-      class="mt-2 p-3 bg-base-200 border border-base-content/10 rounded-box font-mono text-xs text-base-content whitespace-pre-wrap break-all max-h-[500px] overflow-y-auto"
-    >{{ output || 'Markdown 结果将显示在这里...' }}</div>
-
-    <!-- Char/Line Stats -->
-    <div v-if="output" class="mt-2 text-[11px] text-base-content/40 flex gap-4">
-      <span>{{ output.length }} 字符</span>
-      <span>{{ output.split('\n').length }} 行</span>
+    <div v-if="output" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-2.5">
+        <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> Markdown 输出</h4>
+        <span class="text-[11px] text-base-content/40">{{ output.length }} 字符 · {{ output.split('\n').length }} 行</span>
+      </div>
+      <div class="p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs text-base-content whitespace-pre-wrap break-all max-h-[480px] overflow-y-auto">{{ output }}</div>
     </div>
-  </div>
+    <div v-else class="py-14 text-center text-xs text-base-content/40 bg-base-100/50 border border-dashed border-base-content/15 rounded-xl">
+      Markdown 结果将显示在这里
+    </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref } from 'vue'
 import { useToast } from '@/composables/useToast'
 import { copyText } from '../toolUtils'
 import { getTauriAPI } from '../../../utils/tauri-api'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 const htmlInput = ref('')
