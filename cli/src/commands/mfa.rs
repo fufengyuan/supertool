@@ -65,7 +65,10 @@ pub async fn cmd_mfa(runtime: &mut CliRuntime, action: &crate::types::MfaCommand
                 .get_all_mfa_secrets()
                 .await
                 .map_err(|e| anyhow!(e))?;
-            let target = if let Some(arr) = secrets.as_array() {
+            let target = if identifier.trim().is_empty() {
+                // 空标识符：不模糊匹配，明确报错（防止误生成第一个密钥的验证码）
+                None
+            } else if let Some(arr) = secrets.as_array() {
                 if let Ok(idx) = identifier.parse::<usize>() {
                     if idx > 0 && idx <= arr.len() {
                         Some(arr[idx - 1].clone())
