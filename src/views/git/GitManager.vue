@@ -178,6 +178,17 @@
               </div>
             </div>
           </div>
+
+          <!-- 变更文件 diff（无选中提交时，在右栏显示） -->
+          <div v-else-if="previewDiff" class="w-[280px] shrink-0 border-l border-base-content/10 bg-base-200/30 flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 shrink-0 bg-base-200/50">
+              <span class="font-mono text-[11px] truncate">{{ selectedPreviewFile }}</span>
+              <button class="btn btn-ghost btn-xs" @click="clearPreview" title="关闭"><SvgIcon name="x" :size="11" /></button>
+            </div>
+            <div class="flex-1 overflow-auto p-2">
+              <SplitDiffViewer :files="null" :diff="previewDiff" :loading="loadingPreview" />
+            </div>
+          </div>
         </div>
       </div>
     </div>

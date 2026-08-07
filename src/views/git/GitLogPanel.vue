@@ -67,11 +67,11 @@
     <div v-if="logViewMode === 'table'" class="flex-1 overflow-y-auto overflow-x-hidden">
       <table class="w-full border-collapse text-[11px]">
         <thead class="sticky top-0 bg-base-200 border-b border-base-content/8">
-          <tr class="h-[20px]">
+          <tr class="h-[24px]">
             <th class="w-[24px] text-center px-1"><input type="checkbox" :checked="(selectedLogCommits as Set<string>).size > 0 && (selectedLogCommits as Set<string>).size === filteredLog.length" @click="$emit('toggle-select-all-log-commits')" class="accent-primary w-[10px] h-[10px] cursor-pointer" title="全选" /></th>
             <th class="w-[60px] px-1 text-left font-medium">哈希</th>
-            <th class="w-[100px] px-1 text-left font-medium">作者</th>
-            <th class="w-[80px] px-1 text-left font-medium">日期</th>
+            <th class="w-[120px] px-1 text-left font-medium">作者</th>
+            <th class="w-[90px] px-1 text-left font-medium">日期</th>
             <th class="min-w-[150px] px-1 text-left font-medium">消息</th>
             <th class="w-[40px] px-1 text-center font-medium">文件</th>
             <th class="w-[100px] px-1 text-left font-medium">引用</th>
