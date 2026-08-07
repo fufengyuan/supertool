@@ -23,22 +23,31 @@
       @refresh="refreshAll()"
     />
 
-    <!-- ===== 主内容区域 ===== -->
+    <!-- ===== IDEA 风格主布局：左栏列表 + 右栏 Diff ===== -->
     <div class="flex flex-1 overflow-hidden">
-      <!-- ===== 左侧：文件树（始终显示） ===== -->
-      <GitFileTree
-        :repo-path="repo.path"
-        @select-file="handleSelectFile"
-      />
-      <div class="w-1 shrink-0 bg-base-content/8 hover:bg-base-content/12 transition-colors duration-150"></div>
+      <!-- ===== 左栏：Tab 切换变更/日志/Stash ===== -->
+      <div class="flex flex-col shrink-0 border-r border-base-content/10 bg-base-100" style="width: 360px; min-width: 280px;">
+        <!-- Tab 头 -->
+        <div class="flex items-center border-b border-base-content/10 shrink-0 bg-base-200/50">
+          <button class="git-tab" :class="{ 'git-tab-active': leftTab === 'changes' }" @click="leftTab = 'changes'">
+            <SvgIcon name="pencil" :size="12" /> 变更
+            <span v-if="totalChanges > 0" class="git-tab-badge">{{ totalChanges }}</span>
+          </button>
+          <button class="git-tab" :class="{ 'git-tab-active': leftTab === 'log' }" @click="leftTab = 'log'">
+            <SvgIcon name="clock" :size="12" /> 日志
+          </button>
+          <button v-if="showStashPanel" class="git-tab" :class="{ 'git-tab-active': leftTab === 'stash' }" @click="leftTab = 'stash'">
+            <SvgIcon name="archive" :size="12" /> Stash
+            <span v-if="stashList.length > 0" class="git-tab-badge">{{ stashList.length }}</span>
+          </button>
+          <div class="flex-1"></div>
+          <button class="btn btn-ghost btn-xs" :class="{ 'text-primary': showStashPanel }" @click="showStashPanel = !showStashPanel; if (showStashPanel) leftTab = 'stash'" title="Stash">
+            <SvgIcon name="archive" :size="12" />
+          </button>
+        </div>
 
-      <!-- ===== 右侧内容区域 ===== -->
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <!-- 变更模式：变更面板 + 日志面板 -->
-        <template v-if="rightPanelMode === 'changes'">
-          <div class="flex flex-1 overflow-hidden">
-            <!-- 变更面板 -->
-            <GitCommitPanel
+        <!-- 变更列表 -->
+        <div v-show="leftTab === 'changes'" class="flex flex-col flex-1 overflow-hidden">
               :status-data="statusData"
               :loading="loading"
               :selected-files="selectedFiles"
@@ -63,79 +72,10 @@
               @clear-preview="clearPreview"
             />
 
-            <!-- Stash 面板 -->
-            <GitStashPanel
-              v-if="showStashPanel"
-              :stash-list="stashList"
-              :selected-stash="selectedStash"
-              :stash-show-content="stashShowContent"
-              :loading="loading"
-              @update:selected-stash="selectedStash = $event"
-              @select-stash="selectStash"
-              @stash-context-menu="showStashContextMenu($event.event, $event.stash)"
-              @open-stash-save="openStashSave"
-            />
+        </div>
 
-            <!-- 中间分割条 -->
-            <div class="w-1 cursor-col-resize shrink-0 bg-base-content/10 hover:bg-primary transition-colors duration-150" @mousedown="startResize"></div>
-
-            <!-- 日志面板 -->
-            <GitLogPanel
-              :log-view-mode="logViewMode"
-              :log-search="logSearch"
-              :log-date-from="logDateFrom"
-              :log-date-to="logDateTo"
-              :show-author-filter="showAuthorFilter"
-              :log-authors="logAuthors"
-              :selected-authors="selectedAuthors"
-              :filtered-log="filteredLog"
-              :selected-log-commits="selectedLogCommits"
-              :selected-commit="selectedCommit"
-              :commit-diff="commitDiff"
-              :loading-diff="loadingDiff"
-              :loading="loading"
-              :has-more-log="hasMoreLog"
-              :log-count="logCount"
-              :log-total-estimate="logTotalEstimate"
-              :graph-log="graphLog"
-              :graph-loading="graphLoading"
-              :graph-hovered-index="graphHoveredIndex"
-              :graph-selected-commit="graphSelectedCommit"
-              :branch-colors="BRANCH_COLORS"
-              :console-history="consoleHistory"
-              :console-input="consoleInput"
-              :local-branches="localBranches"
-              :get-author-name="getAuthorName"
-              :format-relative-date="formatRelativeDate"
-              :format-full-date="formatFullDate"
-              :parse-refs="parseRefs"
-              @update:log-view-mode="logViewMode = $event"
-              @update:log-search="logSearch = $event"
-              @update:log-date-from="logDateFrom = $event"
-              @update:log-date-to="logDateTo = $event"
-              @update:show-author-filter="showAuthorFilter = $event"
-              @update:selected-commit="selectedCommit = $event"
-              @update:console-input="consoleInput = $event"
-              @toggle-author="toggleAuthor($event)"
-              @load-log="loadLog()"
-              @load-more-log="loadMoreLog()"
-              @select-commit="selectCommit($event)"
-              @toggle-log-commit-select="toggleLogCommitSelect($event)"
-              @toggle-select-all-log-commits="toggleSelectAllLogCommits()"
-              @log-context-menu="showLogContextMenu($event.event, $event.commit)"
-              @exec-console-command="execConsoleCommand()"
-              @console-history-up="consoleHistoryUp()"
-              @console-history-down="consoleHistoryDown()"
-              @switch-to-graph-view="switchToGraphView()"
-              @on-graph-mouse-move="onGraphMouseMove($event)"
-              @on-graph-click="onGraphClick($event)"
-              @load-commit-diff="loadCommitDiff()"
-            />
-          </div>
-        </template>
-
-        <!-- 日志模式：只显示日志面板 -->
-        <template v-else-if="rightPanelMode === 'log'">
+        <!-- 日志列表 -->
+        <div v-show="leftTab === 'log'" class="flex flex-col flex-1 overflow-hidden">
           <GitLogPanel
             :log-view-mode="logViewMode"
             :log-search="logSearch"
@@ -187,48 +127,57 @@
             @on-graph-click="onGraphClick($event)"
             @load-commit-diff="loadCommitDiff()"
           />
-        </template>
+        </div>
 
-        <!-- 文件详情模式 -->
-        <template v-else-if="rightPanelMode === 'file' && selectedFilePath">
-          <GitCodeEditor
-            :repo-path="repo.path"
-            :file-path="selectedFilePath"
-            @close="closeFileEditor"
-            @saved="handleFileSaved"
+        <!-- Stash 列表 -->
+        <div v-show="leftTab === 'stash'" class="flex flex-col flex-1 overflow-hidden">
+          <GitStashPanel
+            :stash-list="stashList"
+            :selected-stash="selectedStash"
+            :stash-show-content="stashShowContent"
+            :loading="loading"
+            @update:selected-stash="selectedStash = $event"
+            @select-stash="selectStash"
+            @stash-context-menu="showStashContextMenu($event.event, $event.stash)"
+            @open-stash-save="openStashSave"
           />
-        </template>
+        </div>
       </div>
-    </div>
 
-    <!-- ===== 底部切换栏 ===== -->
-    <div class="git-bottom-bar">
-      <button
-        class="bottom-btn"
-        :class="{ active: rightPanelMode === 'changes' }"
-        @click="rightPanelMode = 'changes'"
-      >
-        <SvgIcon name="pencil" :size="14" />
-        <span>变更</span>
-        <span v-if="totalChanges > 0" class="badge">{{ totalChanges }}</span>
-      </button>
-      <button
-        class="bottom-btn"
-        :class="{ active: rightPanelMode === 'log' }"
-        @click="rightPanelMode = 'log'"
-      >
-        <SvgIcon name="clock" :size="14" />
-        <span>日志</span>
-      </button>
-      <button
-        v-if="selectedFilePath"
-        class="bottom-btn"
-        :class="{ active: rightPanelMode === 'file' }"
-        @click="rightPanelMode = 'file'"
-      >
-        <SvgIcon name="file" :size="14" />
-        <span>文件</span>
-      </button>
+      <!-- ===== 右栏：Diff 预览区 ===== -->
+      <div class="flex-1 min-w-0 flex flex-col overflow-hidden bg-base-100">
+        <template v-if="leftTab === 'changes' && previewDiff">
+          <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 bg-base-200/50 shrink-0">
+            <span class="font-medium text-[11px] truncate">{{ selectedPreviewFile }}</span>
+            <button class="btn btn-ghost btn-xs" @click="clearPreview" title="关闭预览"><SvgIcon name="x" :size="12" /></button>
+          </div>
+          <div class="flex-1 overflow-auto">
+            <SplitDiffViewer :files="null" :diff="previewDiff" :loading="loadingPreview" />
+          </div>
+        </template>
+        <template v-else-if="leftTab === 'log' && selectedCommit && commitDiff">
+          <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 bg-base-200/50 shrink-0">
+            <span class="font-mono text-[11px] truncate">{{ selectedCommit.hash?.substring(0, 7) }} · {{ selectedCommit.message?.split('\n')[0] }}</span>
+            <button class="btn btn-ghost btn-xs" @click="selectedCommit = null; commitDiff = null" title="关闭"><SvgIcon name="x" :size="12" /></button>
+          </div>
+          <div class="flex-1 overflow-auto">
+            <SplitDiffViewer :files="null" :diff="commitDiff" :loading="loadingDiff" />
+          </div>
+        </template>
+        <template v-else-if="leftTab === 'stash' && selectedStash && stashShowContent">
+          <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 bg-base-200/50 shrink-0">
+            <span class="font-mono text-[11px] truncate">{{ selectedStash.ref }}</span>
+            <button class="btn btn-ghost btn-xs" @click="selectedStash = null; stashShowContent = ''" title="关闭"><SvgIcon name="x" :size="12" /></button>
+          </div>
+          <div class="flex-1 overflow-auto p-3">
+            <pre class="text-[11px] font-mono whitespace-pre-wrap break-all text-base-content">{{ stashShowContent }}</pre>
+          </div>
+        </template>
+        <div v-else class="flex flex-col items-center justify-center h-full text-base-content/30 gap-3">
+          <SvgIcon name="fileText" :size="36" :stroke-width="1.5" class="opacity-40" />
+          <p class="text-xs m-0">{{ leftTab === 'changes' ? '选择文件查看变更' : leftTab === 'log' ? '选择提交查看 Diff' : '选择 Stash 查看内容' }}</p>
+        </div>
+      </div>
     </div>
 
     <!-- ===== 右键菜单 ===== -->
@@ -624,10 +573,13 @@ import GitFormDialogs from './GitFormDialogs.vue'
 import GitAdvancedDialogs from './GitAdvancedDialogs.vue'
 import GitFileTree from './GitFileTree.vue'
 import GitCodeEditor from './GitCodeEditor.vue'
+import SplitDiffViewer from '@/components/ui/SplitDiffViewer.vue'
 
-// 文件浏览状态
+// 左栏 Tab 状态（IDEA 风格：变更/日志/Stash 切换）
+const leftTab = ref<'changes' | 'log' | 'stash'>('changes')
+
+// 文件浏览状态（保留供 GitCodeEditor 使用）
 const selectedFilePath = ref<string | null>(null)
-const rightPanelMode = ref<'changes' | 'log' | 'file'>('changes')
 
 function handleSelectFile(path: string) {
   selectedFilePath.value = path
@@ -988,7 +940,41 @@ function handleCommit(shouldPush: boolean) {
 
 </script>
 <style>
-/* ===== 底部切换栏 ===== */
+/* ===== IDEA 风格 Tab ===== */
+.git-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.git-tab:hover {
+  color: var(--color-base-content);
+  background: color-mix(in oklab, var(--color-base-content) 5%, transparent);
+}
+.git-tab-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+.git-tab-badge {
+  font-size: 9px;
+  background: var(--color-primary);
+  color: var(--color-primary-content, #fff);
+  border-radius: 9999px;
+  padding: 0 5px;
+  line-height: 14px;
+  font-weight: 600;
+}
+
+/* ===== 底部切换栏（保留兼容旧样式） ===== */
 .git-bottom-bar {
   display: flex;
   align-items: center;
