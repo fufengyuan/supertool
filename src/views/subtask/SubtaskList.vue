@@ -59,7 +59,6 @@ const api = getTauriAPI();
 
 const loadSubtasks = async () => {
   try {
-    console.log("[components/subtask/SubtaskList.vue] loadSubtasks() called");
     subtasks.value = await api.getSubtasksForTodo(props.todoId); }
   catch (error) { handleError(error, { context: '加载子任务', showToast: true }); }
 };
@@ -84,7 +83,6 @@ const handleAdd = async (text: string) => {
 
 const toggleSubtask = async (subtask: any) => {
   try {
-    console.log("[components/subtask/SubtaskList.vue] toggleSubtask() called");
     const updated = { ...subtask, completed: !subtask.completed, updatedAt: new Date().toISOString() };
     await api.updateSubtask(updated);
     subtask.completed = updated.completed;
@@ -103,7 +101,6 @@ const startEditSubtask = (subtask: any) => {
 const saveSubtaskEdit = async (subtask: any) => {
   const text = editText.value.trim();
   if (!text) {
-    console.log("[components/subtask/SubtaskList.vue] saveSubtaskEdit() called");
     cancelSubtaskEdit(); return; }
   const prevText = subtask.text;
   try {
@@ -130,7 +127,6 @@ const cancelSubtaskEdit = () => {
 
 const deleteSubtask = async (subtask: any) => {
   try {
-    console.log("[components/subtask/SubtaskList.vue] deleteSubtask() called");
     await api.deleteSubtask(subtask.id);
     const idx = subtasks.value.findIndex((s: any) => s.id === subtask.id);
     if (idx !== -1) {subtasks.value.splice(idx, 1);}
@@ -140,7 +136,6 @@ const deleteSubtask = async (subtask: any) => {
 
 const updateTodoCompletion = async () => {
   try {
-    console.log("[components/subtask/SubtaskList.vue] updateTodoCompletion() called");
     const allCompleted = await api.updateTodoCompletionBasedOnSubtasks(props.todoId);
     emit('subtask-completed', { todoId: props.todoId, allCompleted });
   } catch (error) { handleError(error, { context: '更新任务完成状态', showToast: true }); }

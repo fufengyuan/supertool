@@ -97,7 +97,6 @@ export function useDBManager() {
 
   // Load connections from Tauri settings
   const loadConnections = async () => {
-    console.log("[useDBManager.ts] loadConnections() called")
     if (isLoaded.value) {return}
     try {
       // 走专用接口：后端对 db_connections 里每项密码解密后返回（旧 Electron 密文也能解）
@@ -119,7 +118,6 @@ export function useDBManager() {
 
   // Save connections to Tauri settings
   const saveConnections = async () => {
-    console.log("[useDBManager.ts] saveConnections() called")
     try {
       // 走专用接口：后端对每项明文密码加密后落盘
       await getTauriAPI().setDbConnections(connections.value)
@@ -192,7 +190,6 @@ export function useDBManager() {
   }
 
   const openEditForm = (conn: DBConnection) => {
-    const t0 = performance.now()
     // Normalize old field names (user→username, database→dbName)
     const raw = conn as any
     editingConnection.value = {
@@ -206,7 +203,6 @@ export function useDBManager() {
       requiresApproval: (conn as any).requiresApproval,
     }
     showConnectionForm.value = true
-    console.log(`[DBManager] openEditForm: ${(performance.now() - t0).toFixed(1)}ms`)
   }
 
   const closeForm = () => {

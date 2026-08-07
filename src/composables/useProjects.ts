@@ -16,7 +16,6 @@ export function useProjects() {
   // ============ 基础 CRUD ============
 
   const fetchProjects = async (onlyActive = true): Promise<Project[]> => {
-    console.log("[useProjects.ts] fetchProjects() called")
     loading.value = true;
     error.value = null;
     try {
@@ -32,7 +31,6 @@ export function useProjects() {
   };
 
   const addProject = async (projectData: Partial<Project>): Promise<Project> => {
-    console.log("[useProjects.ts] addProject() called")
     error.value = null;
     try {
       return await getTauriAPI().addProject(JSON.parse(JSON.stringify(projectData)));
@@ -44,7 +42,6 @@ export function useProjects() {
   };
 
   const updateProject = async (projectData: Project): Promise<Project> => {
-    console.log("[useProjects.ts] updateProject() called")
     error.value = null;
     try {
       return await getTauriAPI().updateProject(JSON.parse(JSON.stringify(projectData)));
@@ -56,7 +53,6 @@ export function useProjects() {
   };
 
   const deleteProject = async (id: string): Promise<void> => {
-    console.log("[useProjects.ts] deleteProject() called")
     error.value = null;
     try {
       return await getTauriAPI().deleteProject(id);
@@ -86,7 +82,6 @@ export function useProjects() {
   };
 
   const getProjectTodos = async (projectId: string): Promise<unknown[]> => {
-    console.log("[useProjects.ts] getProjectTodos() called")
     error.value = null;
     try {
       return (await getTauriAPI().getProjectTodos(projectId)) || [];
@@ -100,7 +95,6 @@ export function useProjects() {
   // ============ Git 相关 ============
 
   const getGitCommits = async (gitUrl: string, sinceDate: string): Promise<unknown[]> => {
-    console.log("[useProjects.ts] getGitCommits() called")
     error.value = null;
     try {
       return (await getTauriAPI().getGitCommits(gitUrl, sinceDate)) || [];
@@ -112,7 +106,6 @@ export function useProjects() {
   };
 
   const getGitBranches = async (gitUrl: string): Promise<string[]> => {
-    console.log("[useProjects.ts] getGitBranches() called")
     error.value = null;
     try {
       return ((await getTauriAPI().getGitBranches(gitUrl)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
@@ -124,7 +117,6 @@ export function useProjects() {
   };
 
   const scanLocalGitRepos = async (directories: string[]): Promise<unknown[]> => {
-    console.log("[useProjects.ts] scanLocalGitRepos() called")
     error.value = null;
     try {
       return (await getTauriAPI().scanLocalGitRepos(directories)) || [];

@@ -383,7 +383,6 @@ onMounted(async () => {
       }
     } else if (payload.type === 'drop' && isDragOver.value && payload.paths?.length > 0) {
       isDragOver.value = false;
-      console.log('[SFTP] dropped paths:', payload.paths);
       doDragUploadFromPaths(payload.paths);
     } else if (payload.type === 'leave') {
       isDragOver.value = false;

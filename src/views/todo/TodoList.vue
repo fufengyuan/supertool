@@ -687,7 +687,6 @@ const scrollToFocusedTodo = () => {
 // ===== 拖拽排序 =====
 const onDragEnd = async () => {
   try {
-    console.log("[components/todo/TodoList.vue] onDragEnd() called");
     await todoStore.updateTodoOrder(todoStore.todos) }
   catch (error) { handleError(error, { context: '保存排序', showToast: false }) }
 }
@@ -695,14 +694,12 @@ const onDragEnd = async () => {
 // ===== 任务操作 =====
 const handleAddTodo = async (newTodoObj: any) => {
   try {
-    console.log("[components/todo/TodoList.vue] handleAddTodo() called");
     await todoStore.addTodo(newTodoObj) }
   catch (error) { handleError(error, { context: '添加任务', showToast: true }) }
 }
 
 const deleteTodo = async (id: string) => {
   try {
-    console.log("[components/todo/TodoList.vue] deleteTodo() called");
     await todoStore.deleteTodo(id) }
   catch (error) { handleError(error, { context: '删除任务', showToast: true }) }
 }
@@ -751,7 +748,6 @@ const cancelEdit = () => {
 // ===== 标签 =====
 const updateTodoTag = async (todo: any) => {
   try {
-    console.log("[components/todo/TodoList.vue] updateTodoTag() called");
     await todoStore.updateTodo(todo) }
   catch (error) { handleError(error, { context: '更新任务标签', showToast: false }) }
   try { await todosApi.broadcastTaskUpdate(todo) } catch {}
@@ -760,7 +756,6 @@ const updateTodoTag = async (todo: any) => {
 const addNewTag = async (todo: any) => {
   const tagName = newTagName.value.trim()
   if (tagName && !todoStore.tags.includes(tagName)) {
-    console.log("[components/todo/TodoList.vue] addNewTag() called");
     await todoStore.addTag(tagName)
     try { await todoStore.updateTodo({ ...todo, tag: tagName }) }
     catch (error) { handleError(error, { context: '保存新标签', showToast: false }) }
@@ -777,7 +772,6 @@ const startMarkdownEdit = (todo: any) => {
 
 const saveMarkdown = async (id: string) => {
   try {
-    console.log("[components/todo/TodoList.vue] saveMarkdown() called");
     const todo = todoStore.todos.find(t => t.id === id)
     if (todo) {
       await todoStore.updateTodo({ ...todo, markdownDescription: editingMarkdownContent.value } as any)
@@ -799,7 +793,6 @@ const cancelMarkdownEdit = () => {
 // ===== 子任务 =====
 const handleSubtaskCompletion = async (data: any) => {
   if (data.allCompleted) {
-    console.log("[components/todo/TodoList.vue] handleSubtaskCompletion() called");
     const todo = todoStore.todos.find(t => t.id === data.todoId)
     if (todo && !todo.completed) {
       try { await todoStore.toggleTodo(todo.id) }

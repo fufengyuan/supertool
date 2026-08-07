@@ -93,7 +93,6 @@
 </template>
 
 <script setup lang="ts">
-console.log("[views/projects/ProjectGitPanel.vue] component loaded")
 import { ref, computed, onMounted } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import SplitDiffViewer from '@/components/ui/SplitDiffViewer.vue'

@@ -4,7 +4,6 @@ import { getErrorMessage } from '../utils/helpers'
 import { getTauriAPI } from '../utils/tauri-api'
 
 export function useAccountingBook() {
-  console.log("[useAccountingBook.ts] useAccountingBook() init")
   const toast = useToast()
 
 

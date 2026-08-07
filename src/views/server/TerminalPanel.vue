@@ -379,7 +379,6 @@ async function connectTab(tab: TerminalTab) {
 
   // 监听输入
   term.onData(async (data: string) => {
-    console.log('[Terminal] onData:', JSON.stringify(data.slice(0, 50)))
     logger.info(`[Terminal] onData: ${JSON.stringify(data.slice(0, 50))}`)
     if (tab.sessionId && tab.status === 'connected') {
       try {

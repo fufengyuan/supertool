@@ -205,7 +205,6 @@ async function clearHistory() {
 }
 
 onMounted(() => {
-    console.log("[components/Calculator.vue] mounted")
   loadHistory()
 })
 </script>

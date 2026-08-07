@@ -57,7 +57,6 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
-console.log("[components/lan/TaskAssign.vue] component loaded")
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed } from 'vue';
 import { getTauriAPI } from '../../utils/tauri-api'

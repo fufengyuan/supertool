@@ -12,7 +12,6 @@ export function useServers() {
   const error: Ref<string | null> = ref(null)
 
   const fetchServers = async (): Promise<Server[]> => {
-    console.log("[useServers.ts] fetchServers() called")
     loading.value = true
     error.value = null
     try {
@@ -26,7 +25,6 @@ export function useServers() {
   }
 
   const addServer = async (server: Partial<Server>): Promise<Server> => {
-    console.log("[useServers.ts] addServer() called")
     error.value = null
     try {
       return await getTauriAPI().addServer(server)
@@ -37,7 +35,6 @@ export function useServers() {
   }
 
   const updateServer = async (server: Server): Promise<Server> => {
-    console.log("[useServers.ts] updateServer() called")
     error.value = null
     try {
       return await getTauriAPI().updateServer(server)
@@ -48,7 +45,6 @@ export function useServers() {
   }
 
   const deleteServer = async (serverId: string): Promise<void> => {
-    console.log("[useServers.ts] deleteServer() called")
     error.value = null
     try {
       return await getTauriAPI().deleteServer(serverId)
@@ -69,7 +65,6 @@ export function useServers() {
   // ============ Groups ============
 
   const fetchGroups = async (): Promise<ServerGroup[]> => {
-    console.log("[useServers.ts] fetchGroups() called")
     try {
       return await getTauriAPI().getAllServerGroups()
     } catch {
@@ -78,17 +73,14 @@ export function useServers() {
   }
 
   const addGroup = async (group: Partial<ServerGroup>): Promise<ServerGroup> => {
-    console.log("[useServers.ts] addGroup() called")
     return await getTauriAPI().addServerGroup(group)
   }
 
   const updateGroup = async (groupId: string, updates: { name?: string; description?: string; parentId?: string | null; color?: string }): Promise<ServerGroup> => {
-    console.log("[useServers.ts] updateGroup() called")
     return await getTauriAPI().updateServerGroup(groupId, updates)
   }
 
   const deleteGroup = async (groupId: string): Promise<void> => {
-    console.log("[useServers.ts] deleteGroup() called")
     return await getTauriAPI().deleteServerGroup(groupId)
   }
 

@@ -194,7 +194,6 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-console.log("[components/lan/ChatMessage.vue] component loaded")
 import { computed, ref, watch, onMounted } from 'vue';
 import { getTauriAPI, tauriInvoke } from '../../utils/tauri-api'
 

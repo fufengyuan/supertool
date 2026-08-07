@@ -269,7 +269,6 @@ const filteredRepos = computed(() => {
 
 const loadRepos = async () => {
   try {
-    console.log("[loadRepos] called")
     const api = getTauriAPI();
     if (!api?.getGitRepos) {
       toast.warning('Git 仓库管理功能在当前环境不可用');
@@ -351,7 +350,6 @@ const onPathChange = () => {
 
 const selectDirectory = async () => {
   try {
-    console.log("[selectDirectory] called")
     const api = getTauriAPI();
     if (!api?.showOpenDialogForDirs && !api?.showOpenDialog) {
       toast.warning('目录选择功能在当前环境不可用');
@@ -547,7 +545,6 @@ const addScannedRepo = async (repo: RepoScanResult) => {
 };
 
 onMounted(async () => {
-    console.log("[components/GitRepoList.vue] mounted")
   await loadRepos();
 });
 </script>

@@ -24,7 +24,6 @@ interface CicdConfig {
 }
 
 export function useDeployPreflight() {
-  console.log("[useDeployPreflight.ts] useDeployPreflight() init")
   const toast = useToast();
 
   /**

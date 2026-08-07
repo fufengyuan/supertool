@@ -162,7 +162,6 @@ const displayTime = computed(() => {
 
 // 加载设置
 onMounted(async () => {
-    console.log("[components/NotificationSettings.vue] mounted");
     try {
       const api = getTauriAPI();
       const loadedSettings = await api.getNotificationSettings();
@@ -183,7 +182,6 @@ onMounted(async () => {
 // 保存基础设置
 const saveSettings = async () => {
   if (settings.value.reminderTime !== 'custom') {
-    console.log("[saveSettings] called");
     customTime.value = Number(settings.value.reminderTime);
     await saveSetting(Number(settings.value.reminderTime));
   }
@@ -192,7 +190,6 @@ const saveSettings = async () => {
 // 保存自定义时间
 const saveCustomTime = async () => {
   if (settings.value.reminderTime === 'custom') {
-    console.log("[saveCustomTime] called");
     await saveSetting(customTime.value);
   }
 };
@@ -200,7 +197,6 @@ const saveCustomTime = async () => {
 // 保存基础设置
 const saveSetting = async (time: number) => {
   try {
-    console.log("[saveSetting] called");
     const api = getTauriAPI();
     await api.setNotificationSettings({ reminderTime: time });
   } catch (error) {
@@ -211,7 +207,6 @@ const saveSetting = async (time: number) => {
 // 保存扩展设置（免打扰、每日总结、静音）
 const saveExtendedSettings = async () => {
   try {
-    console.log("[saveExtendedSettings] called");
     const api = getTauriAPI();
     await api.setNotificationSettings({
       reminderTime: typeof settings.value.reminderTime === 'number'
@@ -232,7 +227,6 @@ const saveExtendedSettings = async () => {
 // 测试通知
 const testNotification = async () => {
   try {
-    console.log("[testNotification] called");
     const api = getTauriAPI();
     // 调用后端 notification_test 命令（带系统通知 + 提示音）
     const result = await api.notificationTest();

@@ -873,7 +873,6 @@ onUnmounted(() => {
 
 async function loadConfigData(configId: string) {
   try {
-    console.log("[loadConfigData] called")
     config.value = await getTauriAPI().getCicdConfigById(configId) as CicdConfigEntry | null;
     if (config.value) {
       const rawResult = await getTauriAPI().getDeployLogs(config.value.id) as any;
@@ -901,7 +900,6 @@ async function loadConfigData(configId: string) {
 
 async function loadConfigs() {
   try {
-    console.log("[loadConfigs] called")
     await shared.refresh();
   } catch (error) {
     handleError(error, { context: 'loadConfigs' });
@@ -1109,7 +1107,6 @@ async function rollbackDeploy(log: DeployLog) {
 }
 
 async function refreshLogs() {
-    console.log("[refreshLogs] called")
   if (config.value?.id) {
     const rawResult = await getTauriAPI().getDeployLogs(config.value.id) as any;
     const rawLogs = (Array.isArray(rawResult) ? rawResult : rawResult?.data || []) as DeployLog[];
@@ -1161,7 +1158,6 @@ async function loadLogContent(log: DeployLog) {
   if (!log.logFilePath || loadingLogContent.value[log.id]) {return;}
   loadingLogContent.value[log.id] = true;
   try {
-    console.log("[loadLogContent] called")
     const content = await getTauriAPI().readLogFile(log.logFilePath!) as { success: boolean; content?: string; error?: string };
     if (content.success && content.content !== undefined) {
       // LRU：超过上限时删除最旧的条目
