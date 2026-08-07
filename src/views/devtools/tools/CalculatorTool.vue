@@ -1,24 +1,27 @@
 <template>
-  <div>
-    <h3 class="text-lg font-bold text-base-content mb-5">🔢 计算器</h3>
-
+  <ToolPage
+    icon="calculator"
+    name="计算器"
+    description="基本运算与科学计算（三角、对数、阶乘等），带历史记录"
+    @back="$emit('back')"
+  >
     <!-- 显示屏 -->
-    <div class="bg-base-300 rounded-lg p-4 mb-4">
+    <div class="bg-base-300/70 border border-base-content/10 rounded-xl p-4 mb-4">
       <div class="text-right">
         <div v-if="expression" class="text-xs text-base-content/60 mb-1 font-mono truncate">{{ expression }}</div>
-        <div class="text-2xl font-mono font-bold text-base-content">{{ display }}</div>
+        <div class="text-3xl font-mono font-bold text-base-content break-all">{{ display }}</div>
       </div>
     </div>
 
     <!-- 模式切换 -->
     <div class="flex gap-2 mb-4">
-      <button 
-        class="btn btn-sm" 
+      <button
+        class="btn btn-sm"
         :class="mode === 'basic' ? 'btn-primary' : 'btn-ghost'"
         @click="mode = 'basic'"
       >基本</button>
-      <button 
-        class="btn btn-sm" 
+      <button
+        class="btn btn-sm"
         :class="mode === 'scientific' ? 'btn-primary' : 'btn-ghost'"
         @click="mode = 'scientific'"
       >科学</button>
@@ -26,34 +29,29 @@
 
     <!-- 基本计算器按钮 -->
     <div class="grid grid-cols-4 gap-2">
-      <!-- Row 1: Clear, +/-, %, / -->
-      <button class="btn btn-ghost text-lg" @click="clear">C</button>
-      <button class="btn btn-ghost text-lg" @click="toggleSign">±</button>
-      <button class="btn btn-ghost text-lg" @click="percentage">%</button>
-      <button class="btn btn-primary text-lg" @click="inputOperator('/')">÷</button>
+      <button class="btn btn-ghost btn-lg" @click="clear">C</button>
+      <button class="btn btn-ghost btn-lg" @click="toggleSign">±</button>
+      <button class="btn btn-ghost btn-lg" @click="percentage">%</button>
+      <button class="btn btn-primary btn-lg" @click="inputOperator('/')">÷</button>
 
-      <!-- Row 2: 7, 8, 9, * -->
-      <button class="btn btn-outline text-lg" @click="inputNumber('7')">7</button>
-      <button class="btn btn-outline text-lg" @click="inputNumber('8')">8</button>
-      <button class="btn btn-outline text-lg" @click="inputNumber('9')">9</button>
-      <button class="btn btn-primary text-lg" @click="inputOperator('*')">×</button>
+      <button class="btn btn-outline btn-lg" @click="inputNumber('7')">7</button>
+      <button class="btn btn-outline btn-lg" @click="inputNumber('8')">8</button>
+      <button class="btn btn-outline btn-lg" @click="inputNumber('9')">9</button>
+      <button class="btn btn-primary btn-lg" @click="inputOperator('*')">×</button>
 
-      <!-- Row 3: 4, 5, 6, - -->
-      <button class="btn btn-outline text-lg" @click="inputNumber('4')">4</button>
-      <button class="btn btn-outline text-lg" @click="inputNumber('5')">5</button>
-      <button class="btn btn-outline text-lg" @click="inputNumber('6')">6</button>
-      <button class="btn btn-primary text-lg" @click="inputOperator('-')">−</button>
+      <button class="btn btn-outline btn-lg" @click="inputNumber('4')">4</button>
+      <button class="btn btn-outline btn-lg" @click="inputNumber('5')">5</button>
+      <button class="btn btn-outline btn-lg" @click="inputNumber('6')">6</button>
+      <button class="btn btn-primary btn-lg" @click="inputOperator('-')">−</button>
 
-      <!-- Row 4: 1, 2, 3, + -->
-      <button class="btn btn-outline text-lg" @click="inputNumber('1')">1</button>
-      <button class="btn btn-outline text-lg" @click="inputNumber('2')">2</button>
-      <button class="btn btn-outline text-lg" @click="inputNumber('3')">3</button>
-      <button class="btn btn-primary text-lg" @click="inputOperator('+')">+</button>
+      <button class="btn btn-outline btn-lg" @click="inputNumber('1')">1</button>
+      <button class="btn btn-outline btn-lg" @click="inputNumber('2')">2</button>
+      <button class="btn btn-outline btn-lg" @click="inputNumber('3')">3</button>
+      <button class="btn btn-primary btn-lg" @click="inputOperator('+')">+</button>
 
-      <!-- Row 5: 0, ., = -->
-      <button class="btn btn-outline text-lg col-span-2" @click="inputNumber('0')">0</button>
-      <button class="btn btn-outline text-lg" @click="inputDecimal">.</button>
-      <button class="btn btn-accent text-lg" @click="calculate">=</button>
+      <button class="btn btn-outline btn-lg col-span-2" @click="inputNumber('0')">0</button>
+      <button class="btn btn-outline btn-lg" @click="inputDecimal">.</button>
+      <button class="btn btn-accent btn-lg" @click="calculate">=</button>
     </div>
 
     <!-- 科学计算按钮 -->
@@ -84,16 +82,16 @@
     </div>
 
     <!-- 历史记录 -->
-    <div class="mt-5">
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
       <div class="flex items-center justify-between mb-2">
-        <h4 class="text-sm font-semibold text-base-content">历史记录</h4>
-        <button class="btn btn-ghost btn-sm" @click="clearHistory">清除</button>
+        <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="clock" size="12" /> 历史记录</h4>
+        <button class="btn btn-ghost btn-xs" @click="clearHistory" :disabled="history.length === 0">清除</button>
       </div>
-      <div class="max-h-40 overflow-y-auto">
-        <div 
-          v-for="(item, index) in history" 
+      <div class="max-h-40 overflow-y-auto flex flex-col gap-0.5">
+        <div
+          v-for="(item, index) in history"
           :key="index"
-          class="flex justify-between items-center py-1.5 px-2 hover:bg-base-200 rounded cursor-pointer text-sm font-mono"
+          class="flex justify-between items-center py-1.5 px-2.5 bg-base-200/50 border border-base-content/10 rounded-lg cursor-pointer text-sm font-mono hover:border-primary/40 transition-colors"
           @click="loadHistory(item)"
         >
           <span class="text-base-content/60 truncate">{{ item.expression }} =</span>
@@ -102,11 +100,15 @@
         <div v-if="history.length === 0" class="text-center text-base-content/40 text-xs py-4">暂无历史记录</div>
       </div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref, watch } from 'vue'
+
+defineEmits<{ back: [] }>()
 
 const display = ref('0')
 const expression = ref('')

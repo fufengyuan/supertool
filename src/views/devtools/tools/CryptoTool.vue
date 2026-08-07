@@ -1,84 +1,93 @@
 <template>
-  <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="lock" size="14" class="align-text-bottom" /> 哈希计算</h3>
-
-    <!-- Single Input -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">文本哈希</h4>
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">输入文本</label>
+  <ToolPage
+    icon="lock"
+    name="哈希计算"
+    description="MD5 / SHA 系列 / SHA3 / RIPEMD160 / SM3，支持文本、批量与文件哈希"
+    @back="$emit('back')"
+  >
+    <!-- 文本哈希 -->
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> 文本哈希</h4>
       <textarea
         v-model="inputText"
-        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
+        class="textarea textarea-bordered w-full min-h-[100px] font-mono text-xs bg-base-200/60 resize-none"
         placeholder="输入需要计算哈希的文本..."
       ></textarea>
-
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
+      <div class="flex gap-2 mt-3">
         <button class="btn btn-primary btn-sm" @click="computeHashes">计算哈希</button>
-        <button class="btn btn-ghost btn-sm" @click="clearSingle">清空</button>
+        <button class="btn btn-ghost btn-sm" @click="clearSingle" :disabled="!inputText">清空</button>
       </div>
-
-      <div v-if="singleResults" class="hash-results">
-        <div class="hash-result-item" v-for="(hash, algo) in singleResults" :key="algo">
-          <span class="hash-algo">{{ algo }}</span>
-          <div class="hash-value">{{ hash }}</div>
-          <button class="btn btn-ghost btn-sm" @click="copyHash(hash)" title="复制"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
+      <div v-if="singleResults" class="flex flex-col gap-2 mt-4">
+        <div
+          v-for="(hash, algo) in singleResults"
+          :key="algo"
+          class="flex items-center gap-2.5 p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg group"
+        >
+          <span class="text-[11px] font-semibold text-primary w-20 shrink-0 font-mono">{{ algo }}</span>
+          <span class="flex-1 font-mono text-xs text-base-content break-all">{{ hash }}</span>
+          <button class="btn btn-ghost btn-xs shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" @click="copyHash(hash)" title="复制"><SvgIcon name="copy" size="12" /></button>
         </div>
       </div>
     </div>
 
-    <hr class="border-t border-base-content/10 my-5" />
-
-    <!-- Batch Processing -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">批量哈希</h4>
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">每行一条文本，分别计算哈希</label>
+    <!-- 批量哈希 -->
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="list" size="12" /> 批量哈希</h4>
+      <p class="text-[11px] text-base-content/50 mb-2">每行一条文本，分别计算 SHA256 与 SM3</p>
       <textarea
         v-model="batchInput"
-        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
+        class="textarea textarea-bordered w-full min-h-[100px] font-mono text-xs bg-base-200/60 resize-none"
         placeholder="第一行文本&#10;第二行文本&#10;第三行文本"
       ></textarea>
-
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
+      <div class="flex gap-2 mt-3">
         <button class="btn btn-primary btn-sm" @click="computeBatch">批量计算</button>
-        <button class="btn btn-ghost btn-sm" @click="clearBatch">清空</button>
+        <button class="btn btn-ghost btn-sm" @click="clearBatch" :disabled="!batchInput">清空</button>
       </div>
-
-      <div v-if="batchResults.length" class="batch-results">
-        <div class="batch-result-row" v-for="(row, idx) in batchResults" :key="idx">
-          <span class="batch-index">{{ idx + 1 }}</span>
-          <span class="batch-input">{{ row.input }}</span>
-          <span class="batch-hash sha256">{{ row.sha256 }}</span>
-          <span class="batch-hash sm3">{{ row.sm3 }}</span>
-          <button class="btn btn-ghost btn-sm" @click="copyHash(row.sha256 + '\\n' + row.sm3)" title="复制两个哈希"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
+      <div v-if="batchResults.length" class="flex flex-col gap-1.5 mt-4 max-h-56 overflow-y-auto">
+        <div v-for="(row, idx) in batchResults" :key="idx" class="flex items-center gap-2.5 p-2 bg-base-200/60 border border-base-content/10 rounded-lg group">
+          <span class="text-base-content/40 text-[11px] w-6 text-right shrink-0">{{ idx + 1 }}</span>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs text-base-content/70 truncate">{{ row.input }}</div>
+            <div class="font-mono text-[11px] text-base-content/80 break-all">SHA256: {{ row.sha256 }}</div>
+            <div class="font-mono text-[11px] text-base-content/80 break-all">SM3: {{ row.sm3 }}</div>
+          </div>
+          <button class="btn btn-ghost btn-xs shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" @click="copyHash(row.sha256 + '\n' + row.sm3)" title="复制两个哈希"><SvgIcon name="copy" size="12" /></button>
         </div>
       </div>
     </div>
 
-    <hr class="border-t border-base-content/10 my-5" />
-
-    <!-- File Hash -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">文件哈希</h4>
-      <input type="file" ref="fileInput" @change="handleFileHash" class="tool-file-input" />
-      <div v-if="fileHashResults" class="hash-results">
-        <div class="hash-result-item" v-for="(hash, algo) in fileHashResults" :key="algo">
-          <span class="hash-algo">{{ algo }}</span>
-          <div class="hash-value">{{ hash }}</div>
-          <button class="btn btn-ghost btn-sm" @click="copyHash(hash)" title="复制"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
+    <!-- 文件哈希 -->
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="upload" size="12" /> 文件哈希</h4>
+      <input type="file" ref="fileInput" @change="handleFileHash" class="file-input file-input-bordered file-input-sm w-full max-w-xs" />
+      <div v-if="fileHashing" class="mt-3 text-xs text-base-content/60 flex items-center gap-1.5">
+        <span class="loading loading-spinner loading-xs" /> 正在计算文件哈希...
+      </div>
+      <div v-if="fileHashResults" class="flex flex-col gap-2 mt-4">
+        <div
+          v-for="(hash, algo) in fileHashResults"
+          :key="algo"
+          class="flex items-center gap-2.5 p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg group"
+        >
+          <span class="text-[11px] font-semibold text-primary w-16 shrink-0 font-mono">{{ algo }}</span>
+          <span class="flex-1 font-mono text-xs text-base-content break-all">{{ hash }}</span>
+          <button class="btn btn-ghost btn-xs shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" @click="copyHash(hash)" title="复制"><SvgIcon name="copy" size="12" /></button>
         </div>
       </div>
-      <div v-if="fileHashing" class="loading-text">正在计算文件哈希...</div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref } from 'vue'
 import CryptoJS from 'crypto-js'
 import { sm3 } from 'sm-crypto'
 import { copyText, readFileAsArrayBuffer } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 const inputText = ref('')
