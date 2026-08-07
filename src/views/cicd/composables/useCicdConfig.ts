@@ -418,7 +418,7 @@ export function useCicdConfig() {
           const names = parsed.map((s: { serverId?: string; label?: string }) => getServerName(s.serverId || '') || s.label).filter(Boolean);
           if (names.length > 0) {return names.join(', ');}
         }
-      } catch {}
+      } catch (e) { console.warn('[CICD] 解析服务器列表失败', e); }
     }
     return '未配置服务器';
   }
@@ -583,7 +583,7 @@ export function useCicdConfig() {
           }
         }
       }
-    } catch {}
+    } catch (e) { console.warn('[CICD] 本地项目扫描异常', e); }
   }
 
   function selectServer(srv: Server) {
@@ -914,7 +914,7 @@ export function useCicdConfig() {
       try {
         const paths = await getTauriAPI().detectToolPaths() as typeof dp;
         if (paths) {Object.assign(dp, paths);}
-      } catch {}
+      } catch (e) { console.warn('[CICD] 工具路径检测失败', e); }
     }
 
     // Auto-fill new tool paths

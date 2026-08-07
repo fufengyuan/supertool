@@ -879,6 +879,12 @@ onBeforeUnmount(() => {
 
 const cicd = useCicdConfig();
 
+// 删除模块前确认（已保存模块会删库）
+function confirmDeleteModule(module: { id: string | null; moduleName: string }) {
+  if (module.id && !confirm(`确定删除模块「${module.moduleName || '未命名'}」吗？此操作会从数据库中删除。`)) { return; }
+  deleteModule(module.id);
+}
+
 // Git 仓库名称查找函数（供模板使用）
 function getGitRepoName(id?: string) {
   if (!id) {return '';}
