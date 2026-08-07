@@ -312,6 +312,8 @@ pub async fn git_commit(
     repo_path: &str,
     message: &str,
     files: Option<&[&str]>,
+    signoff: bool,
+    no_verify: bool,
 ) -> Result<Value, String> {
     if let Some(files) = files {
         if !files.is_empty() {
@@ -320,7 +322,16 @@ pub async fn git_commit(
             run_git(repo_path, &args).await?;
         }
     }
-    run_git(repo_path, &["commit", "-m", message]).await?;
+    let mut args = vec!["commit"];
+    if signoff {
+        args.push("-s");
+    }
+    if no_verify {
+        args.push("--no-verify");
+    }
+    args.push("-m");
+    args.push(message);
+    run_git(repo_path, &args).await?;
     Ok(json!({"success": true}))
 }
 

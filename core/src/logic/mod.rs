@@ -266,7 +266,8 @@ impl CoreService {
         msg: &str,
         files: Option<&[&str]>,
     ) -> Result<Value, String> {
-        git::git_commit(repo_path, msg, files).await
+        // CoreService 层（CLI 入口）不提供 signoff/no_verify，GUI 走 tauri command 传入
+        git::git_commit(repo_path, msg, files, false, false).await
     }
     pub async fn git_add(&self, repo_path: &str, files: &[&str]) -> Result<Value, String> {
         git::git_add(repo_path, files).await

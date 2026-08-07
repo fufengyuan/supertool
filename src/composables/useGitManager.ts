@@ -364,7 +364,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     allFiles.forEach(f => selectedFiles.value.add(f))
   }
 
-  async function doCommit(noVerify: boolean = false) {
+  async function doCommit(opts?: { noVerify?: boolean; signoff?: boolean }) {
     if (!repoPath.value || !commitMessage.value.trim()) {
       toast.error('请输入提交信息')
       return
@@ -375,7 +375,13 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
       if (filesToCommit.length > 0) {
         await api.gitAdd(repoPath.value, filesToCommit)
       }
-      await api.gitCommit(repoPath.value, commitMessage.value, filesToCommit.length > 0 ? filesToCommit : undefined)
+      await api.gitCommit(
+        repoPath.value,
+        commitMessage.value,
+        filesToCommit.length > 0 ? filesToCommit : undefined,
+        opts?.signoff,
+        opts?.noVerify
+      )
       toast.success('提交成功')
       commitMessage.value = ''
       selectedFiles.value.clear()
@@ -388,7 +394,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doCommitAndPush() {
-    await doCommit()
+    await doCommit({ signoff: commitSignOff.value, noVerify: commitNoVerify.value })
     await doPush()
   }
 
@@ -1269,8 +1275,7 @@ function confirmDeleteBranch(name: string) {
     }
   }
   function doCommitWithOptions() {
-    // 直接调用 doCommit，signOff 和 noVerify 选项暂不支持
-    doCommit(commitNoVerify.value)
+    doCommit({ signoff: commitSignOff.value, noVerify: commitNoVerify.value })
   }
   async function doUndoLastCommit() {
     if (!repoPath.value) {return}

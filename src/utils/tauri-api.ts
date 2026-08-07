@@ -1928,7 +1928,7 @@ export interface TauriAPI {
   gitDiff: (repoPath: string, file?: string) => Promise<any>
   gitAdd: (repoPath: string, files: string[]) => Promise<any>
   gitReset: (repoPath: string, file?: string) => Promise<any>
-  gitCommit: (repoPath: string, message: string, files?: string[]) => Promise<any>
+  gitCommit: (repoPath: string, message: string, files?: string[], signoff?: boolean, noVerify?: boolean) => Promise<any>
   gitCheckout: (repoPath: string, branch: string) => Promise<any>
   gitCreateBranch: (repoPath: string, branchName: string, from?: string) => Promise<any>
   gitDeleteBranch: (repoPath: string, branchName: string, force: boolean) => Promise<any>
@@ -2649,7 +2649,7 @@ export function getTauriAPI(): TauriAPI {
     gitDiff: async (repoPath: string, file?: string) => tauriCall('git_diff', { repoPath, file }),
     gitAdd: async (repoPath: string, files: string[]) => tauriCall('git_add', { repoPath, files }),
     gitReset: async (repoPath: string, file?: string) => tauriCall('git_reset', { repoPath, file }),
-    gitCommit: async (repoPath: string, message: string, files?: string[]) => tauriCall('git_commit', { repoPath, message, files }),
+    gitCommit: async (repoPath: string, message: string, files?: string[], signoff?: boolean, noVerify?: boolean) => tauriCall('git_commit', { repoPath, message, files, signoff: signoff ?? false, noVerify: noVerify ?? false }),
     gitCheckout: async (repoPath: string, branch: string) => tauriCall('git_checkout', { repoPath, branch }),
     gitCreateBranch: async (repoPath: string, branchName: string, from?: string) => tauriCall('git_create_branch', { repoPath, branchName, from }),
     gitDeleteBranch: async (repoPath: string, branchName: string, force: boolean) => tauriCall('git_delete_branch', { repoPath, branchName, force }),

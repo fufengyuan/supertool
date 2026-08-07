@@ -443,17 +443,21 @@ pub async fn git_commit(
     repo_path: String,
     message: String,
     files: Option<Vec<String>>,
+    signoff: Option<bool>,
+    no_verify: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_commit() called");
+    let signoff = signoff.unwrap_or(false);
+    let no_verify = no_verify.unwrap_or(false);
     // Handle files: convert to Vec<&str> if provided
     match files {
         Some(f) if !f.is_empty() => {
             let files_str: Vec<&str> = f.iter().map(|s| s.as_str()).collect();
-            supertool_core::logic::git::git_commit(&repo_path, &message, Some(&files_str))
+            supertool_core::logic::git::git_commit(&repo_path, &message, Some(&files_str), signoff, no_verify)
                 .await
                 .map_err(|e| format!("提交失败: {}", e))
         }
-        _ => supertool_core::logic::git::git_commit(&repo_path, &message, None)
+        _ => supertool_core::logic::git::git_commit(&repo_path, &message, None, signoff, no_verify)
             .await
             .map_err(|e| format!("提交失败: {}", e)),
     }
