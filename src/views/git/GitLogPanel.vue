@@ -185,49 +185,11 @@
         />
       </div>
     </div>
-
-    <!-- 提交详情面板 -->
-    <div v-if="selectedCommit" class="border-t border-base-content/10 bg-base-100 max-h-[40%] overflow-y-auto shrink-0">
-      <div class="flex items-center justify-between px-2.5 py-1.5 border-b border-base-content/10">
-        <span class="font-semibold text-xs">提交详情</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:selectedCommit', null)" title="关闭"><SvgIcon name="x" :size="14" class="inline-block" /></button>
-      </div>
-      <div class="p-2 px-2.5">
-        <div class="flex gap-2 mb-1 text-xs">
-          <span class="font-semibold text-base-content/60 min-w-[50px] shrink-0">Hash</span>
-          <code class="text-base-content font-mono text-[11px]">{{ (selectedCommit as any).hash }}</code>
-        </div>
-        <div class="flex gap-2 mb-1 text-xs">
-          <span class="font-semibold text-base-content/60 min-w-[50px] shrink-0">Author</span>
-          <span class="text-base-content">{{ (selectedCommit as any).author }}</span>
-        </div>
-        <div class="flex gap-2 mb-1 text-xs">
-          <span class="font-semibold text-base-content/60 min-w-[50px] shrink-0">Date</span>
-          <span class="text-base-content">{{ formatFullDate((selectedCommit as any).date) }}</span>
-        </div>
-        <div class="flex gap-2 mb-1 text-xs">
-          <span class="font-semibold text-base-content/60 min-w-[50px] shrink-0">Message</span>
-          <span class="text-base-content block">{{ (selectedCommit as any).message }}</span>
-        </div>
-        <div class="flex gap-2 mb-1 text-xs" v-if="(selectedCommit as any).refs">
-          <span class="font-semibold text-base-content/60 min-w-[50px] shrink-0">Refs</span>
-          <span class="text-base-content">{{ (selectedCommit as any).refs }}</span>
-        </div>
-      </div>
-      <div class="border-t border-base-content/10 p-2">
-        <SplitDiffViewer
-          :files="commitDiff?.files || null"
-          :diff="commitDiff?.diff || null"
-          :loading="loadingDiff"
-        />
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import SplitDiffViewer from '@/components/ui/SplitDiffViewer.vue'
 import { ref } from 'vue'
 
 defineProps<{
@@ -241,8 +203,6 @@ defineProps<{
   filteredLog: any[]
   selectedLogCommits: Set<string>
   selectedCommit: any | null
-  commitDiff: { hash: string; author: string; authorEmail: string; date: string; message: string; files: any[]; diff: string } | null
-  loadingDiff: boolean
   loading: boolean
   hasMoreLog: boolean
   logCount: number

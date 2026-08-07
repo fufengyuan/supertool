@@ -113,8 +113,6 @@
               :filtered-log="filteredLog"
               :selected-log-commits="selectedLogCommits"
               :selected-commit="selectedCommit"
-              :commit-diff="commitDiff"
-              :loading-diff="loadingDiff"
               :loading="loading"
               :has-more-log="hasMoreLog"
               :log-count="logCount"
