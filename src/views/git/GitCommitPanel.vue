@@ -243,8 +243,8 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 .commit-panel {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
-  min-width: 280px;
+  border-right: none;
+  width: 100%;
   flex-shrink: 0;
   background: var(--color-base-200);
 }
