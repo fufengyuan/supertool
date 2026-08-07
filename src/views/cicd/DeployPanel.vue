@@ -509,7 +509,6 @@ const combinedLogs = computed(() => {
   return [...running, ...completed];
 });
 
-const rollingBack = ref(false);
 const rollingBackId = ref<string | null>(null);
 const preflightResults = ref<{ name: string; passed: boolean; message: string }[]>([]);
 const logContainer = ref<HTMLElement | null>(null);
@@ -847,10 +846,9 @@ onMounted(() => {
         setTimeout(() => { deployStates.value.delete(cfgId); }, DEPLOY_STATE_TTL);
       }
     });
-    // TODO(tauri-events): const cleanupDataChanged = getTauriAPI().onDataChanged?.(({ type }) => {
-    //   if (type === 'cicd') loadConfigs();
-    // });
-    // if (cleanupDataChanged) _cleanupDataChanged = cleanupDataChanged;
+    getTauriAPI().onDataChanged?.(({ type }) => {
+      if (type === 'cicd') { loadConfigs(); }
+    }).then((cleanup) => { _cleanupDataChanged = cleanup; }).catch(() => {});
       initialLoading.value = false; // 数据加载完成，显示 UI
     } catch (error) {
       handleError(error, { context: '加载部署面板' });
@@ -972,6 +970,7 @@ async function startDeploy() {
   } catch (error) {
     // 先 flush 缓冲日志，保证错误消息排在构建日志之后且不污染后续部署
     flushPendingLogs();
+    cleanupLogId?.(); // 异常路径也释放事件监听，避免泄漏
     updateDeployState(selectedConfigId.value, {
       deploying: false,
       currentStep: '部署失败: ' + (error as Error).message,
@@ -1031,46 +1030,6 @@ async function cancelRunningDeploy(log: DeployLog) {
   } catch (error) {
     handleError(error, { context: '取消部署' });
   }
-}
-
-async function doRollback(log: DeployLog) {
-  if (!config.value || !selectedConfigId.value) {return;}
-
-  rollingBack.value = true;
-  resetDeployState(selectedConfigId.value);
-  updateDeployState(selectedConfigId.value, {
-    currentStep: '开始回滚...',
-    realtimeLogs: [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'rollback', message: '回滚任务已启动' }],
-  });
-
-  try {
-    const result = await getTauriAPI().rollback(config.value!.id, log.id) as { success: boolean; error?: string };
-
-    if (result.success) {
-      updateDeployState(selectedConfigId.value, {
-        progress: 100,
-        currentStep: '🔄 回滚成功！',
-        realtimeLogs: [...(deployStates.value.get(selectedConfigId.value)?.realtimeLogs || []), { time: new Date().toLocaleTimeString('zh-CN'), stage: 'rollback', message: '✅ 回滚成功完成' }],
-      });
-      toast.success('回滚成功！');
-    } else {
-      updateDeployState(selectedConfigId.value, {
-        currentStep: '回滚失败: ' + (result.error || '未知错误'),
-        realtimeLogs: [...(deployStates.value.get(selectedConfigId.value)?.realtimeLogs || []), { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚失败: ' + (result.error || '未知错误') }],
-      });
-      toast.error('回滚失败: ' + (result.error || '未知错误'), 6000);
-    }
-
-    await refreshLogs();
-  } catch (error) {
-    updateDeployState(selectedConfigId.value, {
-      currentStep: '回滚异常: ' + (error as Error).message,
-      realtimeLogs: [...(deployStates.value.get(selectedConfigId.value)?.realtimeLogs || []), { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚异常: ' + (error as Error).message }],
-    });
-    handleError(error, { context: '回滚' });
-  }
-
-  rollingBack.value = false;
 }
 
 async function rollbackDeploy(log: DeployLog) {
