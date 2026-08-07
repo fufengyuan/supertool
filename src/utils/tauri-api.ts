@@ -1345,7 +1345,7 @@ export function useSettingsAPI() {
       return res.success ? res.data : null
     },
     setSetting: async (key: string, value: any): Promise<{ key: string; value: string } | undefined> => {
-      const res = await tauriInvoke<string>('set_setting', { key, value })
+      const res = await tauriInvoke<{ key: string; value: string }>('set_setting', { key, value })
       if (!res.success) {throw new Error(res.error)}
       return res.data
     },
