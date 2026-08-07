@@ -462,6 +462,7 @@ fn main() {
             commands::database::db_connect,
             commands::database::db_disconnect,
             commands::database::db_query,
+            commands::database::db_execute_write,
             commands::database::db_get_tables,
             commands::database::db_get_databases,
             // PTY Terminal commands

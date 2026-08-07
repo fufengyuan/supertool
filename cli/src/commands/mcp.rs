@@ -440,7 +440,7 @@ async fn db_query(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> {
     let sql = req_str(args, "sql")?;
     // 只读白名单：AI 遭 prompt injection 时可防 DROP/TRUNCATE/DELETE 等破坏
     // （与 CLI 审批连接同规则：SELECT/SHOW/EXPLAIN/DESC/PRAGMA 查询；WITH 可携带写语句故不放行）
-    if !crate::utils::is_read_only_sql(sql) {
+    if !supertool_core::logic::sql_safety::is_read_only_sql(sql) {
         return Err(
             "MCP 仅允许只读 SQL（SELECT/SHOW/EXPLAIN/DESC/PRAGMA 查询），写操作请使用 GUI 或 CLI".into(),
         );

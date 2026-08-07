@@ -28,9 +28,10 @@ pub struct DbConnectionConfig {
 }
 
 /// Native connection pool - stores actual driver connections, not configs
+#[derive(Clone)]
 pub enum DbConnection {
     MySql(MySqlPool),
-    Postgres(PgClient),
+    Postgres(std::sync::Arc<tokio_postgres::Client>),
     Redis(RedisConn),
     Sqlite(DbConnectionConfig), // SQLite is file-based, config is enough
 }
@@ -52,10 +53,14 @@ pub async fn connect_mysql(config: &DbConnectionConfig) -> Result<DbConnection, 
         .pass(decrypted_pw)
         .db_name(config.db_name.clone());
     let pool = MySqlPool::new(opts);
-    let mut conn = pool
-        .get_conn()
-        .await
-        .map_err(|e| format!("MySQL connection failed: {}", e))?;
+    // S2: 连接超时（5s），避免主机不可达时 UI 无限转圈
+    let mut conn = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        pool.get_conn(),
+    )
+    .await
+    .map_err(|_| format!("MySQL connect timeout (host: {})", config.host))?
+    .map_err(|e| format!("MySQL connection failed: {}", e))?;
     conn.ping()
         .await
         .map_err(|e| format!("MySQL ping failed: {}", e))?;
@@ -170,9 +175,14 @@ pub async fn connect_postgres(config: &DbConnectionConfig) -> Result<DbConnectio
         decrypted_pw,
         config.db_name.as_deref().unwrap_or("postgres")
     );
-    let (client, connection) = tokio_postgres::connect(&conn_str, NoTls)
-        .await
-        .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
+    // S2: 连接超时（5s），避免主机不可达时 UI 无限转圈
+    let (client, connection) = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        tokio_postgres::connect(&conn_str, NoTls),
+    )
+    .await
+    .map_err(|_| format!("PostgreSQL connect timeout (host: {})", config.host))?
+    .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
     tokio::spawn(async move {
         if let Err(e) = connection.await {
             log::error!("PostgreSQL connection error: {}", e);
@@ -182,7 +192,7 @@ pub async fn connect_postgres(config: &DbConnectionConfig) -> Result<DbConnectio
         .batch_execute("SELECT 1")
         .await
         .map_err(|e| format!("PostgreSQL ping failed: {}", e))?;
-    Ok(DbConnection::Postgres(client))
+    Ok(DbConnection::Postgres(std::sync::Arc::new(client)))
 }
 
 async fn execute_postgres_query(client: &PgClient, sql: &str) -> Result<serde_json::Value, String> {
@@ -225,8 +235,21 @@ fn pg_row_to_json(row: &tokio_postgres::Row) -> serde_json::Value {
                     .ok()
                     .map(serde_json::Value::String)
             }
-            Type::TIMESTAMP | Type::DATE | Type::TIME | Type::TIMESTAMPTZ => row
+            // S1 修复：时间类型分别处理，TIMESTAMPTZ/DATE/TIME 与 NaiveDateTime 不兼容会返回 NULL
+            Type::TIMESTAMP => row
                 .try_get::<_, chrono::NaiveDateTime>(i)
+                .ok()
+                .map(|v| serde_json::Value::String(v.to_string())),
+            Type::TIMESTAMPTZ => row
+                .try_get::<_, chrono::DateTime<chrono::Utc>>(i)
+                .ok()
+                .map(|v| serde_json::Value::String(v.to_rfc3339())),
+            Type::DATE => row
+                .try_get::<_, chrono::NaiveDate>(i)
+                .ok()
+                .map(|v| serde_json::Value::String(v.to_string())),
+            Type::TIME => row
+                .try_get::<_, chrono::NaiveTime>(i)
                 .ok()
                 .map(|v| serde_json::Value::String(v.to_string())),
             _ => row
@@ -264,10 +287,14 @@ pub async fn connect_redis(config: &DbConnectionConfig) -> Result<DbConnection, 
     };
     let client =
         redis::Client::open(url.as_str()).map_err(|e| format!("Redis connection failed: {}", e))?;
-    let conn = client
-        .get_multiplexed_async_connection()
-        .await
-        .map_err(|e| format!("Redis connection failed: {}", e))?;
+    // S2: 连接超时（5s），避免主机不可达时 UI 无限转圈
+    let conn = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        client.get_multiplexed_async_connection(),
+    )
+    .await
+    .map_err(|_| format!("Redis connect timeout (host: {})", config.host))?
+    .map_err(|e| format!("Redis connection failed: {}", e))?;
     let _: String = redis::cmd("PING")
         .query_async(&mut conn.clone())
         .await
@@ -446,46 +473,55 @@ pub async fn db_disconnect(id: String) -> Result<serde_json::Value, String> {
 #[tauri::command(rename_all = "camelCase")]
 pub async fn db_query(id: String, sql: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] db_query() called");
-    // SQL safety filter: only allow read-only queries (like Electron version)
-    let trimmed = sql.trim().to_uppercase();
-    let cleaned = trimmed
-        .replace("/*", "")
-        .replace("*/", "")
-        .replace("--", "")
-        .trim()
-        .to_string();
-    let first_word = cleaned.split_whitespace().next().unwrap_or("");
-    let allowed_prefixes = [
-        "SELECT", "EXPLAIN", "WITH", "PRAGMA", "DESCRIBE", "DESC", "SHOW",
-    ];
-    if !allowed_prefixes.contains(&first_word) {
+    // 只读白名单（与 CLI 审批连接同规则）：SELECT/SHOW/EXPLAIN/DESC/PRAGMA 查询；
+    // WITH 可携带写语句不放行；PRAGMA 赋值形式拦截。写操作请走 db_execute_write
+    if !supertool_core::logic::sql_safety::is_read_only_sql(&sql) {
+        let first = sql.trim().split_whitespace().next().unwrap_or("");
         return Err(format!(
-            "Only read-only queries allowed. Blocked: {}",
-            first_word
+            "Only read-only queries allowed. Blocked: {}（写操作请使用专用命令）",
+            first
         ));
     }
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found. Call db:connect first.".to_string())?;
-    match conn {
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found. Call db:connect first.".to_string())?
+    };
+    match &conn {
         DbConnection::MySql(p) => execute_mysql_query(p, &sql).await,
-        DbConnection::Postgres(c) => execute_postgres_query(c, &sql).await,
+        DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), &sql).await,
         DbConnection::Redis(c) => execute_redis_command(c, &sql).await,
         DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, &sql).await,
+    }
+}
+
+/// GUI 专用写通道（DROP TABLE / ALTER / 结构同步等）。
+/// CLI/MCP 层对审批连接仍走 is_read_only_sql 白名单，此处仅限 GUI 用户手动操作。
+#[tauri::command(rename_all = "camelCase")]
+pub async fn db_execute_write(id: String, sql: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] db_execute_write() called");
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found. Call db:connect first.".to_string())?
+    };
+    match &conn {
+        DbConnection::MySql(p) => execute_mysql_query(p, &sql).await,
+        DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), &sql).await,
+        // SQLite 写操作必须用 READ_WRITE 连接（execute_sqlite_query 是只读连接）
+        DbConnection::Sqlite(cfg) => execute_sqlite_write(cfg, &sql).await,
+        DbConnection::Redis(_) => Err("Redis 不支持 SQL 写操作".to_string()),
     }
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn db_get_tables(id: String, db_name: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] db_get_tables() called");
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
-    match conn {
-        DbConnection::MySql(p) => execute_mysql_query(p, &format!("SHOW TABLES FROM `{}`", db_name)).await,
-        DbConnection::Postgres(c) => execute_postgres_query(c, "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename").await,
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
+    match &conn {
+        DbConnection::MySql(p) => execute_mysql_query(p, &format!("SHOW TABLES FROM {}", quote_ident(&db_name, "mysql"))).await,
+        DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename").await,
         DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").await,
         _ => Err("Unsupported database type for listing tables".to_string()),
     }
@@ -494,11 +530,11 @@ pub async fn db_get_tables(id: String, db_name: String) -> Result<serde_json::Va
 #[tauri::command(rename_all = "camelCase")]
 pub async fn db_get_databases(id: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] db_get_databases() called");
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
-    match conn {
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
+    match &conn {
         DbConnection::MySql(p) => {
             let result = execute_mysql_query(p, "SHOW DATABASES").await;
             // Filter out system databases
@@ -553,17 +589,17 @@ pub async fn db_get_table_structure(
     table: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] db_get_table_structure() called");
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
-    match conn {
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
+    match &conn {
         DbConnection::MySql(p) => {
             let db = db_name.unwrap_or_default();
             // Query columns
             let col_sql = format!(
                 "SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY, EXTRA, COLUMN_COMMENT, ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' ORDER BY ORDINAL_POSITION",
-                db, table
+                db.replace('\'', "''"), table.replace('\'', "''")
             );
             let col_result = execute_mysql_query(p, &col_sql).await?;
             // Query indexes
@@ -608,7 +644,7 @@ pub async fn db_get_table_structure(
                  ) pk ON pk.column_name = c.column_name AND pk.table_schema = c.table_schema AND pk.table_name = c.table_name \
                  WHERE c.table_schema='public' AND c.table_name='{}' \
                  ORDER BY c.ordinal_position",
-                table
+                table.replace('\'', "''")
             );
             let col_result = execute_postgres_query(c, &col_sql).await?;
             // Query indexes
@@ -621,7 +657,7 @@ pub async fn db_get_table_structure(
                 JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) \
                 WHERE n.nspname = 'public' AND t.relname = '{}' \
                 GROUP BY i.relname, ix.indisunique, ix.indisprimary ORDER BY i.relname",
-                table
+                table.replace('\'', "''")
             );
             let idx_result = execute_postgres_query(c, &idx_sql).await?;
             let cols = col_result
@@ -648,7 +684,7 @@ pub async fn db_get_table_structure(
                     '' AS \"COLUMN_COMMENT\", \
                     \"cid\" + 1 AS \"ORDINAL_POSITION\" \
                 FROM pragma_table_info('{}') ORDER BY \"cid\"",
-                table
+                table.replace('\'', "''")
             );
             let col_result = execute_sqlite_query(cfg, &col_sql).await?;
             // SQLite indexes: PRAGMA index_list + index_info (need to query columns for each index)
@@ -721,17 +757,17 @@ pub async fn db_get_table_data(
     order_dir: Option<String>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] db_get_table_data() called");
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     let safe_dir = match order_dir.as_deref().unwrap_or("").to_uppercase().as_str() {
         "DESC" => "DESC",
         _ => "ASC",
     };
     let safe_order =
         order_by.filter(|s| !s.is_empty() && s.chars().all(|c| c.is_alphanumeric() || c == '_'));
-    match conn {
+    match &conn {
         DbConnection::MySql(p) => {
             let order = safe_order
                 .map(|s| format!(" ORDER BY `{}` {}", s, safe_dir))
@@ -740,7 +776,17 @@ pub async fn db_get_table_data(
                 "SELECT * FROM `{}`.`{}`{} LIMIT {} OFFSET {}",
                 db_name, table, order, limit, offset
             );
-            execute_mysql_query(p, &sql).await
+            let resp = execute_mysql_query(p, &sql).await?;
+            // B5: 返回 total 供前端分页
+            let mut total = 0u64;
+            if let Ok(cv) = execute_mysql_query(p, &format!("SELECT COUNT(*) AS c FROM `{}`.`{}`", db_name, table)).await {
+                if let Some(rows) = cv.get("rows").and_then(|v| v.as_array()) {
+                    total = rows.first().and_then(|r| r.get("c")).and_then(|v| v.as_u64()).unwrap_or(0);
+                }
+            }
+            let mut obj = match resp { serde_json::Value::Object(o) => o, other => { let mut m = serde_json::Map::new(); m.insert("rows".into(), other); m } };
+            obj.insert("total".into(), serde_json::json!(total));
+            Ok(serde_json::Value::Object(obj))
         }
         DbConnection::Postgres(c) => {
             let order = safe_order
@@ -750,20 +796,38 @@ pub async fn db_get_table_data(
                 "SELECT * FROM \"{}\".\"{}\"{} LIMIT {} OFFSET {}",
                 db_name, table, order, limit, offset
             );
-            execute_postgres_query(c, &sql).await
+            let resp = execute_postgres_query(c, &sql).await?;
+            let mut total = 0u64;
+            if let Ok(cv) = execute_postgres_query(c, &format!("SELECT COUNT(*) AS c FROM \"{}\".\"{}\"", db_name, table)).await {
+                if let Some(rows) = cv.get("rows").and_then(|v| v.as_array()) {
+                    total = rows.first().and_then(|r| r.get("c")).and_then(|v| v.as_u64()).unwrap_or(0);
+                }
+            }
+            let mut obj = match resp { serde_json::Value::Object(o) => o, other => { let mut m = serde_json::Map::new(); m.insert("rows".into(), other); m } };
+            obj.insert("total".into(), serde_json::json!(total));
+            Ok(serde_json::Value::Object(obj))
         }
         DbConnection::Sqlite(cfg) => {
             let order = safe_order
                 .map(|s| format!(" ORDER BY \"{}\" {}", s, safe_dir))
                 .unwrap_or_default();
-            execute_sqlite_query(
+            let resp = execute_sqlite_query(
                 cfg,
                 &format!(
                     "SELECT * FROM \"{}\"{} LIMIT {} OFFSET {}",
                     table, order, limit, offset
                 ),
             )
-            .await
+            .await?;
+            let mut total = 0u64;
+            if let Ok(cv) = execute_sqlite_query(cfg, &format!("SELECT COUNT(*) AS c FROM \"{}\"", table)).await {
+                if let Some(rows) = cv.get("rows").and_then(|v| v.as_array()) {
+                    total = rows.first().and_then(|r| r.get("c")).and_then(|v| v.as_u64()).unwrap_or(0);
+                }
+            }
+            let mut obj = match resp { serde_json::Value::Object(o) => o, other => { let mut m = serde_json::Map::new(); m.insert("rows".into(), other); m } };
+            obj.insert("total".into(), serde_json::json!(total));
+            Ok(serde_json::Value::Object(obj))
         }
         _ => Err("Unsupported database type".to_string()),
     }
@@ -775,22 +839,22 @@ pub async fn db_get_table_primary_keys(
     table: String,
     db_name: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
-    match conn {
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
+    match &conn {
         DbConnection::MySql(p) => {
             let sql = format!(
                 "SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' AND CONSTRAINT_NAME='PRIMARY' ORDER BY ORDINAL_POSITION",
-                db_name, table
+                db_name.replace('\'', "''"), table.replace('\'', "''")
             );
             execute_mysql_query(p, &sql).await
         }
         DbConnection::Postgres(c) => {
             let sql = format!(
                 "SELECT kcu.column_name FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name WHERE tc.table_schema='public' AND tc.table_name='{}' AND tc.constraint_type='PRIMARY KEY'",
-                table
+                table.replace('\'', "''")
             );
             execute_postgres_query(c, &sql).await
         }
@@ -798,7 +862,7 @@ pub async fn db_get_table_primary_keys(
             // SQLite: PRAGMA table_info returns pk column index > 0
             let sql = format!(
                 "SELECT name FROM pragma_table_info('{}') WHERE pk > 0 ORDER BY pk",
-                table
+                table.replace('\'', "''")
             );
             execute_sqlite_query(cfg, &sql).await
         }
@@ -808,11 +872,11 @@ pub async fn db_get_table_primary_keys(
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn db_get_views(id: String, db_name: String) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
-    match conn {
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
+    match &conn {
         DbConnection::MySql(p) => {
             execute_mysql_query(
                 p,
@@ -847,13 +911,13 @@ pub async fn db_get_create_sql(
     table: String,
     db_name: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
-    match conn {
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
+    match &conn {
         DbConnection::MySql(p) => {
-            let sql = format!("SHOW CREATE TABLE `{}`.`{}`", db_name, table);
+            let sql = format!("SHOW CREATE TABLE {}.{}", quote_ident(&db_name, "mysql"), quote_ident(&table, "mysql"));
             execute_mysql_query(p, &sql).await
         }
         DbConnection::Postgres(_c) => {
@@ -1486,31 +1550,27 @@ pub async fn db_execute_structure_sync(
         "[Tauri CMD] db_execute_structure_sync() called, {} statements",
         sqls.len()
     );
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
 
     let mut executed = 0u64;
     let mut errors: Vec<String> = vec![];
 
-    // For MySQL, select the database first (DDL needs a database context)
-    if let DbConnection::MySql(p) = conn {
-        if !targetDbName.is_empty() {
-            let esc_db = targetDbName.replace('`', "``");
-            if let Err(e) = execute_mysql_query(p, &format!("USE `{}`", esc_db)).await {
-                return Ok(
-                    serde_json::json!({ "success": false, "executed": 0, "errors": vec![format!("Failed to select database '{}': {}", targetDbName, e)] }),
-                );
-            }
-        }
+    // B3 修复：MySQL/SQLite 用同一物理连接执行事务；Postgres 单连接客户端本身即真事务
+    if let DbConnection::MySql(p) = &conn {
+        let (executed, errors) = execute_mysql_transaction(p, &sqls, if targetDbName.is_empty() { None } else { Some(targetDbName.as_str()) }).await?;
+        return Ok(serde_json::json!({ "success": errors.is_empty(), "executed": executed, "errors": errors }));
+    }
+    if let DbConnection::Sqlite(cfg) = &conn {
+        let (executed, errors) = execute_sqlite_transaction(cfg, &sqls).await?;
+        return Ok(serde_json::json!({ "success": errors.is_empty(), "executed": executed, "errors": errors }));
     }
 
-    // Begin transaction
-    let begin_result = match conn {
-        DbConnection::MySql(p) => execute_mysql_query(p, "BEGIN").await,
-        DbConnection::Postgres(c) => execute_postgres_query(c, "BEGIN").await,
-        DbConnection::Sqlite(cfg) => execute_sqlite_write(cfg, "BEGIN").await,
+    // PostgreSQL: BEGIN/中间/COMMIT 在同一 client 连接上
+    let begin_result = match &conn {
+        DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), "BEGIN").await,
         _ => Err("Unsupported database type".to_string()),
     };
     if let Err(e) = begin_result {
@@ -1525,10 +1585,8 @@ pub async fn db_execute_structure_sync(
             continue;
         }
 
-        let r = match conn {
-            DbConnection::MySql(p) => execute_mysql_query(p, trimmed).await,
-            DbConnection::Postgres(c) => execute_postgres_query(c, trimmed).await,
-            DbConnection::Sqlite(cfg) => execute_sqlite_write(cfg, trimmed).await,
+        let r = match &conn {
+            DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), trimmed).await,
             _ => Err("Unsupported database type".to_string()),
         };
 
@@ -1540,11 +1598,8 @@ pub async fn db_execute_structure_sync(
                     trimmed.chars().take(100).collect::<String>(),
                     e
                 ));
-                // Rollback on error
-                let _ = match conn {
-                    DbConnection::MySql(p) => execute_mysql_query(p, "ROLLBACK").await,
-                    DbConnection::Postgres(c) => execute_postgres_query(c, "ROLLBACK").await,
-                    DbConnection::Sqlite(cfg) => execute_sqlite_write(cfg, "ROLLBACK").await,
+                let _ = match &conn {
+                    DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), "ROLLBACK").await,
                     _ => Err("Unsupported".to_string()),
                 };
                 return Ok(
@@ -1554,13 +1609,13 @@ pub async fn db_execute_structure_sync(
         }
     }
 
-    // Commit
-    let _ = match conn {
-        DbConnection::MySql(p) => execute_mysql_query(p, "COMMIT").await,
-        DbConnection::Postgres(c) => execute_postgres_query(c, "COMMIT").await,
-        DbConnection::Sqlite(cfg) => execute_sqlite_write(cfg, "COMMIT").await,
+    if let Err(e) = match &conn {
+        DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), "COMMIT").await,
         _ => Err("Unsupported".to_string()),
-    };
+    } {
+        errors.push(format!("COMMIT failed: {}", e));
+        return Ok(serde_json::json!({ "success": false, "executed": executed, "errors": errors }));
+    }
 
     Ok(serde_json::json!({ "success": true, "executed": executed, "errors": errors }))
 }
@@ -1799,101 +1854,114 @@ pub async fn db_execute_data_sync(params: serde_json::Value) -> Result<serde_jso
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
 
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(target_id)
-        .ok_or_else(|| "Connection not found".to_string())?;
-
-    // For MySQL, select the database first
-    if let DbConnection::MySql(p) = conn {
-        if !db_name.is_empty() {
-            let esc_db = db_name.replace('`', "``");
-            let _ = execute_mysql_query(p, &format!("USE `{}`", esc_db)).await;
-        }
-    }
-
-    // Start transaction
-    if use_transaction {
-        let _ = match conn {
-            DbConnection::MySql(p) => execute_mysql_query(p, "BEGIN").await,
-            DbConnection::Postgres(c) => execute_postgres_query(c, "BEGIN").await,
-            DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, "BEGIN").await,
-            _ => Err("Unsupported DB type".to_string()),
-        };
-    }
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(target_id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
 
     let mut inserted = 0u64;
     let mut updated = 0u64;
     let mut deleted = 0u64;
     let mut errors: Vec<String> = vec![];
 
+    // 先收集语句（保留 diffType 用于计数），再由各数据库类型在同一连接上执行事务（B3 修复）
+    let mut statements: Vec<(String, String)> = vec![];
     for diff in &diffs {
         let diff_type = diff.get("diffType").and_then(|v| v.as_str()).unwrap_or("");
         let source_row = diff.get("sourceRow");
-        let _target_row = diff.get("targetRow");
         let pk = diff.get("primaryKey");
-
-        let sql_result = match diff_type {
-            "insert" => {
-                if let Some(row) = source_row {
-                    let sql = generate_insert_sql(table_name, row, conn);
-                    execute_sql_on_conn(conn, &sql).await
-                } else {
-                    Err("Missing sourceRow for insert".to_string())
-                }
-            }
-            "update" => {
-                if let Some(row) = source_row {
-                    let sql = generate_update_sql(table_name, row, &primary_keys, conn);
-                    execute_sql_on_conn(conn, &sql).await
-                } else {
-                    Err("Missing sourceRow for update".to_string())
-                }
-            }
-            "delete" => {
-                if let Some(pk_val) = pk {
-                    let sql = generate_delete_sql(table_name, pk_val, &primary_keys, conn);
-                    execute_sql_on_conn(conn, &sql).await
-                } else {
-                    Err("Missing primaryKey for delete".to_string())
-                }
-            }
-            _ => Err(format!("Unknown diffType: {}", diff_type)),
+        let sql = match diff_type {
+            "insert" => source_row.map(|row| generate_insert_sql(table_name, row, &conn)),
+            "update" => source_row.map(|row| generate_update_sql(table_name, row, &primary_keys, &conn)),
+            "delete" => pk.map(|pk_val| generate_delete_sql(table_name, pk_val, &primary_keys, &conn)),
+            _ => None,
         };
-
-        match sql_result {
-            Ok(_) => match diff_type {
-                "insert" => inserted += 1,
-                "update" => updated += 1,
-                "delete" => deleted += 1,
-                _ => {}
-            },
-            Err(e) => {
-                errors.push(format!("{}: {}", diff_type, e));
-                if use_transaction {
-                    break;
-                }
-            }
+        match sql {
+            Some(s) => statements.push((diff_type.to_string(), s)),
+            None => errors.push(format!("{}: missing row/primaryKey", diff_type)),
         }
     }
 
-    // Commit or rollback
-    if use_transaction {
-        if errors.is_empty() {
-            let _ = match conn {
-                DbConnection::MySql(p) => execute_mysql_query(p, "COMMIT").await,
-                DbConnection::Postgres(c) => execute_postgres_query(c, "COMMIT").await,
-                DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, "COMMIT").await,
-                _ => Err("Unsupported DB type".to_string()),
-            };
-        } else {
-            let _ = match conn {
-                DbConnection::MySql(p) => execute_mysql_query(p, "ROLLBACK").await,
-                DbConnection::Postgres(c) => execute_postgres_query(c, "ROLLBACK").await,
-                DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, "ROLLBACK").await,
-                _ => Err("Unsupported DB type".to_string()),
-            };
+    // 各数据库类型在事务连接上执行（MySQL/SQLite 用同一物理连接，PG 用同一 client）
+    let mut count = |t: &str| match t {
+        "insert" => inserted += 1,
+        "update" => updated += 1,
+        "delete" => deleted += 1,
+        _ => {}
+    };
+    match &conn {
+        DbConnection::MySql(p) => {
+            let mut c = p.get_conn().await.map_err(|e| e.to_string())?;
+            if !db_name.is_empty() {
+                let _ = c.query_drop(format!("USE `{}`", db_name.replace('`', "``"))).await;
+            }
+            if use_transaction {
+                c.query_drop("BEGIN").await.map_err(|e| format!("BEGIN failed: {}", e))?;
+            }
+            for (t, sql) in &statements {
+                if let Err(e) = c.query_drop(sql).await {
+                    errors.push(format!("{}: {}", t, e));
+                    if use_transaction { let _ = c.query_drop("ROLLBACK").await; break; }
+                } else {
+                    count(t);
+                }
+            }
+            if use_transaction && errors.is_empty() {
+                let _ = c.query_drop("COMMIT").await;
+            }
         }
+        DbConnection::Sqlite(cfg) => {
+            let db_path = cfg.path.as_deref().ok_or("SQLite database path required")?.to_string();
+            let statements = statements.clone();
+            let use_transaction = use_transaction;
+            let (n_i, n_u, n_d, errs) = tokio::task::spawn_blocking(move || {
+                let mut c = rusqlite::Connection::open_with_flags(&db_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE)
+                    .map_err(|e| format!("SQLite open failed: {}", e))?;
+                let mut n_i = 0u64; let mut n_u = 0u64; let mut n_d = 0u64; let mut errs: Vec<String> = vec![];
+                if use_transaction {
+                    let tx = c.transaction().map_err(|e| format!("SQLite BEGIN failed: {}", e))?;
+                    for (t, sql) in &statements {
+                        if let Err(e) = tx.execute_batch(sql) {
+                            errs.push(format!("{}: {}", t, e));
+                            return Ok::<_, String>((n_i, n_u, n_d, errs)); // tx drop 自动回滚
+                        }
+                        match t.as_str() { "insert" => n_i += 1, "update" => n_u += 1, "delete" => n_d += 1, _ => {} }
+                    }
+                    tx.commit().map_err(|e| format!("SQLite COMMIT failed: {}", e))?;
+                } else {
+                    for (t, sql) in &statements {
+                        if let Err(e) = c.execute_batch(sql) {
+                            errs.push(format!("{}: {}", t, e));
+                            break;
+                        }
+                        match t.as_str() { "insert" => n_i += 1, "update" => n_u += 1, "delete" => n_d += 1, _ => {} }
+                    }
+                }
+                Ok((n_i, n_u, n_d, errs))
+            })
+            .await
+            .map_err(|e| e.to_string())??;
+            inserted += n_i; updated += n_u; deleted += n_d; errors.extend(errs);
+        }
+        DbConnection::Postgres(c) => {
+            if use_transaction {
+                let _ = execute_postgres_query(c.as_ref(), "BEGIN").await;
+            }
+            for (t, sql) in &statements {
+                let r = execute_postgres_query(c.as_ref(), sql).await;
+                match r {
+                    Ok(_) => count(t),
+                    Err(e) => {
+                        errors.push(format!("{}: {}", t, e));
+                        if use_transaction { let _ = execute_postgres_query(c.as_ref(), "ROLLBACK").await; break; }
+                    }
+                }
+            }
+            if use_transaction && errors.is_empty() {
+                let _ = execute_postgres_query(c.as_ref(), "COMMIT").await;
+            }
+        }
+        _ => return Err("Unsupported DB type".to_string()),
     }
 
     Ok(serde_json::json!({
@@ -1912,9 +1980,9 @@ fn execute_sql_on_conn<'a>(
     Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send + 'a>,
 > {
     Box::pin(async move {
-        match conn {
+        match &conn {
             DbConnection::MySql(p) => execute_mysql_query(p, sql).await,
-            DbConnection::Postgres(c) => execute_postgres_query(c, sql).await,
+            DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), sql).await,
             DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, sql).await,
             _ => Err("Unsupported DB type".to_string()),
         }
@@ -1922,7 +1990,7 @@ fn execute_sql_on_conn<'a>(
 }
 
 fn generate_insert_sql(table: &str, row: &serde_json::Value, conn: &DbConnection) -> String {
-    let db_type = match conn {
+    let db_type = match &conn {
         DbConnection::MySql(_) => "mysql",
         DbConnection::Postgres(_) => "postgresql",
         DbConnection::Sqlite(_) => "sqlite",
@@ -1968,7 +2036,7 @@ fn generate_update_sql(
     pks: &[String],
     conn: &DbConnection,
 ) -> String {
-    let db_type = match conn {
+    let db_type = match &conn {
         DbConnection::MySql(_) => "mysql",
         DbConnection::Postgres(_) => "postgresql",
         DbConnection::Sqlite(_) => "sqlite",
@@ -2016,7 +2084,7 @@ fn generate_delete_sql(
     pks: &[String],
     conn: &DbConnection,
 ) -> String {
-    let db_type = match conn {
+    let db_type = match &conn {
         DbConnection::MySql(_) => "mysql",
         DbConnection::Postgres(_) => "postgresql",
         DbConnection::Sqlite(_) => "sqlite",
@@ -2072,14 +2140,14 @@ pub async fn db_backup_create(
     objects: Vec<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
     // Export data to JSON
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     let mut backup = serde_json::Map::new();
     for obj in &objects {
         if let Some(table) = obj.get("table").and_then(|v| v.as_str()) {
-            let data = match conn {
+            let data = match &conn {
                 DbConnection::MySql(p) => {
                     execute_mysql_query(p, &format!("SELECT * FROM `{}`.`{}`", db_name, table))
                         .await
@@ -2140,10 +2208,12 @@ pub async fn db_backup_restore(id: String, file: String) -> Result<serde_json::V
     let metadata = payload.get("metadata");
 
     // 4. Get connection from pool
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| format!("连接 '{}' 未找到，请先连接数据库", id))?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id)
+            .cloned()
+            .ok_or_else(|| format!("连接 '{}' 未找到，请先连接数据库", id))?
+    };
 
     // Log restore info
     if let Some(meta) = metadata {
@@ -2181,7 +2251,7 @@ pub async fn db_backup_restore(id: String, file: String) -> Result<serde_json::V
             continue; // Skip comments/empty
         }
 
-        match conn {
+        match &conn {
             DbConnection::MySql(p) => match p.get_conn().await {
                 Ok(mut mysql_conn) => {
                     if let Err(e) = mysql_conn.query_drop(trimmed).await {
@@ -2257,10 +2327,10 @@ pub async fn db_backup_delete(file: String) -> Result<serde_json::Value, String>
 // Redis operations
 #[tauri::command(rename_all = "camelCase")]
 pub async fn db_redis_databases(id: String) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         // Query INFO keyspace to get per-db key counts
         let info: String = redis::cmd("INFO")
@@ -2316,21 +2386,18 @@ pub async fn db_redis_keys(
     db_index: i64,
     pattern: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
             .query_async::<()>(&mut c.clone())
             .await
             .map_err(|e| format!("Redis SELECT failed: {}", e))?;
-        let keys: Vec<String> = redis::cmd("KEYS")
-            .arg(&pattern)
-            .query_async(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis KEYS failed: {}", e))?;
+        // S9: KEYS → SCAN 迭代，避免大 key 空间阻塞 Redis
+        let keys = redis_scan_all_keys(&c, &pattern, 100_000).await?;
         Ok(serde_json::json!({ "success": true, "keys": keys }))
     } else {
         Err("Not a Redis connection".to_string())
@@ -2343,21 +2410,18 @@ pub async fn db_redis_keys_tree(
     db_index: i64,
     pattern: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
             .query_async::<()>(&mut c.clone())
             .await
             .map_err(|e| format!("Redis SELECT failed: {}", e))?;
-        let keys: Vec<String> = redis::cmd("KEYS")
-            .arg(&pattern)
-            .query_async(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis KEYS failed: {}", e))?;
+        // S9: KEYS → SCAN 迭代，避免大 key 空间阻塞 Redis
+        let keys = redis_scan_all_keys(&c, &pattern, 100_000).await?;
         Ok(serde_json::json!({ "success": true, "keys": keys }))
     } else {
         Err("Not a Redis connection".to_string())
@@ -2370,10 +2434,10 @@ pub async fn db_redis_keys_by_type(
     db_index: i64,
     pattern: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2423,10 +2487,10 @@ pub async fn db_redis_key_info(
     db_index: i64,
     key: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2466,10 +2530,10 @@ pub async fn db_redis_key_value(
     db_index: i64,
     key: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2547,10 +2611,10 @@ pub async fn db_redis_set_key(
     value: String,
     ttl: i64,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2587,10 +2651,10 @@ pub async fn db_redis_add_key(
     key: String,
     value: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2642,10 +2706,10 @@ pub async fn db_redis_delete_key(
     db_index: i64,
     key: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2669,10 +2733,10 @@ pub async fn db_redis_exec(
     db_index: i64,
     command: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2706,25 +2770,50 @@ pub async fn db_redis_scan_keys(
     pattern: String,
     type_filter: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
             .query_async::<()>(&mut c.clone())
             .await
             .map_err(|e| format!("Redis SELECT failed: {}", e))?;
-        let keys: Vec<String> = redis::cmd("KEYS")
-            .arg(&pattern)
-            .query_async(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis KEYS failed: {}", e))?;
+        // S9: KEYS → SCAN 迭代，避免大 key 空间阻塞 Redis
+        let keys = redis_scan_all_keys(&c, &pattern, 100_000).await?;
         Ok(serde_json::json!({ "success": true, "keys": keys }))
     } else {
         Err("Not a Redis connection".to_string())
     }
+}
+
+/// S9: 用 SCAN 迭代替代 KEYS（大 key 空间下 KEYS 会阻塞 Redis 服务端）
+async fn redis_scan_all_keys(
+    conn: &RedisConn,
+    pattern: &str,
+    max: usize,
+) -> Result<Vec<String>, String> {
+    let mut keys: Vec<String> = Vec::new();
+    let mut cursor: u64 = 0;
+    loop {
+        let (next_cursor, batch): (u64, Vec<String>) = redis::cmd("SCAN")
+            .arg(cursor)
+            .arg("MATCH")
+            .arg(pattern)
+            .arg("COUNT")
+            .arg(1000)
+            .query_async(&mut conn.clone())
+            .await
+            .map_err(|e| format!("Redis SCAN failed: {}", e))?;
+        keys.extend(batch);
+        cursor = next_cursor;
+        if cursor == 0 || keys.len() >= max {
+            break;
+        }
+    }
+    keys.truncate(max);
+    Ok(keys)
 }
 
 // Stream commands
@@ -2734,21 +2823,18 @@ pub async fn db_redis_streams(
     db_index: i64,
     pattern: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
             .query_async::<()>(&mut c.clone())
             .await
             .map_err(|e| format!("Redis SELECT failed: {}", e))?;
-        let keys: Vec<String> = redis::cmd("KEYS")
-            .arg(&pattern)
-            .query_async(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis KEYS failed: {}", e))?;
+        // S9: KEYS → SCAN 迭代，避免大 key 空间阻塞 Redis
+        let keys = redis_scan_all_keys(&c, &pattern, 100_000).await?;
         Ok(serde_json::json!({ "success": true, "streams": keys }))
     } else {
         Err("Not a Redis connection".to_string())
@@ -2761,10 +2847,10 @@ pub async fn db_redis_stream_info(
     db_index: i64,
     stream: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2791,10 +2877,10 @@ pub async fn db_redis_stream_messages(
     count: i64,
     start: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2823,10 +2909,10 @@ pub async fn db_redis_stream_add(
     stream: String,
     data: HashMap<String, String>,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2863,10 +2949,10 @@ pub async fn db_redis_stream_delete(
     db_index: i64,
     stream: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2891,10 +2977,10 @@ pub async fn db_redis_stream_group_create(
     stream: String,
     group: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2923,10 +3009,10 @@ pub async fn db_redis_stream_group_destroy(
     stream: String,
     group: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2953,10 +3039,10 @@ pub async fn db_redis_stream_consumers(
     stream: String,
     group: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -2983,10 +3069,10 @@ pub async fn db_redis_stream_pending(
     stream: String,
     group: String,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -3016,10 +3102,10 @@ pub async fn db_redis_stream_claim(
     consumer: String,
     msg_ids: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -3053,10 +3139,10 @@ pub async fn db_redis_stream_ack(
     group: String,
     msg_ids: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -3097,10 +3183,10 @@ pub async fn db_redis_stream_trim(
     stream: String,
     count: i64,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -3128,10 +3214,10 @@ pub async fn db_redis_zset_range(
     start: i64,
     stop: i64,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -3159,10 +3245,10 @@ pub async fn db_redis_zset_remove(
     key: String,
     members: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     if let DbConnection::Redis(c) = conn {
         redis::cmd("SELECT")
             .arg(db_index)
@@ -3192,17 +3278,17 @@ pub async fn db_insert_table_row(
     values_json: serde_json::Value,
     db_name: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     let obj = values_json
         .as_object()
         .ok_or("values_json must be an object")?;
     if obj.is_empty() {
         return Err("Empty values".to_string());
     }
-    match conn {
+    match &conn {
         DbConnection::MySql(p) => {
             let (cols, vals): (Vec<String>, Vec<String>) = obj
                 .iter()
@@ -3264,17 +3350,17 @@ pub async fn db_update_table_row(
     values_json: serde_json::Value,
     db_name: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     let pk_obj = primary_key_json
         .as_object()
         .ok_or("primary_key_json must be an object")?;
     let val_obj = values_json
         .as_object()
         .ok_or("values_json must be an object")?;
-    match conn {
+    match &conn {
         DbConnection::MySql(p) => {
             let sets: Vec<String> = val_obj
                 .iter()
@@ -3367,14 +3453,14 @@ pub async fn db_delete_table_row(
     primary_key_json: serde_json::Value,
     db_name: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
     let pk_obj = primary_key_json
         .as_object()
         .ok_or("primary_key_json must be an object")?;
-    match conn {
+    match &conn {
         DbConnection::MySql(p) => {
             let wheres: Vec<String> = pk_obj
                 .iter()
@@ -3443,31 +3529,16 @@ pub async fn db_get_table_data_filtered(
     sort_column: Option<String>,
     sort_dir: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool
-        .get(&id)
-        .ok_or_else(|| "Connection not found".to_string())?;
-    match conn {
+    let conn = {
+        let pool = CONNECTION_POOL.lock().await;
+        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
+    };
+    match &conn {
         DbConnection::MySql(p) => {
-            let mut where_clauses = Vec::new();
-            if let Some(obj) = filters_json.as_object() {
-                for (k, v) in obj {
-                    if matches!(v, serde_json::Value::Null) {
-                        where_clauses.push(format!("`{}` IS NULL", k));
-                    } else {
-                        let val = match v {
-                            serde_json::Value::Bool(b) => b.to_string(),
-                            serde_json::Value::Number(n) => n.to_string(),
-                            serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
-                            _ => v.to_string(),
-                        };
-                        where_clauses.push(format!("`{}` = {}", k, val));
-                    }
-                }
-            }
+            let where_sql = build_where_from_filters(&filters_json, &|c| format!("`{}`", c));
             let mut sql = format!("SELECT * FROM `{}`.`{}`", db_name, table_name);
-            if !where_clauses.is_empty() {
-                sql.push_str(&format!(" WHERE {}", where_clauses.join(" AND ")));
+            if !where_sql.is_empty() {
+                sql.push_str(&format!(" WHERE {}", where_sql));
             }
             if let Some(col) = sort_column {
                 if !col.is_empty() && col.chars().all(|c| c.is_alphanumeric() || c == '_') {
@@ -3479,28 +3550,24 @@ pub async fn db_get_table_data_filtered(
                 }
             }
             sql.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
-            execute_mysql_query(p, &sql).await
+            let resp = execute_mysql_query(p, &sql).await?;
+            let mut total = 0u64;
+            if !where_sql.is_empty() {
+                if let Ok(cv) = execute_mysql_query(p, &format!("SELECT COUNT(*) AS c FROM `{}`.`{}` WHERE {}", db_name, table_name, where_sql)).await {
+                    if let Some(rows) = cv.get("rows").and_then(|v| v.as_array()) {
+                        total = rows.first().and_then(|r| r.get("c")).and_then(|v| v.as_u64()).unwrap_or(0);
+                    }
+                }
+            }
+            let mut obj = match resp { serde_json::Value::Object(o) => o, other => { let mut m = serde_json::Map::new(); m.insert("rows".into(), other); m } };
+            obj.insert("total".into(), serde_json::json!(total));
+            Ok(serde_json::Value::Object(obj))
         }
         DbConnection::Sqlite(cfg) => {
-            let mut where_clauses = Vec::new();
-            if let Some(obj) = filters_json.as_object() {
-                for (k, v) in obj {
-                    if matches!(v, serde_json::Value::Null) {
-                        where_clauses.push(format!("\"{}\" IS NULL", k));
-                    } else {
-                        let val = match v {
-                            serde_json::Value::Bool(b) => b.to_string(),
-                            serde_json::Value::Number(n) => n.to_string(),
-                            serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
-                            _ => v.to_string(),
-                        };
-                        where_clauses.push(format!("\"{}\" = {}", k, val));
-                    }
-                }
-            }
+            let where_sql = build_where_from_filters(&filters_json, &|c| format!("\"{}\"", c));
             let mut sql = format!("SELECT * FROM \"{}\"", table_name);
-            if !where_clauses.is_empty() {
-                sql.push_str(&format!(" WHERE {}", where_clauses.join(" AND ")));
+            if !where_sql.is_empty() {
+                sql.push_str(&format!(" WHERE {}", where_sql));
             }
             if let Some(col) = sort_column {
                 if !col.is_empty() && col.chars().all(|c| c.is_alphanumeric() || c == '_') {
@@ -3512,28 +3579,24 @@ pub async fn db_get_table_data_filtered(
                 }
             }
             sql.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
-            execute_sqlite_query(cfg, &sql).await
+            let resp = execute_sqlite_query(cfg, &sql).await?;
+            let mut total = 0u64;
+            if !where_sql.is_empty() {
+                if let Ok(cv) = execute_sqlite_query(cfg, &format!("SELECT COUNT(*) AS c FROM \"{}\" WHERE {}", table_name, where_sql)).await {
+                    if let Some(rows) = cv.get("rows").and_then(|v| v.as_array()) {
+                        total = rows.first().and_then(|r| r.get("c")).and_then(|v| v.as_u64()).unwrap_or(0);
+                    }
+                }
+            }
+            let mut obj = match resp { serde_json::Value::Object(o) => o, other => { let mut m = serde_json::Map::new(); m.insert("rows".into(), other); m } };
+            obj.insert("total".into(), serde_json::json!(total));
+            Ok(serde_json::Value::Object(obj))
         }
         DbConnection::Postgres(c) => {
-            let mut where_clauses = Vec::new();
-            if let Some(obj) = filters_json.as_object() {
-                for (k, v) in obj {
-                    if matches!(v, serde_json::Value::Null) {
-                        where_clauses.push(format!("\"{}\" IS NULL", k));
-                    } else {
-                        let val = match v {
-                            serde_json::Value::Bool(b) => b.to_string(),
-                            serde_json::Value::Number(n) => n.to_string(),
-                            serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
-                            _ => v.to_string(),
-                        };
-                        where_clauses.push(format!("\"{}\" = {}", k, val));
-                    }
-                }
-            }
+            let where_sql = build_where_from_filters(&filters_json, &|c| format!("\"{}\"", c));
             let mut sql = format!("SELECT * FROM \"{}\".\"{}\"", db_name, table_name);
-            if !where_clauses.is_empty() {
-                sql.push_str(&format!(" WHERE {}", where_clauses.join(" AND ")));
+            if !where_sql.is_empty() {
+                sql.push_str(&format!(" WHERE {}", where_sql));
             }
             if let Some(col) = sort_column {
                 if !col.is_empty() && col.chars().all(|c| c.is_alphanumeric() || c == '_') {
@@ -3545,11 +3608,166 @@ pub async fn db_get_table_data_filtered(
                 }
             }
             sql.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
-            execute_postgres_query(c, &sql).await
+            let resp = execute_postgres_query(c, &sql).await?;
+            let mut total = 0u64;
+            if !where_sql.is_empty() {
+                if let Ok(cv) = execute_postgres_query(c, &format!("SELECT COUNT(*) AS c FROM \"{}\".\"{}\" WHERE {}", db_name, table_name, where_sql)).await {
+                    if let Some(rows) = cv.get("rows").and_then(|v| v.as_array()) {
+                        total = rows.first().and_then(|r| r.get("c")).and_then(|v| v.as_u64()).unwrap_or(0);
+                    }
+                }
+            }
+            let mut obj = match resp { serde_json::Value::Object(o) => o, other => { let mut m = serde_json::Map::new(); m.insert("rows".into(), other); m } };
+            obj.insert("total".into(), serde_json::json!(total));
+            Ok(serde_json::Value::Object(obj))
         }
         _ => Err("Unsupported database type".to_string()),
     }
 }
+
+/// 从 FilterCondition[] 数组构建 WHERE 子句（B4 修复：原实现只认对象、数组被静默忽略）
+/// `quote` 用于列名引用（MySQL 反引号 / PG+SQLite 双引号），operator 白名单防注入
+fn build_where_from_filters(filters_json: &serde_json::Value, quote: &dyn Fn(&str) -> String) -> String {
+    let mut clauses: Vec<(String, String)> = Vec::new(); // (clause, logic 连接词)
+    if let Some(arr) = filters_json.as_array() {
+        for cond in arr {
+            let Some(obj) = cond.as_object() else { continue };
+            let col = obj.get("column").and_then(|v| v.as_str()).unwrap_or("");
+            if col.is_empty() { continue; }
+            let op = obj.get("operator").and_then(|v| v.as_str()).unwrap_or("=").to_uppercase();
+            let logic = obj.get("logic").and_then(|v| v.as_str()).unwrap_or("AND").to_uppercase();
+            let getv = |k: &str| obj.get(k).and_then(|x| x.as_str()).unwrap_or("");
+            let esc = |v: &str| v.replace('\'', "''");
+            let q = quote(&col);
+            let clause = match op.as_str() {
+                "=" => Some(format!("{} = '{}'", q, esc(getv("value")))),
+                "!=" => Some(format!("{} != '{}'", q, esc(getv("value")))),
+                ">" => Some(format!("{} > '{}'", q, esc(getv("value")))),
+                "<" => Some(format!("{} < '{}'", q, esc(getv("value")))),
+                ">=" => Some(format!("{} >= '{}'", q, esc(getv("value")))),
+                "<=" => Some(format!("{} <= '{}'", q, esc(getv("value")))),
+                "LIKE" => Some(format!("{} LIKE '%{}%'", q, esc(getv("value")))),
+                "NOT LIKE" => Some(format!("{} NOT LIKE '%{}%'", q, esc(getv("value")))),
+                "IN" | "NOT IN" => {
+                    let items: Vec<String> = getv("value").split(',').map(|x| format!("'{}'", esc(x.trim()))).filter(|x| x != "''").collect();
+                    if items.is_empty() { None } else { Some(format!("{} {} ({})", q, op, items.join(", "))) }
+                }
+                "BETWEEN" => {
+                    let a = getv("value"); let b = getv("value2");
+                    if a.is_empty() || b.is_empty() { None } else { Some(format!("{} BETWEEN '{}' AND '{}'", q, esc(a), esc(b))) }
+                }
+                "IS NULL" => Some(format!("{} IS NULL", q)),
+                "IS NOT NULL" => Some(format!("{} IS NOT NULL", q)),
+                _ => None,
+            };
+            if let Some(c) = clause {
+                clauses.push((c, (if logic == "OR" { " OR " } else { " AND " }).to_string()));
+            }
+        }
+    } else if let Some(obj) = filters_json.as_object() {
+        // 兼容旧对象格式 {col: value}
+        for (k, v) in obj {
+            let q = quote(k);
+            let clause = if v.is_null() {
+                format!("{} IS NULL", q)
+            } else {
+                let val = match v {
+                    serde_json::Value::Bool(b) => b.to_string(),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
+                    other => other.to_string(),
+                };
+                format!("{} = {}", q, val)
+            };
+            clauses.push((clause, " AND ".to_string()));
+        }
+    }
+    if clauses.is_empty() { return String::new(); }
+    let mut out = String::new();
+    for (i, (c, logic)) in clauses.iter().enumerate() {
+        if i > 0 { out.push_str(logic); }
+        out.push_str(c);
+    }
+    out
+}
+
+/// B3 修复：MySQL 事务（同一物理连接执行 BEGIN/SQL/COMMIT，pool.get_conn 轮询会破坏事务）
+async fn execute_mysql_transaction(
+    pool: &MySqlPool,
+    sqls: &[String],
+    use_db: Option<&str>,
+) -> Result<(u64, Vec<String>), String> {
+    let mut conn = pool.get_conn().await.map_err(|e| format!("get_conn failed: {}", e))?;
+    // USE 必须在事务连接上执行，否则 DDL 落在默认库（structure_sync 修复）
+    if let Some(db) = use_db {
+        let _ = conn.query_drop(format!("USE `{}`", db.replace('`', "``"))).await;
+    }
+    conn.query_drop("BEGIN").await.map_err(|e| format!("BEGIN failed: {}", e))?;
+    let mut executed = 0u64;
+    let mut errors: Vec<String> = vec![];
+    for sql in sqls {
+        let t = sql.trim();
+        if t.is_empty() || t.starts_with("--") { continue; }
+        if let Err(e) = conn.query_drop(t).await {
+            errors.push(format!(
+                "Error executing \"{}\": {}",
+                t.chars().take(100).collect::<String>(),
+                e
+            ));
+            let _ = conn.query_drop("ROLLBACK").await;
+            return Ok((executed, errors));
+        }
+        executed += 1;
+    }
+    conn.query_drop("COMMIT")
+        .await
+        .map_err(|e| format!("COMMIT failed: {}", e))?;
+    Ok((executed, errors))
+}
+
+/// B3 修复：SQLite 事务（rusqlite transaction 同一连接，drop 自动回滚）
+async fn execute_sqlite_transaction(
+    config: &DbConnectionConfig,
+    sqls: &[String],
+) -> Result<(u64, Vec<String>), String> {
+    let db_path = config
+        .path
+        .as_deref()
+        .ok_or_else(|| "SQLite database path required".to_string())?
+        .to_string();
+    let sqls: Vec<String> = sqls.to_vec();
+    tokio::task::spawn_blocking(move || {
+        let mut conn = rusqlite::Connection::open_with_flags(
+            &db_path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE,
+        )
+        .map_err(|e| format!("SQLite open failed: {}", e))?;
+        let tx = conn
+            .transaction()
+            .map_err(|e| format!("SQLite BEGIN failed: {}", e))?;
+        let mut executed = 0u64;
+        let mut errors: Vec<String> = vec![];
+        for sql in sqls {
+            let t = sql.trim();
+            if t.is_empty() || t.starts_with("--") { continue; }
+            if let Err(e) = tx.execute_batch(t) {
+                errors.push(format!(
+                    "Error executing \"{}\": {}",
+                    t.chars().take(100).collect::<String>(),
+                    e
+                ));
+                // tx drop 自动 ROLLBACK
+                return Ok::<_, String>((executed, errors));
+            }
+            executed += 1;
+        }
+        tx.commit().map_err(|e| format!("SQLite COMMIT failed: {}", e))?;
+        Ok((executed, errors))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 
 // Test connection
 #[tauri::command(rename_all = "camelCase")]

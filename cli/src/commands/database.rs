@@ -46,7 +46,7 @@ pub async fn cmd_db(rt: &mut CliRuntime, action: &DbCommands) -> Result<()> {
         }
         DbCommands::Query { db_id, sql, json } => {
             // 生产环境护栏：审批连接上只读 SQL 放行，写 SQL 拦截
-            if !crate::utils::is_read_only_sql(sql) {
+            if !supertool_core::logic::sql_safety::is_read_only_sql(sql) {
                 check_db_connection_write(rt, db_id).await?;
             }
             let config = get_db_config(rt, db_id).await?;

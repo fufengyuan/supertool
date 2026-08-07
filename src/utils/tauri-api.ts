@@ -247,6 +247,10 @@ export function useDatabaseAPI() {
       const res = await tauriInvoke<boolean>('db_disconnect', { id })
       return { success: res.success, error: res.error }
     },
+    dbExecuteWrite: async (id: string, sql: string): Promise<{ success: boolean; rows?: any; error?: string }> => {
+      const res = await tauriInvoke<any>('db_execute_write', { id, sql })
+      return res.success ? { success: true, rows: res.rows } : { success: false, error: res.error || '执行失败' }
+    },
     dbQuery: async (id: string, sql: string): Promise<{ success: boolean; rows?: any; error?: string }> => {
       const res = await tauriInvoke<any>('db_query', { id, sql })
       // Rust 返回 { success, rows }，tauriInvoke 包装为 { success, data: { success, rows } }
@@ -1491,6 +1495,7 @@ export interface TauriAPI {
   dbConnect: (config: DbConnectionConfig) => Promise<{ success: boolean; error?: string }>
   dbDisconnect: (id: string) => Promise<{ success: boolean; error?: string }>
   dbQuery: (id: string, sql: string) => Promise<{ success: boolean; rows?: any; error?: string }>
+  dbExecuteWrite: (id: string, sql: string) => Promise<{ success: boolean; rows?: any; error?: string }>
   dbGetTables: (id: string, dbName: string) => Promise<{ success: boolean; tables?: any; error?: string }>
   dbGetDatabases: (id: string) => Promise<{ success: boolean; databases?: any; error?: string }>
   dbGetTableStructure: (id: string, table: string, dbName: string) => Promise<any>
@@ -2026,6 +2031,7 @@ export function getTauriAPI(): TauriAPI {
     dbConnect: database.dbConnect,
     dbDisconnect: database.dbDisconnect,
     dbQuery: database.dbQuery,
+    dbExecuteWrite: database.dbExecuteWrite,
     dbGetTables: database.getTables,
     dbGetDatabases: database.getDatabases,
     dbGetTableStructure: database.dbGetTableStructure,
