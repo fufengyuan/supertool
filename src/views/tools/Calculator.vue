@@ -102,18 +102,79 @@ function toggleSign() {
 function percent() {
   if (expression.value) {
     try {
-      const val = eval(expression.value)
+      const val = safeEval(expression.value)
       expression.value = String(val / 100)
     } catch {}
   }
+}
+
+// 安全的表达式求值器（仅支持数字与 + - * / % 括号，无 eval/Function 动态执行）
+function safeEval(expr: string): number {
+  const s = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-')
+  let i = 0
+  function peek(): string { return s[i] ?? '' }
+  function next(): string { return s[i++] ?? '' }
+  function skipSpaces() { while (peek() === ' ' || peek() === '\t') { i++ } }
+  function parseNumber(): number {
+    skipSpaces()
+    const m = /^(\d+(\.\d+)?|\.\d+)/.exec(s.slice(i))
+    if (!m) { throw new Error('无效数字') }
+    i += m[0].length
+    return parseFloat(m[0])
+  }
+  function parsePrimary(): number {
+    skipSpaces()
+    const ch = peek()
+    if (ch === '(') {
+      next()
+      const v = parseExpr()
+      skipSpaces()
+      if (next() !== ')') { throw new Error('缺少右括号') }
+      return v
+    }
+    if (ch === '-') { next(); return -parsePrimary() }
+    if (ch === '+') { next(); return parsePrimary() }
+    return parseNumber()
+  }
+  function parseMul(): number {
+    let v = parsePrimary()
+    for (;;) {
+      skipSpaces()
+      const ch = peek()
+      if (ch === '*' || ch === '/' || ch === '%') {
+        next()
+        const rhs = parsePrimary()
+        if (ch === '*') { v = v * rhs }
+        else if (ch === '/') {
+          if (rhs === 0) { throw new Error('除数不能为0') }
+          v = v / rhs
+        } else { v = v % rhs }
+      } else { return v }
+    }
+  }
+  function parseExpr(): number {
+    let v = parseMul()
+    for (;;) {
+      skipSpaces()
+      const ch = peek()
+      if (ch === '+' || ch === '-') {
+        next()
+        const rhs = parseMul()
+        v = ch === '+' ? v + rhs : v - rhs
+      } else { return v }
+    }
+  }
+  const v = parseExpr()
+  skipSpaces()
+  if (i < s.length) { throw new Error('无法解析: ' + s[i]) }
+  return v
 }
 
 async function calculate() {
   if (!expression.value) {return}
   try {
     // 安全计算，替换显示符号
-    const expr = expression.value.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-')
-    const val = Function('"use strict"; return (' + expr + ')')()
+    const val = safeEval(expression.value)
     result.value = String(Number(val.toFixed(8)))
 
     // 保存历史
