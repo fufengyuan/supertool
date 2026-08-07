@@ -97,12 +97,19 @@ export function useSharedCicdData() {
     return _loaded
   }
 
+  function getGitRepoName(id?: string) {
+    if (!id) {return '';}
+    const repo = gitRepos.value.find((r: any) => r.id === id);
+    return repo ? repo.name : '';
+  }
+
   return {
     configs,
     projects,
     servers,
     serverGroups,
     gitRepos,
+    getGitRepoName,
     load,
     refresh,
     isLoaded,

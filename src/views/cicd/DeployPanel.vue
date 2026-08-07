@@ -426,7 +426,7 @@ const { handleError } = useErrorHandler();
 const { runAll: runPreflightCheck } = useDeployPreflight();
 
 const shared = useSharedCicdData();
-const { configs, servers, serverGroups, gitRepos } = shared;
+const { configs, servers, serverGroups, gitRepos, getGitRepoName } = shared;
 const selectedConfigId = ref('');
 const config = ref<CicdConfigEntry | null>(null);
 const loadingConfig = ref(false);
@@ -606,12 +606,6 @@ function toggleDeployGroup(groupName: string) {
     set.add(groupName);
   }
   expandedDeployGroups.value = set;
-}
-
-function getGitRepoName(id?: string) {
-  if (!id) {return '';}
-  const repo = gitRepos.value.find((r: any) => r.id === id);
-  return repo ? repo.name : '';
 }
 
 const selectedGitRepoObj = computed(() => {

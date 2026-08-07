@@ -105,7 +105,7 @@ export function useCicdConfig() {
 
   // ─── Data ───
   const shared = useSharedCicdData();
-  const { configs, projects, servers, serverGroups, gitRepos } = shared;
+  const { configs, projects, servers, serverGroups, gitRepos, getGitRepoName } = shared;
   const selectedConfigId = ref('');
   const isNewConfig = ref(false);
   const searchQuery = ref('');
@@ -374,11 +374,6 @@ export function useCicdConfig() {
   });
 
   // ─── UI Helpers ───
-  function getGitRepoName(id?: string) {
-    if (!id) {return '';}
-    const repo = gitRepos.value.find((r: any) => r.id === id);
-    return repo ? repo.name : '';
-  }
   function getProjectName(_projectId?: string) { return getGitRepoName(config.value?.gitRepoId) || '项目 ?'; }
   function getToolBadge(tool?: string) { const icons: Record<string, string> = { maven: '🔶', npm: '🔴', pnpm: '🟢', yarn: '🔵', gradle: '🟠', cargo: '🦀' }; return icons[tool || ''] || ''; }
   function getBuildToolIcon(tool?: string) { const icons: Record<string, string> = { maven: '🔶', npm: '🔴', pnpm: '🟢', yarn: '🔵', gradle: '🟠', cargo: '🦀' }; return icons[tool || ''] || '🛠️'; }
