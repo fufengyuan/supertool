@@ -250,7 +250,8 @@
                   </div>
                   <div v-else class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl text-xs text-base-content/60">
                     <SvgIcon name="folder" size="14" class="shrink-0 opacity-50" />
-                    <span>请先在上方选择 Git 仓库</span>
+                    <span class="flex-1 truncate">尚未选择项目目录</span>
+                    <button @click="selectLocalDir" class="btn btn-ghost btn-xs" title="选择本地目录并自动识别构建工具"><SvgIcon name="externalLink" size="12" /></button>
                   </div>
                 </template>
               </div>
