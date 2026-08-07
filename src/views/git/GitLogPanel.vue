@@ -211,7 +211,7 @@ defineProps<{
   graphLoading: boolean
   graphHoveredIndex: number
   graphSelectedCommit: any
-  branchColors: string[]
+  branchColors: Record<string, string>
   consoleHistory: any[]
   consoleInput: string
   localBranches: any[]
