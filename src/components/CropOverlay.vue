@@ -43,6 +43,7 @@ type HandleType = 'none' | 'create' | 'move' | 'nw' | 'n' | 'ne' | 'e' | 'se' | 
 const activeHandle = ref<HandleType>('none')
 const dragStart = ref({ x: 0, y: 0 })
 const dragStartRect = ref({ x: 0, y: 0, w: 0, h: 0 })
+const rawDragSize = ref({ w: 0, h: 0 })
 const isDragging = ref(false)
 
 // Current crop rect in display coordinates (pixels on canvas)
@@ -200,6 +201,7 @@ function onPointerMove(e: PointerEvent) {
     let y = Math.min(dragStart.value.y, pos.y)
     let w = Math.abs(pos.x - dragStart.value.x)
     let h = Math.abs(pos.y - dragStart.value.y)
+    rawDragSize.value = { w, h }
     displayRect.value = clampRect({ x, y, w, h })
   } else if (handle === 'move') {
     displayRect.value = clampRect({ x: sr.x + dx, y: sr.y + dy, w: sr.w, h: sr.h })
@@ -248,15 +250,19 @@ function onPointerMove(e: PointerEvent) {
 
 function onPointerUp(e: PointerEvent) {
   if (isDragging.value) {
+    const wasCreating = activeHandle.value === 'create'
     isDragging.value = false
     activeHandle.value = 'none'
     containerRef.value?.releasePointerCapture(e.pointerId)
 
-    // If create resulted in too small rect, clear it
-    if (displayRect.value.w < MIN_SIZE || displayRect.value.h < MIN_SIZE) {
+    // If create resulted in too small rect, clear it (resize handles never clear)
+    if (wasCreating && (rawDragSize.value.w < MIN_SIZE || rawDragSize.value.h < MIN_SIZE)) {
+      rawDragSize.value = { w: 0, h: 0 }
       displayRect.value = { x: 0, y: 0, w: 0, h: 0 }
       emit('update:cropW', 0)
       emit('update:cropH', 0)
+    } else {
+      rawDragSize.value = { w: 0, h: 0 }
     }
   }
 }
