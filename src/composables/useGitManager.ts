@@ -218,6 +218,8 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
 
   // 分支弹窗（IDEA 风格）状态
   const branchSearch = ref('')
+  // 分支树选中的分支（用于筛选日志，null = 当前分支）
+  const selectedBranchFilter = ref<string | null>(null)
 
   // 布局状态
   const commitPanelWidth = ref(300)
@@ -1601,6 +1603,7 @@ async function doGitCleanDryRun() {
     branchesData, localBranches, remoteBranches, showBranchesPopup, showCreateBranch,
     newBranchName, newBranchFrom, mergeTarget, merging, showMergeDialog,
     branchSearch, openMergeDialog, closeMergeDialog, openNewBranchFrom,
+    selectedBranchFilter,
     loadBranches, loadCurrentBranch, checkoutBranch, doCreateBranch,
     confirmDeleteBranch, doDeleteBranch, doMerge,
 

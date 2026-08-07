@@ -24,158 +24,162 @@
     />
 
     <!-- ===== IDEA 风格主布局：左栏列表 + 右栏 Diff ===== -->
+    <!-- ===== IDEA 三栏布局：左变更 + 中分支 + 右日志/详情 ===== -->
     <div class="flex flex-1 overflow-hidden">
-      <!-- ===== 左栏：Tab 切换变更/日志/Stash ===== -->
-      <div class="flex flex-col shrink-0 border-r border-base-content/10 bg-base-100" style="width: 360px; min-width: 280px;">
-        <!-- Tab 头 -->
-        <div class="flex items-center border-b border-base-content/10 shrink-0 bg-base-200/50">
-          <button class="git-tab" :class="{ 'git-tab-active': leftTab === 'changes' }" @click="leftTab = 'changes'">
+      <!-- ===== 左栏：变更列表 + 提交信息 ===== -->
+      <div class="flex flex-col shrink-0 border-r border-base-content/10 bg-base-100" style="width: 320px; min-width: 260px;">
+        <!-- 头部：变更标题 + Stash 切换 -->
+        <div class="flex items-center justify-between px-2 py-1.5 border-b border-base-content/10 shrink-0 bg-base-200/50">
+          <span class="font-medium text-[11px] flex items-center gap-1.5">
             <SvgIcon name="pencil" :size="12" /> 变更
             <span v-if="totalChanges > 0" class="git-tab-badge">{{ totalChanges }}</span>
-          </button>
-          <button class="git-tab" :class="{ 'git-tab-active': leftTab === 'log' }" @click="leftTab = 'log'">
-            <SvgIcon name="clock" :size="12" /> 日志
-          </button>
-          <button v-if="showStashPanel" class="git-tab" :class="{ 'git-tab-active': leftTab === 'stash' }" @click="leftTab = 'stash'">
-            <SvgIcon name="archive" :size="12" /> Stash
-            <span v-if="stashList.length > 0" class="git-tab-badge">{{ stashList.length }}</span>
-          </button>
-          <div class="flex-1"></div>
-          <button class="btn btn-ghost btn-xs" :class="{ 'text-primary': showStashPanel }" @click="showStashPanel = !showStashPanel; if (showStashPanel) leftTab = 'stash'" title="Stash">
-            <SvgIcon name="archive" :size="12" />
-          </button>
+          </span>
+          <div class="flex items-center gap-1">
+            <button class="btn btn-ghost btn-xs" :class="{ 'text-primary': showStashPanel }" @click="showStashPanel = !showStashPanel" title="Stash">
+              <SvgIcon name="archive" :size="12" />
+            </button>
+          </div>
         </div>
 
         <!-- 变更列表 -->
-        <div v-show="leftTab === 'changes'" class="flex flex-col flex-1 overflow-hidden">
-              :status-data="statusData"
-              :loading="loading"
-              :selected-files="selectedFiles"
-              :collapsed-groups="collapsedGroups"
-              :commit-message="commitMessage"
-              :committing="committing"
-              :total-changes="totalChanges"
-              :commit-sign-off="commitSignOff"
-              :commit-no-verify="commitNoVerify"
-              :preview-diff="previewDiff"
-              :selected-preview-file="selectedPreviewFile"
-              :loading-preview="loadingPreview"
-              @update:commit-message="commitMessage = $event"
-              @update:commit-sign-off="commitSignOff = $event"
-              @update:commit-no-verify="commitNoVerify = $event"
-              @toggle-group="toggleGroup"
-              @toggle-file-select="toggleFileSelect"
-              @select-all-files="selectAllFiles"
-              @commit="handleCommit"
-              @file-context-menu="showFileContextMenu($event.event, $event.file, $event.type)"
-              @preview-file="previewCommitFile"
-              @clear-preview="clearPreview"
-            />
-
-        </div>
-
-        <!-- 日志列表 -->
-        <div v-show="leftTab === 'log'" class="flex flex-col flex-1 overflow-hidden">
-          <GitLogPanel
-            :log-view-mode="logViewMode"
-            :log-search="logSearch"
-            :log-date-from="logDateFrom"
-            :log-date-to="logDateTo"
-            :show-author-filter="showAuthorFilter"
-            :log-authors="logAuthors"
-            :selected-authors="selectedAuthors"
-            :filtered-log="filteredLog"
-            :selected-log-commits="selectedLogCommits"
-            :selected-commit="selectedCommit"
-            :commit-diff="commitDiff"
-            :loading-diff="loadingDiff"
+        <div class="flex flex-col flex-1 overflow-hidden">
+          <GitCommitPanel
+            :status-data="statusData"
             :loading="loading"
-            :has-more-log="hasMoreLog"
-            :log-count="logCount"
-            :log-total-estimate="logTotalEstimate"
-            :graph-log="graphLog"
-            :graph-loading="graphLoading"
-            :graph-hovered-index="graphHoveredIndex"
-            :graph-selected-commit="graphSelectedCommit"
-            :branch-colors="BRANCH_COLORS"
-            :console-history="consoleHistory"
-            :console-input="consoleInput"
-            :local-branches="localBranches"
-            :get-author-name="getAuthorName"
-            :format-relative-date="formatRelativeDate"
-            :format-full-date="formatFullDate"
-            :parse-refs="parseRefs"
-            @update:log-view-mode="logViewMode = $event"
-            @update:log-search="logSearch = $event"
-            @update:log-date-from="logDateFrom = $event"
-            @update:log-date-to="logDateTo = $event"
-            @update:show-author-filter="showAuthorFilter = $event"
-            @update:selected-commit="selectedCommit = $event"
-            @update:console-input="consoleInput = $event"
-            @toggle-author="toggleAuthor($event)"
-            @load-log="loadLog()"
-            @load-more-log="loadMoreLog()"
-            @select-commit="selectCommit($event)"
-            @toggle-log-commit-select="toggleLogCommitSelect($event)"
-            @toggle-select-all-log-commits="toggleSelectAllLogCommits()"
-            @log-context-menu="showLogContextMenu($event.event, $event.commit)"
-            @exec-console-command="execConsoleCommand()"
-            @console-history-up="consoleHistoryUp()"
-            @console-history-down="consoleHistoryDown()"
-            @switch-to-graph-view="switchToGraphView()"
-            @on-graph-mouse-move="onGraphMouseMove($event)"
-            @on-graph-click="onGraphClick($event)"
-            @load-commit-diff="loadCommitDiff()"
-          />
-        </div>
-
-        <!-- Stash 列表 -->
-        <div v-show="leftTab === 'stash'" class="flex flex-col flex-1 overflow-hidden">
-          <GitStashPanel
-            :stash-list="stashList"
-            :selected-stash="selectedStash"
-            :stash-show-content="stashShowContent"
-            :loading="loading"
-            @update:selected-stash="selectedStash = $event"
-            @select-stash="selectStash"
-            @stash-context-menu="showStashContextMenu($event.event, $event.stash)"
-            @open-stash-save="openStashSave"
+            :selected-files="selectedFiles"
+            :collapsed-groups="collapsedGroups"
+            :commit-message="commitMessage"
+            :committing="committing"
+            :total-changes="totalChanges"
+            :commit-sign-off="commitSignOff"
+            :commit-no-verify="commitNoVerify"
+            :preview-diff="previewDiff"
+            :selected-preview-file="selectedPreviewFile"
+            :loading-preview="loadingPreview"
+            @update:commit-message="commitMessage = $event"
+            @update:commit-sign-off="commitSignOff = $event"
+            @update:commit-no-verify="commitNoVerify = $event"
+            @toggle-group="toggleGroup"
+            @toggle-file-select="toggleFileSelect"
+            @select-all-files="selectAllFiles"
+            @commit="handleCommit"
+            @file-context-menu="showFileContextMenu($event.event, $event.file, $event.type)"
+            @preview-file="previewCommitFile"
+            @clear-preview="clearPreview"
           />
         </div>
       </div>
 
-      <!-- ===== 右栏：Diff 预览区 ===== -->
+      <!-- ===== 中栏：分支树 ===== -->
+      <div class="flex flex-col shrink-0 border-r border-base-content/10" style="width: 220px; min-width: 180px;">
+        <GitBranchTree
+          :local-branches="localBranches"
+          :remote-branches="remoteBranches"
+          :current-branch="currentBranch"
+          :selected-branch="selectedBranchFilter"
+          @open-branches="showBranchesPopup = true"
+          @checkout-branch="checkoutBranch"
+          @checkout-remote-branch="checkoutRemoteBranch"
+          @select-branch="selectedBranchFilter = $event"
+          @branch-context-menu="handleBranchContextMenu"
+        />
+      </div>
+
+      <!-- ===== 右栏：日志列表 + 详情 ===== -->
       <div class="flex-1 min-w-0 flex flex-col overflow-hidden bg-base-100">
-        <template v-if="leftTab === 'changes' && previewDiff">
-          <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 bg-base-200/50 shrink-0">
-            <span class="font-medium text-[11px] truncate">{{ selectedPreviewFile }}</span>
-            <button class="btn btn-ghost btn-xs" @click="clearPreview" title="关闭预览"><SvgIcon name="x" :size="12" /></button>
+        <!-- 右栏头部：日志标题 + 筛选 -->
+        <div class="flex items-center justify-between px-2 py-1.5 border-b border-base-content/10 shrink-0 bg-base-200/50">
+          <span class="font-medium text-[11px] flex items-center gap-1.5">
+            <SvgIcon name="clock" :size="12" /> 日志
+            <span v-if="selectedBranchFilter" class="text-primary">· {{ selectedBranchFilter }}</span>
+          </span>
+          <div class="flex items-center gap-1">
+            <button class="btn btn-ghost btn-xs" @click="selectedBranchFilter = null" v-if="selectedBranchFilter" title="清除筛选"><SvgIcon name="x" :size="11" /></button>
           </div>
-          <div class="flex-1 overflow-auto">
-            <SplitDiffViewer :files="null" :diff="previewDiff" :loading="loadingPreview" />
+        </div>
+
+        <!-- 日志内容 -->
+        <div class="flex flex-1 overflow-hidden">
+          <!-- 日志列表 -->
+          <div class="flex flex-col flex-1 min-w-[400px] overflow-hidden">
+            <GitLogPanel
+              :log-view-mode="logViewMode"
+              :log-search="logSearch"
+              :log-date-from="logDateFrom"
+              :log-date-to="logDateTo"
+              :show-author-filter="showAuthorFilter"
+              :log-authors="logAuthors"
+              :selected-authors="selectedAuthors"
+              :filtered-log="filteredLog"
+              :selected-log-commits="selectedLogCommits"
+              :selected-commit="selectedCommit"
+              :commit-diff="commitDiff"
+              :loading-diff="loadingDiff"
+              :loading="loading"
+              :has-more-log="hasMoreLog"
+              :log-count="logCount"
+              :log-total-estimate="logTotalEstimate"
+              :graph-log="graphLog"
+              :graph-loading="graphLoading"
+              :graph-hovered-index="graphHoveredIndex"
+              :graph-selected-commit="graphSelectedCommit"
+              :branch-colors="BRANCH_COLORS"
+              :console-history="consoleHistory"
+              :console-input="consoleInput"
+              :local-branches="localBranches"
+              :get-author-name="getAuthorName"
+              :format-relative-date="formatRelativeDate"
+              :format-full-date="formatFullDate"
+              :parse-refs="parseRefs"
+              @update:log-view-mode="logViewMode = $event"
+              @update:log-search="logSearch = $event"
+              @update:log-date-from="logDateFrom = $event"
+              @update:log-date-to="logDateTo = $event"
+              @update:show-author-filter="showAuthorFilter = $event"
+              @update:selected-commit="selectedCommit = $event"
+              @update:console-input="consoleInput = $event"
+              @toggle-author="toggleAuthor($event)"
+              @load-log="loadLog()"
+              @load-more-log="loadMoreLog()"
+              @select-commit="selectCommit($event)"
+              @toggle-log-commit-select="toggleLogCommitSelect($event)"
+              @toggle-select-all-log-commits="toggleSelectAllLogCommits()"
+              @log-context-menu="showLogContextMenu($event.event, $event.commit)"
+              @exec-console-command="execConsoleCommand()"
+              @console-history-up="consoleHistoryUp()"
+              @console-history-down="consoleHistoryDown()"
+              @switch-to-graph-view="switchToGraphView()"
+              @on-graph-mouse-move="onGraphMouseMove($event)"
+              @on-graph-click="onGraphClick($event)"
+              @load-commit-diff="loadCommitDiff()"
+            />
           </div>
-        </template>
-        <template v-else-if="leftTab === 'log' && selectedCommit && commitDiff">
-          <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 bg-base-200/50 shrink-0">
-            <span class="font-mono text-[11px] truncate">{{ selectedCommit.hash?.substring(0, 7) }} · {{ selectedCommit.message?.split('\n')[0] }}</span>
-            <button class="btn btn-ghost btn-xs" @click="selectedCommit = null; commitDiff = null" title="关闭"><SvgIcon name="x" :size="12" /></button>
+
+          <!-- 选中提交详情（右窄栏） -->
+          <div v-if="selectedCommit" class="w-[280px] shrink-0 border-l border-base-content/10 bg-base-200/30 flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 shrink-0">
+              <span class="font-medium text-[11px]">提交详情</span>
+              <button class="btn btn-ghost btn-xs" @click="selectedCommit = null; commitDiff = null" title="关闭"><SvgIcon name="x" :size="11" /></button>
+            </div>
+            <div class="flex-1 overflow-auto p-3 text-[11px]">
+              <div class="font-mono text-xs font-semibold text-primary mb-1">{{ selectedCommit.hash?.substring(0, 7) }}</div>
+              <div class="text-base-content font-medium mb-2 leading-relaxed">{{ selectedCommit.message }}</div>
+              <div class="text-base-content/60 space-y-1">
+                <div>作者: {{ selectedCommit.author }}</div>
+                <div>时间: {{ formatFullDate(selectedCommit.date) }}</div>
+                <div v-if="selectedCommit.refs?.length" class="flex flex-wrap gap-1 mt-2">
+                  <span v-for="ref in parseRefs(selectedCommit.refs)" :key="ref" class="px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary font-mono">{{ ref }}</span>
+                </div>
+              </div>
+            </div>
+            <!-- Diff 预览 -->
+            <div v-if="commitDiff" class="border-t border-base-content/10 flex flex-col min-h-[120px] max-h-[40%]">
+              <div class="px-3 py-1 border-b border-base-content/10 text-[11px] font-medium shrink-0">Diff</div>
+              <div class="flex-1 overflow-auto p-2">
+                <pre class="text-[10px] font-mono whitespace-pre-wrap break-all text-base-content">{{ commitDiff }}</pre>
+              </div>
+            </div>
           </div>
-          <div class="flex-1 overflow-auto">
-            <SplitDiffViewer :files="null" :diff="commitDiff" :loading="loadingDiff" />
-          </div>
-        </template>
-        <template v-else-if="leftTab === 'stash' && selectedStash && stashShowContent">
-          <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 bg-base-200/50 shrink-0">
-            <span class="font-mono text-[11px] truncate">{{ selectedStash.ref }}</span>
-            <button class="btn btn-ghost btn-xs" @click="selectedStash = null; stashShowContent = ''" title="关闭"><SvgIcon name="x" :size="12" /></button>
-          </div>
-          <div class="flex-1 overflow-auto p-3">
-            <pre class="text-[11px] font-mono whitespace-pre-wrap break-all text-base-content">{{ stashShowContent }}</pre>
-          </div>
-        </template>
-        <div v-else class="flex flex-col items-center justify-center h-full text-base-content/30 gap-3">
-          <SvgIcon name="fileText" :size="36" :stroke-width="1.5" class="opacity-40" />
-          <p class="text-xs m-0">{{ leftTab === 'changes' ? '选择文件查看变更' : leftTab === 'log' ? '选择提交查看 Diff' : '选择 Stash 查看内容' }}</p>
         </div>
       </div>
     </div>
@@ -578,22 +582,18 @@ import GitFormDialogs from './GitFormDialogs.vue'
 import GitAdvancedDialogs from './GitAdvancedDialogs.vue'
 import GitFileTree from './GitFileTree.vue'
 import GitCodeEditor from './GitCodeEditor.vue'
+import GitBranchTree from './GitBranchTree.vue'
 import SplitDiffViewer from '@/components/ui/SplitDiffViewer.vue'
-
-// 左栏 Tab 状态（IDEA 风格：变更/日志/Stash 切换）
-const leftTab = ref<'changes' | 'log' | 'stash'>('changes')
 
 // 文件浏览状态（保留供 GitCodeEditor 使用）
 const selectedFilePath = ref<string | null>(null)
 
 function handleSelectFile(path: string) {
   selectedFilePath.value = path
-  rightPanelMode.value = 'file'
 }
 
 function closeFileEditor() {
   selectedFilePath.value = null
-  rightPanelMode.value = 'changes'
 }
 
 function handleFileSaved(path: string) {
@@ -795,6 +795,7 @@ const {
   openMergeDialog,
   closeMergeDialog,
   openNewBranchFrom,
+  selectedBranchFilter,
   pulling,
   pushing,
   doPull,
@@ -941,6 +942,12 @@ function handleCommit(shouldPush: boolean) {
   } else {
     doCommitWithOptions()
   }
+}
+
+// 分支树右键菜单（转发到分支弹窗的对应操作）
+function handleBranchContextMenu(payload: { event: MouseEvent; branch: any; isRemote: boolean }) {
+  // 打开分支弹窗并定位到该分支（简化：直接打开弹窗，用户右键用弹窗内菜单）
+  showBranchesPopup.value = true
 }
 
 </script>
