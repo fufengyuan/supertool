@@ -129,7 +129,7 @@
               :format-relative-date="formatRelativeDate"
               :format-full-date="formatFullDate"
               :parse-refs="parseRefs"
-              @update:log-view-mode="logViewMode = $event"
+              @update:log-view-mode="logViewMode = $event as 'table' | 'graph'"
               @update:log-search="logSearch = $event"
               @update:log-date-from="logDateFrom = $event"
               @update:log-date-to="logDateTo = $event"
@@ -371,7 +371,7 @@
       @update:new-branch-name="newBranchName = $event"
       @update:new-branch-from="newBranchFrom = $event"
       @update:branch-rename-new="branchRenameNew = $event"
-      @update:merge-target="mergeTarget = $event"
+      @update:merge-target="mergeTarget = $event ?? ''"
       @update:show-merge-dialog="showMergeDialog = $event"
       @update:branch-search="branchSearch = $event"
       @checkout-branch="checkoutBranch"
@@ -399,9 +399,9 @@
       :cherry-picking="cherryPicking"
       :reverting="reverting"
       :deleting-branch="deletingBranch"
-      @update:cherry-pick-target="cherryPickTarget = $event"
-      @update:revert-target="revertTarget = $event"
-      @update:delete-remote-branch-target="deleteRemoteBranchTarget = $event"
+      @update:cherry-pick-target="cherryPickTarget = $event ?? ''"
+      @update:revert-target="revertTarget = $event ?? ''"
+      @update:delete-remote-branch-target="deleteRemoteBranchTarget = $event ?? ''"
       @cherry-pick="doCherryPick"
       @revert="doRevert"
       @delete-remote-branch="doDeleteRemoteBranch"
@@ -459,7 +459,7 @@
       @update:new-tag-message="newTagMessage = $event"
       @create-tag="doCreateTag"
       @update:show-tags-dialog="showTagsDialog = $event"
-      @update:selected-tag-for-branch="selectedTagForBranch = $event"
+      @update:selected-tag-for-branch="selectedTagForBranch = $event ?? ''"
       @create-tag-open="openCreateTag"
       @create-branch-from-tag="openCreateBranchFromTag"
       @delete-tag="confirmDeleteTag"
@@ -553,15 +553,15 @@
       @update:show-interactive-rebase-dialog="showInteractiveRebaseDialog = $event"
       @update:interactive-rebase-base="interactiveRebaseBase = $event"
       @load-ir-commits="loadInteractiveRebaseCommits"
-      @ir-move-up="irMoveUp($event)"
-      @ir-move-down="irMoveDown($event)"
+      @ir-move-up="irMoveUp"
+      @ir-move-down="irMoveDown"
       @start-interactive-rebase="doInteractiveRebase"
       @update:show-remotes-dialog="showRemotesDialog = $event"
       @update:show-add-remote-form="showAddRemoteForm = $event"
       @update:new-remote-name="newRemoteName = $event"
       @update:new-remote-url="newRemoteUrl = $event"
       @add-remote="doAddRemote"
-      @fetch-remote="doFetchRemote($event)"
+      @fetch-remote="doFetchRemote"
       @delete-remote="confirmDeleteRemote($event)"
       @update:show-submodules-dialog="showSubmodulesDialog = $event"
       @submodule-init-all="doSubmoduleInitAll"
@@ -625,7 +625,6 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck — TODO: 需要修复 useGitManager composable 的类型系统
 import { ref } from 'vue'
 import { onMounted, onUnmounted } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'

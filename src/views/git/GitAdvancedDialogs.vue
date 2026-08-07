@@ -408,7 +408,7 @@ defineProps<{
   applyPatchSign: boolean
   applyPatch3way: boolean
   applyPatchResult: string
-  applyPatchError: boolean
+  applyPatchError: string
 
   // 11. Cherry-pick Multiple
   showCherryPickMultiDialog: boolean
