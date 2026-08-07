@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getTauriAPI } from '../utils/tauri-api'
 import { ref } from 'vue';
 import type { Ref } from 'vue';
@@ -35,7 +34,7 @@ export function useTodoSync() {
 
   const broadcastCollaborationStarted = async (todoId: string, editorName: string): Promise<void> => {
     try {
-      await getTauriAPI().onCollaborationStarted(todoId, editorName);
+      await getTauriAPI().lanBroadcastCollaborationStarted(JSON.stringify({ todoId, editorName }));
     } catch (err) {
       handleError(err, { context: 'broadcastCollaborationStarted', showToast: false });
     }
@@ -43,7 +42,7 @@ export function useTodoSync() {
 
   const broadcastCollaborationEnded = async (todoId: string, editorName: string): Promise<void> => {
     try {
-      await getTauriAPI().onCollaborationEnded(todoId, editorName);
+      await getTauriAPI().lanBroadcastCollaborationEnded(JSON.stringify({ todoId, editorName }));
     } catch (err) {
       handleError(err, { context: 'broadcastCollaborationEnded', showToast: false });
     }

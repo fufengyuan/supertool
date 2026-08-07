@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getTauriAPI } from '../utils/tauri-api'
 import { ref } from 'vue';
 import type { Ref } from 'vue';
@@ -87,7 +86,9 @@ export function useTodos() {
   const deleteTodos = async (ids: string[]): Promise<string[]> => {
     error.value = null;
     try {
-      await getTauriAPI().deleteTodo(ids);
+      for (const id of ids) {
+        await getTauriAPI().deleteTodo(id);
+      }
       return ids;
     } catch (err) {
       error.value = (err as Error).message;
@@ -103,7 +104,9 @@ export function useTodos() {
     try {
       // ⚠️ 剥离 Vue Proxy
       const orderData = todos.map((todo, index) => ({ id: todo.id, orderNum: index }))
-      await getTauriAPI().updateTodo(orderData);
+      for (const item of orderData) {
+        await getTauriAPI().updateTodo(item)
+      }
     } catch (err) {
       error.value = (err as Error).message;
       handleError(err, { context: 'updateTodoOrder', rethrow: true });
@@ -117,7 +120,7 @@ export function useTodos() {
     error.value = null;
     try {
       const plainTodo = JSON.parse(JSON.stringify(todo))
-      return await getTauriAPI().createRepeatInstance(plainTodo);
+      return await getTauriAPI().createRepeatInstance(plainTodo.id);
     } catch (err) {
       error.value = (err as Error).message;
       handleError(err, { context: 'createRepeatInstance', rethrow: true });
@@ -201,7 +204,8 @@ export function useTodos() {
   const addTag = async (name: string): Promise<string> => {
     error.value = null;
     try {
-      return await getTauriAPI().addTag(name);
+      const tag = await getTauriAPI().addTag(name);
+      return tag.name;
     } catch (err) {
       error.value = (err as Error).message;
       handleError(err, { context: 'addTag', rethrow: true });
@@ -377,8 +381,10 @@ export function useTodos() {
     getUserInfo: todoSync.getUserInfo,
     broadcastTaskUpdate: todoSync.broadcastTaskUpdate,
     broadcastTaskComment: todoSync.broadcastTaskComment,
-    broadcastCollaborationStarted: todoSync.onCollaborationStarted,
-    broadcastCollaborationEnded: todoSync.onCollaborationEnded,
+    broadcastCollaborationStarted: todoSync.broadcastCollaborationStarted,
+    broadcastCollaborationEnded: todoSync.broadcastCollaborationEnded,
+    lanBroadcastCollaborationStarted: (data: string) => getTauriAPI().lanBroadcastCollaborationStarted(data),
+    lanBroadcastCollaborationEnded: (data: string) => getTauriAPI().lanBroadcastCollaborationEnded(data),
     // 导入导出
     exportData: todoSync.exportData,
     importJson: todoSync.importJson,

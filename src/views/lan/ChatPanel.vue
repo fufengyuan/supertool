@@ -128,7 +128,7 @@ const showTaskAssign = ref(false);
 // 获取当前用户信息
 async function loadUserInfo() {
   try {
-    myUserInfo.value = await getTauriAPI().getUserInfo(myUserInfo.value.id);
+    myUserInfo.value = await getTauriAPI().getUserInfo();
   } catch (error) {
     handleError(error, { context: '获取用户信息', showToast: true });
     myUserInfo.value = { id: 'unknown', name: 'Unknown', avatar: '😀' };
