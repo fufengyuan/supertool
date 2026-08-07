@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getTauriAPI } from '../utils/tauri-api'
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
@@ -191,7 +190,9 @@ export const useTodoStore = defineStore('todos', () => {
   const deleteTodos = async (ids: string[]): Promise<void> => {
     try {
       pushUndoSnapshot();
-      await todosApi.deleteTodo(ids);
+      for (const id of ids) {
+        await todosApi.deleteTodo(id);
+      }
       todos.value = todos.value.filter((t) => !ids.includes(t.id));
     } catch (err) {
       error.value = (err as Error).message;
@@ -218,7 +219,7 @@ export const useTodoStore = defineStore('todos', () => {
 
       // 局域网任务状态同步
       if (getTauriAPI().syncTaskStatus && (todo.assignedTo || todo.owner)) {
-        getTauriAPI().syncTaskStatus(todo)
+        getTauriAPI().syncTaskStatus(todo.id, !!todo.completed)
       }
 
       // 如果是重复任务且标记为完成，创建下一个实例
@@ -236,7 +237,9 @@ export const useTodoStore = defineStore('todos', () => {
 
   const updateTodoOrder = async (orderedTodos: Todo[]): Promise<void> => {
     try {
-      await todosApi.updateTodo(orderedTodos);
+      for (const item of orderedTodos) {
+        await todosApi.updateTodo(item);
+      }
     } catch (err) {
       error.value = (err as Error).message;
       handleError(err, { context: 'updateTodoOrder', rethrow: true });

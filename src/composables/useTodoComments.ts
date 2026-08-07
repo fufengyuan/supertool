@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getTauriAPI } from '../utils/tauri-api'
 import { useErrorHandler } from './useErrorHandler';
 import type { Comment } from '../types';

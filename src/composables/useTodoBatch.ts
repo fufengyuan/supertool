@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { ref } from 'vue';
 import type { Ref } from 'vue';
 import { useErrorHandler } from './useErrorHandler';
@@ -58,7 +57,7 @@ export function useTodoBatch(
     if (ids.length === 0) {return;}
     const snapshot = todoStore.todos.value.filter(t => ids.includes(t.id));
     try {
-      await todoStore.deleteTodo(ids);
+      await todoStore.deleteTodos(ids);
     } catch (error) {
       handleError(error, { context: 'batchDelete' });
       snapshot.forEach(s => {

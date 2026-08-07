@@ -1,4 +1,5 @@
 use rusqlite::params;
+use rusqlite::ToSql;
 use serde_json::{Value, json};
 
 /// Todo module — extracted from mod.rs
@@ -180,26 +181,66 @@ impl super::CoreService {
 
     pub async fn update_todo(&self, params: Value) -> Result<Value, String> {
         let id = params["id"].as_str().unwrap_or("").to_string();
+        if id.is_empty() {
+            return Err("update_todo: missing id".to_string());
+        }
         let now = chrono::Utc::now().to_rfc3339();
         self.with_db(|db| {
-            let completed = params["completed"].as_bool().unwrap_or(false);
-            let completed_at = if completed { Some(now.clone()) } else { None };
+            // PATCH 语义：只更新请求中提供的字段，避免误清空未传字段
+            let mut sets: Vec<String> = Vec::new();
+            let mut vals: Vec<String> = Vec::new();
+
+            if let Some(v) = params.get("text").and_then(|v| v.as_str()) {
+                sets.push(format!("text = ?{}", sets.len() + 1));
+                vals.push(v.to_string());
+            }
+            if let Some(v) = params.get("completed") {
+                let completed = v.as_bool().unwrap_or(false);
+                sets.push(format!("completed = ?{}", sets.len() + 1));
+                vals.push(if completed { "1" } else { "0" }.to_string());
+                sets.push(format!("completedAt = ?{}", sets.len() + 1));
+                vals.push(if completed { now.clone() } else { String::new() });
+            }
+            if let Some(v) = params.get("priority").and_then(|v| v.as_str()) {
+                sets.push(format!("priority = ?{}", sets.len() + 1));
+                vals.push(v.to_string());
+            }
+            if let Some(v) = params.get("dueDate").and_then(|v| v.as_str()) {
+                sets.push(format!("dueDate = ?{}", sets.len() + 1));
+                vals.push(v.to_string());
+            }
+            if let Some(v) = params.get("description").and_then(|v| v.as_str()) {
+                sets.push(format!("description = ?{}", sets.len() + 1));
+                vals.push(v.to_string());
+            }
+            if let Some(v) = params.get("tag").and_then(|v| v.as_str()) {
+                sets.push(format!("tag = ?{}", sets.len() + 1));
+                vals.push(v.to_string());
+            }
+            if let Some(v) = params.get("orderNum") {
+                sets.push(format!("orderNum = ?{}", sets.len() + 1));
+                vals.push(v.as_i64().map(|n| n.to_string()).unwrap_or_else(|| "0".to_string()));
+            }
+            if let Some(v) = params.get("projectId").and_then(|v| v.as_str()) {
+                sets.push(format!("projectId = ?{}", sets.len() + 1));
+                vals.push(v.to_string());
+            }
+
+            if sets.is_empty() {
+                return Err("update_todo: no fields to update".to_string());
+            }
+            sets.push(format!("updatedAt = ?{}", sets.len() + 1));
+            vals.push(now);
+
+            let sql = format!(
+                "UPDATE todos SET {} WHERE id = ?{}",
+                sets.join(", "),
+                sets.len() + 1
+            );
+            vals.push(id.clone());
+            let param_refs: Vec<&dyn ToSql> = vals.iter().map(|v| v as &dyn ToSql).collect();
             db.conn_mut()
-                .execute(
-                    "UPDATE todos SET text=?2, completed=?3, priority=?4, dueDate=?5, description=?6, tag=?7, updatedAt=?8, completedAt=?9, projectId=?10 WHERE id=?1",
-                    params![
-                        id,
-                        params["text"].as_str().unwrap_or(""),
-                        if completed { 1 } else { 0 },
-                        params["priority"].as_str().unwrap_or("medium"),
-                        params["dueDate"].as_str().unwrap_or(""),
-                        params["description"].as_str().unwrap_or(""),
-                        params["tag"].as_str().unwrap_or(""),
-                        now,
-                        completed_at,
-                        params.get("projectId").and_then(|v| v.as_str()),
-                    ],
-                )
+                .execute(&sql, param_refs.as_slice())
                 .map_err(|e| e.to_string())
         })
         .map_err(|e| e.to_string())?;

@@ -852,7 +852,7 @@ export function useTodosAPI() {
       if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
-    updateTodo: async (todo: Todo): Promise<Todo> => {
+    updateTodo: async (todo: Partial<Todo>): Promise<Todo> => {
       const res = await tauriInvoke<Todo>('update_todo', { params: todo })
       if (!res.success) {throw new Error(res.error)}
       return res.data!
@@ -865,8 +865,8 @@ export function useTodosAPI() {
       const res = await tauriInvoke<Tag[]>('get_all_tags')
       return res.success ? (res.data ?? []) : []
     },
-    addTag: async (tag: { name: string; color?: string }): Promise<Tag> => {
-      const res = await tauriInvoke<Tag>('add_tag', { tag })
+    addTag: async (name: string): Promise<Tag> => {
+      const res = await tauriInvoke<Tag>('add_tag', { name })
       if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
@@ -886,8 +886,8 @@ export function useTodosAPI() {
       if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
-    updateSubtask: async (id: string, updates: Partial<Subtask>): Promise<Subtask> => {
-      const res = await tauriInvoke<Subtask>('update_subtask', { id, updates })
+    updateSubtask: async (subtask: Partial<Subtask>): Promise<Subtask> => {
+      const res = await tauriInvoke<Subtask>('update_subtask', subtask)
       if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
@@ -1344,9 +1344,10 @@ export function useSettingsAPI() {
       const res = await tauriInvoke<any>('get_setting', { key })
       return res.success ? res.data : null
     },
-    setSetting: async (key: string, value: any): Promise<void> => {
+    setSetting: async (key: string, value: any): Promise<{ key: string; value: string } | undefined> => {
       const res = await tauriInvoke<string>('set_setting', { key, value })
       if (!res.success) {throw new Error(res.error)}
+      return res.data
     },
     // db_connections 专用接口：get 解密密码，set 加密密码后落盘
     getDbConnections: async (): Promise<any[]> => {
@@ -1544,13 +1545,14 @@ export interface TauriAPI {
   // Todos
   getAllTodos: () => Promise<Todo[]>
   addTodo: (todo: Partial<Todo>) => Promise<Todo>
-  updateTodo: (todo: Todo) => Promise<Todo>
+  updateTodo: (todo: Partial<Todo>) => Promise<Todo>
+  updateTodoCompletionBasedOnSubtasks: (todoId: string) => Promise<any>
   deleteTodo: (id: string) => Promise<void>
   getAllTags: () => Promise<Tag[]>
-  addTag: (tag: { name: string; color?: string }) => Promise<Tag>
+  addTag: (name: string) => Promise<Tag>
   deleteTag: (id: string) => Promise<void>
   addSubtask: (subtask: Partial<Subtask>) => Promise<Subtask>
-  updateSubtask: (id: string, updates: Partial<Subtask>) => Promise<Subtask>
+  updateSubtask: (subtask: Partial<Subtask>) => Promise<Subtask>
   deleteSubtask: (id: string) => Promise<void>
   getSubtasksForTodo: (todoId: string) => Promise<Subtask[]>
   // Notes
@@ -1610,7 +1612,7 @@ export interface TauriAPI {
   // Settings
   getMenuIcon: (key: string) => Promise<string | null>
   getSetting: (key: string) => Promise<any>
-  setSetting: (key: string, value: any) => Promise<void>
+  setSetting: (key: string, value: any) => Promise<{ key: string; value: string } | undefined>
   getDbConnections: () => Promise<any[]>
   setDbConnections: (connections: any[]) => Promise<void>
   getNotificationSettings: () => Promise<NotificationSettings | null>
@@ -1619,9 +1621,9 @@ export interface TauriAPI {
   getAppVersion: () => Promise<string>
   // Data Backup
   exportAllData: () => Promise<any>
-  exportData: (options: Record<string, unknown>) => Promise<any>
-  importJson: (options: Record<string, unknown>) => Promise<any>
-  exportCsv: (options: Record<string, unknown>) => Promise<any>
+  exportData: (options: Record<string, unknown> | any) => Promise<any>
+  importJson: (options: Record<string, unknown> | any) => Promise<any>
+  exportCsv: (options: Record<string, unknown> | any) => Promise<any>
   importAllData: (data: any) => Promise<void>
   setAutoBackup: (settings: Record<string, unknown>) => Promise<void>
   getAppPath: () => Promise<string>
@@ -1709,7 +1711,7 @@ export interface TauriAPI {
   onCollaborationStarted: (callback: (data: any) => void) => () => void
   onCollaborationEnded: (callback: (data: any) => void) => () => void
   readFileContent: (filePath: string) => Promise<string>
-  getUserInfo: (userId: string) => Promise<any>
+  getUserInfo: () => Promise<any>
   lanGetUserInfo: () => Promise<any>
   setStatus: (status: string) => Promise<any>
   refreshDiscovery: () => Promise<any>
@@ -1730,6 +1732,12 @@ export interface TauriAPI {
   lanMarkMessagesRead: (peerId: string) => Promise<any>
   lanGetUnreadCount: (peerId: string) => Promise<number>
   lanGetAllUnreadCounts: (userId: string) => Promise<any>
+  lanBroadcastMessage: (message: string) => Promise<void>
+  lanBroadcastTaskUpdate: (task: string) => Promise<void>
+  lanBroadcastTaskStatusChange: (task: string) => Promise<void>
+  lanBroadcastTaskComment: (data: string) => Promise<void>
+  lanBroadcastCollaborationStarted: (data: string) => Promise<void>
+  lanBroadcastCollaborationEnded: (data: string) => Promise<void>
   lanOnMessage: (handler: (data: any) => void) => Promise<() => void>
   lanOnFileTransferStarted: (handler: (data: any) => void) => Promise<() => void>
   lanOnFileTransferProgress: (handler: (data: any) => void) => Promise<() => void>
@@ -1830,11 +1838,11 @@ export interface TauriAPI {
   uploadAccountingReceipt: (name: string, data: string) => Promise<any>
   getAccountingReceiptFile: (path: string) => Promise<any>
   exportAccountingCSV: (params?: Record<string, unknown>) => Promise<any>
-  checkMavenAvailable: () => Promise<any>
-  checkJavaAvailable: () => Promise<any>
-  checkNodeAvailable: () => Promise<any>
+  checkMavenAvailable: (path?: string) => Promise<any>
+  checkJavaAvailable: (path?: string) => Promise<any>
+  checkNodeAvailable: (path?: string) => Promise<any>
   screenshot: () => Promise<any>
-  exportWordReport: (params: Record<string, unknown>) => Promise<any>
+  exportWordReport: (params: any) => Promise<any>
   // 操作审计
   auditList: (actor?: string, result?: string, limit?: number) => Promise<any>
   // CLI 安装器
@@ -2631,7 +2639,7 @@ export function getTauriAPI(): TauriAPI {
     broadcastTaskComment: async (todoId: string, comment: Record<string, unknown>) => tauriCall("broadcast_task_comment", { todoId, comment }),
     getTodos: async () => tauriCall("get_todos"),
     getTags: async () => tauriCall("get_all_tags"),
-    syncTaskStatus: async (todoId: string, completed: boolean) => tauriCall("sync_task_status", { todoId, completed }),
+    syncTaskStatus: async (todoId: string, completed: boolean) => tauriCall("lan_sync_task_status", { taskJson: JSON.stringify({ todoId, completed }) }),
     // Misc
     screenshot: async () => tauriCall("screenshot"),
     exportWordReport: async (params: Record<string, unknown>) => tauriCall("export_word_report", { params }),

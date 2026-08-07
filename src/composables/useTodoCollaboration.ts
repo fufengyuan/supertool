@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getTauriAPI } from '../utils/tauri-api'
 import { ref } from 'vue';
 import type { Ref } from 'vue';
@@ -10,6 +9,8 @@ interface TodosApi {
   broadcastTaskComment: (todoId: string, comment: Comment) => Promise<void>;
   broadcastCollaborationStarted: (todoId: string, editorName: string) => Promise<void>;
   broadcastCollaborationEnded: (todoId: string, editorName: string) => Promise<void>;
+  lanBroadcastCollaborationStarted: (data: string) => Promise<void>;
+  lanBroadcastCollaborationEnded: (data: string) => Promise<void>;
 }
 
 interface TodoStore {
@@ -58,7 +59,7 @@ export function useTodoCollaboration(todosApi: TodosApi) {
       const userInfo = await todosApi.getUserInfo();
 
       collaboratingUsers.value[todo.id] = userInfo.name;
-      await todosApi.onCollaborationStarted(todo.id, userInfo.name);
+      await todosApi.lanBroadcastCollaborationStarted(JSON.stringify({ todoId: todo.id, editorName: userInfo.name }));
     } catch (error) {
       handleError(error, { context: 'startCollaborationEdit' });
     }
@@ -70,7 +71,7 @@ export function useTodoCollaboration(todosApi: TodosApi) {
 
       delete collaboratingUsers.value[todoId];
 
-      await todosApi.onCollaborationEnded(todoId, userInfo.name);
+      await todosApi.lanBroadcastCollaborationEnded(JSON.stringify({ todoId, editorName: userInfo.name }));
     } catch (error) {
       handleError(error, { context: 'endCollaborationEdit' });
     }
