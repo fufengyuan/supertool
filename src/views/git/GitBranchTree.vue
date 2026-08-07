@@ -156,10 +156,11 @@ function onCheckoutBranch(b: any) {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 4px;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.12s;
+  min-height: 24px;
 }
 .branch-tree-item:hover {
   background: var(--color-base-200);

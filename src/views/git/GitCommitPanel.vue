@@ -292,13 +292,13 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 .group-header {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: 5px;
+  padding: 3px 8px;
   cursor: pointer;
   background: var(--color-base-200);
   user-select: none;
-  transition: background 0.1s;
-  height: 20px;
+  transition: background 0.12s;
+  min-height: 22px;
 }
 
 .group-header:hover {
@@ -370,25 +370,15 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 .file-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 8px;
-  transition: background 0.1s;
+  gap: 6px;
+  padding: 3px 8px;
+  transition: background 0.12s;
   user-select: none;
-  height: 20px;
+  min-height: 24px;
 }
 
 .file-item:hover {
   background: var(--hover-bg);
-}
-
-/* 文件图标不响应点击 */
-.file-icon {
-  pointer-events: none;
-}
-
-/* checkbox 可点击 */
-.file-checkbox {
-  pointer-events: auto;
 }
 
 .file-item.selected {
