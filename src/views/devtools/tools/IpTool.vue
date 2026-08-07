@@ -1,91 +1,60 @@
 <template>
-  <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5">🌍 IP 地址查询</h3>
-
-    <div class="mb-5">
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">IP 地址</label>
-      <div class="ip-input-row">
+  <ToolPage
+    icon="mapPin"
+    name="IP 地址查询"
+    description="查询 IP 归属地、运营商、时区、ASN 与坐标，可查本机 IP"
+    :offline="false"
+    @back="$emit('back')"
+  >
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <div class="flex gap-2 items-center">
         <input
           v-model="input"
-          class="input input-bordered w-full font-mono text-xs"
+          class="input input-bordered input-sm w-full font-mono bg-base-200/60"
           placeholder="输入 IP 地址或留空查询本机 IP..."
           @keyup.enter="query"
         />
-        <button class="btn btn-ghost btn-sm" @click="queryCurrentIp" style="margin-left: 8px">
-          <SvgIcon name="wifi" size="14" class="inline-block align-text-bottom" /> 查询本机 IP
+        <button class="btn btn-outline btn-sm shrink-0" @click="queryCurrentIp">
+          <SvgIcon name="wifi" size="13" /> 本机 IP
         </button>
+        <button class="btn btn-primary btn-sm shrink-0" @click="query">查询</button>
+      </div>
+      <div class="flex gap-2 mt-3">
+        <button class="btn btn-ghost btn-xs" @click="clear" :disabled="!input && !result">清空</button>
       </div>
 
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
-        <button class="btn btn-primary btn-sm" @click="query">查询</button>
-        <button class="btn btn-ghost btn-sm" @click="clear">清空</button>
-      </div>
-
-      <div v-if="loading" class="loading-box">
-        <div class="spinner"></div>
+      <div v-if="loading" class="mt-4 p-4 flex items-center gap-3 text-sm text-base-content/60">
+        <span class="loading loading-spinner loading-sm text-primary"></span>
         <span>正在查询...</span>
       </div>
 
-      <div v-if="error" class="error-box">{{ error }}</div>
+      <div v-if="error" class="mt-4 p-3 bg-error/10 border border-error/25 rounded-lg text-error text-sm">{{ error }}</div>
 
-      <div v-if="result" class="result-grid">
-        <div class="result-card">
-          <div class="result-label"><SvgIcon name="globe" size="14" class="align-text-bottom" /> IP 地址</div>
-          <div class="result-value">{{ result.ip }}</div>
-          <button class="mini-copy-btn" @click="doCopy(result.ip)"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
+      <div v-if="result" class="mt-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          <div v-for="cell in resultCards" :key="cell.label" class="flex flex-col p-3 bg-base-200/60 border border-base-content/10 rounded-xl">
+            <span class="text-[11px] font-medium text-base-content/50 mb-1 flex items-center gap-1"><SvgIcon :name="cell.icon" size="11" /> {{ cell.label }}</span>
+            <span class="text-sm text-base-content font-mono break-all">{{ cell.value }}</span>
+          </div>
         </div>
-        <div class="result-card">
-          <div class="result-label"><SvgIcon name="globe" size="14" class="inline-block align-text-bottom" /> 国家</div>
-          <div class="result-value">{{ result.country }}</div>
+        <div v-if="result.mapUrl" class="mt-3">
+          <a :href="result.mapUrl" target="_blank" rel="noopener" class="btn btn-outline btn-sm">
+            <SvgIcon name="globe" size="12" /> 在地图上查看
+          </a>
         </div>
-        <div class="result-card">
-          <div class="result-label"><SvgIcon name="monitor" size="14" class="inline-block align-text-bottom" /> 城市</div>
-          <div class="result-value">{{ result.city }}</div>
-        </div>
-        <div class="result-card">
-          <div class="result-label"><SvgIcon name="mapPin" size="14" class="inline-block align-text-bottom" /> 省份/地区</div>
-          <div class="result-value">{{ result.region }}</div>
-        </div>
-        <div class="result-card">
-          <div class="result-label"><SvgIcon name="wifi" size="14" class="inline-block align-text-bottom" /> ISP / 运营商</div>
-          <div class="result-value">{{ result.isp }}</div>
-        </div>
-        <div class="result-card">
-          <div class="result-label">🏢 组织</div>
-          <div class="result-value">{{ result.org }}</div>
-        </div>
-        <div class="result-card">
-          <div class="result-label"><SvgIcon name="clock" size="14" class="align-text-bottom" /> 时区</div>
-          <div class="result-value">{{ result.timezone }}</div>
-        </div>
-        <div class="result-card">
-          <div class="result-label"><SvgIcon name="globe" size="14" class="align-text-bottom" /> ASN</div>
-          <div class="result-value">{{ result.as }}</div>
-        </div>
-        <div class="result-card">
-          <div class="result-label">📐 纬度</div>
-          <div class="result-value">{{ result.lat }}</div>
-        </div>
-        <div class="result-card">
-          <div class="result-label">📐 经度</div>
-          <div class="result-value">{{ result.lon }}</div>
-        </div>
-      </div>
-
-      <div v-if="result" class="map-link" style="margin-top: 12px">
-        <a :href="result.mapUrl" target="_blank" rel="noopener" class="map-link-btn">
-          <SvgIcon name="globe" size="14" class="align-text-bottom" /> 在地图上查看
-        </a>
       </div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref } from 'vue'
+import ToolPage from '../components/ToolPage.vue'
+import { ref, computed } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 const input = ref('')
@@ -107,6 +76,23 @@ interface IpInfo {
 }
 
 const result = ref<IpInfo | null>(null)
+
+const resultCards = computed(() => {
+  const r = result.value
+  if (!r) { return [] }
+  return [
+    { label: 'IP 地址', icon: 'globe', value: r.ip },
+    { label: '国家', icon: 'globe', value: r.country },
+    { label: '城市', icon: 'monitor', value: r.city },
+    { label: '省份/地区', icon: 'mapPin', value: r.region },
+    { label: 'ISP / 运营商', icon: 'wifi', value: r.isp },
+    { label: '组织', icon: 'layers', value: r.org },
+    { label: '时区', icon: 'clock', value: r.timezone },
+    { label: 'ASN', icon: 'globe', value: r.as },
+    { label: '纬度', icon: 'mapPin', value: r.lat },
+    { label: '经度', icon: 'mapPin', value: r.lon },
+  ]
+})
 
 async function query() {
   loading.value = true

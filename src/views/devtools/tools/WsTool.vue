@@ -1,25 +1,27 @@
 <template>
-  <div class="flex flex-col gap-0 p-0">
-    <h3 class="text-lg font-bold text-base-content m-0 mb-5"><SvgIcon name="plug" size="14" class="align-text-bottom" /> WebSocket 调试</h3>
-
-    <div class="mb-5">
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">WebSocket URL</label>
+  <ToolPage
+    icon="plug"
+    name="WebSocket 调试"
+    description="连接 ws/wss 服务器，收发消息、JSON 自动格式化、消息统计"
+    :offline="false"
+    @back="$emit('back')"
+  >
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
       <div class="flex gap-2">
         <input
           v-model="url"
-          class="input flex-1 px-3 py-2 text-sm text-base-content bg-base-200 rounded-md border border-base-content/10 outline-none focus:border-primary"
+          class="input input-sm flex-1 px-3 font-mono bg-base-200/60"
           placeholder="ws:// 或 wss://..."
           @keydown.enter="connect"
         />
         <button v-if="status !== 'connected'" class="btn btn-primary btn-sm" @click="connect" :disabled="status === 'connecting'">
-          <template v-if="status === 'connecting'">连接中...</template><template v-else><SvgIcon name="link" size="14" class="inline-block align-text-bottom" /> 连接</template>
+          <template v-if="status === 'connecting'">连接中...</template><template v-else><SvgIcon name="link" size="13" /> 连接</template>
         </button>
         <button v-else class="btn btn-error btn-sm" @click="disconnect">断开</button>
       </div>
 
-      <!-- 连接历史 -->
-      <div v-if="urlHistory.length > 0" class="mt-1.5 flex flex-wrap gap-1.5">
-        <span class="text-xs text-base-content/40">历史：</span>
+      <div v-if="urlHistory.length > 0" class="mt-2 flex flex-wrap gap-1.5">
+        <span class="text-[11px] text-base-content/40 leading-6">历史：</span>
         <button
           v-for="h in urlHistory"
           :key="h"
@@ -28,16 +30,14 @@
         >{{ h.replace(/^wss?:\/\//, '') }}</button>
       </div>
 
-      <!-- Status indicator -->
-      <div class="flex items-center gap-2 px-3 py-2 mt-3 bg-base-200 border border-base-content/10 rounded-md">
+      <div class="flex items-center gap-2 px-3 py-2 mt-3 bg-base-200/60 border border-base-content/10 rounded-lg">
         <span class="w-2.5 h-2.5 rounded-full" :class="status === 'connected' ? 'bg-green-500 shadow-[0_0_6px_#22c55e]' : status === 'connecting' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'"></span>
         <span class="text-xs text-base-content">{{ statusText }}</span>
         <span v-if="status === 'connected'" class="text-xs text-base-content/40 ml-auto">已收 {{ stats.received }} · 已发 {{ stats.sent }}</span>
       </div>
 
-      <!-- Message log -->
-      <div ref="logContainer" class="mt-3 h-[300px] overflow-y-auto p-3 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs">
-        <div v-if="messages.length === 0" class="text-base-content/60 text-center py-10">
+      <div ref="logContainer" class="mt-3 h-[300px] overflow-y-auto p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs">
+        <div v-if="messages.length === 0" class="text-base-content/50 text-center py-10">
           连接 WebSocket 服务器后，消息将显示在这里
         </div>
         <div
@@ -51,26 +51,28 @@
         </div>
       </div>
 
-      <!-- Message input -->
       <div class="flex gap-2 mt-3">
         <input
           v-model="messageInput"
-          class="input flex-1 px-3 py-2 text-sm text-base-content bg-base-200 rounded-md border border-base-content/10 outline-none focus:border-primary"
+          class="input input-sm flex-1 px-3 font-mono bg-base-200/60"
           placeholder="输入要发送的消息..."
           @keyup.enter="sendMessage"
           :disabled="status !== 'connected'"
         />
         <button class="btn btn-primary btn-sm" @click="sendMessage" :disabled="status !== 'connected'">发送</button>
-        <button class="btn btn-ghost btn-sm" @click="clearLog"><SvgIcon name="trash" size="14" class="inline-block align-text-bottom" /></button>
+        <button class="btn btn-ghost btn-sm" @click="clearLog" :disabled="messages.length === 0"><SvgIcon name="trash" size="13" /></button>
       </div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref, computed, nextTick, onUnmounted } from 'vue'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 const url = ref('ws://localhost:8080')
@@ -137,8 +139,8 @@ function addMessage(type: 'sent' | 'received' | 'system' | 'error', content: str
     content,
     time: getNow(),
   })
-  if (type === 'sent') stats.value.sent++
-  else if (type === 'received') stats.value.received++
+  if (type === 'sent') { stats.value.sent++ }
+  else if (type === 'received') { stats.value.received++ }
   scrollToBottom()
 }
 

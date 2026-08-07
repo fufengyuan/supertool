@@ -1,8 +1,15 @@
 <template>
-  <div class="flex h-full overflow-hidden bg-base-200">
+  <ToolPage
+    icon="zap"
+    name="接口调试"
+    description="仿 Postman 的 HTTP 接口调试，支持请求保存、cURL 导入、历史记录"
+    :offline="false"
+    no-scroll
+    @back="$emit('back')"
+  >
+    <div class="flex h-full min-h-0 bg-base-200">
     <!-- Left Sidebar: Saved Requests -->
-    <aside class="w-[260px] min-w-[220px] max-w-[320px] border-r border-base-content/10 bg-base-100 flex flex-col shrink-0">
-      <div class="flex items-center justify-between p-[14px_16px_10px]">
+    <aside class="w-[260px] min-w-[220px] max-w-[320px] border-r border-base-content/10 bg-base-100 flex flex-col shrink-0">      <div class="flex items-center justify-between p-[14px_16px_10px]">
         <h3 class="m-0 text-sm font-bold text-base-content"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> 已保存接口</h3>
         <button class="btn btn-outline btn-primary btn-xs" @click="createNewRequest">+ 新建</button>
       </div>
@@ -229,16 +236,20 @@
         <p class="text-sm">输入 URL 或粘贴报文后点击"发送"</p>
       </div>
     </main>
-  </div>
+    </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getTauriAPI } from '../../../utils/tauri-api'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
+
+defineEmits<{ back: [] }>()
 
 // ─── Types ───
 interface SavedRequest {
@@ -769,7 +780,7 @@ function handleKeyDown(e: KeyboardEvent) {
 }
 
 async function copyResponse() {
-  if (!response.value) return
+  if (!response.value) { return }
   const text = formatResponseBody.value || response.value.body
   try {
     await navigator.clipboard.writeText(text)

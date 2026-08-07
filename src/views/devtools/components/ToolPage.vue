@@ -30,10 +30,11 @@
     </header>
 
     <!-- 工具内容区 -->
-    <div class="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-      <div class="max-w-[1100px] mx-auto flex flex-col gap-4">
+    <div class="flex-1 min-h-0" :class="noScroll ? 'overflow-hidden' : 'overflow-y-auto px-5 py-4'">
+      <div v-if="!noScroll" class="max-w-[1100px] mx-auto flex flex-col gap-4">
         <slot />
       </div>
+      <slot v-else />
     </div>
   </div>
 </template>
@@ -41,12 +42,17 @@
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 
-defineProps<{
+withDefaults(defineProps<{
   icon: string
   name: string
   description: string
   offline?: boolean
-}>()
+  /** 子组件自管理滚动（应用型布局如接口调试），内容区不包裹滚动容器 */
+  noScroll?: boolean
+}>(), {
+  offline: false,
+  noScroll: false,
+})
 
 defineEmits<{ back: [] }>()
 </script>
