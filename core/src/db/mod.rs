@@ -199,14 +199,8 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             updatedAt TEXT DEFAULT (datetime('now'))
         );
 
-        CREATE TABLE IF NOT EXISTS openvpn_configs (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL DEFAULT '',
-            filePath TEXT NOT NULL DEFAULT '',
-            content TEXT NOT NULL DEFAULT '',
-            createdAt TEXT NOT NULL,
-            updatedAt TEXT NOT NULL
-        );
+        -- 2026-08: OpenVPN 功能已移除（仅保留 WireGuard），清理历史表
+        DROP TABLE IF EXISTS openvpn_configs;
 
         CREATE TABLE IF NOT EXISTS wireguard_configs (
             id TEXT PRIMARY KEY,

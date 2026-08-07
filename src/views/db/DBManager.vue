@@ -207,6 +207,7 @@
                   :page="currentPage"
                   :page-size="pageSize"
                   :loading="executing"
+                  :paginated="false"
                   :column-comments="columnComments"
                   :sort-column="activeSort?.column || null"
                   :sort-direction="activeSort?.direction || 'asc'"
@@ -670,7 +671,14 @@ async function doExecute(sqlText: string) {
   try {
     // ⚠️ 剥离 Vue Proxy，否则 Tauri IPC 的 structuredClone 会失败
     const plainSql = sqlText
-    const queryResult = await getTauriAPI().dbQuery(db.activeConnection.value.id, plainSql)
+    // 只读语句走 dbQuery（白名单），写语句走 dbExecuteWrite（GUI 写通道）
+    const upper = plainSql.trim().toUpperCase()
+    const isReadOnly = ['SELECT', 'SHOW', 'EXPLAIN', 'DESC', 'DESCRIBE', 'PRAGMA'].some(p => {
+      return upper === p || (upper.startsWith(p) && (upper.length === p.length || /\s/.test(upper.slice(p.length, p.length + 1))))
+    })
+    const queryResult = isReadOnly
+      ? await getTauriAPI().dbQuery(db.activeConnection.value.id, plainSql)
+      : await getTauriAPI().dbExecuteWrite(db.activeConnection.value.id, plainSql)
     const execTime = Math.round(performance.now() - startTime)
 
     // dbQuery 返回 { success, rows } 或 { success, error }
@@ -799,7 +807,7 @@ async function handleDeleteTable(connId: string, table: string, dbName?: string)
           return
         }
 
-        const result = await getTauriAPI().dbQuery(connId, sql)
+        const result = await getTauriAPI().dbExecuteWrite(connId, sql)
         if (result && typeof result === 'object' && 'success' in result && (result as any).success) {
           toast.success(`表「${table}」已删除`)
           // Refresh table list

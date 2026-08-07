@@ -155,7 +155,7 @@
     <pre v-if="viewMode === 'json' && rows.length > 0" class="flex-1 p-4 m-0 overflow-auto font-mono text-xs leading-5 bg-base-200 text-base-content">{{ formatJson(rows) }}</pre>
 
     <!-- Pagination -->
-    <div v-if="total > pageSize" class="flex items-center justify-between px-3 py-1.5 border-t border-base-content/10 bg-base-100 shrink-0 min-h-[38px] gap-2">
+    <div v-if="(props.paginated ?? true) && total > pageSize" class="flex items-center justify-between px-3 py-1.5 border-t border-base-content/10 bg-base-100 shrink-0 min-h-[38px] gap-2">
       <div class="flex items-center gap-1.5 text-xs text-base-content/60">
         <span>共 {{ total }} 条</span>
         <span class="text-base-content/30">·</span>
@@ -228,6 +228,7 @@ const props = defineProps<{
   columnComments?: Record<string, string>  // column name -> comment
   sortColumn?: string | null
   sortDirection?: 'asc' | 'desc'
+  paginated?: boolean  // SQL 查询结果不分页（B6）
 }>()
 
 const emit = defineEmits<{

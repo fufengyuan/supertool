@@ -117,16 +117,25 @@ pub async fn connect_postgres(config: &DbConnectionConfig) -> Result<DbConnectio
 // ── Redis ───────────────────────────────────────────────────────────────────
 
 pub async fn connect_redis(config: &DbConnectionConfig) -> Result<DbConnection, String> {
-    let decrypted_pw = config.password.as_deref()
-        .map(|pw| crate::encryption::try_decrypt_password(pw));
-    let addr = format!("redis://{}:{}@{}:{}",
-        if decrypted_pw.is_some() { "" } else { "" },
-        decrypted_pw.as_deref().unwrap_or(""),
-        config.host, config.port,
-    );
-    let client = redis::Client::open(addr.as_str()).map_err(|e| format!("Redis URL: {}", e))?;
-    let conn = client.get_multiplexed_async_connection().await
+    let db_idx = config.db_index.unwrap_or(0);
+    let url = if let Some(ref pw) = config.password {
+        let decrypted = crate::encryption::try_decrypt_password(pw);
+        format!(
+            "redis://:{}@{}:{}/{}",
+            decrypted, config.host, config.port, db_idx
+        )
+    } else {
+        format!("redis://{}:{}/{}", config.host, config.port, db_idx)
+    };
+    let client = redis::Client::open(url.as_str()).map_err(|e| format!("Redis URL: {}", e))?;
+    let conn = client
+        .get_multiplexed_async_connection()
+        .await
         .map_err(|e| format!("Redis connect: {}", e))?;
+    let _: String = redis::cmd("PING")
+        .query_async(&mut conn.clone())
+        .await
+        .map_err(|e| format!("Redis ping: {}", e))?;
     Ok(DbConnection::Redis(conn))
 }
 
@@ -161,34 +170,90 @@ pub async fn execute_postgres_query(client: &PgClient, sql: &str) -> Result<serd
 
 fn pg_value_to_json(row: &tokio_postgres::Row, i: usize) -> serde_json::Value {
     use tokio_postgres::types::Type;
-    if let Ok(v) = row.try_get::<_, Option<i64>>(i) { return v.map_or(serde_json::Value::Null, |n| serde_json::json!(n)); }
-    if let Ok(v) = row.try_get::<_, Option<f64>>(i) { return v.map_or(serde_json::Value::Null, |n| serde_json::json!(n)); }
-    if let Ok(v) = row.try_get::<_, Option<bool>>(i) { return v.map_or(serde_json::Value::Null, |n| serde_json::json!(n)); }
-    if let Ok(v) = row.try_get::<_, Option<String>>(i) { return v.map_or(serde_json::Value::Null, serde_json::Value::String); }
-    if let Ok(v) = row.try_get::<_, Option<&[u8]>>(i) { return v.map_or(serde_json::Value::Null, |b| serde_json::Value::String(hex::encode(b))); }
-    serde_json::Value::Null
+    let ty = row.columns()[i].type_();
+    match ty {
+        &Type::INT2 | &Type::INT4 | &Type::INT8 => row
+            .try_get::<_, Option<i64>>(i)
+            .ok()
+            .flatten()
+            .map_or(serde_json::Value::Null, |n| serde_json::json!(n)),
+        &Type::FLOAT4 | &Type::FLOAT8 => row
+            .try_get::<_, Option<f64>>(i)
+            .ok()
+            .flatten()
+            .and_then(|n| serde_json::Number::from_f64(n).map(serde_json::Value::Number))
+            .unwrap_or(serde_json::Value::Null),
+        &Type::BOOL => row
+            .try_get::<_, Option<bool>>(i)
+            .ok()
+            .flatten()
+            .map_or(serde_json::Value::Null, |v| serde_json::json!(v)),
+        // 时间类型分别处理：TIMESTAMPTZ 含时区、DATE/TIME 与 NaiveDateTime 不兼容（S1 修复）
+        &Type::TIMESTAMP => row
+            .try_get::<_, Option<chrono::NaiveDateTime>>(i)
+            .ok()
+            .flatten()
+            .map_or(serde_json::Value::Null, |v| serde_json::Value::String(v.to_string())),
+        &Type::TIMESTAMPTZ => row
+            .try_get::<_, Option<chrono::DateTime<chrono::Utc>>>(i)
+            .ok()
+            .flatten()
+            .map_or(serde_json::Value::Null, |v| {
+                serde_json::Value::String(v.to_rfc3339())
+            }),
+        &Type::DATE => row
+            .try_get::<_, Option<chrono::NaiveDate>>(i)
+            .ok()
+            .flatten()
+            .map_or(serde_json::Value::Null, |v| serde_json::Value::String(v.to_string())),
+        &Type::TIME => row
+            .try_get::<_, Option<chrono::NaiveTime>>(i)
+            .ok()
+            .flatten()
+            .map_or(serde_json::Value::Null, |v| serde_json::Value::String(v.to_string())),
+        &Type::TEXT
+        | &Type::VARCHAR
+        | &Type::BPCHAR
+        | &Type::NAME
+        | &Type::JSON
+        | &Type::JSONB
+        | &Type::UUID => row
+            .try_get::<_, Option<String>>(i)
+            .ok()
+            .flatten()
+            .map_or(serde_json::Value::Null, serde_json::Value::String),
+        _ => {
+            if let Ok(v) = row.try_get::<_, Option<&[u8]>>(i) {
+                v.map_or(serde_json::Value::Null, |b| {
+                    serde_json::Value::String(hex::encode(b))
+                })
+            } else if let Ok(v) = row.try_get::<_, Option<String>>(i) {
+                v.map_or(serde_json::Value::Null, serde_json::Value::String)
+            } else {
+                serde_json::Value::Null
+            }
+        }
+    }
 }
 
 // ── Redis Query ──────────────────────────────────────────────────────────────
 
 pub async fn execute_redis_command(conn: &RedisConn, cmd: &str) -> Result<serde_json::Value, String> {
-    use redis::AsyncCommands;
-    let mut c = conn.clone();
     let parts: Vec<&str> = cmd.split_whitespace().collect();
-    if parts.is_empty() { return Err("Empty command".to_string()); }
-    let command = parts[0];
-    let args: Vec<&str> = parts[1..].to_vec();
-    let result: Result<redis::Value, redis::RedisError> = match command.to_uppercase().as_str() {
-        "GET" => c.get(args[0]).await,
-        "SET" => { let _: () = c.set(args[0], args[1]).await.map_err(|e| e.to_string())?; Ok(redis::Value::Okay) }
-        "DEL" => { let n: i64 = c.del(args[0]).await.map_err(|e| e.to_string())?; Ok(redis::Value::Int(n)) }
-        "KEYS" => c.keys(args[0]).await,
-        "EXISTS" => c.exists(args[0]).await,
-        "TTL" => c.ttl(args[0]).await,
-        "TYPE" => { let t: String = redis::cmd("TYPE").arg(args[0]).query_async(&mut c).await.map_err(|e| e.to_string())?; Ok(redis::Value::SimpleString(t)) }
-        _ => redis::cmd(command).arg(&args).query_async(&mut c).await,
-    };
-    result.map(|v| redis_value_to_json(&v)).map_err(|e| e.to_string())
+    if parts.is_empty() {
+        return Err("Empty Redis command".to_string());
+    }
+    // 通用 Cmd 构造：参数缺失由 redis 服务端报错而非本地索引 panic（B7 修复）
+    let mut cmd_builder = redis::Cmd::new();
+    cmd_builder.arg(parts[0]);
+    for part in &parts[1..] {
+        cmd_builder.arg(part);
+    }
+    let result: redis::Value = cmd_builder
+        .query_async(&mut conn.clone())
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(redis_value_to_json(&result))
 }
 
 fn redis_value_to_json(val: &redis::Value) -> serde_json::Value {

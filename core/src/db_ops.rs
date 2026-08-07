@@ -1,3 +1,4 @@
+
 //! High-level database operations — table browsing, data querying.
 //! Extracted from tauri/src/commands/database.rs for sharing.
 
@@ -7,8 +8,8 @@ pub async fn redis_keys(conn: &DbConnection, db_index: i64, pattern: &str) -> Re
     match conn {
         DbConnection::Redis(c) => {
             redis::cmd("SELECT").arg(db_index).query_async::<()>(&mut c.clone()).await.map_err(|e| format!("Redis SELECT failed: {}", e))?;
-            let keys: Vec<String> = redis::cmd("KEYS").arg(pattern).query_async(&mut c.clone()).await.map_err(|e| format!("Redis KEYS failed: {}", e))?;
-            Ok(serde_json::json!({ "success": true, "keys": keys }))
+            // S9: KEYS → SCAN 迭代，避免大 key 空间阻塞 Redis（复用现成 redis_scan_keys）
+            redis_scan_keys(conn, db_index, pattern, 1000).await
         }
         _ => Err("Not a Redis connection".to_string()),
     }
@@ -234,7 +235,6 @@ pub async fn get_views(conn: &DbConnection, db_name: &str) -> Result<serde_json:
         _ => Err("Not supported".to_string()),
     }
 }
-
 
 pub async fn get_table_structure(conn: &DbConnection, db_name: Option<&str>, table: &str) -> Result<serde_json::Value, String> {
     match conn {

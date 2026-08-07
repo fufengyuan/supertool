@@ -97,7 +97,8 @@
           {{ testing ? '测试中...' : '测试连接' }}
         </button>
         <button @click="$emit('close')" class="btn btn-ghost btn-sm">取消</button>
-        <button @click="$emit('save', localForm)" class="btn btn-primary btn-sm gap-1.5">
+        <button @click="$emit('save', localForm)" class="btn btn-primary btn-sm gap-1.5"
+                :disabled="!localForm.name || (localForm.type !== 'sqlite' && !localForm.host) || (localForm.type === 'sqlite' && !localForm.path)">
           <SvgIcon name="save" size="14" /> 保存
         </button>
       </div>

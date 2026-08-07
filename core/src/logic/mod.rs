@@ -24,6 +24,7 @@ pub mod cicd_data;
 pub mod cicd_sync;
 pub mod cicd_tools;
 pub mod db_connections;
+pub mod sql_safety;
 pub mod file_ops;
 pub mod lan;
 pub mod log_presets;
