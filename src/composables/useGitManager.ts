@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
-import { getTauriAPI, tauriCall } from '../utils/tauri-api'
+import { getTauriAPI } from '../utils/tauri-api'
 import { useToast } from './useToast'
 
 export interface GitRepo {
@@ -492,7 +492,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     }
   }
 
-  async function doPull(opts?: { rebase?: boolean }) {
+  async function doPull() {
     if (!repoPath.value) {return}
     pulling.value = true
     try {
@@ -861,7 +861,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     try {
       const res = await api.gitUnpushedCommits(repoPath.value)
       pushUnpushedCommits.value = (res as any).commits || []
-    } catch (e: any) {
+    } catch {
       pushUnpushedCommits.value = []
     }
   }
@@ -1073,7 +1073,6 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     if (!graphCanvasRef.value) {return}
     const canvas = graphCanvasRef.value
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
     const y = e.clientY - rect.top
 
     const rowHeight = 30
@@ -1226,7 +1225,7 @@ function confirmDeleteBranch(name: string) {
       pushing.value = false
     }
   }
-  function doFetchRemote(remote: string) {
+  function doFetchRemote() {
     if (!repoPath.value) {return}
     doFetch()
   }
@@ -1401,6 +1400,7 @@ function confirmDeleteBranch(name: string) {
     }
   }
   function openCompareCommitsDialog() { showCompareCommitsDialog.value = true }
+  function openCompareBranchesDialog() { showCompareBranchesDialog.value = true }
   async function doCompareCommits() {
     if (!repoPath.value || !compareCommitFrom.value || !compareCommitTo.value) {return}
     ccLoading.value = true
@@ -1674,6 +1674,9 @@ async function doGitCleanDryRun() {
     doCherryPick, doRevert, doCherryPickMulti,
     openGetFileRevisionDialog, doGetFileAtRevision, copyFileContent,
     openCompareCommitsDialog, doCompareCommits,
+    openCompareBranchesDialog,
+    openRebaseDialog, openAmendDialog, openResetDialog,
+    loadRemotes,
     doCreatePatch, selectPatchFile, doApplyPatch,
     openGitCleanDialog, doGitCleanDryRun, doGitClean,
     confirmDeleteRemoteBranch, doDeleteRemoteBranch, checkoutRemoteBranch,
