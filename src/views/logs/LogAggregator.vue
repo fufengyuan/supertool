@@ -649,7 +649,7 @@ function toggleFullscreen() {
     if (logContainer.value) {
       containerHeight.value = logContainer.value.clientHeight
       // 流式跟随模式自动吸底，否则保持当前位置
-      if (followMode.value) scrollToBottomSilent()
+      if (followMode.value) {scrollToBottomSilent()}
     }
   })
 }
@@ -661,7 +661,7 @@ function onKeydown(e: KeyboardEvent) {
     nextTick(() => {
       if (logContainer.value) {
         containerHeight.value = logContainer.value.clientHeight
-        if (followMode.value) scrollToBottomSilent()
+        if (followMode.value) {scrollToBottomSilent()}
       }
     })
   }
@@ -759,16 +759,16 @@ const fullLogHasPending = computed(() =>
 // 整体下载进度汇总（所有 session 合计）
 const fullLogDownloadProgress = computed(() => {
   const sessions = fullLogSessions.value
-  if (sessions.length === 0) return { total: 0, downloaded: 0, percent: 0, active: 0, done: 0, failed: 0 }
+  if (sessions.length === 0) {return { total: 0, downloaded: 0, percent: 0, active: 0, done: 0, failed: 0 }}
   let total = 0, downloaded = 0, done = 0, failed = 0, active = 0
   for (const s of sessions) {
     if (s.downloadTotal > 0) {
       total += s.downloadTotal
       downloaded += s.downloadDownloaded
     }
-    if (s.downloadStatus === 'done') done++
-    else if (s.downloadStatus === 'failed') failed++
-    else if (s.downloadStatus === 'downloading') active++
+    if (s.downloadStatus === 'done') {done++}
+    else if (s.downloadStatus === 'failed') {failed++}
+    else if (s.downloadStatus === 'downloading') {active++}
   }
   const percent = total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0
   return { total, downloaded, percent, active, done, failed, count: sessions.length }
@@ -846,21 +846,21 @@ const fullLogHeightPrefix = computed(() => {
 function fullLogRowAtScrollTop(): number {
   const prefix = fullLogHeightPrefix.value
   const st = fullLogScrollTop.value
-  if (prefix.length === 0) return 0
-  if (st <= 0) return 0
+  if (prefix.length === 0) {return 0}
+  if (st <= 0) {return 0}
   let lo = 0, hi = prefix.length - 1
   while (lo < hi) {
     const mid = (lo + hi) >> 1
     if (prefix[mid] <= st) { lo = mid + 1 } else { hi = mid }
   }
   // lo 是第一个 prefix[lo] > st 的位置；scrollTop 落在行 lo-1
-  if (prefix[lo] <= st) return Math.max(0, prefix.length - 2)
+  if (prefix[lo] <= st) {return Math.max(0, prefix.length - 2)}
   return Math.max(0, lo - 1)
 }
 
 // 行号 → 前缀高度（spacer 撑高用，越界钳制到总高）
 function fullLogPrefixAt(row: number): number {
-  if (row <= 0) return 0
+  if (row <= 0) {return 0}
   const prefix = fullLogHeightPrefix.value
   return prefix[Math.min(row, prefix.length - 1)] ?? 0
 }
@@ -905,7 +905,7 @@ watch(fullLogVisibleLines, () => {
   nextTick(() => {
     const container = fullLogContainer.value
     const session = fullLogActiveSession.value
-    if (!container || !session?.rowHeights) return
+    if (!container || !session?.rowHeights) {return}
     const rows = container.querySelectorAll('[data-line-no]')
     for (const r of rows) {
       const el = r as HTMLElement
@@ -934,7 +934,7 @@ function refreshVisibleLines() {
   const arr: Array<{ lineNo: number; html: string }> = []
   for (let i = start; i < end; i++) {
     const row = session.cache.get(i)
-    if (row != null) {
+    if (row !== null && row !== undefined) {
       arr.push(row)
     }
   }
@@ -944,7 +944,7 @@ function refreshVisibleLines() {
 // 检查可见区间是否在 cache 中，若不足则触发后端加载
 async function ensureVisibleRangeLoaded() {
   const session = fullLogActiveSession.value
-  if (!session || !session.localPath) return
+  if (!session || !session.localPath) {return}
   const start = fullLogVisibleStart.value
   const end = fullLogVisibleEnd.value
   const knownTotal = session.totalLines
@@ -983,7 +983,7 @@ async function ensureVisibleRangeLoaded() {
     FULL_LOG_BATCH,
     knownTotal > 0 ? knownTotal - loadStart : FULL_LOG_BATCH
   )
-  if (loadCount <= 0) return
+  if (loadCount <= 0) {return}
 
   // 防止重复加载同一区间
   if (session.lastLoadRange.start === loadStart && session.lastLoadRange.end === loadStart + loadCount) {
@@ -1036,7 +1036,7 @@ async function ensureVisibleRangeLoaded() {
 
 // 监听可见区间变化，触发按需加载
 watch([fullLogVisibleStart, fullLogVisibleEnd], () => {
-  if (!fullLogContainer.value) return
+  if (!fullLogContainer.value) {return}
   ensureVisibleRangeLoaded()
 })
 
@@ -1073,8 +1073,8 @@ function syncActiveSessionToView() {
 
 // 切换到指定 session
 function switchFullLogSession(idx: number) {
-  if (idx < 0 || idx >= fullLogSessions.value.length) return
-  if (idx === fullLogActiveIndex.value) return
+  if (idx < 0 || idx >= fullLogSessions.value.length) {return}
+  if (idx === fullLogActiveIndex.value) {return}
   // 保存当前 session 的滚动位置
   const cur = fullLogActiveSession.value
   if (cur && fullLogContainer.value) {
@@ -1088,7 +1088,7 @@ function switchFullLogSession(idx: number) {
 // 仅清空旧的匹配状态（所有 session 都清）
 watch(fullLogSearchKeyword, (newKw) => {
   const trimmed = newKw.trim()
-  if (trimmed === _fullLogCurrentKeyword) return
+  if (trimmed === _fullLogCurrentKeyword) {return}
   fullLogMatchLineNos.value = []
   fullLogCurrentMatchIndex.value = -1
   fullLogCurrentMatchLineNo.value = -1
@@ -1102,7 +1102,7 @@ watch(fullLogSearchKeyword, (newKw) => {
 // vim 式搜索：对当前激活 session 调用后端扫描全文获取匹配行号，清 cache 重新加载（带高亮）
 async function fullLogSearch() {
   const session = fullLogActiveSession.value
-  if (!session || !session.localPath) return
+  if (!session || !session.localPath) {return}
   const trimmed = fullLogSearchKeyword.value.trim()
   if (!trimmed) {
     // 清空搜索：恢复无高亮状态
@@ -1128,7 +1128,7 @@ async function fullLogSearch() {
     fullLogJumpToMatch(0)
     return
   }
-  if (_fullLogFindingMatches) return
+  if (_fullLogFindingMatches) {return}
   _fullLogFindingMatches = true
   fullLogLoadingText.value = '正在搜索匹配...'
   try {
@@ -1179,14 +1179,14 @@ async function fullLogSearch() {
 // 跳转到第 idx 个匹配（滚动到对应行，触发按需加载）
 function fullLogJumpToMatch(idx: number) {
   const session = fullLogActiveSession.value
-  if (!session) return
-  if (idx < 0 || idx >= session.matchLineNos.length) return
+  if (!session) {return}
+  if (idx < 0 || idx >= session.matchLineNos.length) {return}
   const targetLineNo = session.matchLineNos[idx]
   session.currentMatchIndex = idx
   session.currentMatchLineNo = targetLineNo
   fullLogCurrentMatchIndex.value = idx
   fullLogCurrentMatchLineNo.value = targetLineNo
-  if (!fullLogContainer.value) return
+  if (!fullLogContainer.value) {return}
 
   const container = fullLogContainer.value
 
@@ -1203,7 +1203,7 @@ function fullLogJumpToMatch(idx: number) {
     const newScrollTop = Math.max(0, elTopInContent - container.clientHeight / 2 + elRect.height / 2)
     container.scrollTop = newScrollTop
     fullLogScrollTop.value = newScrollTop
-    if (session) session.scrollTop = newScrollTop
+    if (session) {session.scrollTop = newScrollTop}
   }
 
   const doCenter = () => {
@@ -1223,7 +1223,7 @@ function fullLogJumpToMatch(idx: number) {
           ensureVisibleRangeLoaded().then(() => {
             nextTick(() => {
               const el2 = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
-              if (el2) centerElement(el2)
+              if (el2) {centerElement(el2)}
               _fullLogJumping = false
             })
           }).catch(() => { _fullLogJumping = false })
@@ -1286,14 +1286,14 @@ function fullLogJumpToMatch(idx: number) {
 
 function fullLogNextMatch() {
   const session = fullLogActiveSession.value
-  if (!session || session.matchLineNos.length === 0) return
+  if (!session || session.matchLineNos.length === 0) {return}
   const nextIdx = (session.currentMatchIndex + 1) % session.matchLineNos.length
   fullLogJumpToMatch(nextIdx)
 }
 
 function fullLogPrevMatch() {
   const session = fullLogActiveSession.value
-  if (!session || session.matchLineNos.length === 0) return
+  if (!session || session.matchLineNos.length === 0) {return}
   const prevIdx = (session.currentMatchIndex - 1 + session.matchLineNos.length) % session.matchLineNos.length
   fullLogJumpToMatch(prevIdx)
 }
@@ -1359,8 +1359,8 @@ async function viewFullRemoteLog() {
 
 // 用户选择：实时日志
 async function startRealtimeFullLog() {
-  if (fullLogEntryDialog.value) fullLogEntryDialog.value.close()
-  if (!selectedPreset.value) return
+  if (fullLogEntryDialog.value) {fullLogEntryDialog.value.close()}
+  if (!selectedPreset.value) {return}
   const paths = selectedPreset.value.logPath.split('\n').map((p: string) => p.trim()).filter(Boolean)
   if (paths.length === 0) {
     toast.warning('日志路径为空')
@@ -1373,15 +1373,15 @@ async function startRealtimeFullLog() {
 
 // 用户选择：历史日志 -> 打开文件选择器
 async function startHistoricalFullLog() {
-  if (fullLogEntryDialog.value) fullLogEntryDialog.value.close()
+  if (fullLogEntryDialog.value) {fullLogEntryDialog.value.close()}
   await openFilePickerForFirstServer()
 }
 
 // 取得预设 logPath 的父目录，用作文件选择器初始路径
 function getParentDir(path: string): string {
-  if (!path) return '/'
+  if (!path) {return '/'}
   const idx = path.lastIndexOf('/')
-  if (idx <= 0) return '/'
+  if (idx <= 0) {return '/'}
   return path.substring(0, idx)
 }
 
@@ -1411,7 +1411,7 @@ async function openFilePickerForFirstServer() {
 
 // 加载目录列表
 async function filePickerLoadDir(path: string) {
-  if (!filePickerServerId.value) return
+  if (!filePickerServerId.value) {return}
   filePickerLoading.value = true
   filePickerError.value = ''
   try {
@@ -1429,8 +1429,8 @@ async function filePickerLoadDir(path: string) {
           isGz: f.name.toLowerCase().endsWith('.gz'),
         }))
         .sort((a: RemoteFileEntry, b: RemoteFileEntry) => {
-          if (a.isDir && !b.isDir) return -1
-          if (!a.isDir && b.isDir) return 1
+          if (a.isDir && !b.isDir) {return -1}
+          if (!a.isDir && b.isDir) {return 1}
           return a.name.localeCompare(b.name)
         })
       filePickerFiles.value = entries
@@ -1450,14 +1450,14 @@ async function filePickerLoadDir(path: string) {
 
 // 进入子目录
 function filePickerEnterDir(entry: RemoteFileEntry) {
-  if (!entry.isDir) return
+  if (!entry.isDir) {return}
   filePickerPathStack.value.push(filePickerCurrentPath.value)
   filePickerLoadDir(entry.path)
 }
 
 // 返回上一级
 function filePickerGoUp() {
-  if (filePickerPathStack.value.length === 0) return
+  if (filePickerPathStack.value.length === 0) {return}
   const prev = filePickerPathStack.value.pop()!
   filePickerLoadDir(prev)
 }
@@ -1465,14 +1465,14 @@ function filePickerGoUp() {
 // 按输入框路径加载
 function filePickerLoadFromInput() {
   const p = filePickerPathInput.value.trim()
-  if (!p || p === filePickerCurrentPath.value) return
+  if (!p || p === filePickerCurrentPath.value) {return}
   filePickerPathStack.value.push(filePickerCurrentPath.value)
   filePickerLoadDir(p)
 }
 
 // 切换文件选中状态
 function filePickerToggleSelect(entry: RemoteFileEntry) {
-  if (entry.isDir) return
+  if (entry.isDir) {return}
   const idx = filePickerSelected.value.findIndex(f => f.path === entry.path)
   if (idx >= 0) {
     filePickerSelected.value.splice(idx, 1)
@@ -1487,7 +1487,7 @@ function isFilePickerSelected(entry: RemoteFileEntry): boolean {
 
 // 取消文件选择
 function cancelFilePicker() {
-  if (fullLogFilePickerDialog.value) fullLogFilePickerDialog.value.close()
+  if (fullLogFilePickerDialog.value) {fullLogFilePickerDialog.value.close()}
   filePickerFiles.value = []
   filePickerSelected.value = []
   filePickerError.value = ''
@@ -1500,7 +1500,7 @@ async function confirmFilePickerSelection() {
     return
   }
   const selectedFiles = [...filePickerSelected.value]
-  if (fullLogFilePickerDialog.value) fullLogFilePickerDialog.value.close()
+  if (fullLogFilePickerDialog.value) {fullLogFilePickerDialog.value.close()}
   await downloadAndShowLogs(selectedFiles, true)
 }
 
@@ -1594,7 +1594,7 @@ async function preloadFullLogSession(s: FullLogSession) {
 // 通用：根据所选文件 + 所有服务器节点创建 session，并行下载并展示
 // isHistorical=true 时按"每 (server, file) 一个 session"展开；isHistorical=false 时 fileName 来自预设单个 logPath
 async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boolean) {
-  if (!selectedPreset.value?.serverIds?.length) return
+  if (!selectedPreset.value?.serverIds?.length) {return}
   const serverIds = selectedPreset.value.serverIds
   const downloadsDir = await getTauriAPI().getDownloadsDir()
   const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
@@ -1608,7 +1608,7 @@ async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boole
   for (const file of expandFiles) {
     for (const serverId of serverIds) {
       const server = allServers.value.find(s => s.id === serverId)
-      if (!server) continue
+      if (!server) {continue}
       const localPath = `${downloadsDir}${sep}${server.name}_${timestamp}_${file.name}`
       sessions.push({
         serverId,
@@ -1664,12 +1664,12 @@ async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boole
   }
   try {
     _downloadProgressUnlisten = await getTauriAPI().onSftpDownloadProgress((payload) => {
-      if (gen !== _fullLogGen) return
+      if (gen !== _fullLogGen) {return}
       const s = sessions.find(s => s.downloadId === payload.downloadId)
-      if (!s) return
+      if (!s) {return}
       s.downloadDownloaded = payload.downloaded
       s.downloadTotal = payload.total
-      if (s.downloadStatus === 'pending') s.downloadStatus = 'downloading'
+      if (s.downloadStatus === 'pending') {s.downloadStatus = 'downloading'}
       fullLogSessions.value = [...sessions]
     })
   } catch (e) {
@@ -1751,8 +1751,8 @@ async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boole
   }
   const shown = fullLogSessions.value[fullLogActiveIndex.value]
   let msg = `已加载 ${okCount} 个文件`
-  if (shown && shown.totalLines > 0) msg += `，当前：${shown.serverName} · ${shown.fileName}（${shown.totalLines} 行）`
-  if (failCount > 0) msg += `，${failCount} 个文件下载失败`
+  if (shown && shown.totalLines > 0) {msg += `，当前：${shown.serverName} · ${shown.fileName}（${shown.totalLines} 行）`}
+  if (failCount > 0) {msg += `，${failCount} 个文件下载失败`}
   toast.success(msg)
 }
 
@@ -1850,10 +1850,10 @@ let colorIndex = 0
 
 // 格式化字节数为人类可读字符串
 function formatBytes(bytes: number): string {
-  if (!bytes || bytes <= 0) return '0 B'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+  if (!bytes || bytes <= 0) {return '0 B'}
+  if (bytes < 1024) {return `${bytes} B`}
+  if (bytes < 1024 * 1024) {return `${(bytes / 1024).toFixed(1)} KB`}
+  if (bytes < 1024 * 1024 * 1024) {return `${(bytes / (1024 * 1024)).toFixed(2)} MB`}
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
@@ -1924,11 +1924,11 @@ const _LEVEL_PATTERNS: Array<{ level: string; re: RegExp }> = [
   { level: 'debug', re: /\bDEBUG\b/ },
 ]
 function detectLevel(content: string): string {
-  if (!content) return 'info'
+  if (!content) {return 'info'}
   // 仅扫前 200 字符够用，避免长行全文扫描
   const head = content.length > 200 ? content.slice(0, 200).toUpperCase() : content.toUpperCase()
   for (const p of _LEVEL_PATTERNS) {
-    if (p.re.test(head)) return p.level
+    if (p.re.test(head)) {return p.level}
   }
   return 'info'
 }
@@ -1940,7 +1940,7 @@ const _TS_REGEX = /^(?:(\d{4})[-/](\d{2})[-/](\d{2})[T ](\d{2}):(\d{2}):(\d{2})(
 function parseLogTimestamp(content: string): number | null {
   // 只检查行首 40 个字符（时间戳通常在行首）
   const m = _TS_REGEX.exec(content)
-  if (!m) return null
+  if (!m) {return null}
 
   // 分支1: 完整日期时间
   if (m[1]) {
@@ -2015,7 +2015,7 @@ const displayLines = computed(() => {
 // 当前可选的节点列表（从预设配置 + 实际收到日志的节点合并）
 const availableServers = computed(() => {
   const preset = selectedPreset.value
-  if (!preset?.serverIds?.length) return []
+  if (!preset?.serverIds?.length) {return []}
   const presetServers = preset.serverIds.map((sid: string) => {
     const s = allServers.value.find(srv => srv.id === sid)
     return { id: sid, name: s?.name || sid, online: activeServers.value.has(sid) }
@@ -2035,7 +2035,7 @@ watch(selectedServerFilter, () => {
   // 流式模式：切换节点后内容量可能骤变，若在跟随模式则自动吸底，否则保持当前位置
   if (queryMode.value === 'stream' && followMode.value && logContainer.value) {
     nextTick(() => {
-      if (followMode.value) scrollToBottomSilent()
+      if (followMode.value) {scrollToBottomSilent()}
     })
   }
 })
@@ -2284,7 +2284,7 @@ function scheduleFlush() {
     // 批量更新 activeServers，避免循环内多次响应式触发
     if (seenServerIds.size > 0) {
       const merged = new Set(activeServers.value)
-      for (const id of seenServerIds) merged.add(id)
+      for (const id of seenServerIds) {merged.add(id)}
       activeServers.value = merged
     }
 
@@ -2376,7 +2376,7 @@ function scrollToBottomSilent() {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       scrollingFromRAFCount--
-      if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
+      if (scrollingFromRAFCount < 0) {scrollingFromRAFCount = 0}
     })
   })
 }
@@ -2401,7 +2401,7 @@ function updateMatchIndices() {
 }
 
 function scrollToLineIndex(idx: number) {
-  if (!logContainer.value) return
+  if (!logContainer.value) {return}
   // 搜索模式全量渲染：用真实 DOM 位置精确居中目标行（行高真实可变，idx*估算行高会累积错位）
   if (queryMode.value === 'search') {
     const container = logContainer.value
@@ -2417,7 +2417,7 @@ function scrollToLineIndex(idx: number) {
       scrollTop.value = container.scrollTop
       requestAnimationFrame(() => { requestAnimationFrame(() => {
         scrollingFromRAFCount--
-        if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
+        if (scrollingFromRAFCount < 0) {scrollingFromRAFCount = 0}
       }) })
     }
     return
@@ -2433,13 +2433,13 @@ function scrollToLineIndex(idx: number) {
     // 用双层 rAF 等浏览器派发完 scroll 事件再放行 onScroll
     requestAnimationFrame(() => { requestAnimationFrame(() => {
       scrollingFromRAFCount--
-      if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
+      if (scrollingFromRAFCount < 0) {scrollingFromRAFCount = 0}
     }) })
   }
 }
 
 function nextMatch() {
-  if (matchIndices.value.length === 0) return
+  if (matchIndices.value.length === 0) {return}
   const next = (currentMatchIndex.value + 1) % matchIndices.value.length
   currentMatchIndex.value = next
   const idx = matchIndices.value[next]
@@ -2448,7 +2448,7 @@ function nextMatch() {
 }
 
 function prevMatch() {
-  if (matchIndices.value.length === 0) return
+  if (matchIndices.value.length === 0) {return}
   const prev = (currentMatchIndex.value - 1 + matchIndices.value.length) % matchIndices.value.length
   currentMatchIndex.value = prev
   const idx = matchIndices.value[prev]
@@ -2461,8 +2461,8 @@ function prevMatch() {
 let _loadMoreCooldownUntil = 0
 // TODO: Requires backend logs_load_more Tauri command. For now, gracefully degrades.
 async function loadMoreHistory() {
-  if (queryMode.value !== 'stream' || !selectedPreset.value || !streamId.value || loadingMore.value) return
-  if (Date.now() < _loadMoreCooldownUntil) return
+  if (queryMode.value !== 'stream' || !selectedPreset.value || !streamId.value || loadingMore.value) {return}
+  if (Date.now() < _loadMoreCooldownUntil) {return}
   // 用户主动查看历史：退出自动吸底，避免后续实时追加把视图拉回底部
   followMode.value = false
   loadingMore.value = true
@@ -2496,11 +2496,11 @@ async function loadMoreHistory() {
       let addedCount = 0
       let dupCount = 0
       for (const serverResult of result.results) {
-        if (!serverResult.lines || serverResult.lines.length === 0) continue
+        if (!serverResult.lines || serverResult.lines.length === 0) {continue}
         // 服务器返回顺序假设是"由新到旧"，倒序插入让最早的在最前
         for (let i = serverResult.lines.length - 1; i >= 0; i--) {
           const content = serverResult.lines[i]
-          if (!content) continue
+          if (!content) {continue}
           const dedupKey = `${serverResult.serverId}|${content}`
           if (existingKeys.has(dedupKey)) { dupCount++; continue }
           existingKeys.add(dedupKey)
@@ -2535,7 +2535,7 @@ async function loadMoreHistory() {
           // 双层 rAF 重置标志，等浏览器派发完 scroll 事件
           requestAnimationFrame(() => { requestAnimationFrame(() => {
             scrollingFromRAFCount--
-            if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
+            if (scrollingFromRAFCount < 0) {scrollingFromRAFCount = 0}
           }) })
         }
         // 设置 2 秒冷却，避免连续触发
@@ -2801,8 +2801,8 @@ onMounted(async () => {
     if (e.key === 'n' || e.key === 'N') {
       // 在输入框/文本域/contenteditable 中敲 n 是输入，不触发跳转
       const t = e.target as HTMLElement | null
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
-      if (queryMode.value !== 'search' || matchIndices.value.length === 0) return
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {return}
+      if (queryMode.value !== 'search' || matchIndices.value.length === 0) {return}
       e.preventDefault()
       if (e.shiftKey) {
         prevMatch()
