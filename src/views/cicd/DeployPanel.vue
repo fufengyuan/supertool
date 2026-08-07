@@ -1036,12 +1036,18 @@ async function rollbackDeploy(log: DeployLog) {
   // Check if config requires approval
   if (config.value?.requiresApproval) {
     const proceed = confirm(
-      `⚠️ 审核确认\\\\n\\\\n配置「${config.value.name || getGitRepoName(config.value.gitRepoId)}」已开启部署审核。\\\\n\\\\n请确认你要回滚到 ${formatDate(log.createdAt)} 的版本，是否继续？`
+      `⚠️ 审核确认
+
+配置「${config.value.name || getGitRepoName(config.value.gitRepoId)}」已开启部署审核。
+
+请确认你要回滚到 ${formatDate(log.createdAt)} 的版本，是否继续？`
     );
     if (!proceed) {return;}
   } else {
     const confirmed = confirm(
-      `确定要回滚到 ${formatDate(log.createdAt)} 的部署版本吗？\\n\\n此操作将把服务器恢复到该版本。`
+      `确定要回滚到 ${formatDate(log.createdAt)} 的部署版本吗？
+
+此操作将把服务器恢复到该版本。`
     );
     if (!confirmed) {return;}
   }
