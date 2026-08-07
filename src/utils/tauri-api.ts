@@ -1941,6 +1941,7 @@ export interface TauriAPI {
   gitDiscardChanges: (repoPath: string, file: string) => Promise<any>
   gitStashSave: (repoPath: string, message?: string, includeUntracked?: boolean, keepIndex?: boolean) => Promise<any>
   gitStashList: (repoPath: string) => Promise<any>
+  gitStashShow: (repoPath: string, stashRef?: string) => Promise<any>
   gitStashApply: (repoPath: string, stashRef?: string) => Promise<any>
   gitStashPop: (repoPath: string, stashRef?: string) => Promise<any>
   gitStashDrop: (repoPath: string, stashRef?: string) => Promise<any>
@@ -2663,6 +2664,7 @@ export function getTauriAPI(): TauriAPI {
     gitStashSave: async (repoPath: string, message?: string, includeUntracked?: boolean, keepIndex?: boolean) => 
       tauriCall('git_stash_save', { repoPath, message, includeUntracked, keepIndex }),
     gitStashList: async (repoPath: string) => tauriCall('git_stash_list', { repoPath }),
+    gitStashShow: async (repoPath: string, stashRef?: string) => tauriCall('git_stash_show', { repoPath, stashRef }),
     gitStashApply: async (repoPath: string, stashRef?: string) => tauriCall('git_stash_apply', { repoPath, stashRef }),
     gitStashPop: async (repoPath: string, stashRef?: string) => tauriCall('git_stash_pop', { repoPath, stashRef }),
     gitStashDrop: async (repoPath: string, stashRef?: string) => tauriCall('git_stash_drop', { repoPath, stashRef }),

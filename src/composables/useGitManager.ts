@@ -136,7 +136,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   const graphCanvasRef = ref<HTMLCanvasElement | null>(null)
 
   // Console 状态
-  const consoleHistory = ref<string[]>([])
+  const consoleHistory = ref<{ command: string; output: string; isError: boolean }[]>([])
   const consoleInput = ref('')
   const consoleInputRef = ref<HTMLInputElement | null>(null)
   const consoleOutputRef = ref<HTMLDivElement | null>(null)
@@ -1092,17 +1092,24 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   async function execConsoleCommand() {
     if (!repoPath.value || !consoleInput.value.trim()) {return}
     const cmd = consoleInput.value.trim()
-    consoleHistory.value.push(`> ${cmd}`)
+    // 按对象结构记录（模板渲染 line.command / line.output / line.isError），字符串会导致渲染空白
+    consoleHistory.value.push({ command: cmd, output: '', isError: false })
     consoleInputHistory.value.unshift(cmd)
     consoleHistoryIndex.value = -1
 
     try {
-      // 使用 git 命令执行
       const res = await api.gitRawCommand(repoPath.value, cmd.split(' '))
       const output = typeof res === 'string' ? res : JSON.stringify(res, null, 2)
-      consoleHistory.value.push(output)
+      const last = consoleHistory.value[consoleHistory.value.length - 1]
+      if (last && last.command === cmd) {
+        last.output = output
+      }
     } catch (e: any) {
-      consoleHistory.value.push(`Error: ${e.message}`)
+      const last = consoleHistory.value[consoleHistory.value.length - 1]
+      if (last) {
+        last.isError = true
+        last.output = e.message
+      }
     }
 
     consoleInput.value = ''
@@ -1137,7 +1144,18 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   if (Array.isArray(refs)) {return refs}
   return refs?.split(',').map(r => r.trim()).filter(Boolean) || []
 }
-  function selectStash(stash: any) { selectedStash.value = stash }
+  async function selectStash(stash: any) {
+    selectedStash.value = stash
+    // 自动加载 stash diff 预览（原来 selectStash 只存对象，stashShowContent 永远空白）
+    if (!repoPath.value || !stash) { return }
+    stashShowContent.value = '加载中...'
+    try {
+      const res = await api.gitStashShow(repoPath.value, stash.ref)
+      stashShowContent.value = res?.content || '(无内容)'
+    } catch (e: any) {
+      stashShowContent.value = '加载失败: ' + e.message
+    }
+  }
   function showStashContextMenu(event: MouseEvent, stash: any) {
     event.preventDefault()
     stashContextMenu.value = { show: true, x: event.clientX, y: event.clientY, stash }

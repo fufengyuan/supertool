@@ -741,6 +741,7 @@ fn main() {
             // Git Stash 操作
             commands::git::git_stash_save,
             commands::git::git_stash_list,
+            commands::git::git_stash_show,
             commands::git::git_stash_apply,
             commands::git::git_stash_pop,
             commands::git::git_stash_drop,

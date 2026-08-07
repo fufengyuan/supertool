@@ -12,15 +12,15 @@
     <div class="stash-list">
       <div
         v-for="stash in stashList"
-        :key="stash.name"
+        :key="stash.ref || stash.hash"
         class="stash-item"
-        :class="{ selected: selectedStash?.name === stash.name }"
+        :class="{ selected: selectedStash?.ref === stash.ref }"
         @click="$emit('select-stash', stash)"
         @contextmenu.prevent="$emit('stash-context-menu', { event: $event, stash })"
       >
         <SvgIcon name="archive" size="14" />
-        <span class="stash-name">{{ stash.name }}</span>
-        <span class="stash-desc" :title="stash.description">{{ stash.description }}</span>
+        <span class="stash-name">{{ stash.ref || stash.hash?.substring(0, 7) }}</span>
+        <span class="stash-desc" :title="stash.message">{{ stash.message }}</span>
       </div>
       <div v-if="stashList.length === 0 && !loading" class="stash-empty">
         <p>没有暂存记录</p>
