@@ -1,12 +1,15 @@
 <template>
-  <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="lock" size="14" class="align-text-bottom" /> 加密/解密</h3>
-
-    <!-- Algorithm & Mode Selection -->
-    <div class="flex gap-2.5 mb-3 flex-wrap items-center">
-      <div>
-        <label class="text-xs font-medium text-base-content/60 mb-1 block">算法</label>
-        <select v-model="algorithm" class="select select-bordered select-sm" @change="onAlgorithmChange">
+  <ToolPage
+    icon="key"
+    name="加密/解密"
+    description="AES / DES / TripleDES / RC4 / Rabbit / SM4 / SM2 / RSA 加解密，支持密钥生成"
+    @back="$emit('back')"
+  >
+    <!-- 算法与模式 -->
+    <div class="flex flex-wrap items-end gap-3 bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <div class="min-w-[220px] flex-1">
+        <span class="text-[11px] font-medium text-base-content/50 mb-1 block">算法</span>
+        <select v-model="algorithm" class="select select-bordered select-sm w-full bg-base-200/60" @change="onAlgorithmChange">
           <option value="AES">AES (对称, 128/192/256 bit)</option>
           <option value="DES">DES (对称, 64 bit)</option>
           <option value="TripleDES">TripleDES (对称, 192 bit)</option>
@@ -18,109 +21,102 @@
         </select>
       </div>
       <div>
-        <label class="text-xs font-medium text-base-content/60 mb-1 block">模式</label>
-        <div class="tool-btn-group">
-          <button
-            class="btn btn-ghost btn-sm"
-            :class="{ active: mode === 'encrypt' }"
-            @click="mode = 'encrypt'"
-          >加密</button>
-          <button
-            class="btn btn-ghost btn-sm"
-            :class="{ active: mode === 'decrypt' }"
-            @click="mode = 'decrypt'"
-          >解密</button>
+        <span class="text-[11px] font-medium text-base-content/50 mb-1 block">模式</span>
+        <div class="join">
+          <button class="btn btn-sm join-item" :class="mode === 'encrypt' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'encrypt'">加密</button>
+          <button class="btn btn-sm join-item" :class="mode === 'decrypt' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'decrypt'">解密</button>
         </div>
       </div>
     </div>
 
-    <!-- Symmetric Key & IV -->
+    <!-- 对称密钥 -->
     <template v-if="!isAsymmetric">
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center">
-        <div style="flex: 1;">
-          <label class="text-xs font-medium text-base-content/60 mb-1 block">密钥 (Key) <span class="key-hint">{{ keyHint }}</span></label>
-          <div style="display: flex; gap: 6px;">
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 flex flex-col gap-3">
+        <div>
+          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">密钥 (Key) <span class="text-base-content/30">{{ keyHint }}</span></span>
+          <div class="flex gap-2">
             <input
               v-model="key"
-              class="input input-bordered w-full font-mono text-xs"
+              class="input input-bordered input-sm w-full font-mono text-xs bg-base-200/60"
               type="text"
               :placeholder="keyPlaceholder"
-              style="flex: 1;"
             />
-            <button class="btn btn-ghost btn-sm" @click="generateKey" title="生成随机密钥">🎲 生成</button>
+            <button class="btn btn-outline btn-sm" @click="generateKey" title="生成随机密钥">🎲 生成</button>
           </div>
         </div>
-        <div v-if="showIV" style="flex: 1;">
-          <label class="text-xs font-medium text-base-content/60 mb-1 block">初始向量 (IV) <span class="key-hint">16 字节 (32 hex)</span></label>
-          <div style="display: flex; gap: 6px;">
+        <div v-if="showIV">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">初始向量 (IV) <span class="text-base-content/30">16 字节 (32 hex)</span></span>
+          <div class="flex gap-2">
             <input
               v-model="iv"
-              class="input input-bordered w-full font-mono text-xs"
+              class="input input-bordered input-sm w-full font-mono text-xs bg-base-200/60"
               type="text"
               placeholder="hex 格式，留空自动生成"
-              style="flex: 1;"
             />
-            <button class="btn btn-ghost btn-sm" @click="generateIV" title="生成随机 IV">🎲 生成</button>
+            <button class="btn btn-outline btn-sm" @click="generateIV" title="生成随机 IV">🎲 生成</button>
           </div>
         </div>
       </div>
     </template>
 
-    <!-- Asymmetric (SM2/RSA) Keys -->
+    <!-- 非对称密钥 -->
     <template v-if="isAsymmetric">
-      <div class="tool-row sm2-keys">
-        <div style="flex: 1;">
-          <label class="text-xs font-medium text-base-content/60 mb-1 block">公钥 (Public Key) <span class="key-hint">用于加密</span></label>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">公钥 (Public Key) <span class="text-base-content/30">用于加密</span></span>
           <textarea
             v-model="asymmetricPublicKey"
-            class="tool-textarea mono"
+            class="textarea textarea-bordered w-full font-mono text-xs bg-base-200/60 min-h-[100px] resize-none"
             :placeholder="mode === 'encrypt' ? '输入或生成公钥...' : '加密后的数据'"
-            rows="4"
           ></textarea>
-          <button class="btn btn-ghost btn-sm" @click="generateAsymmetricKeys" style="margin-top: 6px">🎲 生成密钥对</button>
+          <button class="btn btn-outline btn-sm mt-2" @click="generateAsymmetricKeys">🎲 生成密钥对</button>
         </div>
-        <div style="flex: 1;">
-          <label class="text-xs font-medium text-base-content/60 mb-1 block">私钥 (Private Key) <span class="key-hint">用于解密</span></label>
+        <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">私钥 (Private Key) <span class="text-base-content/30">用于解密</span></span>
           <textarea
             v-model="asymmetricPrivateKey"
-            class="tool-textarea mono"
+            class="textarea textarea-bordered w-full font-mono text-xs bg-base-200/60 min-h-[100px] resize-none"
             :placeholder="mode === 'decrypt' ? '输入或生成私钥...' : '留空（加密不需要私钥）'"
-            rows="4"
           ></textarea>
-          <button class="btn btn-ghost btn-sm" @click="copyAsymmetricKeys" style="margin-top: 6px" v-if="asymmetricPublicKey && asymmetricPrivateKey"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 复制密钥对</button>
+          <button class="btn btn-outline btn-sm mt-2" @click="copyAsymmetricKeys" v-if="asymmetricPublicKey && asymmetricPrivateKey"><SvgIcon name="copy" size="12" /> 复制密钥对</button>
         </div>
       </div>
     </template>
 
-    <!-- Input -->
-    <div class="mb-5">
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">输入</label>
-      <textarea
-        v-model="inputText"
-        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
-        :placeholder="mode === 'encrypt' ? '输入要加密的文本...' : '输入要解密的文本（hex/C1C3C2 格式）...'"
-      ></textarea>
+    <!-- 输入输出 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[200px]">
+        <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="arrowDown" size="12" /> 输入</h4>
+        <textarea
+          v-model="inputText"
+          class="textarea textarea-bordered w-full min-h-[110px] font-mono text-xs flex-1 resize-none bg-base-200/60"
+          :placeholder="mode === 'encrypt' ? '输入要加密的文本...' : '输入要解密的文本（hex/C1C3C2 格式）...'"
+        ></textarea>
+      </div>
+      <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[200px]">
+        <div class="flex items-center justify-between mb-2.5">
+          <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="arrowUp" size="12" /> 输出</h4>
+          <div class="flex gap-1.5">
+            <button class="btn btn-primary btn-xs" @click="copyResult" :disabled="!outputText"><SvgIcon name="copy" size="11" /> 复制</button>
+            <button class="btn btn-ghost btn-xs" @click="clearAll" :disabled="!inputText && !outputText">清空</button>
+          </div>
+        </div>
+        <div class="flex-1 p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[220px] overflow-y-auto min-h-[80px]">{{ outputText || '结果将显示在这里...' }}</div>
+      </div>
     </div>
 
-    <!-- Action Buttons -->
-    <div class="flex gap-2.5 mb-3 flex-wrap items-center">
-      <button class="btn btn-primary btn-sm" @click="process">
+    <!-- 操作 -->
+    <div class="flex gap-2 bg-base-100 border border-base-content/10 rounded-xl px-4 py-3">
+      <button class="btn btn-primary btn-sm flex-1 max-w-[160px]" @click="process">
         {{ mode === 'encrypt' ? '加密' : '解密' }}
       </button>
-      <button class="btn btn-ghost btn-sm" @click="copyResult">复制结果</button>
-      <button class="btn btn-ghost btn-sm" @click="clearAll">清空</button>
     </div>
-
-    <!-- Output -->
-    <div class="mb-5">
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">输出</label>
-      <div class="mt-2.5 p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">{{ outputText || '结果将显示在这里...' }}</div>
-    </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
+import ToolPage from '../components/ToolPage.vue'
 import { ref, computed } from 'vue'
 import CryptoJS from 'crypto-js'
 import { SM4 } from 'gm-crypto'
@@ -128,6 +124,8 @@ import { sm2 } from 'sm-crypto'
 import JSEncrypt from 'jsencrypt'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 
