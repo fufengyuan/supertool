@@ -47,7 +47,7 @@ function emitted(
 function lastValue(
   events: unknown[][] | undefined
 ): number {
-  if (!events || events.length === 0) return NaN
+  if (!events || events.length === 0) {return NaN}
   return events[events.length - 1][0] as number
 }
 
@@ -283,8 +283,8 @@ describe('CropOverlay.vue', () => {
     const cropH = lastValue(e['update:cropH'])
 
     // Should not exceed the natural image dimensions
-    if (!isNaN(cropW)) expect(cropW).toBeLessThanOrEqual(800)
-    if (!isNaN(cropH)) expect(cropH).toBeLessThanOrEqual(600)
+    if (!isNaN(cropW)) {expect(cropW).toBeLessThanOrEqual(800)}
+    if (!isNaN(cropH)) {expect(cropH).toBeLessThanOrEqual(600)}
   })
 
   // ── Minimum size enforcement ─────────────────────────────────────────────

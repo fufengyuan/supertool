@@ -253,7 +253,6 @@ describe('calculatorLogic', () => {
     })
 
     it('should clear state', () => {
-      const state1 = inputNumber(createInitialState(), '5')
       const cleared = clear()
       expect(cleared.display).toBe('0')
       expect(cleared.currentNumber).toBe('')

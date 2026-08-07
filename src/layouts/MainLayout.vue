@@ -355,7 +355,7 @@ onMounted(async () => {
       'sessions': '/terminal',
     }
     const path = routeMap[view]
-    if (path) router.push(path)
+    if (path) {router.push(path)}
   }).catch(() => () => {})
   unlistenFns.push(unlistenNav as () => void)
 })

@@ -15,9 +15,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 }))
 
 import { invoke } from '@tauri-apps/api/core'
-import { open } from '@tauri-apps/plugin-dialog'
 const mockedInvoke = vi.mocked(invoke)
-const mockedOpen = vi.mocked(open)
 
 // Stub SvgIcon
 vi.mock('@/components/ui/SvgIcon.vue', () => ({

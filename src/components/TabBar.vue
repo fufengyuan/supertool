@@ -62,7 +62,7 @@ const iconMap: Record<string, any> = {
 }
 
 function onTabClick(tab: Tab) {
-  if (tab.id === tabStore.activeTabId) return
+  if (tab.id === tabStore.activeTabId) {return}
   tabStore.activate(tab.id)
   if (route.fullPath !== tab.currentPath) {
     router.push(tab.currentPath)

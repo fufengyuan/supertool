@@ -13,7 +13,7 @@ export const useLanStore = defineStore('lan', () => {
   let initCalled = false
 
   async function init() {
-    if (initCalled) return
+    if (initCalled) {return}
     initCalled = true
 
     // Load initial unread counts from backend (requires userId, fail silently if not ready)
@@ -32,7 +32,7 @@ export const useLanStore = defineStore('lan', () => {
 
     // Bump unread count for incoming text messages
     cleanupFns.push(await getTauriAPI().lanOnMessage((data: any) => {
-      if (!data || !data.from) return
+      if (!data || !data.from) {return}
       const senderId = data.from
       const senderName = data.fromName || data.name || data.userName || senderId
       peerNameMap.value[senderId] = senderName
@@ -47,7 +47,7 @@ export const useLanStore = defineStore('lan', () => {
 
     // Bump unread count for incoming file messages (so user sees the badge even if chat is closed)
     cleanupFns.push(await getTauriAPI().lanOnFileReceived((data: any) => {
-      if (!data || !data.fromUserId) return
+      if (!data || !data.fromUserId) {return}
       const senderId = data.fromUserId
       const senderName = data.fromUserName || senderId
       peerNameMap.value[senderId] = senderName

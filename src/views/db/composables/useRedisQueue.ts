@@ -29,29 +29,6 @@ interface StreamMessage {
   showRaw: boolean
 }
 
-interface StreamItem {
-  name: string
-  length: number
-  groups: number
-  pendingCount: number
-}
-
-interface StreamGroup {
-  name: string
-  pending: number
-  consumers: number
-  'lastDeliveredId': string
-}
-
-interface StreamInfoResponse {
-  length: number
-  radixTreeKeys: number
-  radixTreeNodes: number
-  'last-generated-id': string
-  'first-entry'?: { id: string; fields: Record<string, string> } | null
-  'last-entry'?: { id: string; fields: Record<string, string> } | null
-}
-
 interface ZSetEntry {
   value: string
   score: number

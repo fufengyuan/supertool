@@ -358,9 +358,9 @@ const resizeSource = ref<'dimensions' | 'percent'>('dimensions')
 const updatingResize = ref(false)
 
 function onResizeWidthInput(e: Event) {
-  if (updatingResize.value) return
+  if (updatingResize.value) {return}
   const val = Number((e.target as HTMLInputElement).value)
-  if (isNaN(val) || val < 0) return
+  if (isNaN(val) || val < 0) {return}
   updatingResize.value = true
   resizeSource.value = 'dimensions'
   resizeWidth.value = val
@@ -374,9 +374,9 @@ function onResizeWidthInput(e: Event) {
 }
 
 function onResizeHeightInput(e: Event) {
-  if (updatingResize.value) return
+  if (updatingResize.value) {return}
   const val = Number((e.target as HTMLInputElement).value)
-  if (isNaN(val) || val < 0) return
+  if (isNaN(val) || val < 0) {return}
   updatingResize.value = true
   resizeSource.value = 'dimensions'
   resizeHeight.value = val
@@ -390,9 +390,9 @@ function onResizeHeightInput(e: Event) {
 }
 
 function onPercentInput(e: Event) {
-  if (updatingResize.value) return
+  if (updatingResize.value) {return}
   const val = Number((e.target as HTMLInputElement).value)
-  if (isNaN(val) || val < 0) return
+  if (isNaN(val) || val < 0) {return}
   updatingResize.value = true
   resizeSource.value = 'percent'
   percent.value = val

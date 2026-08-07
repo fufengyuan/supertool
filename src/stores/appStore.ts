@@ -2,7 +2,6 @@
 import { getTauriAPI } from '../utils/tauri-api'
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { useI18n } from 'vue-i18n';
 import { useErrorHandler } from '../composables/useErrorHandler';
 import type { ViewMode } from '../types';
 import { getSetting, setSetting } from '../services/database';

@@ -138,16 +138,6 @@ function consume(ctx: ParseContext): Token {
   return tok
 }
 
-/** Consume and return any pending comment token */
-function consumeComment(ctx: ParseContext): string | undefined {
-  const tok = peek(ctx)
-  if (tok.type === 'comment') {
-    consume(ctx)
-    return tok.value
-  }
-  return undefined
-}
-
 /** Collect all consecutive comments and return them joined */
 function consumeAllComments(ctx: ParseContext): string | undefined {
   const comments: string[] = []
@@ -235,13 +225,12 @@ function parseBlock(ctx: ParseContext): NginxBlock | null {
           }
         }
         // Try to parse as block first, then directive (both handle leading comments internally)
-        const savedPos = ctx.pos
         const block = parseBlock(ctx)
         if (block) {
           blocks.push(block)
         } else {
           const savedPos2 = ctx.pos
-          const { directive, commentBefore: dirComment } = parseDirective(ctx)
+          const { directive } = parseDirective(ctx)
           if (directive) {
             directives.push(directive)
           } else if (ctx.pos === savedPos2) {

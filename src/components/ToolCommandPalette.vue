@@ -151,7 +151,7 @@ function close(): void {
 
 function navigate(direction: number): void {
   const max = allResults.value.length
-  if (max === 0) return
+  if (max === 0) {return}
   selectedIndex.value = (selectedIndex.value + direction + max) % max
 }
 

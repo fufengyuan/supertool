@@ -100,16 +100,16 @@ export function useDevTools() {
    * 支持拼音首字母匹配（keywords 字段已包含拼音首字母）
    */
   function searchTools(query: string): DevTool[] {
-    if (!query.trim()) return DEV_TOOL_REGISTRY
+    if (!query.trim()) {return DEV_TOOL_REGISTRY}
     const q = query.toLowerCase().trim()
     return DEV_TOOL_REGISTRY.filter(t => {
       const name = t.name.toLowerCase()
       const desc = t.description.toLowerCase()
       const kw = t.keywords.toLowerCase()
       // 模糊匹配：query 的每个字符按顺序出现即可
-      if (name.includes(q) || desc.includes(q) || kw.includes(q)) return true
+      if (name.includes(q) || desc.includes(q) || kw.includes(q)) {return true}
       // 拼音首字母模糊匹配（如 "zz" 匹配 keywords 中的 "zzbb"）
-      if (kw.split(' ').some(k => k.startsWith(q))) return true
+      if (kw.split(' ').some(k => k.startsWith(q))) {return true}
       return false
     })
   }

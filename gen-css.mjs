@@ -1,7 +1,6 @@
 import { compile } from "@tailwindcss/node";
-import { Scanner } from "@tailwindcss/oxide";
 import { readFileSync, writeFileSync } from "fs";
-import { resolve, dirname } from "path";
+import { resolve } from "path";
 
 const root = "/home/fufengyuan/WebstormProjects/tauri-vue-app-main";
 
@@ -14,7 +13,6 @@ const files = execSync(
 
 // Extract class names from template and script
 const classRegex = /class=["']([^"']+)["']/g;
-const classBindRegex = /:class=["'[][^"\]]+/g;
 const allClasses = new Set();
 
 for (const file of files) {
