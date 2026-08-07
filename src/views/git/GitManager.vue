@@ -351,6 +351,8 @@
       :branch-rename-new="branchRenameNew"
       :merge-target="mergeTarget"
       :merging="merging"
+      :show-merge-dialog="showMergeDialog"
+      :branch-search="branchSearch"
       @update:show-branches-popup="showBranchesPopup = $event"
       @update:show-create-branch="showCreateBranch = $event"
       @update:show-branch-rename-dialog="showBranchRenameDialog = $event"
@@ -358,10 +360,13 @@
       @update:new-branch-from="newBranchFrom = $event"
       @update:branch-rename-new="branchRenameNew = $event"
       @update:merge-target="mergeTarget = $event"
+      @update:show-merge-dialog="showMergeDialog = $event"
+      @update:branch-search="branchSearch = $event"
       @checkout-branch="checkoutBranch"
       @create-branch="doCreateBranch"
       @delete-branch="confirmDeleteBranch"
-      @show-merge-dialog="showMergeDialog"
+      @open-merge-dialog="openMergeDialog"
+      @open-new-branch-from="openNewBranchFrom"
       @open-branch-rename="openBranchRename"
       @do-branch-rename="doBranchRename"
       @checkout-remote-branch="checkoutRemoteBranch"
@@ -829,6 +834,10 @@ const {
   doDeleteBranch,
   showMergeDialog,
   doMerge,
+  branchSearch,
+  openMergeDialog,
+  closeMergeDialog,
+  openNewBranchFrom,
   pulling,
   pushing,
   doPull,

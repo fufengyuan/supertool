@@ -216,6 +216,9 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   const deletingBranch = ref(false)
   const showMergeDialog = ref(false)
 
+  // 分支弹窗（IDEA 风格）状态
+  const branchSearch = ref('')
+
   // 布局状态
   const commitPanelWidth = ref(300)
   const isResizing = ref(false)
@@ -446,12 +449,25 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
       await api.gitMerge(repoPath.value, mergeTarget.value)
       toast.success('合并成功')
       showBranchesPopup.value = false
+      showMergeDialog.value = false
+      mergeTarget.value = ''
       await refreshAll()
     } catch (e: any) {
       toast.error('合并失败: ' + e.message)
     } finally {
       merging.value = false
     }
+  }
+
+  // 打开合并对话框；fromBranch 指定后默认选中该源分支（分支右键「合并到当前」入口）
+  function openMergeDialog(fromBranch?: string) {
+    mergeTarget.value = fromBranch || ''
+    showMergeDialog.value = true
+  }
+
+  function closeMergeDialog() {
+    showMergeDialog.value = false
+    mergeTarget.value = ''
   }
 
   // ============ Push/Pull 操作 ============
@@ -1450,20 +1466,29 @@ async function doGitCleanDryRun() {
     }
   }
   function confirmDeleteRemoteBranch(name: string) {
-    if (confirm(`确定删除远程分支 ${name}?`)) {doDeleteRemoteBranch(name)}
+    // 走 GitConfirmDialogs 确认框（而非原生 confirm），避免参数丢失
+    deleteRemoteBranchTarget.value = name
   }
-  async function doDeleteRemoteBranch(name: string) {
-    if (!repoPath.value) {return}
+  async function doDeleteRemoteBranch(name?: string) {
+    const target = name || deleteRemoteBranchTarget.value
+    if (!repoPath.value || !target) {return}
     deletingBranch.value = true
     try {
-      await api.gitDeleteRemoteBranch(repoPath.value, name)
+      await api.gitDeleteRemoteBranch(repoPath.value, target)
       toast.success('删除成功')
+      deleteRemoteBranchTarget.value = ''
       loadBranches()
     } catch (e: any) {
       toast.error('删除失败: ' + e.message)
     } finally {
       deletingBranch.value = false
     }
+  }
+  // 基于指定分支新建分支（分支右键「新建分支」入口）
+  function openNewBranchFrom(branch: string) {
+    newBranchName.value = ''
+    newBranchFrom.value = branch
+    showCreateBranch.value = true
   }
   async function checkoutRemoteBranch(name: string) {
     if (!repoPath.value) {return}
@@ -1513,6 +1538,7 @@ async function doGitCleanDryRun() {
     // Branch
     branchesData, localBranches, remoteBranches, showBranchesPopup, showCreateBranch,
     newBranchName, newBranchFrom, mergeTarget, merging, showMergeDialog,
+    branchSearch, openMergeDialog, closeMergeDialog, openNewBranchFrom,
     loadBranches, loadCurrentBranch, checkoutBranch, doCreateBranch,
     confirmDeleteBranch, doDeleteBranch, doMerge,
 
