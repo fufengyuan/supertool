@@ -243,7 +243,7 @@ pub fn scan_project_impl(local_path: &str) -> ProjectScanResult {
 #[tauri::command(rename_all = "camelCase")]
 pub async fn get_cicd_configs(core: State<'_, CoreService>) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] get_cicd_configs() called");
-    let configs = core.db_read(|conn| cicd_get_all_configs(conn).expect("db error"))?;
+    let configs = core.db_read(|conn| cicd_get_all_configs(conn).map_err(|e| e.to_string()))??;
     serde_json::to_value(&configs).map_err(|e| e.to_string())
 }
 
@@ -253,7 +253,7 @@ pub async fn get_cicd_config_by_id(
     id: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] get_cicd_config_by_id() called");
-    let config = core.db_read(|conn| cicd_get_config_by_id(conn, &id).expect("db error"))?;
+    let config = core.db_read(|conn| cicd_get_config_by_id(conn, &id).map_err(|e| e.to_string()))??;
     match config {
         Some(c) => serde_json::to_value(&c).map_err(|e| e.to_string()),
         None => Ok(serde_json::Value::Null),
@@ -280,27 +280,18 @@ pub async fn save_cicd_config(
     let result = core.db_write(|conn| {
         let existing = match cicd_get_config_by_id(conn, &cicd_config.id) {
             Ok(v) => v,
-            Err(e) => panic!(
-                "{}",
-                supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
-            ),
+            Err(e) => return Err(supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())),
         };
         if existing.is_some() {
             cicd_config.updated_at = now.clone();
             if let Err(e) = cicd_update_config(conn, &cicd_config) {
-                panic!(
-                    "{}",
-                    supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
-                );
+                return Err(supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string()));
             }
         } else {
             cicd_config.created_at = now.clone();
             cicd_config.updated_at = now.clone();
             if let Err(e) = cicd_add_config(conn, &cicd_config) {
-                panic!(
-                    "{}",
-                    supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
-                );
+                return Err(supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string()));
             }
         }
         // Handle modules
@@ -309,37 +300,30 @@ pub async fn save_cicd_config(
                 "DELETE FROM deploy_modules WHERE configId = ?",
                 [&cicd_config.id],
             ) {
-                panic!(
-                    "{}",
-                    supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
-                );
+                return Err(supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string()));
             }
             for m in &mods {
-                let mut module: DeployModule =
-                    serde_json::from_value(m.clone()).expect("parse module error");
+                let mut module: DeployModule = match serde_json::from_value(m.clone()) {
+                    Ok(v) => v,
+                    Err(e) => return Err(format!("解析模块失败: {}", e)),
+                };
                 module.config_id = cicd_config.id.clone();
                 module.created_at = now.clone();
                 module.updated_at = now.clone();
                 if let Err(e) = cicd_add_module(conn, &module) {
-                    panic!(
-                        "{}",
-                        supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
-                    );
+                    return Err(supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string()));
                 }
             }
         }
         match cicd_get_config_by_id(conn, &cicd_config.id) {
-            Ok(v) => v,
-            Err(e) => panic!(
-                "{}",
-                supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
-            ),
+            Ok(v) => Ok(v),
+            Err(e) => Err(supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())),
         }
     });
     match result {
-        Ok(Some(c)) => serde_json::to_value(&c).map_err(|e| e.to_string()),
-        Ok(None) => Err("保存配置失败".to_string()),
-        Err(e) => Err(e),
+        Ok(Ok(Some(c))) => serde_json::to_value(&c).map_err(|e| e.to_string()),
+        Ok(Ok(None)) => Err("保存配置失败".to_string()),
+        Ok(Err(e)) | Err(e) => Err(e),
     }
 }
 
