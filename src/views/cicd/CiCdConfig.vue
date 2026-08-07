@@ -112,11 +112,15 @@
             <div class="flex items-center justify-between mb-4">
               <h3 class="m-0 text-lg font-bold text-base-content">{{ isNewConfig ? '新建部署配置' : '编辑部署配置' }}</h3>
               <div class="flex gap-2">
-                <button @click="testConnection" class="btn btn-ghost btn-sm" :disabled="!deployServers.some(s => s.serverId)">
-                  <SvgIcon name="link" :size="14" class="inline-block align-text-bottom" /> 测试连接
+                <button @click="handleTestConnection" class="btn btn-ghost btn-sm" :disabled="!deployServers.some(s => s.serverId) || testingConn">
+                  <SvgIcon v-if="!testingConn" name="link" :size="14" class="inline-block align-text-bottom" />
+                  <span v-else class="loading loading-spinner loading-xs" />
+                  {{ testingConn ? '测试中...' : '测试连接' }}
                 </button>
-                <button @click="saveConfig" class="btn btn-primary btn-sm">
-                  <SvgIcon name="save" :size="14" class="inline-block align-text-bottom" /> 保存
+                <button @click="handleSave" class="btn btn-primary btn-sm" :disabled="saving">
+                  <SvgIcon v-if="!saving" name="save" :size="14" class="inline-block align-text-bottom" />
+                  <span v-else class="loading loading-spinner loading-xs" />
+                  {{ saving ? '保存中...' : '保存' }}
                 </button>
               </div>
             </div>
@@ -652,7 +656,7 @@
 
           <!-- Deploy Modules Section -->
           <!-- 父子模块构建模式 -->
-          <div class="px-6 pb-3 border-l-3 border-transparent transition-[border-color,background] duration-300" :class="{
+          <div class="px-6 pb-3 border-l-[3px] border-transparent transition-[border-color,background] duration-300" :class="{
             'border-l-primary bg-primary/[0.05] mx-3 p-3 rounded-lg': config.parentBuildMode,
             'border-l-success bg-success/[0.05]': parentBuildAutoDetected
           }">
@@ -878,6 +882,20 @@ onBeforeUnmount(() => {
 })
 
 const cicd = useCicdConfig();
+
+// 保存/测试连接防重复点击
+const saving = ref(false);
+const testingConn = ref(false);
+const handleSave = async () => {
+  if (saving.value) { return; }
+  saving.value = true;
+  try { await saveConfig(); } finally { saving.value = false; }
+};
+const handleTestConnection = async () => {
+  if (testingConn.value) { return; }
+  testingConn.value = true;
+  try { await testConnection(); } finally { testingConn.value = false; }
+};
 
 // 删除模块前确认（已保存模块会删库）
 function confirmDeleteModule(module: { id: string | null; moduleName: string }) {

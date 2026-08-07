@@ -104,8 +104,9 @@
 
           <!-- Deploy Actions -->
           <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 flex gap-2.5">
-            <button @click="runPreflight" :disabled="deploying" class="btn btn-ghost border border-base-content/10 flex-1 justify-center">
-              <SvgIcon name="search" size="14" class="inline-block align-text-bottom" /> 部署预检
+            <button @click="runPreflight" :disabled="deploying || preflightRunning" class="btn btn-ghost border border-base-content/10 flex-1 justify-center">
+              <span v-if="preflightRunning" class="loading loading-spinner loading-xs" />
+              <SvgIcon v-else name="search" size="14" class="inline-block align-text-bottom" /> {{ preflightRunning ? '预检中...' : '部署预检' }}
             </button>
             <button @click="startDeploy" :disabled="deploying || !selectedConfigId || loadingConfig || !config" class="btn flex-1 justify-center"
               :class="config?.requiresApproval ? 'bg-gradient-to-br from-warning to-amber-600 border-warning text-white hover:from-warning/90 hover:to-amber-600/90' : 'btn-primary'">
@@ -319,13 +320,13 @@
                     <span><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 实时日志</span>
                     <span class="text-xs text-base-content/60">{{ runningRealtimeLogs(log)?.length }} 行</span>
                   </div>
-                  <pre class="m-0 p-2.5 max-h-[500px] overflow-y-auto overflow-x-auto bg-[#1e1e1e] text-[#d4d4d4] text-xs leading-relaxed border border-base-content/10 rounded-b whitespace-pre-wrap break-all font-mono">
+                  <div class="m-0 p-2.5 max-h-[500px] overflow-y-auto overflow-x-auto bg-[#1e1e1e] text-[#d4d4d4] text-xs leading-relaxed border border-base-content/10 rounded-b whitespace-pre-wrap break-all font-mono">
                     <div v-for="(line, i) in runningRealtimeLogs(log)" :key="i" class="flex gap-2 py-0.5">
                       <span class="text-gray-500 shrink-0 min-w-[75px]">{{ line.time }}</span>
                       <span class="text-gray-500 shrink-0 min-w-[55px]">[{{ line.stage }}]</span>
                       <span class="text-gray-300 break-all">{{ line.message }}</span>
                     </div>
-                  </pre>
+                  </div>
                 </div>
 
                 <!-- 日志文件内容（暗色主题展示，与完整日志效果一致） -->
@@ -904,15 +905,22 @@ async function loadConfigs() {
   }
 }
 
+const preflightRunning = ref(false);
 async function runPreflight() {
   if (!config.value) {
     toast.error('请先选择配置');
     return;
   }
-  preflightResults.value = [];
-  const result = await runPreflightCheck(config.value);
-  preflightResults.value = result.results;
-  return result.passed;
+  if (preflightRunning.value) { return; }
+  preflightRunning.value = true;
+  try {
+    preflightResults.value = [];
+    const result = await runPreflightCheck(config.value);
+    preflightResults.value = result.results;
+    return result.passed;
+  } finally {
+    preflightRunning.value = false;
+  }
 }
 
 async function startDeploy() {
