@@ -1,75 +1,64 @@
 <template>
-  <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="save" size="14" class="inline-block align-text-bottom" /> 原码 / 反码 / 补码</h3>
-
-    <div class="mb-5">
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center">
+  <ToolPage
+    icon="ban"
+    name="原码 / 反码 / 补码"
+    description="8/16/32/64 位有符号整数的原码、反码、补码与进制换算"
+    @back="$emit('back')"
+  >
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <div class="flex flex-wrap items-end gap-3">
         <div>
-          <label class="text-xs font-medium text-base-content/60 mb-1 block">位宽</label>
+          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">位宽</span>
           <select v-model.number="bitWidth" class="select select-bordered select-sm" @change="convert">
             <option :value="8">8 位</option>
             <option :value="16">16 位</option>
-            <option :value="32" selected>32 位</option>
+            <option :value="32">32 位</option>
             <option :value="64">64 位</option>
           </select>
         </div>
-        <div style="flex: 1">
-          <label class="text-xs font-medium text-base-content/60 mb-1 block">十进制数</label>
+        <div class="flex-1 min-w-[220px]">
+          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">十进制整数</span>
           <input
             v-model.number="input"
-            class="input input-bordered w-full font-mono text-xs"
+            class="input input-bordered w-full font-mono text-sm bg-base-200/60"
             type="number"
             placeholder="输入十进制整数..."
             @input="convert"
           />
         </div>
       </div>
+      <div v-if="error" class="mt-3 p-2.5 bg-error/10 border border-error/30 rounded-lg text-error text-xs">{{ error }}</div>
+    </div>
 
-      <div v-if="error" class="error-box">{{ error }}</div>
-
-      <div v-if="result" class="results-grid" style="margin-top: 16px">
-        <div class="result-card">
-          <div class="result-label">原码 (Sign-Magnitude)</div>
-          <div class="result-value binary-value">{{ result.original }}</div>
-          <div class="result-copy-hint" @click="copyValue(result.original)">点击复制</div>
-        </div>
-        <div class="result-card">
-          <div class="result-label">反码 (One's Complement)</div>
-          <div class="result-value binary-value">{{ result.inverse }}</div>
-          <div class="result-copy-hint" @click="copyValue(result.inverse)">点击复制</div>
-        </div>
-        <div class="result-card">
-          <div class="result-label">补码 (Two's Complement)</div>
-          <div class="result-value binary-value">{{ result.complement }}</div>
-          <div class="result-copy-hint" @click="copyValue(result.complement)">点击复制</div>
-        </div>
-      </div>
-
-      <div v-if="result" class="info-block">
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="info-label">十六进制</span>
-            <span class="info-value">{{ result.hex }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">八进制</span>
-            <span class="info-value">{{ result.oct }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">无符号值</span>
-            <span class="info-value">{{ result.unsigned }}</span>
-          </div>
-        </div>
+    <div v-if="result" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div
+        v-for="card in resultCards"
+        :key="card.label"
+        class="bg-base-100 border border-base-content/10 rounded-xl p-4"
+      >
+        <div class="text-[11px] font-semibold text-primary mb-2">{{ card.label }}</div>
+        <div class="font-mono text-sm text-base-content break-all bg-base-200/60 border border-base-content/10 rounded-lg p-2.5 mb-2">{{ card.value }}</div>
+        <button class="btn btn-outline btn-xs w-full" @click="copyValue(card.value)"><SvgIcon name="copy" size="10" /> 复制</button>
       </div>
     </div>
-  </div>
+
+    <div v-if="result" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div v-for="info in infoRows" :key="info.label" class="flex items-center justify-between bg-base-100 border border-base-content/10 rounded-xl px-4 py-3">
+        <span class="text-xs text-base-content/50">{{ info.label }}</span>
+        <span class="font-mono text-sm text-base-content break-all text-right">{{ info.value }}</span>
+      </div>
+    </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref, watch } from 'vue'
+import ToolPage from '../components/ToolPage.vue'
+import { ref, computed, watch } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 const input = ref<number | null>(null)
@@ -86,6 +75,26 @@ interface ComplementResult {
 }
 
 const result = ref<ComplementResult | null>(null)
+
+const resultCards = computed(() => {
+  const r = result.value
+  if (!r) { return [] }
+  return [
+    { label: '原码 (Sign-Magnitude)', value: r.original },
+    { label: "反码 (One's Complement)", value: r.inverse },
+    { label: "补码 (Two's Complement)", value: r.complement },
+  ]
+})
+
+const infoRows = computed(() => {
+  const r = result.value
+  if (!r) { return [] }
+  return [
+    { label: '十六进制', value: r.hex },
+    { label: '八进制', value: r.oct },
+    { label: '无符号值', value: r.unsigned },
+  ]
+})
 
 function computeComplement(value: number, bits: number): ComplementResult | string {
   const maxVal = Math.pow(2, bits - 1) - 1

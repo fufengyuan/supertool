@@ -1,125 +1,107 @@
 <template>
-  <div class="flex flex-col h-full">
-    <h3 class="text-lg font-bold text-base-content mb-4 flex items-center gap-2">
-      JSON 工具
-      <span v-if="input" class="text-xs font-normal" :class="isValid ? 'text-success' : 'text-error'">
-        <SvgIcon :name="isValid ? 'check' : 'alertTriangle'" :size="14" class="align-text-bottom" />
-        {{ isValid ? '有效 JSON' : '解析失败' }}
-      </span>
-      <button class="btn btn-ghost btn-xs ml-auto" @click="loadExample">示例</button>
-      <button class="btn btn-ghost btn-xs" @click="clearAll" v-if="input || output">清空</button>
-    </h3>
-
-    <!-- 主操作区：左右分屏 -->
-    <div class="grid grid-cols-2 gap-3 flex-1 min-h-0">
-      <!-- 左侧：输入 -->
-      <div class="flex flex-col min-h-0">
-        <div class="flex items-center justify-between mb-1.5">
-          <h4 class="text-sm font-semibold text-base-content m-0">输入</h4>
+  <ToolPage
+    icon="clipboard"
+    name="JSON 工具"
+    description="格式化 / 压缩 / 转义 / JsonPath 查询 / 转 CSV、HTML 表格、Java、C#、Go、Dart、TS 等"
+    @back="$emit('back')"
+  >
+    <!-- 输入输出 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[260px]">
+        <div class="flex items-center justify-between mb-2.5">
+          <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5">
+            <SvgIcon name="arrowDown" size="12" /> 输入
+            <span v-if="input" class="text-[11px] font-normal" :class="isValid ? 'text-success' : 'text-error'">
+              <SvgIcon :name="isValid ? 'check' : 'alertTriangle'" :size="12" class="align-text-bottom" />
+              {{ isValid ? '有效 JSON' : '解析失败' }}
+            </span>
+          </h4>
           <div class="flex gap-1.5">
-            <button class="btn btn-primary btn-xs" @click="formatJson" :disabled="!isValid">格式化</button>
-            <button class="btn btn-ghost btn-xs" @click="compressJson" :disabled="!isValid">压缩</button>
-            <button class="btn btn-ghost btn-xs" @click="escapeJson">转义</button>
-            <button class="btn btn-ghost btn-xs" @click="unescapeJson">去转义</button>
-            <button class="btn btn-ghost btn-xs" @click="pasteFromClipboard" title="从剪贴板粘贴">
-              <SvgIcon name="copy" :size="12" />
-            </button>
+            <button class="btn btn-outline btn-xs" @click="loadExample" :disabled="!!input">示例</button>
+            <button class="btn btn-ghost btn-xs" @click="clearAll" v-if="input || output">清空</button>
           </div>
         </div>
         <textarea
           v-model="input"
-          class="textarea textarea-bordered w-full font-mono text-sm flex-1 min-h-[200px] resize-none"
+          class="textarea textarea-bordered w-full font-mono text-sm flex-1 resize-none bg-base-200/60 min-h-[180px]"
           placeholder="在此输入 JSON..."
           spellcheck="false"
         ></textarea>
         <div v-if="parseError" class="mt-1.5 text-xs text-error font-mono break-all">{{ parseError }}</div>
       </div>
-
-      <!-- 右侧：输出 -->
-      <div class="flex flex-col min-h-0">
-        <div class="flex items-center justify-between mb-1.5">
-          <h4 class="text-sm font-semibold text-base-content m-0">输出</h4>
+      <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[260px]">
+        <div class="flex items-center justify-between mb-2.5">
+          <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="arrowUp" size="12" /> 输出</h4>
           <div class="flex gap-1.5">
-            <button class="btn btn-ghost btn-xs" @click="copyOutput" :disabled="!output">
-              <SvgIcon name="copy" :size="12" /> 复制
-            </button>
-            <button class="btn btn-ghost btn-xs" @click="outputToInput" :disabled="!output" title="将输出移到输入">
-              <SvgIcon name="refresh" :size="12" />
-            </button>
+            <button class="btn btn-primary btn-xs" @click="copyOutput" :disabled="!output"><SvgIcon name="copy" :size="11" /> 复制</button>
+            <button class="btn btn-ghost btn-xs" @click="outputToInput" :disabled="!output" title="将输出移到输入"><SvgIcon name="refresh" :size="12" /></button>
           </div>
         </div>
         <textarea
           v-model="output"
-          class="textarea textarea-bordered w-full font-mono text-sm flex-1 min-h-[200px] resize-none"
           readonly
+          class="textarea textarea-bordered w-full font-mono text-sm flex-1 resize-none bg-base-200/60 min-h-[180px]"
           placeholder="结果将显示在这里..."
         ></textarea>
       </div>
     </div>
 
-    <hr class="border-base-content/10 my-4" />
+    <!-- 常用操作 -->
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span class="text-[11px] text-base-content/40 leading-7 mr-1 w-12 shrink-0">常用</span>
+        <button class="btn btn-primary btn-xs" @click="formatJson" :disabled="!isValid">格式化</button>
+        <button class="btn btn-outline btn-xs" @click="compressJson" :disabled="!isValid">压缩</button>
+        <button class="btn btn-outline btn-xs" @click="escapeJson">转义</button>
+        <button class="btn btn-outline btn-xs" @click="unescapeJson">去转义</button>
+        <button class="btn btn-outline btn-xs" @click="pasteFromClipboard" title="从剪贴板粘贴"><SvgIcon name="copy" :size="11" /> 粘贴</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-base-content/10">
+        <span class="text-[11px] text-base-content/40 leading-7 mr-1 w-12 shrink-0">转换</span>
+        <button class="btn btn-outline btn-xs" @click="unicodeToChinese">\uXXXX → 中文</button>
+        <button class="btn btn-outline btn-xs" @click="chineseToUnicode">中文 → \uXXXX</button>
+        <button class="btn btn-outline btn-xs" @click="toJsonGetParams" :disabled="!isValid">GET 参数</button>
+        <button class="btn btn-outline btn-xs" @click="toJsonCsv" :disabled="!isValid">CSV</button>
+        <button class="btn btn-outline btn-xs" @click="toJsonTable" :disabled="!isValid">HTML 表格</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-base-content/10">
+        <span class="text-[11px] text-base-content/40 leading-7 mr-1 w-12 shrink-0">语言类</span>
+        <button class="btn btn-outline btn-xs" @click="toJsonJava" :disabled="!isValid">Java</button>
+        <button class="btn btn-outline btn-xs" @click="toJsonCSharp" :disabled="!isValid">C#</button>
+        <button class="btn btn-outline btn-xs" @click="toJsonGo" :disabled="!isValid">Go</button>
+        <button class="btn btn-outline btn-xs" @click="toJsonDart" :disabled="!isValid">Dart</button>
+        <button class="btn btn-outline btn-xs" @click="toJsonTypeScript" :disabled="!isValid">TypeScript</button>
+      </div>
+    </div>
 
     <!-- JsonPath 查询 -->
-    <div class="mb-4">
-      <h4 class="text-sm font-semibold text-base-content mb-2">JsonPath 查询</h4>
-      <div class="flex flex-wrap gap-2 mb-2">
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="search" size="12" /> JsonPath 查询</h4>
+      <div class="flex flex-wrap gap-2 mb-2.5">
         <input
           v-model="jsonPath"
-          class="input input-bordered flex-1 font-mono text-sm"
+          class="input input-bordered flex-1 font-mono text-sm bg-base-200/60"
           placeholder="$.store.book[*].author  或  $..price  或  $.store..author"
           @keydown.enter="queryJsonPath"
         />
         <button class="btn btn-primary btn-sm" @click="queryJsonPath" :disabled="!isValid || !jsonPath">查询</button>
       </div>
       <div class="flex flex-wrap gap-1.5">
-        <span class="text-xs text-base-content/60">速查：</span>
-        <button v-for="ex in jsonPathExamples" :key="ex" class="btn btn-ghost btn-xs font-mono" @click="jsonPath = ex; queryJsonPath()">{{ ex }}</button>
+        <span class="text-[11px] text-base-content/40 leading-6 mr-1">速查:</span>
+        <button v-for="ex in jsonPathExamples" :key="ex" class="btn btn-outline btn-xs font-mono" @click="jsonPath = ex; queryJsonPath()">{{ ex }}</button>
       </div>
     </div>
-
-    <hr class="border-base-content/10 my-4" />
-
-    <!-- 转换工具区 -->
-    <div class="grid grid-cols-2 gap-4">
-      <!-- Unicode 转换 -->
-      <div>
-        <h4 class="text-sm font-semibold text-base-content mb-2">Unicode 转换</h4>
-        <div class="flex flex-wrap gap-1.5">
-          <button class="btn btn-ghost btn-xs" @click="unicodeToChinese" :disabled="!input">\uXXXX → 中文</button>
-          <button class="btn btn-ghost btn-xs" @click="chineseToUnicode" :disabled="!input">中文 → \uXXXX</button>
-        </div>
-      </div>
-
-      <!-- JSON 转换 -->
-      <div>
-        <h4 class="text-sm font-semibold text-base-content mb-2">格式转换</h4>
-        <div class="flex flex-wrap gap-1.5">
-          <button class="btn btn-ghost btn-xs" @click="toJsonGetParams" :disabled="!isValid">GET 参数</button>
-          <button class="btn btn-ghost btn-xs" @click="toJsonCsv" :disabled="!isValid">CSV</button>
-          <button class="btn btn-ghost btn-xs" @click="toJsonTable" :disabled="!isValid">HTML 表格</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 转语言类定义 -->
-    <div class="mt-4">
-      <h4 class="text-sm font-semibold text-base-content mb-2">转语言类定义</h4>
-      <div class="flex flex-wrap gap-1.5">
-        <button class="btn btn-ghost btn-xs" @click="toJsonJava" :disabled="!isValid">Java</button>
-        <button class="btn btn-ghost btn-xs" @click="toJsonCSharp" :disabled="!isValid">C#</button>
-        <button class="btn btn-ghost btn-xs" @click="toJsonGo" :disabled="!isValid">Go</button>
-        <button class="btn btn-ghost btn-xs" @click="toJsonDart" :disabled="!isValid">Dart</button>
-        <button class="btn btn-ghost btn-xs" @click="toJsonTypeScript" :disabled="!isValid">TypeScript</button>
-      </div>
-    </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref, computed } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 
@@ -188,7 +170,7 @@ function unicodeToChinese() {
 
 function chineseToUnicode() {
   if (!input.value.trim()) { toast.warning('请输入内容'); return }
-  output.value = input.value.replace(/[^\u0000-\u007f]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'))
+  output.value = input.value.replace(/[^\u0000-\u007f]/g, (c) => { return '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0') })
   toast.success('转换成功')
 }
 
@@ -258,7 +240,7 @@ function toJsonTable() {
 
 // ─── 转语言类定义（支持嵌套对象生成嵌套类）───
 function collectNestedObjects(obj: any, prefix: string, nested: Map<string, any>) {
-  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) { return }
   for (const [key, value] of Object.entries(obj)) {
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       const className = `${prefix}${capitalize(key)}`
@@ -309,7 +291,7 @@ function generateJava(obj: any, className: string): string {
 }
 
 function getJavaPrimitiveType(value: any): string {
-  if (value === null || value === undefined) return 'Object'
+  if (value === null || value === undefined) { return 'Object' }
   switch (typeof value) {
     case 'string': return 'String'
     case 'number': return Number.isInteger(value) ? 'int' : 'double'
@@ -350,7 +332,7 @@ function generateCSharp(obj: any, className: string): string {
 }
 
 function getCSharpType(value: any): string {
-  if (value === null || value === undefined) return 'object'
+  if (value === null || value === undefined) { return 'object' }
   switch (typeof value) {
     case 'string': return 'string'
     case 'number': return Number.isInteger(value) ? 'int' : 'double'
@@ -391,7 +373,7 @@ function generateGo(obj: any, className: string): string {
 }
 
 function getGoPrimitiveType(value: any): string {
-  if (value === null || value === undefined) return 'interface{}'
+  if (value === null || value === undefined) { return 'interface{}' }
   switch (typeof value) {
     case 'string': return 'string'
     case 'number': return Number.isInteger(value) ? 'int' : 'float64'
@@ -432,7 +414,7 @@ function generateDart(obj: any, className: string): string {
 }
 
 function getDartType(value: any): string {
-  if (value === null || value === undefined) return 'dynamic'
+  if (value === null || value === undefined) { return 'dynamic' }
   switch (typeof value) {
     case 'string': return 'String'
     case 'number': return 'int'
@@ -473,7 +455,7 @@ function generateTypeScript(obj: any, className: string): string {
 }
 
 function getTsType(value: any): string {
-  if (value === null || value === undefined) return 'any'
+  if (value === null || value === undefined) { return 'any' }
   switch (typeof value) {
     case 'string': return 'string'
     case 'number': return 'number'
@@ -524,7 +506,7 @@ function toJsonTypeScript() {
 
 // ─── JsonPath（支持 $.. 递归下降、$..key、数组索引/通配）───
 function queryJsonPath() {
-  if (!isValid.value || !jsonPath.value.trim()) return
+  if (!isValid.value || !jsonPath.value.trim()) { return }
 
   const path = jsonPath.value.trim()
   try {
@@ -537,7 +519,7 @@ function queryJsonPath() {
 }
 
 function evaluateJsonPath(obj: any, path: string): any {
-  if (path === '$') return obj
+  if (path === '$') { return obj }
 
   let current: any = obj
   // Split by . but handle $.. (recursive descent) specially
@@ -561,7 +543,7 @@ function evaluateJsonPath(obj: any, path: string): any {
       return found
     }
 
-    if (current === null || current === undefined) return undefined
+    if (current === null || current === undefined) { return undefined }
 
     // Handle array index: key[0] or key[*]
     const match = part.match(/^([^[]+)\[(\*|\d+)\]$/)
@@ -569,7 +551,7 @@ function evaluateJsonPath(obj: any, path: string): any {
       const key = match[1]
       const index = match[2]
       current = current[key]
-      if (!Array.isArray(current)) return undefined
+      if (!Array.isArray(current)) { return undefined }
       if (index === '*') {
         const remaining = parts.slice(i + 1).join('.')
         if (remaining) {
@@ -585,7 +567,7 @@ function evaluateJsonPath(obj: any, path: string): any {
     // Handle bare array index: [0]
     const bareIndex = part.match(/^\[(\*|\d+)\]$/)
     if (bareIndex) {
-      if (!Array.isArray(current)) return undefined
+      if (!Array.isArray(current)) { return undefined }
       const idx = bareIndex[1]
       if (idx === '*') {
         const remaining = parts.slice(i + 1).join('.')
@@ -609,7 +591,7 @@ function evaluateJsonPath(obj: any, path: string): any {
 
 function findKeyRecursive(obj: any, key: string): any[] {
   const results: any[] = []
-  if (obj === null || obj === undefined) return results
+  if (obj === null || obj === undefined) { return results }
 
   if (Array.isArray(obj)) {
     for (const item of obj) {
@@ -628,7 +610,7 @@ function findKeyRecursive(obj: any, key: string): any[] {
 
 function collectAllValues(obj: any): any[] {
   const results: any[] = []
-  if (obj === null || obj === undefined) return results
+  if (obj === null || obj === undefined) { return results }
   if (Array.isArray(obj)) {
     for (const item of obj) {
       results.push(...collectAllValues(item))
@@ -644,12 +626,12 @@ function collectAllValues(obj: any): any[] {
 }
 
 async function copyOutput() {
-  if (!output.value) return
+  if (!output.value) { return }
   await copyText(output.value, toast)
 }
 
 function outputToInput() {
-  if (!output.value) return
+  if (!output.value) { return }
   input.value = output.value
   output.value = ''
 }

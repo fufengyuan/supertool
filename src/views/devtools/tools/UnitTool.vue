@@ -1,68 +1,71 @@
 <template>
-  <div>
-    <h3 class="text-lg font-bold text-base-content mb-5">📐 单位换算</h3>
-
-    <div class="mb-5">
-      <span class="label-text text-xs font-medium opacity-60 mb-1 block">类别</span>
-      <select v-model="category" class="select select-bordered" @change="onCategoryChange">
-        <option v-for="cat in categories" :key="cat.key" :value="cat.key">{{ cat.label }}</option>
-      </select>
-
-      <div class="flex items-end gap-4 mt-3">
-        <div class="flex-1 flex flex-col gap-2">
-          <span class="label-text text-xs font-medium opacity-60 mb-1 block">从</span>
-          <select v-model="fromUnit" class="select select-bordered" @change="convert">
+  <ToolPage
+    icon="layers"
+    name="单位换算"
+    description="长度 / 面积 / 体积 / 质量 / 温度 / 速度 / 数据存储等 7 类单位互转"
+    @back="$emit('back')"
+  >
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <div>
+        <span class="text-[11px] font-medium text-base-content/50 mb-1 block">类别</span>
+        <select v-model="category" class="select select-bordered select-sm bg-base-200/60" @change="onCategoryChange">
+          <option v-for="cat in categories" :key="cat.key" :value="cat.key">{{ cat.label }}</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-[1fr_auto_1fr] items-end gap-4 mt-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-[11px] font-medium text-base-content/50">从</span>
+          <select v-model="fromUnit" class="select select-bordered select-sm bg-base-200/60" @change="convert">
             <option v-for="u in currentUnits" :key="u.key" :value="u.key">{{ u.label }}</option>
           </select>
           <input
             v-model.number="inputValue"
-            class="input input-bordered"
+            class="input input-bordered input-sm font-mono bg-base-200/60"
             type="number"
             placeholder="输入值..."
             @input="convert"
           />
         </div>
-
         <div class="text-2xl text-primary font-bold pb-2">→</div>
-
-        <div class="flex-1 flex flex-col gap-2">
-          <span class="label-text text-xs font-medium opacity-60 mb-1 block">到</span>
-          <select v-model="toUnit" class="select select-bordered" @change="convert">
+        <div class="flex flex-col gap-2">
+          <span class="text-[11px] font-medium text-base-content/50">到</span>
+          <select v-model="toUnit" class="select select-bordered select-sm bg-base-200/60" @change="convert">
             <option v-for="u in currentUnits" :key="u.key" :value="u.key">{{ u.label }}</option>
           </select>
-          <div class="p-2 bg-base-100 border border-primary rounded-box font-mono text-sm text-primary font-semibold">{{ outputValue }}</div>
+          <div class="p-2 bg-base-200/60 border border-primary/40 rounded-lg font-mono text-sm text-primary font-semibold min-h-[2.3em] break-all">{{ outputValue || '—' }}</div>
         </div>
       </div>
-
-      <div class="flex flex-wrap gap-2.5 mb-3 mt-3">
-        <button class="btn btn-ghost" @click="swapUnits"><SvgIcon name="refresh" size="14" class="align-text-bottom" /> 交换</button>
-        <button class="btn btn-ghost" @click="copyResult"><SvgIcon name="file" size="14" class="align-text-bottom" /> 复制结果</button>
+      <div class="flex gap-2 mt-3">
+        <button class="btn btn-outline btn-sm" @click="swapUnits"><SvgIcon name="refresh" size="12" /> 交换</button>
+        <button class="btn btn-primary btn-sm" @click="copyResult" :disabled="!outputValue"><SvgIcon name="copy" size="12" /> 复制结果</button>
       </div>
+    </div>
 
-      <!-- All conversions table -->
-      <div v-if="allResults.length > 0" class="mt-5">
-        <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">全部换算结果</h4>
-        <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
-          <div
-            v-for="r in allResults"
-            :key="r.key"
-            class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box cursor-pointer transition-all duration-150 hover:border-primary"
-            @click="copyValue(r.value)"
-          >
-            <span class="text-xs font-medium opacity-60 mb-0.5">{{ r.label }}</span>
-            <span class="font-mono text-sm text-base-content break-all">{{ r.value }}</span>
-          </div>
+    <div v-if="allResults.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5">全部换算结果</h4>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+        <div
+          v-for="r in allResults"
+          :key="r.key"
+          class="flex flex-col p-2.5 bg-base-200/60 border border-base-content/10 rounded-lg cursor-pointer transition-all duration-150 hover:border-primary/50"
+          @click="copyValue(r.value)"
+        >
+          <span class="text-[11px] text-base-content/50 mb-0.5">{{ r.label }}</span>
+          <span class="font-mono text-sm text-base-content break-all">{{ r.value }}</span>
         </div>
       </div>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref, computed } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 const category = ref('length')

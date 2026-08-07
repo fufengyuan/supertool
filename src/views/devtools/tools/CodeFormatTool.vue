@@ -1,47 +1,61 @@
 <template>
-  <div class="code-format-tool">
-    <h3 class="text-lg font-bold text-base-content mb-5">代码格式化</h3>
-
-    <div class="flex flex-wrap gap-2.5 mb-3">
-      <label class="label-text text-xs text-base-content/60 mb-1 block" style="align-self: center;">语言</label>
-      <select v-model="language" class="select select-bordered text-xs bg-base-200">
-        <option v-for="lang in languages" :key="lang.value" :value="lang.value">{{ lang.label }}</option>
-      </select>
-
-      <template v-if="language === 'sql'">
-        <label class="label-text text-xs text-base-content/60 mb-1 block" style="align-self: center;">缩进宽度</label>
-        <select v-model="tabWidth" class="select select-bordered text-xs bg-base-200" style="width: 80px;">
-          <option :value="2">2</option>
-          <option :value="4">4</option>
-          <option :value="8">8</option>
+  <ToolPage
+    icon="code"
+    name="代码格式化"
+    description="JS / TS / HTML / CSS / JSON / YAML / SQL 等 10 种语言格式化与压缩"
+    @back="$emit('back')"
+  >
+    <div class="bg-base-100 border border-base-content/10 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-base-content/60">语言</span>
+        <select v-model="language" class="select select-bordered select-sm bg-base-200/60">
+          <option v-for="lang in languages" :key="lang.value" :value="lang.value">{{ lang.label }}</option>
         </select>
+      </div>
+      <template v-if="language === 'sql'">
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-base-content/60">缩进</span>
+          <select v-model="tabWidth" class="select select-bordered select-sm bg-base-200/60" style="width: 76px;">
+            <option :value="2">2</option>
+            <option :value="4">4</option>
+            <option :value="8">8</option>
+          </select>
+        </div>
       </template>
+      <div class="ml-auto flex gap-2">
+        <button class="btn btn-primary btn-sm" @click="formatCode" :disabled="!input">格式化</button>
+        <button class="btn btn-outline btn-sm" @click="compressCode" :disabled="!input">压缩</button>
+        <button class="btn btn-ghost btn-sm" @click="clearAll" :disabled="!input && !output">清空</button>
+      </div>
     </div>
 
-    <div class="flex flex-wrap gap-2.5 mb-3">
-      <button class="btn btn-primary btn-sm" @click="formatCode" :disabled="!input">格式化</button>
-      <button class="btn btn-ghost btn-sm" @click="compressCode" :disabled="!input">压缩</button>
-      <button class="btn btn-ghost btn-sm" @click="copyOutput" :disabled="!output">复制结果</button>
-      <button class="btn btn-ghost btn-sm" @click="clearAll">清空</button>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[260px]">
+        <div class="flex items-center justify-between mb-2.5">
+          <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="arrowDown" size="12" /> 输入</h4>
+        </div>
+        <textarea v-model="input" class="textarea textarea-bordered w-full text-xs bg-base-200/60 font-mono flex-1 resize-none min-h-[140px]" placeholder="在此输入代码..."></textarea>
+      </div>
+      <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[260px]">
+        <div class="flex items-center justify-between mb-2.5">
+          <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="arrowUp" size="12" /> 输出</h4>
+          <button class="btn btn-primary btn-xs" @click="copyOutput" :disabled="!output"><SvgIcon name="copy" size="11" /> 复制</button>
+        </div>
+        <textarea v-model="output" readonly class="textarea textarea-bordered w-full text-xs bg-base-200/60 font-mono flex-1 resize-none min-h-[140px]" placeholder="结果将显示在这里..."></textarea>
+      </div>
     </div>
-
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content flex items-center gap-1.5 mb-2.5">输入</h4>
-      <textarea v-model="input" class="textarea textarea-bordered w-full text-xs bg-base-200 font-mono min-h-[120px]" placeholder="在此输入代码..." rows="10"></textarea>
-    </div>
-
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content flex items-center gap-1.5 mb-2.5">输出</h4>
-      <textarea v-model="output" class="textarea textarea-bordered w-full text-xs bg-base-200 font-mono min-h-[120px]" readonly rows="10" placeholder="结果将显示在这里..."></textarea>
-    </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref } from 'vue'
 import { format as formatSql } from 'sql-formatter'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 
