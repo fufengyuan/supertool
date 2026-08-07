@@ -58,7 +58,7 @@
         </div>
 
         <!-- Config Details Card -->
-        <template v-if="config && (selectedGitRepoObj || config.name)">
+        <template v-if="config">
           <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
             <div class="text-sm font-semibold text-base-content mb-3">配置详情</div>
             <div class="flex flex-col gap-2.5">
