@@ -469,11 +469,11 @@
                 </template>
                 <!-- 非父子模块时，折叠为高级选项 -->
                 <template v-else>
-                  <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="config.showAdvanced = !config.showAdvanced">
-                    <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': config.showAdvanced }" />
+                  <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="showAdvancedTools = !showAdvancedTools">
+                    <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': showAdvancedTools }" />
                     <span>高级选项</span>
                   </div>
-                  <div v-show="config.showAdvanced" class="overflow-hidden animate-[slideDown_0.2s_ease]">
+                  <div v-show="showAdvancedTools" class="overflow-hidden animate-[slideDown_0.2s_ease]">
                     <div class="flex gap-3">
                       <div class="mb-3.5 flex-1">
                         <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Profile</label>
@@ -542,11 +542,11 @@
                   </div>
                 </div>
                 <!-- 高级选项折叠 -->
-                <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="config.showAdvanced = !config.showAdvanced">
-                  <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': config.showAdvanced }" />
+                <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="showAdvancedBuild = !showAdvancedBuild">
+                  <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': showAdvancedBuild }" />
                   <span>高级选项</span>
                 </div>
-                <div v-show="config.showAdvanced" class="overflow-hidden animate-[slideDown_0.2s_ease]">
+                <div v-show="showAdvancedBuild" class="overflow-hidden animate-[slideDown_0.2s_ease]">
                   <div class="mb-3.5">
                     <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建脚本</label>
                     <select v-model="config.npmScript" class="select select-bordered w-full bg-base-200 text-sm">
@@ -630,11 +630,11 @@
                 </label>
 
                 <!-- 高级选项折叠 -->
-                <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="config.showAdvanced = !config.showAdvanced">
-                  <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': config.showAdvanced }" />
+                <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="showAdvancedDeploy = !showAdvancedDeploy">
+                  <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': showAdvancedDeploy }" />
                   <span>高级选项</span>
                 </div>
-                <div v-show="config.showAdvanced" class="overflow-hidden animate-[slideDown_0.2s_ease]">
+                <div v-show="showAdvancedDeploy" class="overflow-hidden animate-[slideDown_0.2s_ease]">
                   <div class="mb-3.5">
                     <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">健康检查 URL</label>
                     <input v-model="config.healthCheckUrl" class="input input-bordered w-full bg-base-200 text-sm" placeholder="http://localhost:8080/health" />
@@ -886,6 +886,10 @@ const cicd = useCicdConfig();
 // 保存/测试连接防重复点击
 const saving = ref(false);
 const testingConn = ref(false);
+// 两处「高级选项」独立展开（避免互相联动）
+const showAdvancedTools = ref(false);
+const showAdvancedBuild = ref(false);
+const showAdvancedDeploy = ref(false);
 const handleSave = async () => {
   if (saving.value) { return; }
   saving.value = true;
