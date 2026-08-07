@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getTauriAPI } from '../../../utils/tauri-api'
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useToast } from '../../../composables/useToast';
@@ -188,8 +187,8 @@ export function useCicdConfig() {
     if (!srvObj) { srv.testResult = { success: false, error: '服务器未找到' }; return; }
     try {
       const result = await getTauriAPI().testSsh({
-        sshHost: srvObj.host, sshPort: srvObj.port, sshUser: srvObj.username,
-        sshKeyPath: srvObj.sshKeyPath || undefined, sshPassword: srvObj.password || undefined,
+        host: srvObj.host, port: srvObj.port, username: srvObj.username,
+        sshKeyPath: srvObj.sshKeyPath || undefined, password: srvObj.password || undefined,
       });
       srv.testResult = result;
     } catch (error: unknown) { srv.testResult = { success: false, error: error instanceof Error ? error.message : String(error) }; }
@@ -207,7 +206,7 @@ export function useCicdConfig() {
 
   function defaultConfig(): ConfigForm {
     return {
-      id: null, name: '', localPath: '', repoUrl: '', deployBranch: 'main',
+      id: null, name: '', localPath: '', gitRepoId: '', repoUrl: '', deployBranch: 'main',
       buildTool: '', npmScript: 'build', npmCustomScript: '', mavenSettings: '', mavenProfile: 'prod',
       mavenHome: '', javaHome: '', npmHome: '', pnpmHome: '', yarnHome: '', nodeHome: '', deployPath: '', libSeparate: true,
       restartScript: './restart.sh', healthCheckUrl: '', healthCheckTimeout: 30, groupName: '未分组',
@@ -222,7 +221,7 @@ export function useCicdConfig() {
   });
   const sdkVersions = ref<{
     sdkman: { java: { name: string; path: string; isCurrent?: boolean }[]; maven: { name: string; path: string; isCurrent?: boolean }[]; gradle: { name: string; path: string; isCurrent?: boolean }[] }
-    nvm: { node: { name: string; path: string; isCurrent?: boolean }[] }
+    nvm: { node: { name: string; path: string; isCurrent?: boolean; npm?: string; pnpm?: string; yarn?: string }[] }
   }>({ sdkman: { java: [], maven: [], gradle: [] }, nvm: { node: [] } });
   const selectedJavaVersion = ref('');
   const selectedNodeVersion = ref('');
@@ -454,7 +453,7 @@ export function useCicdConfig() {
 
     // 填充检测结果
     if (toolsResult && typeof toolsResult === 'object') {
-      detectedTools.value = toolsResult as Record<string, { available: boolean; version?: string }>;
+      detectedTools.value = toolsResult as unknown as Record<string, { available: boolean; version?: string }>;
       // 自动选择构建工具
       if (!config.value.buildTool) {
         if (detectedTools.value.maven?.available) {config.value.buildTool = 'maven';}
@@ -614,14 +613,12 @@ export function useCicdConfig() {
 
   async function testConnection() {
     testResult.value = null;
-    try {
-      const serversJson = deployServers.value.length > 0
-        ? JSON.stringify(deployServers.value.map(s => ({ serverId: s.serverId, label: s.label, deployDir: s.deployDir })))
-        : null;
-      const plainConfig = { ...JSON.parse(JSON.stringify(config.value)), servers: serversJson };
-      testResult.value = await getTauriAPI().testSsh(plainConfig);
-      if (testResult.value.success) {toast.success('SSH 连接测试成功');} else {toast.error('连接失败: ' + testResult.value.error);}
-    } catch (error: unknown) { testResult.value = { success: false, error: error instanceof Error ? error.message : String(error) }; }
+    // 头部「测试连接」：测第一个已配置 serverId 的部署服务器，而非整个配置对象
+    const target = deployServers.value.find(s => s.serverId);
+    if (!target) { toast.warning('请先在「部署服务器」中添加服务器'); return; }
+    await testServerById(target);
+    if (target.testResult?.success) { toast.success('SSH 连接测试成功'); }
+    else { toast.error('连接失败: ' + (target.testResult?.error ?? '未知错误')); }
   }
 
   // ─── Module Management ───

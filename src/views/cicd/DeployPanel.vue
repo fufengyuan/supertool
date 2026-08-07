@@ -378,7 +378,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast';
@@ -512,7 +512,7 @@ const combinedLogs = computed(() => {
 const rollingBack = ref(false);
 const rollingBackId = ref<string | null>(null);
 const preflightResults = ref<{ name: string; passed: boolean; message: string }[]>([]);
-const logContainer = ref(null);
+const logContainer = ref<HTMLElement | null>(null);
 // 实时日志智能吸底：用户上翻查看历史时暂停自动跟随，点"回到底部"恢复
 const realtimeUserScrolledUp = ref(false);
 
@@ -675,7 +675,7 @@ async function loadBranchesForConfig(cfg: CicdConfigEntry) {
     }
     const result = await getTauriAPI().getGitBranches(repoPath);
     // 结果可能是 { branches: [...] } 或直接数组
-    const rawBranches: string[] = result?.branches || result || [];
+    const rawBranches: any[] = result?.branches || result || [];
     // 去重，去掉 remotes/origin/ 前缀但保留本地分支优先
     const seen = new Set<string>();
     const local: string[] = [];
@@ -974,8 +974,8 @@ async function startDeploy() {
     flushPendingLogs();
     updateDeployState(selectedConfigId.value, {
       deploying: false,
-      currentStep: '部署失败: ' + error.message,
-      realtimeLogs: [...(deployStates.value.get(selectedConfigId.value)?.realtimeLogs || []), { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署异常: ' + error.message }],
+      currentStep: '部署失败: ' + (error as Error).message,
+      realtimeLogs: [...(deployStates.value.get(selectedConfigId.value)?.realtimeLogs || []), { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署异常: ' + (error as Error).message }],
     });
     handleError(error, { context: '部署' });
   }
@@ -1064,8 +1064,8 @@ async function doRollback(log: DeployLog) {
     await refreshLogs();
   } catch (error) {
     updateDeployState(selectedConfigId.value, {
-      currentStep: '回滚异常: ' + error.message,
-      realtimeLogs: [...(deployStates.value.get(selectedConfigId.value)?.realtimeLogs || []), { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚异常: ' + error.message }],
+      currentStep: '回滚异常: ' + (error as Error).message,
+      realtimeLogs: [...(deployStates.value.get(selectedConfigId.value)?.realtimeLogs || []), { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚异常: ' + (error as Error).message }],
     });
     handleError(error, { context: '回滚' });
   }
@@ -1137,7 +1137,7 @@ async function toggleLogDetails(logId: string) {
       if (keys.length >= MAX_STEP_LOGS) {
         delete stepLogs.value[keys[0]];
       }
-      stepLogs.value[logId] = (await getTauriAPI().getDeployStepLogs(logId, "")) as DeployStep[];
+      stepLogs.value[logId] = (await getTauriAPI().getDeployStepLogs(logId)) as DeployStep[];
     }
     // 自动加载日志文件（如果有 logFilePath 且尚未加载）
     const log = combinedLogs.value.find(l => l.id === logId);
