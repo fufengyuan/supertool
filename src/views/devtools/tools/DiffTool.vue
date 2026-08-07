@@ -1,48 +1,55 @@
 <template>
-  <div class="flex flex-col h-full">
-    <h3 class="text-lg font-bold text-base-content mb-4">文本对比</h3>
-
-    <div class="flex flex-wrap gap-2.5 mb-4 items-center">
-      <label class="text-xs text-base-content/60">对比模式</label>
-      <div class="join">
-        <button class="btn btn-ghost join-item btn-sm" :class="{ 'btn-active': diffMode === 'lines' }" @click="diffMode = 'lines'">行对比</button>
-        <button class="btn btn-ghost join-item btn-sm" :class="{ 'btn-active': diffMode === 'words' }" @click="diffMode = 'words'">词对比</button>
+  <ToolPage
+    icon="book"
+    name="文本对比"
+    description="行 / 词粒度 diff，统一视图与并排视图，支持交换左右"
+    @back="$emit('back')"
+  >
+    <!-- 模式与操作 -->
+    <div class="flex flex-wrap items-center gap-3 bg-base-100 border border-base-content/10 rounded-xl px-4 py-3">
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-base-content/60">对比</span>
+        <div class="join">
+          <button class="btn btn-sm join-item" :class="diffMode === 'lines' ? 'btn-primary' : 'btn-ghost'" @click="diffMode = 'lines'">行</button>
+          <button class="btn btn-sm join-item" :class="diffMode === 'words' ? 'btn-primary' : 'btn-ghost'" @click="diffMode = 'words'">词</button>
+        </div>
       </div>
-
-      <label class="text-xs text-base-content/60 ml-2">显示方式</label>
-      <div class="join">
-        <button class="btn btn-ghost join-item btn-sm" :class="{ 'btn-active': viewMode === 'unified' }" @click="viewMode = 'unified'">统一视图</button>
-        <button class="btn btn-ghost join-item btn-sm" :class="{ 'btn-active': viewMode === 'sidebyside' }" @click="viewMode = 'sidebyside'">并排视图</button>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-base-content/60">视图</span>
+        <div class="join">
+          <button class="btn btn-sm join-item" :class="viewMode === 'unified' ? 'btn-primary' : 'btn-ghost'" @click="viewMode = 'unified'">统一</button>
+          <button class="btn btn-sm join-item" :class="viewMode === 'sidebyside' ? 'btn-primary' : 'btn-ghost'" @click="viewMode = 'sidebyside'">并排</button>
+        </div>
       </div>
-
-      <button class="btn btn-primary btn-sm" @click="runDiff" :disabled="!left && !right">对比</button>
-      <button class="btn btn-ghost btn-sm" @click="clearAll">清空</button>
-      <button v-if="diffResult.length > 0" class="btn btn-ghost btn-sm" @click="swapInputs" title="交换左右文本">⇄ 交换</button>
-    </div>
-
-    <div class="grid gap-4 mb-4" :class="viewMode === 'sidebyside' ? 'grid-cols-2' : 'grid-cols-1'">
-      <div>
-        <h4 class="text-sm font-semibold text-base-content mb-1.5">原文（左）</h4>
-        <textarea v-model="left" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px] resize-none" placeholder="输入原文..." rows="8"></textarea>
-      </div>
-      <div v-if="viewMode === 'sidebyside'">
-        <h4 class="text-sm font-semibold text-base-content mb-1.5">新文（右）</h4>
-        <textarea v-model="right" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px] resize-none" placeholder="输入新文..." rows="8"></textarea>
-      </div>
-      <div v-else>
-        <h4 class="text-sm font-semibold text-base-content mb-1.5">新文（右）</h4>
-        <textarea v-model="right" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px] resize-none" placeholder="输入新文..." rows="8"></textarea>
+      <div class="ml-auto flex gap-2">
+        <button class="btn btn-primary btn-sm" @click="runDiff" :disabled="!left && !right">对比</button>
+        <button class="btn btn-outline btn-sm" @click="swapInputs" :disabled="!left && !right" title="交换左右文本">⇄ 交换</button>
+        <button class="btn btn-ghost btn-sm" @click="clearAll" :disabled="!left && !right">清空</button>
       </div>
     </div>
 
-    <div v-if="diffResult.length > 0" class="flex flex-col flex-1 min-h-0">
-      <h4 class="text-sm font-semibold text-base-content mb-2">对比结果
-        <span class="text-xs font-normal text-base-content/50 ml-2">
-          +{{ statAdded }} / -{{ statRemoved }} / ={{ statEqual }}
+    <!-- 输入 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[200px]">
+        <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> 原文（左）</h4>
+        <textarea v-model="left" class="textarea textarea-bordered w-full font-mono text-sm flex-1 resize-none bg-base-200/60 min-h-[120px]" placeholder="输入原文..."></textarea>
+      </div>
+      <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[200px]">
+        <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> 新文（右）</h4>
+        <textarea v-model="right" class="textarea textarea-bordered w-full font-mono text-sm flex-1 resize-none bg-base-200/60 min-h-[120px]" placeholder="输入新文..."></textarea>
+      </div>
+    </div>
+
+    <!-- 对比结果 -->
+    <div v-if="diffResult.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden">
+      <div class="flex items-center gap-3 px-4 py-2.5 border-b border-base-content/10">
+        <h4 class="text-xs font-semibold text-base-content/70">对比结果</h4>
+        <span class="text-[11px] font-mono">
+          <span class="text-success">+{{ statAdded }}</span> / <span class="text-error">-{{ statRemoved }}</span> / <span class="text-base-content/40">={{ statEqual }}</span>
         </span>
-      </h4>
+      </div>
 
-      <div v-if="viewMode === 'unified'" class="diff-unified flex-1 overflow-auto bg-base-200 border border-base-content/10 rounded-box">
+      <div v-if="viewMode === 'unified'" class="overflow-auto max-h-[420px]">
         <div v-for="(line, idx) in diffResult" :key="idx" :class="['diff-row', `diff-${line.type}`]">
           <span class="diff-line-no">{{ line.lineNo ?? '' }}</span>
           <span class="diff-marker">{{ line.marker }}</span>
@@ -50,8 +57,8 @@
         </div>
       </div>
 
-      <div v-else class="grid grid-cols-2 gap-2 flex-1 overflow-hidden">
-        <div class="diff-panel overflow-auto bg-base-200 border border-base-content/10 rounded-box">
+      <div v-else class="grid grid-cols-2 overflow-hidden max-h-[420px]">
+        <div class="diff-panel overflow-auto border-r border-base-content/10">
           <div class="diff-panel-header">原文</div>
           <div v-for="(line, idx) in leftDiffLines" :key="idx" :class="['diff-row', `diff-${line.type}`]">
             <span class="diff-line-no">{{ line.lineNo ?? '' }}</span>
@@ -59,7 +66,7 @@
             <span class="diff-content" v-html="highlightWords(line)"></span>
           </div>
         </div>
-        <div class="diff-panel overflow-auto bg-base-200 border border-base-content/10 rounded-box">
+        <div class="diff-panel overflow-auto">
           <div class="diff-panel-header">新文</div>
           <div v-for="(line, idx) in rightDiffLines" :key="idx" :class="['diff-row', `diff-${line.type}`]">
             <span class="diff-line-no">{{ line.lineNo ?? '' }}</span>
@@ -70,18 +77,21 @@
       </div>
     </div>
 
-    <div v-if="diffResult.length === 0 && hasRun" class="alert alert-success">
-      <SvgIcon name="check" size="16" class="align-text-bottom" />
+    <div v-if="diffResult.length === 0 && hasRun" class="p-4 bg-success/10 border border-success/30 rounded-xl text-success text-sm flex items-center gap-2">
+      <SvgIcon name="check" size="16" />
       <span>两段文本完全相同</span>
     </div>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref, computed } from 'vue'
 import { diffLines, diffWords, type Change } from 'diff'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 

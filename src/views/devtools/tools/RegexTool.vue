@@ -1,87 +1,88 @@
 <template>
-  <div class="flex flex-col h-full">
-    <h3 class="text-lg font-bold text-base-content mb-4">正则表达式</h3>
-
+  <ToolPage
+    icon="search"
+    name="正则表达式"
+    description="实时匹配测试、捕获组展示、替换与高亮，内置常用正则预设"
+    @back="$emit('back')"
+  >
     <!-- 正则输入 -->
-    <div class="mb-4">
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
       <div class="flex flex-wrap gap-2 mb-2">
         <input
           v-model="pattern"
-          class="input input-bordered flex-1 font-mono text-sm"
+          class="input input-bordered flex-1 font-mono text-sm bg-base-200/60"
           placeholder="输入正则表达式，如 \d+"
           @input="runTest"
         />
         <div class="join">
-          <button v-for="f in flagOptions" :key="f" class="btn btn-ghost join-item btn-sm" :class="{ 'btn-active': flags.includes(f) }" @click="toggleFlag(f)" :title="flagDescriptions[f]">{{ f }}</button>
+          <button v-for="f in flagOptions" :key="f" class="btn btn-sm join-item" :class="flags.includes(f) ? 'btn-primary' : 'btn-ghost'" @click="toggleFlag(f)" :title="flagDescriptions[f]">{{ f }}</button>
         </div>
       </div>
-      <div v-if="pattern" class="mt-1 text-xs opacity-60">
-        正则: <code class="bg-base-200 px-1.5 py-0.5 rounded font-mono">/{{ pattern }}/{{ flags }}</code>
-        <span v-if="regexError" class="text-error"> <SvgIcon name="alertTriangle" size="14" class="align-text-bottom" /> {{ regexError }}</span>
+      <div v-if="pattern" class="mt-1.5 text-xs text-base-content/60 flex items-center gap-2">
+        <span>正则: <code class="bg-base-200 px-1.5 py-0.5 rounded font-mono text-primary">/{{ pattern }}/{{ flags }}</code></span>
+        <span v-if="regexError" class="text-error flex items-center gap-1"><SvgIcon name="alertTriangle" size="13" /> {{ regexError }}</span>
       </div>
-    </div>
-
-    <!-- 常用正则预设 -->
-    <div class="mb-4">
-      <div class="text-xs text-base-content/60 mb-1.5">常用正则：</div>
-      <div class="flex flex-wrap gap-1.5">
-        <button v-for="preset in commonRegex" :key="preset.name" class="btn btn-ghost btn-xs" @click="applyPreset(preset)" :title="preset.pattern">{{ preset.name }}</button>
+      <div class="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-base-content/10">
+        <span class="text-[11px] text-base-content/40 leading-6 mr-1">常用:</span>
+        <button v-for="preset in commonRegex" :key="preset.name" class="btn btn-outline btn-xs" @click="applyPreset(preset)" :title="preset.pattern">{{ preset.name }}</button>
       </div>
     </div>
 
     <!-- 测试文本 -->
-    <div class="mb-4 flex flex-col flex-1 min-h-0">
-      <h4 class="text-sm font-semibold text-base-content mb-1.5">测试文本</h4>
-      <textarea v-model="testText" class="textarea textarea-bordered w-full font-mono text-sm flex-1 min-h-[120px] resize-none" placeholder="输入测试文本..." @input="runTest"></textarea>
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-2.5">
+        <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="arrowDown" size="12" /> 测试文本</h4>
+        <span v-if="matchCount !== null" class="text-[11px] text-base-content/50">
+          匹配 {{ matchCount }} 个
+        </span>
+      </div>
+      <textarea v-model="testText" class="textarea textarea-bordered w-full font-mono text-sm bg-base-200/60 min-h-[110px] resize-none" placeholder="输入测试文本..." @input="runTest"></textarea>
     </div>
 
     <!-- 匹配结果 -->
-    <div v-if="matchCount !== null" class="mb-4">
-      <h4 class="text-sm font-semibold text-base-content mb-2">匹配结果（{{ matchCount }} 个）</h4>
-      <div v-if="matches.length > 0" class="bg-base-200 border border-base-content/10 rounded-box max-h-60 overflow-y-auto">
-        <div v-for="(m, idx) in matches" :key="idx" class="px-3 py-1.5 border-b border-base-content/10 last:border-b-0 text-sm hover:bg-base-100/50">
+    <div v-if="matchCount !== null" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> 匹配结果（{{ matchCount }} 个）</h4>
+      <div v-if="matches.length > 0" class="max-h-60 overflow-y-auto flex flex-col gap-1.5">
+        <div v-for="(m, idx) in matches" :key="idx" class="px-3 py-2 bg-base-200/60 border border-base-content/10 rounded-lg text-sm hover:border-primary/40 transition-colors">
           <div class="flex items-center gap-2">
-            <span class="opacity-60 font-semibold min-w-[36px] text-xs">#{{ idx + 1 }}</span>
-            <span class="font-mono break-all flex-1">{{ m.match }}</span>
-            <span class="text-xs text-base-content/40 whitespace-nowrap">{{ m.line }}:{{ m.col }}</span>
+            <span class="text-base-content/40 font-semibold min-w-[32px] text-xs">#{{ idx + 1 }}</span>
+            <span class="font-mono break-all flex-1 text-base-content">{{ m.match }}</span>
+            <span class="text-xs text-base-content/40 whitespace-nowrap font-mono">{{ m.line }}:{{ m.col }}</span>
           </div>
-          <div v-if="m.groups.length > 0" class="ml-12 mt-0.5 flex flex-wrap gap-1.5">
-            <span v-for="(g, gi) in m.groups" :key="gi" class="text-xs bg-base-100/60 px-1.5 py-0.5 rounded font-mono">
-              <span class="opacity-50">${{ gi + 1 }}:</span> {{ g }}
+          <div v-if="m.groups.length > 0" class="ml-9 mt-1.5 flex flex-wrap gap-1.5">
+            <span v-for="(g, gi) in m.groups" :key="gi" class="text-xs bg-base-100/80 px-1.5 py-0.5 rounded font-mono border border-base-content/10">
+              <span class="text-base-content/40">${{ gi + 1 }}:</span> {{ g }}
             </span>
           </div>
         </div>
       </div>
-      <div v-else class="text-sm text-base-content/60 italic px-3 py-4 text-center bg-base-200 rounded-box">没有匹配结果</div>
+      <div v-else class="text-sm text-base-content/50 px-3 py-4 text-center bg-base-200/60 rounded-lg">没有匹配结果</div>
     </div>
-
-    <hr v-if="matchCount !== null" class="border-base-content/10 my-4" />
 
     <!-- 替换 -->
-    <div class="mb-4">
-      <h4 class="text-sm font-semibold text-base-content mb-2">替换</h4>
-      <div class="flex flex-wrap gap-2 mb-2">
-        <input v-model="replacement" class="input input-bordered flex-1 font-mono text-sm" placeholder="替换内容，支持 $1, $2 等引用" @input="runReplace" />
-        <button class="btn btn-ghost btn-xs" @click="copyReplaced" :disabled="!replacedResult">复制</button>
+    <div v-if="matchCount !== null" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="refresh" size="12" /> 替换</h4>
+      <div class="flex flex-wrap gap-2 mb-2.5">
+        <input v-model="replacement" class="input input-bordered flex-1 font-mono text-sm bg-base-200/60" placeholder="替换内容，支持 $1, $2 等引用" @input="runReplace" />
+        <button class="btn btn-primary btn-sm" @click="copyReplaced" :disabled="!replacedResult"><SvgIcon name="copy" size="12" /> 复制</button>
       </div>
-      <textarea v-if="replacedResult !== null" v-model="replacedResult" class="textarea textarea-bordered w-full font-mono text-sm min-h-[80px] resize-none" readonly></textarea>
+      <textarea v-if="replacedResult !== null" v-model="replacedResult" class="textarea textarea-bordered w-full font-mono text-sm min-h-[80px] resize-none bg-base-200/60" readonly></textarea>
     </div>
-
-    <hr class="border-base-content/10 my-4" />
 
     <!-- 匹配高亮 -->
-    <div v-if="highlightedHtml" class="mb-4">
-      <h4 class="text-sm font-semibold text-base-content mb-2">匹配高亮</h4>
-      <div class="p-3 bg-base-200 border border-base-content/10 rounded-box font-mono text-sm leading-relaxed whitespace-pre-wrap break-all max-h-60 overflow-y-auto" v-html="highlightedHtml"></div>
+    <div v-if="highlightedHtml" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="sparkles" size="12" /> 匹配高亮</h4>
+      <div class="p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-sm leading-relaxed whitespace-pre-wrap break-all max-h-60 overflow-y-auto" v-html="highlightedHtml"></div>
     </div>
 
-    <hr v-if="highlightedHtml" class="border-base-content/10 my-4" />
-
     <!-- 语法速查 -->
-    <details class="collapse collapse-arrow bg-base-200 rounded-box">
-      <summary class="collapse-title text-sm font-semibold py-2 min-h-0">正则语法速查</summary>
-      <div class="collapse-content text-xs">
-        <div class="grid grid-cols-2 gap-x-4 gap-y-1 font-mono">
+    <details class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden group">
+      <summary class="px-4 py-3 text-sm font-semibold text-base-content/70 cursor-pointer select-none flex items-center gap-2 [&::-webkit-details-marker]:hidden">
+        <SvgIcon name="book" size="13" /> 正则语法速查
+        <SvgIcon name="chevronDown" size="12" class="ml-auto text-base-content/40 group-open:rotate-180 transition-transform" />
+      </summary>
+      <div class="px-4 pb-4 text-xs border-t border-base-content/10 pt-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5 font-mono">
           <div><code class="text-primary">.</code> 任意字符（不含换行）</div>
           <div><code class="text-primary">\d</code> 数字 [0-9]</div>
           <div><code class="text-primary">\w</code> 单词字符 [a-zA-Z0-9_]</div>
@@ -105,14 +106,17 @@
         </div>
       </div>
     </details>
-  </div>
+  </ToolPage>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import ToolPage from '../components/ToolPage.vue'
 import { ref, computed } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
+
+defineEmits<{ back: [] }>()
 
 const toast = useToast()
 
@@ -165,7 +169,7 @@ function toggleFlag(flag: string) {
 }
 
 function createRegex(): RegExp | null {
-  if (!pattern.value) return null
+  if (!pattern.value) { return null }
   try {
     regexError.value = ''
     return new RegExp(pattern.value, flags.value)
@@ -204,7 +208,7 @@ function runTest() {
           line,
           col,
         })
-        if (m[0] === '') regex2.lastIndex++ // Avoid infinite loop
+        if (m[0] === '') { regex2.lastIndex++ } // Avoid infinite loop
       }
     } else {
       const m = regex.exec(testText.value)
@@ -250,7 +254,7 @@ function applyPreset(preset: typeof commonRegex[0]) {
 
 const highlightedHtml = computed(() => {
   const regex = createRegex()
-  if (!regex || !testText.value) return ''
+  if (!regex || !testText.value) { return '' }
 
   try {
     let result = ''
@@ -292,7 +296,7 @@ function escapeHtml(str: string): string {
 }
 
 async function copyReplaced() {
-  if (!replacedResult.value) return
+  if (!replacedResult.value) { return }
   await copyText(replacedResult.value, toast)
 }
 </script>
