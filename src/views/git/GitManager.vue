@@ -173,16 +173,66 @@
               </div>
             </div>
             <!-- Diff 预览 -->
-            <div v-if="commitDiff" class="border-t border-base-content/10 flex flex-col min-h-[120px] max-h-[40%]">
+            <div v-if="commitDiff" class="border-t border-base-content/10 flex flex-col min-h-[160px] max-h-[45%]">
               <div class="px-3 py-1 border-b border-base-content/10 text-[11px] font-medium shrink-0 bg-base-200/50">Diff</div>
               <div class="flex-1 overflow-auto p-2">
-                <pre class="text-[10px] font-mono whitespace-pre-wrap break-all text-base-content leading-relaxed">{{ commitDiff }}</pre>
+                <SplitDiffViewer :files="commitDiff?.files || null" :diff="commitDiff?.diff || null" :loading="loadingDiff" />
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- ===== 分支树右键菜单 ===== -->
+    <Teleport to="body">
+      <div
+        v-if="branchCtxMenu.show"
+        class="fixed z-[1000] bg-base-100 border border-base-content/10 rounded shadow-lg min-w-[180px] py-1"
+        :style="{ left: branchCtxMenu.x + 'px', top: branchCtxMenu.y + 'px' }"
+        @click.stop
+        @contextmenu.prevent
+      >
+        <template v-if="!branchCtxMenu.isRemote">
+          <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="runBranchCtx('checkout')">
+            <SvgIcon name="play" :size="14" /> 签出
+          </div>
+          <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="runBranchCtx('new-branch')">
+            <SvgIcon name="gitBranch" :size="14" /> 新建分支（基于此）
+          </div>
+          <div class="h-px bg-base-content/10 my-1"></div>
+          <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="runBranchCtx('merge')">
+            <SvgIcon name="gitMerge" :size="14" /> 合并到当前分支
+          </div>
+          <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="runBranchCtx('compare')">
+            <SvgIcon name="barChart" :size="14" /> 与当前分支比较
+          </div>
+          <div class="h-px bg-base-content/10 my-1"></div>
+          <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="runBranchCtx('push')">
+            <SvgIcon name="upload" :size="14" /> 推送
+          </div>
+          <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="runBranchCtx('pull')">
+            <SvgIcon name="download" :size="14" /> 拉取
+          </div>
+          <div class="h-px bg-base-content/10 my-1"></div>
+          <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="runBranchCtx('rename')">
+            <SvgIcon name="pencil" :size="14" /> 重命名
+          </div>
+          <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs text-error hover:bg-error/10" @click="runBranchCtx('delete')">
+            <SvgIcon name="trash" :size="14" /> 删除
+          </div>
+        </template>
+        <template v-else>
+          <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="runBranchCtx('checkout')">
+            <SvgIcon name="play" :size="14" /> 检出为本地分支
+          </div>
+          <div class="h-px bg-base-content/10 my-1"></div>
+          <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs text-error hover:bg-error/10" @click="runBranchCtx('delete')">
+            <SvgIcon name="trash" :size="14" /> 删除远程分支
+          </div>
+        </template>
+      </div>
+    </Teleport>
 
     <!-- ===== 右键菜单 ===== -->
     <div
@@ -926,10 +976,36 @@ function handleCommit(shouldPush: boolean) {
   }
 }
 
-// 分支树右键菜单（转发到分支弹窗的对应操作）
+// 分支树右键菜单（IDEA 风格，行内弹出）
+const branchCtxMenu = ref<{ show: boolean; x: number; y: number; branch: string | null; isRemote: boolean }>({ show: false, x: 0, y: 0, branch: null, isRemote: false })
+
 function handleBranchContextMenu(payload: { event: MouseEvent; branch: any; isRemote: boolean }) {
-  // 打开分支弹窗并定位到该分支（简化：直接打开弹窗，用户右键用弹窗内菜单）
-  showBranchesPopup.value = true
+  branchCtxMenu.value = { show: true, x: payload.event.clientX, y: payload.event.clientY, branch: payload.branch.name, isRemote: payload.isRemote }
+  document.addEventListener('click', closeBranchCtxMenu, { once: true })
+}
+
+function closeBranchCtxMenu() {
+  branchCtxMenu.value.show = false
+}
+
+function runBranchCtx(action: string) {
+  const b = branchCtxMenu.value.branch
+  const isRemote = branchCtxMenu.value.isRemote
+  branchCtxMenu.value.show = false
+  if (!b) { return }
+  if (isRemote) {
+    if (action === 'checkout') { checkoutRemoteBranch(b) }
+    else if (action === 'delete') { confirmDeleteRemoteBranch(b) }
+  } else {
+    if (action === 'checkout') { checkoutBranch(b) }
+    else if (action === 'new-branch') { openNewBranchFrom(b) }
+    else if (action === 'merge') { openMergeDialog(b) }
+    else if (action === 'compare') { openCompareBranchesDialog() }
+    else if (action === 'push') { openPushDialog() }
+    else if (action === 'pull') { openPullDialog() }
+    else if (action === 'rename') { openBranchRename(b) }
+    else if (action === 'delete') { confirmDeleteBranch(b) }
+  }
 }
 
 </script>

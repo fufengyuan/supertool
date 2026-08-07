@@ -1319,7 +1319,11 @@ function confirmDeleteBranch(name: string) {
       toast.error('删除失败: ' + e.message)
     }
   }
-  function openBranchRename() { showBranchRenameDialog.value = true }
+  function openBranchRename(branch?: string) {
+    if (branch) { branchRenameOld.value = branch }
+    branchRenameNew.value = ''
+    showBranchRenameDialog.value = true
+  }
   function doBranchRename() {
     if (!repoPath.value || !branchRenameOld.value || !branchRenameNew.value) {return}
     api.gitRenameBranch(repoPath.value, branchRenameOld.value, branchRenameNew.value).then(() => {
