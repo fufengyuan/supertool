@@ -308,7 +308,7 @@ pub async fn image_remove_bg(path: String) -> Result<String, String> {
 
     let output_path = output_path("remove_bg", "png")?;
 
-    // 校验输入文件存在，避免路径缺失或参数混淆（以 - 开头的路径会被 argparse 当选项）
+    // 校验输入文件存在（以 - 开头的路径经 -- 分隔符避免被 argparse 当选项）
     if !std::path::Path::new(&path).is_file() {
         return Err("输入图片不存在或不可读".to_string());
     }
@@ -317,7 +317,7 @@ pub async fn image_remove_bg(path: String) -> Result<String, String> {
     let output = tokio::time::timeout(
         std::time::Duration::from_secs(60),
         tokio::process::Command::new("python3")
-            .args(["-m", "rembg", "i", &path, &output_path])
+            .args(["-m", "rembg", "i", "--", &path, &output_path])
             .kill_on_drop(true)
             .output(),
     )
