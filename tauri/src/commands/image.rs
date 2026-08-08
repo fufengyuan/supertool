@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use image::ImageReader;
+use image::{ImageReader, ImageDecoder};
 use image::imageops::FilterType;
 use uuid::Uuid;
 
@@ -77,10 +77,19 @@ fn save_image(img: &image::DynamicImage, output_path: &str) -> Result<(), String
 pub fn image_compress(path: String, quality: u8, format: String) -> Result<String, String> {
     ensure_output_dir()?;
 
-    let img = ImageReader::open(&path)
+    let mut img = ImageReader::open(&path)
         .map_err(|e| format!("打开图片失败: {}", e))?
         .decode()
         .map_err(|e| format!("解码图片失败: {}", e))?;
+    // EXIF 方向修正：浏览器预览已自动旋转，裁剪/处理需对齐用户所见
+    match ImageReader::open(&path)
+        .map_err(|e| e.to_string())
+        .and_then(|r| r.into_decoder().map_err(|e| e.to_string()))
+        .and_then(|mut d| d.orientation().map_err(|e| e.to_string()))
+    {
+        Ok(o) => { img.apply_orientation(o); }
+        Err(_) => {}
+    }
 
     let fmt = format.to_lowercase();
     let ext = match fmt.as_str() {
@@ -135,10 +144,19 @@ pub fn image_resize(
 ) -> Result<String, String> {
     ensure_output_dir()?;
 
-    let img = ImageReader::open(&path)
+    let mut img = ImageReader::open(&path)
         .map_err(|e| format!("打开图片失败: {}", e))?
         .decode()
         .map_err(|e| format!("解码图片失败: {}", e))?;
+    // EXIF 方向修正：浏览器预览已自动旋转，裁剪/处理需对齐用户所见
+    match ImageReader::open(&path)
+        .map_err(|e| e.to_string())
+        .and_then(|r| r.into_decoder().map_err(|e| e.to_string()))
+        .and_then(|mut d| d.orientation().map_err(|e| e.to_string()))
+    {
+        Ok(o) => { img.apply_orientation(o); }
+        Err(_) => {}
+    }
 
     let (orig_w, orig_h) = (img.width(), img.height());
 
@@ -188,10 +206,19 @@ pub fn image_resize(
 pub fn image_convert(path: String, target_format: String) -> Result<String, String> {
     ensure_output_dir()?;
 
-    let img = ImageReader::open(&path)
+    let mut img = ImageReader::open(&path)
         .map_err(|e| format!("打开图片失败: {}", e))?
         .decode()
         .map_err(|e| format!("解码图片失败: {}", e))?;
+    // EXIF 方向修正：浏览器预览已自动旋转，裁剪/处理需对齐用户所见
+    match ImageReader::open(&path)
+        .map_err(|e| e.to_string())
+        .and_then(|r| r.into_decoder().map_err(|e| e.to_string()))
+        .and_then(|mut d| d.orientation().map_err(|e| e.to_string()))
+    {
+        Ok(o) => { img.apply_orientation(o); }
+        Err(_) => {}
+    }
 
     let fmt = target_format.to_lowercase();
     let ext = match fmt.as_str() {
@@ -221,10 +248,19 @@ pub fn image_crop(
 ) -> Result<String, String> {
     ensure_output_dir()?;
 
-    let img = ImageReader::open(&path)
+    let mut img = ImageReader::open(&path)
         .map_err(|e| format!("打开图片失败: {}", e))?
         .decode()
         .map_err(|e| format!("解码图片失败: {}", e))?;
+    // EXIF 方向修正：浏览器预览已自动旋转，裁剪/处理需对齐用户所见
+    match ImageReader::open(&path)
+        .map_err(|e| e.to_string())
+        .and_then(|r| r.into_decoder().map_err(|e| e.to_string()))
+        .and_then(|mut d| d.orientation().map_err(|e| e.to_string()))
+    {
+        Ok(o) => { img.apply_orientation(o); }
+        Err(_) => {}
+    }
 
     let (img_w, img_h) = (img.width(), img.height());
 
@@ -284,4 +320,31 @@ pub fn image_remove_bg(path: String) -> Result<String, String> {
     }
 
     Ok(output_path)
+}
+
+/// 清理临时目录中超过 max_age_hours 的旧文件，返回删除数量
+#[tauri::command(rename_all = "camelCase")]
+pub fn clean_temp_dir(max_age_hours: u64) -> Result<u64, String> {
+    let temp_dir = supertool_core::logic::data_dir::tmp_dir();
+    if !temp_dir.exists() {
+        return Ok(0);
+    }
+    let now = std::time::SystemTime::now();
+    let mut deleted = 0u64;
+    for entry in std::fs::read_dir(&temp_dir).map_err(|e| e.to_string())?.flatten() {
+        let path = entry.path();
+        if path.is_file() {
+            if let Ok(metadata) = path.metadata() {
+                if let Ok(modified) = metadata.modified() {
+                    if let Ok(duration) = now.duration_since(modified) {
+                        if duration.as_secs() > max_age_hours * 3600 {
+                            let _ = std::fs::remove_file(&path);
+                            deleted += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(deleted)
 }
