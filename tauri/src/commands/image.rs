@@ -335,7 +335,8 @@ pub async fn image_remove_bg(path: String) -> Result<String, String> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let detail = stderr.lines().take(3).collect::<Vec<_>>().join("\n");
-        // 错误信息脱敏：rembg 的 stderr 可能包含本地路径，只回传通用信息 + 已脱敏摘要
+        // 错误信息尽量脱敏（密码/密钥/IP 等格式类敏感信息）；本地路径无法通用遮蔽，
+        // 但错误仅回显本机用户、不上报远端，威胁可控
         let sanitized = supertool_core::logic::log_sanitizer::sanitize_string(&detail);
         return Err(format!("rembg处理失败: {}", sanitized));
     }
