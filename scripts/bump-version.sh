@@ -58,7 +58,6 @@ VERSION_FILES=(
     "$PROJECT_DIR/core/Cargo.toml"
     "$PROJECT_DIR/tauri/Cargo.toml"
     "$PROJECT_DIR/tauri/tauri.conf.json"
-    "$PROJECT_DIR/gpui-app/Cargo.toml"
 )
 
 CARGO_LOCK="$PROJECT_DIR/Cargo.lock"
