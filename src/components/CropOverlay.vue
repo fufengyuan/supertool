@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, watch, onMounted, nextTick } from 'vue'
 
 interface Props {
   imgNaturalWidth: number
@@ -75,7 +75,7 @@ function toNaturalY(displayY: number): number {
 
 // Sync display rect from props (natural coords → display coords)
 function syncFromProps() {
-  if (props.cropW > 0 && props.cropH > 0) {
+  if (props.cropW > 0 && props.cropH > 0 && props.imgNaturalWidth > 0 && props.imgNaturalHeight > 0) {
     displayRect.value = {
       x: toDisplayX(props.cropX),
       y: toDisplayY(props.cropY),
@@ -287,8 +287,6 @@ function getCursorForHandle(handle: HandleType): string {
 
 // ============ Drawing ============
 
-let animFrameId: number | null = null
-
 function draw() {
   const canvas = canvasRef.value
   if (!canvas) { return }
@@ -425,10 +423,4 @@ onMounted(() => {
   })
 })
 
-onUnmounted(() => {
-  if (animFrameId !== null) {
-    cancelAnimationFrame(animFrameId)
-    animFrameId = null
-  }
-})
 </script>
