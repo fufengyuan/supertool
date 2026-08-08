@@ -910,6 +910,7 @@ fn main() {
             commands::image::image_convert,
             commands::image::image_crop,
             commands::image::image_remove_bg,
+            commands::image::clean_temp_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

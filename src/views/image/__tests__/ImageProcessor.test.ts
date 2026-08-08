@@ -264,7 +264,7 @@ describe('ImageProcessor.vue', () => {
       wrapper.unmount()
       await flushPromises()
 
-      expect(mockedInvoke).toHaveBeenCalledWith('cleanTempDir', { maxAgeHours: 24 })
+      expect(mockedInvoke).toHaveBeenCalledWith('clean_temp_dir', { maxAgeHours: 24 })
     })
 
     it('should output processed images via invoke to temp path', async () => {

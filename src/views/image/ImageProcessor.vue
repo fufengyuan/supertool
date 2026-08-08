@@ -306,16 +306,32 @@ defineOptions({ name: 'ImageProcessor' })
 
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import CropOverlay from '@/components/CropOverlay.vue'
-import { ref, computed, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { convertFileSrc } from '@tauri-apps/api/core'
-import { copyFile } from '@tauri-apps/plugin-fs'
+import { copyFile, stat } from '@tauri-apps/plugin-fs'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+
+// ============ Tauri 原生拖拽监听（v2 中 DOM drop 拿不到文件路径） ============
+
+let unlistenDragDrop: (() => void) | undefined
+onMounted(async () => {
+  try {
+    const win = getCurrentWebviewWindow()
+    unlistenDragDrop = await win.onDragDropEvent(({ payload }) => {
+      if (payload.type === 'drop' && payload.paths?.length > 0) {
+        loadFile(payload.paths[0])
+      }
+    })
+  } catch { /* 非 Tauri 环境（浏览器调试） */ }
+})
 
 // ============ Cleanup ============
 
 onUnmounted(() => {
-  invoke('cleanTempDir', { maxAgeHours: 24 }).catch(() => {})
+  unlistenDragDrop?.()
+  invoke('clean_temp_dir', { maxAgeHours: 24 }).catch(() => {})
 })
 
 // ============ State ============
@@ -501,16 +517,15 @@ function getOriginalDimensions(path: string) {
   img.onload = () => {
     originalWidth.value = img.naturalWidth
     originalHeight.value = img.naturalHeight
-    URL.revokeObjectURL(url)
   }
-  img.onerror = () => URL.revokeObjectURL(url)
+  img.onerror = () => {}
   img.src = url
 }
 
 async function getFileSize(path: string) {
   try {
-    const result = await invoke<{ size: number }>('file_size', { path })
-    originalSize.value = result.size
+    const info = await stat(path)
+    originalSize.value = Number(info.size)
   } catch {
     // ignore, size fetching is optional
   }
@@ -593,8 +608,8 @@ async function processImage() {
 
 async function getProcessedFileSize(path: string) {
   try {
-    const result = await invoke<{ size: number }>('file_size', { path })
-    processedSize.value = result.size
+    const info = await stat(path)
+    processedSize.value = Number(info.size)
   } catch {
     // ignore
   }
@@ -606,7 +621,9 @@ async function downloadImage() {
     const { save } = await import('@tauri-apps/plugin-dialog')
     // 正确处理文件名：在扩展名前插入 _processed
     const baseName = fileName.value.replace(/\.\w+$/, '')
-    const ext = fileName.value.match(/\.(\w+)$/)?.[1] || 'png'
+    // 扩展名以处理结果的真实格式为准（如 PNG 压成 JPEG 时不应再叫 .png）
+    const procName = processedPath.value.split(/[\\/]/).pop() || ''
+    const ext = procName.match(/\.(\w+)$/)?.[1] || 'png'
     const destPath = await save({
       defaultPath: `${baseName}_processed.${ext}`,
       filters: [{ name: '图片', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] }],
@@ -623,8 +640,8 @@ async function downloadImage() {
 
 function formatSize(bytes: number): string {
   if (bytes === 0) {return '0 B'}
-  const units = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
   return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i]
 }
 
