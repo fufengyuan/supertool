@@ -191,6 +191,12 @@ pub fn image_resize(
         return Err("目标尺寸不能为0".to_string());
     }
 
+    // 尺寸上限校验：防止超大目标导致内存分配失败（Rust alloc 失败直接 abort）
+    const MAX_DIM: u32 = 16384;
+    if new_w > MAX_DIM || new_h > MAX_DIM {
+        return Err(format!("目标尺寸过大（单边最大 {}px），请使用更小的尺寸", MAX_DIM));
+    }
+
     let resized = image::imageops::resize(&img, new_w, new_h, FilterType::Lanczos3);
 
     let ext = get_extension(&path)?;
