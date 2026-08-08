@@ -1,6 +1,6 @@
 [package]
 name = "supertool"
-version = "6.8.104"
+version = "6.8.105"
 description = "SuperTool - Tauri 2.0 Migration"
 authors = ["fufengyuan"]
 edition = "2024"

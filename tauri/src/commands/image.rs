@@ -292,7 +292,7 @@ pub fn image_crop(
 
 /// 移除图片背景（调用 python3 -m rembg）
 #[tauri::command(rename_all = "camelCase")]
-pub fn image_remove_bg(path: String) -> Result<String, String> {
+pub async fn image_remove_bg(path: String) -> Result<String, String> {
     ensure_output_dir()?;
 
     // 检查 rembg 是否可用
@@ -308,11 +308,16 @@ pub fn image_remove_bg(path: String) -> Result<String, String> {
 
     let output_path = output_path("remove_bg", "png")?;
 
-    // 设置 60 秒超时，防止 AI 模型下载或处理卡死
-    let output = Command::new("python3")
-        .args(["-m", "rembg", "i", &path, &output_path])
-        .output()
-        .map_err(|e| format!("执行rembg失败: {}", e))?;
+    // 60 秒超时，防止 AI 模型下载或处理卡死（阻塞调用会挂起整个命令线程）
+    let output = tokio::time::timeout(
+        std::time::Duration::from_secs(60),
+        tokio::process::Command::new("python3")
+            .args(["-m", "rembg", "i", &path, &output_path])
+            .output(),
+    )
+    .await
+    .map_err(|_| "rembg 处理超时（60 秒），请检查网络（模型下载）或重试".to_string())?
+    .map_err(|e| format!("执行rembg失败: {}", e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

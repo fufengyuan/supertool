@@ -54,18 +54,22 @@ const MIN_SIZE = 4
 
 // Convert between image natural coordinates and display coordinates
 function toDisplayX(naturalX: number): number {
+  if (!props.imgNaturalWidth) { return props.imgOffsetX }
   return props.imgOffsetX + (naturalX / props.imgNaturalWidth) * props.imgDisplayWidth
 }
 
 function toDisplayY(naturalY: number): number {
+  if (!props.imgNaturalHeight) { return props.imgOffsetY }
   return props.imgOffsetY + (naturalY / props.imgNaturalHeight) * props.imgDisplayHeight
 }
 
 function toNaturalX(displayX: number): number {
+  if (!props.imgDisplayWidth || !props.imgNaturalWidth) { return 0 }
   return Math.round(((displayX - props.imgOffsetX) / props.imgDisplayWidth) * props.imgNaturalWidth)
 }
 
 function toNaturalY(displayY: number): number {
+  if (!props.imgDisplayHeight || !props.imgNaturalHeight) { return 0 }
   return Math.round(((displayY - props.imgOffsetY) / props.imgDisplayHeight) * props.imgNaturalHeight)
 }
 
@@ -394,8 +398,14 @@ function draw() {
   }
 
   ctx.restore()
-  animFrameId = requestAnimationFrame(draw)
 }
+
+// 按需重绘：displayRect 变化时绘制，空闲时停止 rAF 循环（避免持续耗 CPU）
+watch(
+  () => [displayRect.value.x, displayRect.value.y, displayRect.value.w, displayRect.value.h],
+  () => draw(),
+  { deep: true }
+)
 
 // Watch for prop changes to sync display rect
 watch(
@@ -411,7 +421,7 @@ watch(
 onMounted(() => {
   nextTick(() => {
     syncFromProps()
-    animFrameId = requestAnimationFrame(draw)
+    draw()
   })
 })
 
