@@ -308,6 +308,11 @@ pub async fn image_remove_bg(path: String) -> Result<String, String> {
 
     let output_path = output_path("remove_bg", "png")?;
 
+    // 校验输入文件存在，避免路径缺失或参数混淆（以 - 开头的路径会被 argparse 当选项）
+    if !std::path::Path::new(&path).is_file() {
+        return Err("输入图片不存在或不可读".to_string());
+    }
+
     // 60 秒超时，防止 AI 模型下载或处理卡死（阻塞调用会挂起整个命令线程）
     let output = tokio::time::timeout(
         std::time::Duration::from_secs(60),
@@ -322,7 +327,10 @@ pub async fn image_remove_bg(path: String) -> Result<String, String> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("rembg处理失败: {}", stderr.lines().take(3).collect::<Vec<_>>().join("\n")));
+        let detail = stderr.lines().take(3).collect::<Vec<_>>().join("\n");
+        // 错误信息脱敏：rembg 的 stderr 可能包含本地路径，只回传通用信息 + 已脱敏摘要
+        let sanitized = supertool_core::logic::log_sanitizer::sanitize_string(&detail);
+        return Err(format!("rembg处理失败: {}", sanitized));
     }
 
     Ok(output_path)
@@ -343,7 +351,7 @@ pub fn clean_temp_dir(max_age_hours: u64) -> Result<u64, String> {
             if let Ok(metadata) = path.metadata() {
                 if let Ok(modified) = metadata.modified() {
                     if let Ok(duration) = now.duration_since(modified) {
-                        if duration.as_secs() > max_age_hours * 3600 {
+                        if duration.as_secs() > max_age_hours.saturating_mul(3600) {
                             let _ = std::fs::remove_file(&path);
                             deleted += 1;
                         }
