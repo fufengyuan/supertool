@@ -554,3 +554,46 @@ describe('ImageProcessor.vue', () => {
     })
   })
 })
+
+describe('ImageProcessor.vue - 边界与错误路径', () => {
+  beforeEach(() => {
+    mockedInvoke.mockReset()
+    mockedInvoke.mockImplementation(() => Promise.resolve(undefined))
+  })
+
+  it('未选择文件时执行按钮禁用', async () => {
+    const wrapper = createWrapper()
+    await nextTick()
+    const btn = wrapper.find('button.btn-primary')
+    expect(btn.attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('处理中重复点击不会重复调用 invoke', async () => {
+    const wrapper = createWrapper()
+    await nextTick()
+    const vm = getVm(wrapper)
+    vm.originalPath = '/tmp/test.png'
+    vm.activeFunction = 'compress'
+    vm.processing = true
+    await nextTick()
+    await vm.processImage()
+    expect(mockedInvoke).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('invoke 失败时显示错误消息', async () => {
+    mockedInvoke.mockRejectedValueOnce(new Error('处理失败'))
+    const wrapper = createWrapper()
+    await nextTick()
+    const vm = getVm(wrapper)
+    vm.originalPath = '/tmp/test.png'
+    vm.activeFunction = 'compress'
+    await nextTick()
+    await vm.processImage()
+    await flushPromises()
+    expect(vm.errorMsg).toContain('处理失败')
+    expect(wrapper.text()).toContain('处理失败')
+    wrapper.unmount()
+  })
+})
