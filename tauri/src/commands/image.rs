@@ -313,6 +313,7 @@ pub async fn image_remove_bg(path: String) -> Result<String, String> {
         std::time::Duration::from_secs(60),
         tokio::process::Command::new("python3")
             .args(["-m", "rembg", "i", &path, &output_path])
+            .kill_on_drop(true)
             .output(),
     )
     .await
