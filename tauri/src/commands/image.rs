@@ -191,8 +191,9 @@ pub fn image_resize(
         return Err("目标尺寸不能为0".to_string());
     }
 
-    // 尺寸上限校验：防止超大目标导致内存分配失败（Rust alloc 失败直接 abort）
-    const MAX_DIM: u32 = 16384;
+    // 尺寸上限校验：防止超大目标导致内存分配失败（Rust alloc 失败直接 abort）。
+    // 8192²×4B ≈ 256MiB RGBA 输出，Lanczos3 中间缓冲峰值可控，与 decode 侧 512MiB 限制对称
+    const MAX_DIM: u32 = 8192;
     if new_w > MAX_DIM || new_h > MAX_DIM {
         return Err(format!("目标尺寸过大（单边最大 {}px），请使用更小的尺寸", MAX_DIM));
     }
@@ -342,16 +343,17 @@ pub async fn image_remove_bg(path: String) -> Result<String, String> {
     Ok(output_path)
 }
 
-/// 清理临时目录中超过 max_age_hours 的旧文件，返回删除数量
+/// 清理图片处理产物目录（tmp/image/）中超过 max_age_hours 的旧文件，返回删除数量。
+/// 只清理本模块产物，不触碰 tmp 顶层其他模块（lan/cicd 等）的临时文件。
 #[tauri::command(rename_all = "camelCase")]
 pub fn clean_temp_dir(max_age_hours: u64) -> Result<u64, String> {
-    let temp_dir = supertool_core::logic::data_dir::tmp_dir();
-    if !temp_dir.exists() {
+    let image_dir = output_dir();
+    if !image_dir.exists() {
         return Ok(0);
     }
     let now = std::time::SystemTime::now();
     let mut deleted = 0u64;
-    for entry in std::fs::read_dir(&temp_dir).map_err(|e| e.to_string())?.flatten() {
+    for entry in std::fs::read_dir(&image_dir).map_err(|e| e.to_string())?.flatten() {
         let path = entry.path();
         if path.is_file() {
             if let Ok(metadata) = path.metadata() {
