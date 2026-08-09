@@ -563,7 +563,6 @@ export default {
       general: '通用',
       notifications: '通知',
       shortcuts: '快捷键',
-      network: '网络',
       about: '关于',
     },
     theme: '主题',

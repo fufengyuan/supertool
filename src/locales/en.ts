@@ -562,7 +562,6 @@ export default {
       general: 'General',
       notifications: 'Notifications',
       shortcuts: 'Shortcuts',
-      network: 'Network',
       about: 'About',
     },
     theme: 'Theme',

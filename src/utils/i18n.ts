@@ -10,13 +10,18 @@ export function useLanguage() {
     watch(
         () => settingsStore.language,
         (newLanguage) => {
-            locale.value = newLanguage as "zh-CN" | "en-US";
+            // i18n messages 的 key 是 'zh-CN' / 'en'，映射 en-US → en
+            locale.value = (newLanguage === "en-US" ? "en" : "zh-CN") as "zh-CN" | "en";
         },
     );
 
-    // Switch language and save to settings
+    // Switch language and save to settings + localStorage（main.ts 启动时读 localStorage）
     const switchLanguage = async (newLanguage: "zh-CN" | "en-US") => {
         await settingsStore.updateAndSaveSettings({ language: newLanguage });
+        try {
+            localStorage.setItem("locale", newLanguage === "en-US" ? "en" : "zh-CN");
+        } catch { /* ignore */ }
+        locale.value = (newLanguage === "en-US" ? "en" : "zh-CN") as "zh-CN" | "en";
     };
 
     // Toggle between supported languages

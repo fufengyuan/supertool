@@ -144,6 +144,9 @@ import { getTauriAPI } from '@/utils/tauri-api'
 import { useAppStore } from '@/stores/appStore'
 import { useLanStore } from '@/stores/lanStore'
 import { useTabStore } from '@/stores/tabStore'
+import { useSettingsStore } from '@/utils/settings'
+import { useTheme } from '@/utils/theme'
+import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/views/lan/ChatPanel.vue'
 
@@ -253,7 +256,10 @@ const lanStore = useLanStore()
 
 const sidebarCollapsed = ref(false)
 const showLan = ref(false)
-const isDark = ref(false)
+const settingsStore = useSettingsStore()
+const { toggleTheme: toggleThemeSetting, applyTheme } = useTheme()
+// 统一主题系统：settingsStore.theme 为 cupcake/sunset（深色主题即 sunset）
+const isDark = computed(() => settingsStore.theme === 'sunset')
 const chatPeer = ref<{ id: string; name: string; avatar?: string; version?: string } | null>(null)
 const lanStarted = ref(false)
 
@@ -321,11 +327,7 @@ function onOpenChat(peer: { id: string; name: string; avatar?: string; version?:
 }
 
 async function toggleTheme() {
-  isDark.value = !isDark.value
-  document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
-  try {
-    await getTauriAPI().setSetting('theme', isDark.value ? 'dark' : 'light')
-  } catch {}
+  await toggleThemeSetting()
 }
 
 function openGlobalSearch() {
@@ -338,11 +340,28 @@ onMounted(async () => {
   const api = getTauriAPI()
   // 启动时检测 CLI 版本差异（dmg 用户也能拿到新 CLI）
   checkCliVersion()
+  // 统一主题初始化：从 settings.json 加载（cupcake/sunset），替代旧 getSetting('theme') dark/light
   try {
-    const theme = await api.getSetting('theme')
-    isDark.value = theme === 'dark'
-    document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
+    await settingsStore.initializeSettings()
+    applyTheme(settingsStore.theme)
   } catch {}
+
+  // 全局键盘快捷键接线（Ctrl+1~8 导航 / Ctrl+N / Ctrl+F / Ctrl+B / Ctrl+D）
+  useKeyboardShortcuts({
+    focusNewTask: () => { router.push('/todo') },
+    focusSearch: () => openGlobalSearch(),
+    toggleSidebar: () => { sidebarCollapsed.value = !sidebarCollapsed.value },
+    toggleTheme: () => { toggleThemeSetting() },
+    setViewMode: (mode) => {
+      const routeMap: Record<string, string> = {
+        'todo': '/todo', 'weekly-report': '/weekly', 'projects': '/projects',
+        'servers': '/servers', 'cicd': '/cicd', 'database': '/database',
+        'notes': '/notes', 'devtools': '/devtools',
+      }
+      const target = routeMap[mode]
+      if (target && route.path !== target) {router.push(target)}
+    },
+  })
 
   const unlistenNav = await api.onMenuNav((view: string) => {
     const routeMap: Record<string, string> = {
