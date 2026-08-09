@@ -43,7 +43,7 @@
             @click="loadHistoryReport(report.id)"
           >
             <div class="flex flex-col gap-1">
-              <span class="font-medium text-base-content">{{ formatDate(report.startDate) }} ~ {{ formatDate(report.endDate) }}</span>
+              <span class="font-medium text-base-content">{{ formatDate(report.weekStart) }} ~ {{ formatDate(report.weekEnd) }}</span>
               <span class="text-xs text-base-content/60">创建于 {{ formatDateTime(report.createdAt) }}</span>
             </div>
             <button class="btn btn-outline btn-primary btn-xs" @click.stop="loadHistoryReport(report.id)">查看</button>
@@ -215,8 +215,8 @@ const saveReportToDatabase = async (data: any) => {
       return val
     })
     await tauri.saveWeeklyReport({
-      startDate: data.startDate instanceof Date ? data.startDate.toISOString() : data.startDate,
-      endDate: data.endDate instanceof Date ? data.endDate.toISOString() : data.endDate,
+      weekStart: data.startDate instanceof Date ? data.startDate.toISOString() : data.startDate,
+      weekEnd: data.endDate instanceof Date ? data.endDate.toISOString() : data.endDate,
       content,
     })
     toast.success('周报已自动保存')
@@ -301,14 +301,38 @@ const exportMarkdown = () => {
   URL.revokeObjectURL(url)
 }
 
-const exportWord = async () => {
+const exportWord = () => {
+  // 后端无 export_word_report 命令，改用前端生成 HTML 包装的 .doc（Word 可直接打开）
   if (!reportData.value) {return}
-  try {
-    const result = await tauri.exportWordReport(reportData.value)
-    if (result) {toast.success('Word文档导出成功！')}
-  } catch (error) {
-    handleError(error, { context: '导出Word', showToast: true })
+  const data = reportData.value as any
+  const esc = (s: any) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+  let rows = ''
+  for (const stat of data.projectStats) {
+    rows += `<tr><td>${esc(getProjectName(stat.projectId))}</td><td>${esc(stat.daysActive)}</td></tr>`
   }
+  let workHtml = ''
+  for (const [projectId, tasks] of Object.entries(data.weeklyWork)) {
+    workHtml += `<h3>${esc(getProjectName(projectId))}</h3><ul>`
+    for (const task of tasks as any[]) {workHtml += `<li>${esc(task.text)}</li>`}
+    workHtml += `</ul>`
+  }
+  let planHtml = ''
+  for (const [projectId, tasks] of Object.entries(data.nextWeekPlan)) {
+    planHtml += `<h3>${esc(getProjectName(projectId))}</h3><ul>`
+    for (const task of tasks as any[]) {planHtml += `<li>${esc(task.text)}</li>`}
+    planHtml += `</ul>`
+  }
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>周报</title></head><body><h1>周报</h1><p><b>时间范围</b>: ${esc(formatDate(data.startDate))} 至 ${esc(formatDate(data.endDate))}</p><h2>项目统计表</h2><table border="1" cellspacing="0" cellpadding="4"><tr><th>项目</th><th>耗时天数</th></tr>${rows}</table><h2>本周工作总结</h2>${workHtml}<h2>下周工作计划</h2>${planHtml}</body></html>`
+  const blob = new Blob(['\ufeff', html], { type: 'application/msword' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `weekly_report_${formatDate(data.startDate)}_${formatDate(data.endDate)}.doc`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  toast.success('Word文档已导出')
 }
 
 let unlistenDataChanged: (() => void) | undefined

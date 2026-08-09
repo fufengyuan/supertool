@@ -124,8 +124,8 @@
           </ul>
         </template>
 
-        <!-- 已完成折叠区（按项目分组） -->
-        <div v-if="groupedCompletedTodos.length > 0 && filterValue === 'all' && !searchQueryValue" class="mt-4">
+        <!-- 已完成折叠区（按项目分组）——filterValue='completed' 时也要显示，否则筛选后一片空白 -->
+        <div v-if="groupedCompletedTodos.length > 0 && filterValue !== 'active' && !searchQueryValue" class="mt-4">
           <button class="btn btn-ghost btn-sm gap-1.5 text-base-content/60 w-full justify-start" @click="showCompleted = !showCompleted">
             <SvgIcon name="chevronDown" size="14" :class="{ 'rotate-180': showCompleted }" class="transition-transform duration-200" />
             已完成 ({{ completedTodos.length }})
@@ -843,13 +843,50 @@ onMounted(async () => {
 // ===== LAN & 菜单监听 =====
 setupLanListeners(todoStore as any)
 
+// 菜单导出：前端 blob 下载（后端无导出命令，零依赖）
+function downloadBlob(content: string, filename: string, type: string) {
+  const blob = new Blob(['\ufeff', content], { type })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+function exportTodosAsJson() {
+  const payload = todoStore.todos.map(t => ({ ...t }))
+  downloadBlob(JSON.stringify(payload, null, 2), `todos_${new Date().toISOString().slice(0, 10)}.json`, 'application/json')
+  toast.success(`已导出 ${payload.length} 条任务`)
+}
+
+function exportTodosAsMarkdown() {
+  const md = todoStore.todos
+    .map(t => `- [${t.completed ? 'x' : ' '}] ${t.text}${t.priority && t.priority !== 'medium' ? `  \`${t.priority}\`` : ''}`)
+    .join('\n')
+  downloadBlob(md, `todos_${new Date().toISOString().slice(0, 10)}.md`, 'text/markdown')
+  toast.success('任务列表已导出 Markdown')
+}
+
+function exportTodosAsWord() {
+  const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+  const rows = todoStore.todos.map(t =>
+    `<tr><td>${esc(t.text)}</td><td>${t.completed ? '已完成' : '进行中'}</td><td>${esc(t.priority || 'medium')}</td></tr>`
+  ).join('')
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>任务列表</title></head><body><h1>任务列表</h1><table border="1" cellspacing="0" cellpadding="4"><tr><th>任务</th><th>状态</th><th>优先级</th></tr>${rows}</table></body></html>`
+  downloadBlob(html, `todos_${new Date().toISOString().slice(0, 10)}.doc`, 'application/msword')
+  toast.success('任务列表已导出 Word')
+}
+
 const setupMenuListeners = () => {
   const e = getTauriAPI()
   e.onMenuNewTask(() => { (document.querySelector('.todo-input-field') as HTMLElement | null)?.focus() })
-  e.onMenuExportMarkdown(() => { })
-  e.onMenuExportWord(() => { })
-  e.onMenuExportJson(() => { })
-  e.onMenuImportJson(() => { })
+  e.onMenuExportMarkdown(() => { exportTodosAsMarkdown() })
+  e.onMenuExportWord(() => { exportTodosAsWord() })
+  e.onMenuExportJson(() => { exportTodosAsJson() })
+  e.onMenuImportJson(() => { toast.info('导入 JSON 暂未接线') })
   e.onMenuClearCompleted(() => { todoStore.clearCompleted() })
   e.onMenuSearchTasks(() => { (document.querySelector('.search-input') as HTMLElement | null)?.focus() })
   e.onMenuSelectAll(() => { batch.selectAll() })

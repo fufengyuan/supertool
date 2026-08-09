@@ -388,8 +388,8 @@ export interface WeeklyReport {
   id: string;
   title: string;
   content: string;
-  startDate: string;
-  endDate: string;
+  weekStart: string;
+  weekEnd: string;
   createdAt: string;
   updatedAt: string;
 }
