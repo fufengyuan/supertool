@@ -585,6 +585,7 @@
 import { ref, computed, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast'
+import { confirm } from '@tauri-apps/plugin-dialog'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import hljs from 'highlight.js/lib/core'
 import nginxLang from 'highlight.js/lib/languages/nginx'
@@ -958,7 +959,7 @@ async function onCloneServer(svr: any) {
 }
 
 async function onDeleteServer(id: string) {
-  if (!confirm('确定删除此 Server？其下所有 Location 也会被删除。')) {return}
+  if (!await confirm('确定删除此 Server？其下所有 Location 也会被删除。', { title: '确认删除', kind: 'warning' })) {return}
   try {
     await api.deleteNginxServer(id)
     servers.value = servers.value.filter((s) => s.id !== id)

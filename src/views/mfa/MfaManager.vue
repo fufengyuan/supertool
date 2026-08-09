@@ -405,11 +405,14 @@ async function submitForm() {
   submitting.value = true;
   try {
     if (editingTarget.value) {
-      // 更新
+      // 更新（含高级选项：位数/周期/算法，此前只提交 name/account/issuer 导致高级选项修改不生效）
       await getTauriAPI().updateMfaSecret(editingTarget.value.id, {
         name: form.value.name.trim(),
         account: form.value.account.trim(),
         issuer: form.value.issuer.trim(),
+        digits: form.value.digits,
+        period: form.value.period,
+        algorithm: form.value.algorithm,
       });
       toast.success('已更新');
       // 重新加载列表刷新数据

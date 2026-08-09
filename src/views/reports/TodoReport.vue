@@ -55,13 +55,18 @@
 
 <script setup lang="ts">// @ts-nocheck
 defineOptions({ name: 'TodoReport' })
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useTodoStore } from '@/stores/todoStore';
 import StatsSummary from '@/views/reports/StatsSummary.vue';
 import TagAnalysis from '@/views/reports/TagAnalysis.vue';
 import ProjectAnalysis from '@/views/reports/ProjectAnalysis.vue';
 
 const todoStore = useTodoStore();
+
+// 页面直接读 todoStore.todos，但 store 可能尚未加载（直接打开报表页时为空 → 显示「本周暂无完成任务」）
+onMounted(() => {
+  if (todoStore.todos.length === 0) {todoStore.loadTodos()}
+});
 
 // 当前查看的周偏移量
 const weekOffset = ref(0);

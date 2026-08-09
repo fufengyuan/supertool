@@ -94,6 +94,7 @@
                 <input
                   type="text"
                   v-model="autoBackup.path"
+                  @change="saveAutoBackupSettings"
                   placeholder="默认为应用数据目录"
                   class="input input-bordered input-sm flex-1 min-w-[150px]"
                 />
