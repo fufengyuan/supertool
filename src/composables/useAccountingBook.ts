@@ -17,10 +17,11 @@ interface Attachment {
 }
 
 interface PendingAttachment {
+  path?: string // 编辑时保留的既有附件路径（已上传过，无需再传）
   name: string
   type: 'image' | 'pdf'
   size: number
-  data: string // base64
+  data: string // base64（新选附件才有值）
   preview: string
 }
 
@@ -662,7 +663,7 @@ function editRecord(record: AccountingRecord) {
     approver: record.approver || '',
     voucher_number: record.voucher_number || '',
     attachments: Array.isArray(record.attachments_json) ? record.attachments_json.map((a: Attachment) => ({
-      name: a.name, type: a.type as 'image' | 'pdf', size: a.size, data: '', preview: ''
+      path: a.path, name: a.name, type: a.type as 'image' | 'pdf', size: a.size, data: '', preview: ''
     })) : []
   }
   showRecordForm.value = true
@@ -680,10 +681,12 @@ async function saveRecord() {
     return
   }
   try {
-    // Upload attachments first
+    // Upload attachments first（编辑保留的既有附件有 path，跳过上传；仅上传新选的）
     const attachments: Attachment[] = []
     for (const att of form.value.attachments) {
-      if (getTauriAPI().uploadAccountingReceipt) {
+      if (att.path) {
+        attachments.push({ path: att.path, type: att.type, name: att.name, size: att.size })
+      } else if (att.data && att.data.length > 0 && getTauriAPI().uploadAccountingReceipt) {
         const result = await getTauriAPI().uploadAccountingReceipt(att.name, att.data)
         if (result) {
           attachments.push(result)
