@@ -188,3 +188,8 @@ git commit -m "chore: update dependencies"       # 版本号不变
 - **@ts-nocheck 状态**：前端仅 `src/utils/tauri-api.ts` 保留（136 个历史类型错误，暂不清理）；其余文件已全部移除。改 tauri-api 时**必须同步实现与接口声明**（TauriAPI interface），否则其他文件 vue-tsc 会报错。
 - **LAN 事件约定**：发送事件用 `tauri-api` 的 `lanBroadcast*` 系列方法（走 `lan_broadcast_*` 后端命令，参数为 JSON 字符串）；`on*` 系列只用于监听（`listen` 事件）。误用 `onXxx(todoId, editor)` 发送会导致运行时 TypeError。
 - **lint 配置**（.oxlintrc.json）：`eqeqeq` 允许 `!= null` 惯用法（`null: ignore`）、`no-unused-vars` 豁免 `_` 前缀与 catch 参数；全项目 lint 当前 0 错误。
+
+- **Tauri 中原生 `confirm()`/`prompt()` 不弹窗**（静默返回 false/null）：删除/覆盖确认必须用 `@tauri-apps/plugin-dialog` 的 `confirm()` 或组件内自定义弹层（参照 KanbanBoard 的 pendingConfirm/pendingBlock）；项目已有 plugin-dialog ^2.7.0 依赖。
+- **后端 Tauri 命令参数名必须与前端调用一致**（serde 反序列化不映射别名）：周报模块曾因前端传 `params`/`startDate` 而后端要 `limit`/`weekStart` 导致整条链路失效（历史为空/字段空白/详情打不开）。新增命令前核对 `tauri/src/main.rs` 注册签名与 `tauri-api.ts` 调用参数。
+- **Tauri 命令失败返回 `{success:false,error}` 不抛异常**：调用方必须显式检查 `success === false`（DBManager 曾把语法错误记为成功）。批量/写操作前确认返回结构。
+- **UI 状态与后端字段语义对齐**：`types.ts` 的接口是准绳（Notes 的 pinned、WeeklyReport 的 weekStart/weekEnd 曾与本地重复接口冲突导致类型错误与字段丢失），改动前端类型先查 `core/src/logic/*.rs` 实际字段。
