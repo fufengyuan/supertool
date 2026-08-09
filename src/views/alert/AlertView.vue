@@ -738,7 +738,8 @@ async function saveResource() {
       name: resourceForm.name,
       category: getCategory(resourceForm),
       remark: resourceForm.remark || null,
-      expireAt: resourceForm.expire_at ? resourceForm.expire_at + 'T00:00:00+08:00' : null,
+      // 日期按本地时区午夜解析再转 UTC（原硬编码 +08:00 对非东八区用户剩余天数算错）
+      expireAt: resourceForm.expire_at ? new Date(resourceForm.expire_at + 'T00:00:00').toISOString() : null,
       alertAdvanceDays: resourceForm.alert_advance_days,
     }
     if (editingResource.value) {
@@ -829,21 +830,23 @@ async function saveEmailConfig() {
 const alertHistory = ref<any[]>([])
 const loadingHistory = ref(false)
 
-async function loadAlertHistory() {
+async function loadAlertHistory(): Promise<boolean> {
   loadingHistory.value = true
   try {
     const data = await api.getAlertHistory()
     alertHistory.value = data ?? []
+    return true
   } catch (e: any) {
     console.error('加载告警历史失败:', e)
+    return false
   } finally {
     loadingHistory.value = false
   }
 }
 
 async function onRefreshHistory() {
-  await loadAlertHistory()
-  toast.success('已刷新')
+  const ok = await loadAlertHistory()
+  if (ok) {toast.success('已刷新')} else {toast.error('刷新失败')}
 }
 
 // ============ 手动检查 ============
