@@ -52,13 +52,11 @@
         </div>
         <div class="flex items-end justify-between">
           <div>
-            <span class="text-2xl font-bold text-success">{{ serverStats.online }}</span>
-            <span class="text-xs text-base-content/50 ml-1">在线</span>
+            <span class="text-2xl font-bold text-success">{{ serverStats.total }}</span>
+            <span class="text-xs text-base-content/50 ml-1">已配置</span>
           </div>
           <div class="text-right">
-            <span class="text-sm text-error" v-if="serverStats.offline > 0">{{ serverStats.offline }}</span>
-            <span class="text-xs text-base-content/50 ml-1" v-if="serverStats.offline > 0">离线</span>
-            <span class="text-xs text-base-content/40" v-else>全部正常</span>
+            <span class="text-xs text-base-content/40" v-if="serverStats.total > 0">未做连通性检测</span>
           </div>
         </div>
         <div class="mt-3 text-xs text-base-content/40">{{ serverStats.total }} 台服务器</div>
@@ -121,7 +119,7 @@
         <span class="text-sm font-medium text-base-content/70">快速操作</span>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button class="btn btn-sm btn-primary gap-1.5" @click="showQuickTodo = true">
+        <button class="btn btn-sm btn-primary gap-1.5" @click="openQuickTodo">
           <SvgIcon name="plus" size="14" />
           添加待办
         </button>
@@ -244,11 +242,12 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'Dashboard' })
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { useTodoStore } from '../../stores/todoStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useToast } from '../../composables/useToast';
 import SvgIcon from '../../components/ui/SvgIcon.vue';
 import Modal from '../../components/ui/Modal.vue';
 import PerpetualCalendar from './components/PerpetualCalendar.vue';
@@ -316,17 +315,17 @@ const recentTodos = computed(() => {
     .slice(0, 10);
 });
 
-// 服务器统计
+// 服务器统计：只展示已配置数量。当前无连通性健康检查，不再虚构在线/离线数字
 const serverStats = ref({ total: 0, online: 0, offline: 0 });
 const loadServerStats = async () => {
   try {
     const servers = await invoke<{ id: string; name: string; host: string }[]>('get_all_servers');
     serverStats.value.total = servers.length;
-    // 简化：假设全部在线（实际可以调用健康检查）
-    serverStats.value.online = servers.length;
+    serverStats.value.online = 0;
     serverStats.value.offline = 0;
   } catch (e) {
     console.error('加载服务器统计失败:', e);
+    toast.error('加载服务器统计失败');
   }
 };
 
@@ -357,6 +356,7 @@ const loadAlertStats = async () => {
     alertStats.value.today = alerts.filter(a => new Date(a.sentAt).toDateString() === today).length;
   } catch (e) {
     console.error('加载告警统计失败:', e);
+    toast.error('加载告警统计失败');
   }
 };
 
@@ -373,6 +373,7 @@ const loadRecentDeployments = async () => {
     }));
   } catch (e) {
     console.error('加载部署历史失败:', e);
+    toast.error('加载部署历史失败');
   }
 };
 
@@ -382,6 +383,12 @@ const quickTodoText = ref('');
 const quickTodoPriority = ref<'low' | 'medium' | 'high'>('medium');
 const quickTodoProjectId = ref('');
 const quickTodoInputRef = ref<HTMLInputElement | null>(null);
+const toast = useToast();
+
+function openQuickTodo() {
+  showQuickTodo.value = true;
+  nextTick(() => quickTodoInputRef.value?.focus());
+}
 
 const submitQuickTodo = async () => {
   if (!quickTodoText.value.trim()) {return;}
@@ -432,13 +439,15 @@ const formatTime = (dateStr: string) => {
 onMounted(async () => {
   updateTime();
   timeInterval = window.setInterval(updateTime, 1000);
-  
-  // 加载数据
-  await todoStore.loadTodos();
-  await projectStore.loadProjects();
-  await loadServerStats();
-  await loadAlertStats();
-  await loadRecentDeployments();
+
+  // 并行加载数据（各函数内部已捕获错误，互不影响）
+  await Promise.all([
+    todoStore.loadTodos(),
+    projectStore.loadProjects(),
+    loadServerStats(),
+    loadAlertStats(),
+    loadRecentDeployments(),
+  ]);
 });
 
 onUnmounted(() => {

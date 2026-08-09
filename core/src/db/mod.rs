@@ -120,6 +120,7 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             title TEXT NOT NULL DEFAULT '',
             content TEXT NOT NULL DEFAULT '',
             groupId TEXT,
+            pinned INTEGER NOT NULL DEFAULT 0,
             createdAt TEXT NOT NULL,
             updatedAt TEXT NOT NULL
         );
@@ -636,6 +637,11 @@ pub fn init_db(conn: &Connection) -> Result<()> {
     // Migration: add smtp_encryption column for databases created before v4.1
     let _ = conn.execute(
         "ALTER TABLE alert_email_config ADD COLUMN smtp_encryption TEXT NOT NULL DEFAULT 'starttls'",
+        [],
+    );
+    // Migration: add pinned column to notes for databases created before pinned feature
+    let _ = conn.execute(
+        "ALTER TABLE notes ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",
         [],
     );
     // Migration: add name column to git_repos for databases created before v4.1
