@@ -531,7 +531,7 @@ async function loadTemplates() {
   } catch (_e) { console.error('加载模板失败:', _e) }
 }
 
-async function useTemplate(tpl: { id: string; name: string; type: string; category: string; amount: number; description: string; entity: string; project: string; supplier: string; payment_method: string }) {
+async function useTemplate(tpl: { id: string; name: string; type: string; category: string; amount: number; description: string; entity: string; project: string; supplier: string; payment_method: string; tax_rate?: number }) {
   editingRecord.value = null
   form.value = {
     id: '', date: todayStr(), type: tpl.type as 'income' | 'expense', category: tpl.category,
@@ -539,6 +539,10 @@ async function useTemplate(tpl: { id: string; name: string; type: string; catego
     entity: tpl.entity || '', project: tpl.project || '', supplier: tpl.supplier || '',
     invoice_number: '', tax_amount: 0, payment_method: tpl.payment_method || '',
     approver: '', voucher_number: '', attachments: []
+  }
+  // 应用模板税率 → 预填税额（tax_amount = amount * tax_rate）
+  if (tpl.tax_rate && tpl.amount > 0) {
+    form.value.tax_amount = Math.round(tpl.amount * tpl.tax_rate) / 100
   }
   showTemplates.value = false
   showRecordForm.value = true
@@ -590,11 +594,15 @@ async function saveTemplate() {
 function saveAsTemplate() {
   if (!formValid.value) {return}
   editingTemplate.value = null
+  // 税率从当前凭证推算（tax_amount / amount），不再写死 0
+  const taxRate = form.value.tax_amount && form.value.amount > 0
+    ? Math.round((Number(form.value.tax_amount) / Number(form.value.amount)) * 100)
+    : 0
   templateForm.value = {
     name: `${form.value.category}`, type: form.value.type, category: form.value.category,
     amount: form.value.amount, description: form.value.description, entity: form.value.entity,
     project: form.value.project, supplier: form.value.supplier, payment_method: form.value.payment_method,
-    tax_rate: 0
+    tax_rate: taxRate
   }
   showTemplateEditor.value = true
 }

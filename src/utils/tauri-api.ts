@@ -1846,7 +1846,7 @@ export interface TauriAPI {
   screenshot: () => Promise<any>
   exportWordReport: (params: any) => Promise<any>
   // 操作审计
-  auditList: (actor?: string, result?: string, limit?: number) => Promise<any>
+  auditList: (actor?: string, result?: string, limit?: number, offset?: number) => Promise<any>
   // CLI 安装器
   checkCliVersion: () => Promise<any>
   installCli: () => Promise<any>
@@ -2714,8 +2714,8 @@ export function getTauriAPI(): TauriAPI {
     saveFileContent: async (repoPath: string, filePath: string, content: string) => tauriCall<void>('save_file_content', { repoPath, filePath, content }),
 
     // ============ 操作审计 ============
-    auditList: async (actor?: string, result?: string, limit = 100): Promise<any> =>
-      tauriCall('audit_list', { actor: actor ?? null, result: result ?? null, limit }),
+    auditList: async (actor?: string, result?: string, limit = 100, offset = 0): Promise<any> =>
+      tauriCall('audit_list', { actor: actor ?? null, result: result ?? null, limit, offset }),
 
     // ============ CLI 安装器 ============
     checkCliVersion: async (): Promise<any> => tauriCall('check_cli_version'),
