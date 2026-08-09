@@ -29,12 +29,6 @@
         <span>{{ t('settings.tabs.shortcuts') }}</span>
       </button>
       <button class="tab tab-bordered tab-sm flex items-center gap-1"
-        :class="tab === 'network' ? 'tab-active' : ''"
-        @click="tab = 'network'">
-        <SvgIcon name="globe" size="16" />
-        <span>{{ t('settings.tabs.network') }}</span>
-      </button>
-      <button class="tab tab-bordered tab-sm flex items-center gap-1"
         :class="tab === 'about' ? 'tab-active' : ''"
         @click="tab = 'about'">
         <SvgIcon name="info" size="16" />
@@ -70,9 +64,9 @@
         </h2>
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-base-content/70">{{ t('settings.selectLanguage') }}</span>
-          <select class="select select-bordered select-sm w-40" @change="handleLanguageChange">
-            <option value="zh-CN" :selected="settingsStore.language === 'zh-CN'">中文</option>
-            <option value="en-US" :selected="settingsStore.language === 'en-US'">English</option>
+          <select class="select select-bordered select-sm w-40" :value="settingsStore.language" @change="handleLanguageChange">
+            <option value="zh-CN">中文</option>
+            <option value="en-US">English</option>
           </select>
         </div>
       </div>
@@ -103,10 +97,6 @@
           <div class="flex items-center justify-between">
             <span class="text-base-content/70">{{ t('settings.dataDirectory') }}</span>
             <code class="text-xs bg-base-200 px-2 py-1 rounded truncate max-w-[280px]">{{ dataDir || '-' }}</code>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-base-content/70">{{ t('settings.configVersion') }}</span>
-            <span class="font-mono text-xs">{{ packageVersion }}</span>
           </div>
         </div>
       </div>
@@ -149,17 +139,9 @@ const settingsStore = useSettingsStore()
 const { toggleTheme } = useTheme()
 const { switchLanguage } = useLanguage()
 
-const tab = ref<'general' | 'notifications' | 'shortcuts' | 'network' | 'about'>('general')
+const tab = ref<'general' | 'notifications' | 'shortcuts' | 'about'>('general')
 const appVersion = ref(__APP_VERSION__ || '')
 const dataDir = ref('')
-const packageVersion = ref(__APP_VERSION__ || '')
-
-// Network settings
-const proxyEnabled = ref(false)
-const proxyUrl = ref('')
-const networkSaved = ref(false)
-
-// Agent settings
 
 async function loadAppInfo() {
   try {
@@ -172,30 +154,6 @@ async function loadAppInfo() {
   }
 }
 
-async function loadNetworkSettings() {
-  try {
-    const api = getTauriAPI()
-    const enabled = await api.getSetting('proxy_enabled')
-    proxyEnabled.value = enabled === 'true'
-    const url = await api.getSetting('proxy_url')
-    proxyUrl.value = url || ''
-  } catch {
-    // Defaults
-  }
-}
-
-async function saveNetworkSettings() {
-  try {
-    const api = getTauriAPI()
-    await api.setSetting('proxy_enabled', proxyEnabled.value ? 'true' : 'false')
-    await api.setSetting('proxy_url', proxyUrl.value)
-    networkSaved.value = true
-    setTimeout(() => { networkSaved.value = false }, 2000)
-  } catch {
-    // ignore
-  }
-}
-
 const handleLanguageChange = async (event: Event) => {
   const target = event.target as HTMLSelectElement
   await switchLanguage(target.value as 'zh-CN' | 'en-US')
@@ -203,6 +161,5 @@ const handleLanguageChange = async (event: Event) => {
 
 onMounted(async () => {
   await loadAppInfo()
-  await loadNetworkSettings()
 })
 </script>

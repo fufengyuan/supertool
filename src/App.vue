@@ -35,9 +35,10 @@ import ToolCommandPalette from '@/components/ToolCommandPalette.vue'
 import FloatingTodoPanel from '@/components/FloatingTodoPanel.vue'
 import { useAppStore } from '@/stores/appStore'
 import { useLanStore } from '@/stores/lanStore'
+import { useTheme } from '@/utils/theme'
 
 const isFloatingTodo = ref(false)
-const isDark = ref(false)
+const { toggleTheme: toggleThemeSetting } = useTheme()
 const showAboutDialog = ref(false)
 // 启动过渡页：floating-todo 窗口不显示
 const showSplash = ref(true)
@@ -129,12 +130,7 @@ onMounted(async () => {
     useLanStore().init()
   } catch { /* lan store may fail if not available */ }
 
-  // Check theme
-  try {
-    const theme = await api.getSetting('theme')
-    isDark.value = theme === 'dark'
-    document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
-  } catch {}
+  // Check theme — 统一主题由 MainLayout 初始化（settingsStore → cupcake/sunset）
 
   // Menu shortcuts — 等这些监听器注册完成，菜单点击才会响应
   const unlistenAbout = await api.onMenuAbout(() => {
@@ -143,8 +139,7 @@ onMounted(async () => {
   unlistenFns.push(unlistenAbout as () => void)
 
   const unlistenToggleTheme = await api.onMenuToggleTheme(async () => {
-    isDark.value = !isDark.value
-    document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
+    await toggleThemeSetting()
   }).catch(() => () => {})
   unlistenFns.push(unlistenToggleTheme as () => void)
 

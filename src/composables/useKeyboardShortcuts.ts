@@ -23,14 +23,16 @@ interface KeyboardShortcutsOptions {
 export function useKeyboardShortcuts(options: KeyboardShortcutsOptions = {}): void {
   const { focusNewTask, focusSearch, toggleSidebar, toggleTheme, setViewMode } = options;
 
-  // 导航视图映射: Ctrl+1 -> 'todo', Ctrl+2 -> 'weekly-report', ...
+  // 导航视图映射: Ctrl+1 -> 'todo', Ctrl+2 -> 'weekly-report', ...（与 ShortcutSettings 默认一致）
   const viewModeMap: ViewMode[] = [
     'todo', // 1
     'weekly-report', // 2
     'projects', // 3
     'servers', // 4
-    'data-backup', // 5
-    'notifications', // 6
+    'cicd', // 5
+    'database', // 6
+    'notes', // 7
+    'devtools', // 8
   ];
 
   /**
