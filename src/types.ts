@@ -368,7 +368,9 @@ export interface Note {
   id: string;
   title: string;
   content: string;
-  groupId?: string;
+  /** null = 未分组；undefined = 未提供（PATCH 语义） */
+  groupId?: string | null;
+  pinned?: boolean;
   createdAt: string;
   updatedAt: string;
   orderNum?: number;

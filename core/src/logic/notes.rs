@@ -24,7 +24,7 @@ impl super::CoreService {
                     q.replace('\'', "''")
                 ));
             }
-            sql.push_str(" ORDER BY updatedAt DESC");
+            sql.push_str(" ORDER BY pinned DESC, updatedAt DESC");
             let mut stmt = db.conn().prepare(&sql).map_err(|e| e.to_string())?;
             let rows = stmt
                 .query_map([], |row| {
@@ -33,6 +33,7 @@ impl super::CoreService {
                         "title": row.get::<_, String>("title")?,
                         "content": row.get::<_, String>("content")?,
                         "groupId": row.get::<_, Option<String>>("groupId")?,
+                        "pinned": row.get::<_, i64>("pinned")? != 0,
                         "createdAt": row.get::<_, String>("createdAt")?,
                         "updatedAt": row.get::<_, String>("updatedAt")?,
                     }))
@@ -50,11 +51,12 @@ impl super::CoreService {
         let title = params["title"].as_str().unwrap_or("").to_string();
         let content = params["content"].as_str().unwrap_or("").to_string();
         let group_id = params.get("groupId").and_then(|v| v.as_str());
+        let pinned = params.get("pinned").and_then(|v| v.as_bool()).unwrap_or(false);
         self.with_db(|db| {
             db.conn_mut()
                 .execute(
-                    "INSERT INTO notes (id, title, content, groupId, createdAt, updatedAt) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![id, title, content, group_id, now, now],
+                    "INSERT INTO notes (id, title, content, groupId, pinned, createdAt, updatedAt) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    params![id, title, content, group_id, pinned as i64, now, now],
                 )
                 .map_err(|e| e.to_string())
         })
@@ -69,14 +71,15 @@ impl super::CoreService {
         let has_title = params.get("title").is_some();
         let has_content = params.get("content").is_some();
         let has_group_id = params.get("groupId").is_some();
+        let has_pinned = params.get("pinned").is_some();
 
-        if !has_title && !has_content && !has_group_id {
+        if !has_title && !has_content && !has_group_id && !has_pinned {
             // Nothing updatable — read and return current state
             return self.with_db(|db| {
                 let mut stmt = db
                     .conn()
                     .prepare(
-                        "SELECT id, title, content, groupId, createdAt, updatedAt FROM notes WHERE id = ?1",
+                        "SELECT id, title, content, groupId, pinned, createdAt, updatedAt FROM notes WHERE id = ?1",
                     )
                     .map_err(|e| e.to_string())?;
                 stmt.query_row(params![id], |row| {
@@ -85,6 +88,7 @@ impl super::CoreService {
                         "title": row.get::<_, String>("title")?,
                         "content": row.get::<_, String>("content")?,
                         "groupId": row.get::<_, Option<String>>("groupId")?,
+                        "pinned": row.get::<_, i64>("pinned")? != 0,
                         "createdAt": row.get::<_, String>("createdAt")?,
                         "updatedAt": row.get::<_, String>("updatedAt")?,
                     }))
@@ -95,16 +99,17 @@ impl super::CoreService {
 
         self.with_db(|db| {
             // 1. Read current values to merge with partial params
-            let (cur_title, cur_content, cur_group_id): (String, String, Option<String>) = {
+            let (cur_title, cur_content, cur_group_id, cur_pinned): (String, String, Option<String>, i64) = {
                 let mut stmt = db
                     .conn()
-                    .prepare("SELECT title, content, groupId FROM notes WHERE id = ?1")
+                    .prepare("SELECT title, content, groupId, pinned FROM notes WHERE id = ?1")
                     .map_err(|e| e.to_string())?;
                 stmt.query_row(params![id], |row| {
                     Ok((
                         row.get::<_, String>("title")?,
                         row.get::<_, String>("content")?,
                         row.get::<_, Option<String>>("groupId")?,
+                        row.get::<_, i64>("pinned")?,
                     ))
                 })
                 .map_err(|e| e.to_string())?
@@ -126,12 +131,17 @@ impl super::CoreService {
             } else {
                 cur_group_id
             };
+            let new_pinned = if has_pinned {
+                params["pinned"].as_bool().unwrap_or(false) as i64
+            } else {
+                cur_pinned
+            };
 
             // 3. Write merged values
             db.conn_mut()
                 .execute(
-                    "UPDATE notes SET title=?2, content=?3, groupId=?4, updatedAt=?5 WHERE id=?1",
-                    params![id, new_title, new_content, new_group_id, now],
+                    "UPDATE notes SET title=?2, content=?3, groupId=?4, pinned=?5, updatedAt=?6 WHERE id=?1",
+                    params![id, new_title, new_content, new_group_id, new_pinned, now],
                 )
                 .map_err(|e| e.to_string())?;
 
@@ -139,7 +149,7 @@ impl super::CoreService {
             let mut stmt2 = db
                 .conn()
                 .prepare(
-                    "SELECT id, title, content, groupId, createdAt, updatedAt FROM notes WHERE id = ?1",
+                    "SELECT id, title, content, groupId, pinned, createdAt, updatedAt FROM notes WHERE id = ?1",
                 )
                 .map_err(|e| e.to_string())?;
             let note = stmt2
@@ -149,6 +159,7 @@ impl super::CoreService {
                         "title": row.get::<_, String>("title")?,
                         "content": row.get::<_, String>("content")?,
                         "groupId": row.get::<_, Option<String>>("groupId")?,
+                        "pinned": row.get::<_, i64>("pinned")? != 0,
                         "createdAt": row.get::<_, String>("createdAt")?,
                         "updatedAt": row.get::<_, String>("updatedAt")?,
                     }))

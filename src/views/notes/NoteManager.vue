@@ -77,7 +77,7 @@
         <button class="btn btn-primary btn-xs" @click="saveCreateGroup" :disabled="!createGroupName.trim()">创建</button>
         <button class="btn btn-ghost btn-xs" @click="creatingGroup = false">取消</button>
       </div>
-      <button v-else class="group-tab text-base-content/50 hover:text-base-content" @click="creatingGroup = true; nextTick(() => createGroupInputRef.value?.focus())">
+      <button v-else class="group-tab text-base-content/50 hover:text-base-content" @click="openCreateGroup">
         <SvgIcon name="folderPlus" size="12" /> 新建分组
       </button>
 
@@ -231,12 +231,12 @@
         <div class="bg-base-100 rounded-2xl p-5 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
           <h3 class="text-lg font-bold m-0 mb-2 text-base-content flex items-center gap-2">
             <SvgIcon name="alertTriangle" size="15" class="text-error" />
-            <template v-if="deleteTarget.title !== undefined">删除笔记</template>
+            <template v-if="deleteIsNote">删除笔记</template>
             <template v-else>删除分组</template>
           </h3>
           <p class="text-sm text-base-content/60 m-0 mb-4">
-            <template v-if="deleteTarget.title !== undefined">确定要删除「{{ deleteTarget.title || '无标题' }}」吗？此操作不可撤销。</template>
-            <template v-else>确定要删除分组「{{ deleteTarget.name }}」吗？分组内的笔记不会被删除，将变为未分组。</template>
+            <template v-if="deleteIsNote">确定要删除「{{ (deleteTarget as any).title || '无标题' }}」吗？此操作不可撤销。</template>
+            <template v-else>确定要删除分组「{{ (deleteTarget as any).name }}」吗？分组内的笔记不会被删除，将变为未分组。</template>
           </p>
           <div class="flex justify-end gap-2">
             <button class="btn btn-ghost" @click="deleteTarget = null">取消</button>
@@ -248,10 +248,10 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 defineOptions({ name: 'NoteManager' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref, computed, onMounted, nextTick, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { marked } from 'marked'
 import { useToast } from '../../composables/useToast'
@@ -266,13 +266,7 @@ const turndownService = new TurndownService({
   bulletListMarker: '-',
 })
 
-interface Note {
-  id: string; title: string; content: string; tags: string;
-  pinned: number; groupId: string | null; createdAt: string; updatedAt: string;
-}
-interface NoteGroup {
-  id: string; name: string; icon: string; sortOrder: number; createdAt: string;
-}
+import type { Note, NoteGroup } from '../../types'
 
 const notes = ref<Note[]>([])
 const noteGroups = ref<NoteGroup[]>([])
@@ -283,12 +277,18 @@ const editorTitle = ref('')
 const editorContent = ref('')
 const saveStatus = ref('')
 const deleteTarget = ref<Note | NoteGroup | null>(null)
+// 判别联合：deleteTarget 是笔记还是分组（模板中做类型窄化）
+const deleteIsNote = computed(() => deleteTarget.value !== null && 'title' in deleteTarget.value)
 const showGroupSelector = ref(false)
 
 // 分组筛选（顶部 Tab）
 const groupFilter = ref<'all' | '__ungrouped__' | string>('all')
 const creatingGroup = ref(false)
 const createGroupName = ref('')
+function openCreateGroup() {
+  creatingGroup.value = true
+  nextTick(() => createGroupInputRef.value?.focus())
+}
 const inlineRenameId = ref<string | null>(null)
 const inlineRenameName = ref('')
 const moveGroupRef = ref<HTMLElement | null>(null)
@@ -607,8 +607,11 @@ async function executeDelete() {
     try {
       await getTauriAPI().deleteNoteGroup(target.id)
       const notesToUpdate = notes.value.filter(n => n.groupId === target.id)
-      for (const note of notesToUpdate) {
-        const updated = await getTauriAPI().updateNote(note.id, { groupId: null })
+      // 并行迁移（量大时避免串行逐个 await 拖慢）
+      const results = await Promise.all(
+        notesToUpdate.map(note => getTauriAPI().updateNote(note.id, { groupId: null }))
+      )
+      for (const updated of results) {
         if (updated) {
           const idx = notes.value.findIndex(n => n.id === updated.id)
           if (idx !== -1) { notes.value[idx] = updated }
@@ -648,8 +651,10 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
-  // 组件卸载前同步保存一次未落盘的修改（fire-and-forget）
-  if (selectedNote.value) { saveNote() }
+  // 组件卸载前同步保存一次未落盘的修改；失败记录而非静默丢弃
+  if (selectedNote.value) {
+    saveNote().catch(err => console.error('[NoteManager] 卸载前保存失败:', err))
+  }
 })
 </script>
 
