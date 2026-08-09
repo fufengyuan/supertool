@@ -185,7 +185,7 @@ git commit -m "chore: update dependencies"       # 版本号不变
 ## Conventions（2026-08 补充）
 
 - **core todo 更新是 PATCH 语义**：`core/src/logic/todo.rs` 的 `update_todo` 只更新请求中提供的字段（含 `orderNum`），不会误清空未传字段；前端 `updateTodo(todo)` 传部分字段即可。
-- **@ts-nocheck 状态**：前端仅 `src/utils/tauri-api.ts` 保留（136 个历史类型错误，暂不清理）；其余文件已全部移除。改 tauri-api 时**必须同步实现与接口声明**（TauriAPI interface），否则其他文件 vue-tsc 会报错。
+- **@ts-nocheck 状态**：仍有 38 个文件保留（`src/utils/tauri-api.ts` 及 server/vpn/projects/nginx/mfa 等模块部分文件），属历史技术债，逐个清理中。改 tauri-api 时**必须同步实现与接口声明**（TauriAPI interface），否则其他文件 vue-tsc 会报错。
 - **LAN 事件约定**：发送事件用 `tauri-api` 的 `lanBroadcast*` 系列方法（走 `lan_broadcast_*` 后端命令，参数为 JSON 字符串）；`on*` 系列只用于监听（`listen` 事件）。误用 `onXxx(todoId, editor)` 发送会导致运行时 TypeError。
 - **lint 配置**（.oxlintrc.json）：`eqeqeq` 允许 `!= null` 惯用法（`null: ignore`）、`no-unused-vars` 豁免 `_` 前缀与 catch 参数；全项目 lint 当前 0 错误。
 

@@ -436,7 +436,10 @@
               <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
                 <div v-for="(att, idx) in form.attachments" :key="idx" class="flex flex-col items-center gap-1.5 p-2 border border-base-content/10 rounded-lg bg-base-100 relative">
                   <div class="w-16 h-16 rounded-lg overflow-hidden flex items-center justify-center bg-base-200">
-                    <img v-if="att.type === 'image'" :src="att.preview" :alt="att.name" class="w-full h-full object-cover" />
+                    <img v-if="att.type === 'image' && att.preview" :src="att.preview" :alt="att.name" class="w-full h-full object-cover" />
+                    <div v-else-if="att.type === 'image'" class="w-full h-full flex items-center justify-center bg-base-200 text-base-content/40">
+                      <SvgIcon name="file" size="18" />
+                    </div>
                     <div v-else class="text-error">
                       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
