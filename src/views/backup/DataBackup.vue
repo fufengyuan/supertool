@@ -272,7 +272,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 defineOptions({ name: 'DataBackup' })
 import * as logger from '../../services/logger'
 import { getTauriAPI } from '../../utils/tauri-api'
@@ -335,7 +335,7 @@ const dataDir = ref({
   needRestart: false
 });
 
-const lastBackupStatus = ref(null);
+const lastBackupStatus = ref<{ type: 'success' | 'error' | 'info' | 'warning'; message: string } | null>(null);
 
 // 导出JSON
 const exportFullBackup = async () => {
@@ -358,7 +358,7 @@ const exportFullBackup = async () => {
     }
   } catch (error) {
     handleError(error, { context: '导出JSON', showToast: true });
-    message.value = `导出失败: ${error.message}`;
+    message.value = `导出失败: ${(error as Error).message}`;
     messageType.value = 'error';
   } finally {
     isExporting.value = false;
@@ -396,7 +396,7 @@ const importFullBackup = async () => {
     }
   } catch (error) {
     handleError(error, { context: '导入JSON', showToast: true });
-    message.value = `导入失败: ${error.message}`;
+    message.value = `导入失败: ${(error as Error).message}`;
     messageType.value = 'error';
   } finally {
     isImporting.value = false;
@@ -478,16 +478,14 @@ onMounted(async () => {
     gitSyncStatus.value.error = data.error || null;
   });
 
-  // 监听自动备份完成事件
-  if (getTauriAPI().onAutoBackupCompleted) {
-    /* TODO(tauri-events): autoBackupUnsubscribe = getTauriAPI().onAutoBackupCompleted((data: any) => {
-      if (data.success) {
-        lastBackupStatus.value = { type: 'success', message: `自动备份成功: ${data.path}` };
-      } else {
-        lastBackupStatus.value = { type: 'error', message: `自动备份失败: ${data.error}` };
-      }
-    });
-    */}
+  // 监听自动备份完成事件（后端 auto-backup-completed）→ 更新「备份结果」UI（此前是死代码）
+  getTauriAPI().onAutoBackupCompleted((data: any) => {
+    if (data?.success) {
+      lastBackupStatus.value = { type: 'success', message: `自动备份成功: ${data.path || ''}` };
+    } else {
+      lastBackupStatus.value = { type: 'error', message: `自动备份失败: ${data?.error || '未知错误'}` };
+    }
+  }).then((fn) => { autoBackupUnsubscribe = fn }).catch(() => {});
 });
 
 // Cleanup listeners on unmount
