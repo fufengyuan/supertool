@@ -1577,7 +1577,7 @@ export interface TauriAPI {
   addMfaSecret: (secret: Partial<MfaSecret>) => Promise<MfaSecret>
   updateMfaSecret: (id: string, updates: Partial<MfaSecret>) => Promise<MfaSecret>
   deleteMfaSecret: (id: string) => Promise<void>
-  generateTotp: (secret: string) => Promise<string>
+  generateTotp: (secret: string, digits?: number, period?: number, algorithm?: string) => Promise<string>
   // Accounting
   getAccountingRecords: (params?: any) => Promise<{ records: AccountingRecord[], total: number }>
   addAccountingRecord: (record: Partial<AccountingRecord>) => Promise<AccountingRecord>

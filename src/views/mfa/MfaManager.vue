@@ -208,7 +208,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 defineOptions({ name: 'MfaManager' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, onMounted, onUnmounted, computed } from 'vue';
@@ -307,8 +307,9 @@ async function refreshCodes() {
       const result = await getTauriAPI().generateTotp(
         entry.secret, entry.digits, entry.period, entry.algorithm
       );
-      if (result && result.code) {
-        codes.value[entry.id] = result.code;
+      // generateTotp 返回裸验证码字符串
+      if (result) {
+        codes.value[entry.id] = result;
       }
     } catch {
       // ignore
@@ -354,7 +355,7 @@ async function onUriInput() {
       const codeResult = await getTauriAPI().generateTotp(
         form.value.secret, form.value.digits, form.value.period, form.value.algorithm
       );
-      previewCode.value = codeResult?.code || '';
+      previewCode.value = codeResult || '';
     } catch (e: any) {
       formError.value = 'OTP URI 格式无效: ' + (e?.message || '解析出错');
     }
