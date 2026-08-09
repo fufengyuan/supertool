@@ -414,6 +414,7 @@ import { ref, computed, reactive, onMounted, markRaw } from 'vue'
 import { useNginxConfig } from '../../composables/useNginxConfig'
 import { useToast } from '../../composables/useToast'
 import { getTauriAPI } from '../../utils/tauri-api'
+import { confirm } from '@tauri-apps/plugin-dialog'
 import GroupedServerSelector from '@/views/server/GroupedServerSelector.vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import SplitDiffViewer from '@/components/ui/SplitDiffViewer.vue'
@@ -740,7 +741,7 @@ async function onImportConfig() {
       if (data.servers > 0) {parts.push(`Server ${data.servers} 个`)}
       if (data.upstreams > 0) {parts.push(`Upstream ${data.upstreams} 个`)}
       if (data.streams > 0) {parts.push(`Stream ${data.streams} 个`)}
-      if (!confirm(`该预设已有 ${parts.join('、')}，导入将覆盖现有数据。确定继续？`)) {return}
+      if (!await confirm(`该预设已有 ${parts.join('、')}，导入将覆盖现有数据。确定继续？`, { title: '确认导入', kind: 'warning' })) {return}
     }
   } catch { /* if stats fails, proceed anyway */ }
 

@@ -151,6 +151,18 @@
         </div>
       </div>
     </div>
+
+    <!-- 删除确认弹层（替代 window.confirm——Tauri 中原生 confirm 不弹窗） -->
+    <div v-if="wgDeleteTarget" class="modal modal-open">
+      <div class="modal-box">
+        <div class="text-lg font-semibold text-base-content mb-3"><SvgIcon name="alertTriangle" size="14" /> 确认删除</div>
+        <p class="text-sm text-base-content/70 mb-4">确定要删除 WireGuard 配置「{{ wgDeleteTarget.name }}」吗？此操作不可撤销。</p>
+        <div class="flex justify-end gap-2">
+          <button class="btn btn-sm btn-ghost" @click="wgDeleteTarget = null">取消</button>
+          <button class="btn btn-sm btn-error" @click="confirmWgDelete">删除</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -221,9 +233,42 @@ async function saveWgConfig() { try { const data = { ...wgForm.value, mtu: wgFor
 async function wgConnect(cfg: WgConfig) { if (wgStatus.value.connected) { await wgDisconnect(); await new Promise(r => setTimeout(r, 500)) }; try { const r = await getTauriAPI().wireguardConnect(cfg.id, cfg.name, cfg.privateKey, cfg.peerPublicKey, cfg.peerEndpoint, cfg.presharedKey || undefined, cfg.address, cfg.mtu); if (!r?.success) {toast.error('连接失败: ' + (r?.error || '未知错误'));} await loadWgStatus() } catch(e:any) { toast.error('连接失败: ' + e.message) } }
 
 async function wgDisconnect() { try { await getTauriAPI().wireguardDisconnect(); await loadWgStatus(); toast.info('已断开') } catch(e:any) { toast.error('断开失败: ' + e.message) } }
-function selectWgConfig(_cfg: WgConfig) {}
+function selectWgConfig(cfg: WgConfig) {
+  // 点击配置项：回填表单打开编辑（此前为空函数，点了没反应）
+  editingWg.value = cfg
+  wgForm.value = {
+    name: cfg.name,
+    privateKey: cfg.privateKey || '',
+    publicKey: cfg.publicKey || '',
+    address: cfg.address || '10.0.0.2/32',
+    dns: cfg.dns || '',
+    mtu: cfg.mtu ?? 1420,
+    peerPublicKey: cfg.peerPublicKey || '',
+    peerEndpoint: cfg.peerEndpoint || '',
+    peerAllowedIPs: cfg.peerAllowedIPs || '0.0.0.0/0',
+    peerPersistentKeepalive: cfg.peerPersistentKeepalive ?? 25,
+    presharedKey: cfg.presharedKey || '',
+  }
+  showWgForm.value = true
+}
 
-async function wgDelete(cfg: WgConfig) { if (!confirm(`确定要删除 "${cfg.name}" 吗？`)) {return;} try { await getTauriAPI().wireguardDelete(cfg.id); await loadWgAll(); toast.success('已删除') } catch(e:any) { toast.error('删除失败: ' + e.message) } }
+// 待删除的 WireGuard 配置（替代 window.confirm——Tauri 中原生 confirm 不弹窗）
+const wgDeleteTarget = ref<WgConfig | null>(null)
+
+async function wgDelete(cfg: WgConfig) {
+  wgDeleteTarget.value = cfg
+}
+
+async function confirmWgDelete() {
+  if (!wgDeleteTarget.value) {return}
+  const cfg = wgDeleteTarget.value
+  wgDeleteTarget.value = null
+  try {
+    await getTauriAPI().wireguardDelete(cfg.id)
+    await loadWgAll()
+    toast.success('已删除')
+  } catch (e: any) { toast.error('删除失败: ' + e.message) }
+}
 
 function formatBytes(bytes: number): string { if (bytes < 1024) {return bytes + ' B';} if (bytes < 1048576) {return (bytes / 1024).toFixed(1) + ' KB';} return (bytes / 1048576).toFixed(1) + ' MB' }
 

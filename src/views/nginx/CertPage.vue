@@ -100,6 +100,7 @@ import { ref, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import { confirm } from '@tauri-apps/plugin-dialog'
 
 const props = defineProps<{ presetId: string }>()
 
@@ -205,7 +206,7 @@ async function onSave() {
 }
 
 async function onDeleteCert(id: string) {
-  if (!confirm('确定删除此证书？')) {return}
+  if (!await confirm('确定删除此证书？', { title: '确认删除', kind: 'warning' })) {return}
   try {
     await api.deleteNginxCert(id)
     certs.value = certs.value.filter((c) => c.id !== id)

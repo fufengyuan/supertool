@@ -119,6 +119,36 @@
       @create="createTask"
     />
 
+    <!-- 确认弹层（替代 window.confirm——Tauri WebView 中原生 confirm 不弹窗，静默返回 false） -->
+    <div v-if="pendingConfirm" class="fixed inset-0 bg-base-content/20 z-[60] flex items-center justify-center" @click.self="pendingConfirm = null">
+      <div class="bg-base-100 rounded-lg shadow-xl p-5 w-80 border border-base-content/10">
+        <h3 class="text-base font-semibold m-0 mb-2 flex items-center gap-2">
+          <SvgIcon name="alertTriangle" size="15" class="text-warning" /> 确认操作
+        </h3>
+        <p class="text-sm text-base-content/70 m-0 mb-4">
+          确定要{{ pendingConfirm.action === 'complete' ? '完成' : '归档' }}「{{ pendingConfirm.title }}」吗？
+        </p>
+        <div class="flex justify-end gap-2">
+          <button class="btn btn-ghost btn-sm" @click="pendingConfirm = null">取消</button>
+          <button class="btn btn-primary btn-sm" @click="confirmPendingAction">确定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Block reason 弹层（替代 window.prompt） -->
+    <div v-if="pendingBlock" class="fixed inset-0 bg-base-content/20 z-[60] flex items-center justify-center" @click.self="pendingBlock = null">
+      <div class="bg-base-100 rounded-lg shadow-xl p-5 w-80 border border-base-content/10">
+        <h3 class="text-base font-semibold m-0 mb-2 flex items-center gap-2">
+          <SvgIcon name="alertTriangle" size="15" class="text-error" /> 阻塞原因
+        </h3>
+        <input v-model="pendingBlock.reason" class="input input-bordered input-sm w-full" placeholder="请输入阻塞原因" @keyup.enter="confirmBlock" />
+        <div class="flex justify-end gap-2 mt-3">
+          <button class="btn btn-ghost btn-sm" @click="pendingBlock = null">取消</button>
+          <button class="btn btn-error btn-sm" @click="confirmBlock">阻塞</button>
+        </div>
+      </div>
+    </div>
+
     <!-- New board modal -->
     <div v-if="showNewBoard" class="fixed inset-0 bg-base-content/20 z-50 flex items-center justify-center" @click.self="showNewBoard = false">
       <div class="bg-base-100 rounded-lg shadow-xl w-80 max-h-[90vh] flex flex-col">
@@ -241,6 +271,9 @@ const showCreateTask = ref(false)
 const showNewBoard = ref(false)
 const selectedTask = ref<KanbanTaskDetail | null>(null)
 const assignees = ref<Array<{ name: string; on_disk: boolean; counts: Record<string, number> }>>([])
+// 弹层状态（替代 Tauri 中不可用的原生 confirm/prompt）
+const pendingConfirm = ref<{ action: string; taskId: string; title: string; args: unknown[] } | null>(null)
+const pendingBlock = ref<{ taskId: string; reason: string } | null>(null)
 
 const newBoardSlug = ref('')
 const newBoardName = ref('')
@@ -384,9 +417,9 @@ async function handleTaskAction(action: string, taskId: string, ...args: unknown
       case 'complete':
         await invoke('kanban_complete_task', { taskId, summary: args[0] || null }); break
       case 'block': {
-        const reason = window.prompt('Block reason:', String(args[0] || 'Needs attention'))
-        if (reason === null) {return}
-        await invoke('kanban_block_task', { taskId, reason }); break
+        // Tauri 中 window.prompt 不弹窗，改用组件内输入弹层
+        pendingBlock.value = { taskId, reason: String(args[0] || 'Needs attention') }
+        return
       }
       case 'unblock':
         await invoke('kanban_unblock_task', { taskId }); break
@@ -408,11 +441,35 @@ async function handleColumnAction(action: string, taskId: string, ...args: unkno
   if (!task) {return}
 
   if (action === 'complete') {
-    if (!window.confirm(`Mark "${task.title}" as done?`)) {return}
+    pendingConfirm.value = { action, taskId, title: task.title, args }
+    return
   } else if (action === 'archive') {
-    if (!window.confirm(`Archive "${task.title}"?`)) {return}
+    pendingConfirm.value = { action, taskId, title: task.title, args }
+    return
   }
   await handleTaskAction(action, taskId, ...args)
+}
+
+// 确认弹层确定按钮
+async function confirmPendingAction() {
+  if (!pendingConfirm.value) {return}
+  const { action, taskId, args } = pendingConfirm.value
+  pendingConfirm.value = null
+  await handleTaskAction(action, taskId, ...args)
+}
+
+// Block reason 弹层确定按钮（直接 invoke，避免再进 handleTaskAction 的 block case 循环弹层）
+async function confirmBlock() {
+  if (!pendingBlock.value) {return}
+  const { taskId, reason } = pendingBlock.value
+  pendingBlock.value = null
+  try {
+    await invoke('kanban_block_task', { taskId, reason })
+    await loadTasks()
+    if (selectedTask.value?.task.id === taskId) {
+      selectedTask.value = await invoke<KanbanTaskDetail>('kanban_show_task', { taskId })
+    }
+  } catch (e) { console.error(e) }
 }
 
 // ── Create task ──────────────────────────────────────────
