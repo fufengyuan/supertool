@@ -5,7 +5,7 @@
       <div class="flex items-center gap-2 shrink-0">
         <button @click="previousWeek" class="btn btn-primary btn-sm">← 上一周</button>
         <span class="text-[13px] font-semibold text-base-content">{{ currentWeekLabel }}</span>
-        <button @click="nextWeek" class="btn btn-primary btn-sm">下一周 →</button>
+        <button @click="nextWeek" :disabled="weekOffset >= 1" class="btn btn-primary btn-sm" :class="{ 'btn-disabled': weekOffset >= 1 }">下一周 →</button>
       </div>
     </div>
 
@@ -140,10 +140,11 @@ const currentWeekStats = computed(() => calculateStats(currentWeekTasks.value));
 // 上周统计
 const lastWeekStats = computed(() => calculateStats(lastWeekTasks.value));
 
-// 格式化日期
+// 格式化日期（无效日期兜底，避免显示 NaN/NaN）
 const formatDate = (dateString) => {
   if (!dateString) {return '';}
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) {return '';}
   const month = date.getMonth() + 1;
   const day = date.getDate();
   return `${month}/${day}`;
