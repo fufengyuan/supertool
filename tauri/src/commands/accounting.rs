@@ -246,6 +246,11 @@ pub async fn upload_accounting_receipt(
     };
     let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &clean_data)
         .map_err(|e| e.to_string())?;
+    // 大小上限：防止写满磁盘（20MB，覆盖常见票据图片/PDF）
+    const MAX_RECEIPT_BYTES: usize = 20 * 1024 * 1024;
+    if bytes.len() > MAX_RECEIPT_BYTES {
+        return Err("附件超过 20MB 大小限制".to_string());
+    }
 
     std::fs::write(&file_path, &bytes).map_err(|e| e.to_string())?;
 
@@ -260,7 +265,7 @@ pub async fn upload_accounting_receipt(
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn get_accounting_receipt_file(
-    _core: State<'_, CoreService>,
+    core: State<'_, CoreService>,
     file_path: String,
 ) -> Result<serde_json::Value, String> {
     log::info!(
@@ -268,7 +273,22 @@ pub async fn get_accounting_receipt_file(
         file_path
     );
 
-    let path = std::path::Path::new(&file_path);
+    // 路径校验：只允许读取 receipts 目录内的文件，防止任意文件读取链
+    let app_path = core.get_app_path().await.map_err(|e| e)?;
+    let app_dir = std::path::PathBuf::from(app_path.as_str().unwrap_or("."));
+    let receipt_dir = app_dir.join("accounting-receipts");
+    let canonical_dir = receipt_dir.canonicalize().map_err(|_| "存储目录不存在".to_string())?;
+    let canonical_file = std::path::Path::new(&file_path)
+        .canonicalize()
+        .map_err(|_| "文件不存在".to_string())?;
+    if !canonical_file.starts_with(&canonical_dir) {
+        return Ok(serde_json::json!({
+            "success": false,
+            "error": "非法文件路径"
+        }));
+    }
+
+    let path = canonical_file;
     if !path.exists() {
         return Ok(serde_json::json!({
             "success": false,
@@ -276,7 +296,8 @@ pub async fn get_accounting_receipt_file(
         }));
     }
 
-    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    // 通用错误消息，不泄露服务端绝对路径
+    let bytes = std::fs::read(&path).map_err(|_| "读取附件失败".to_string())?;
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let mime = match ext.to_lowercase().as_str() {
         "png" => "image/png",

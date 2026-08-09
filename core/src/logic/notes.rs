@@ -13,21 +13,29 @@ impl super::CoreService {
         let q = query.unwrap_or_default();
         let gid = group_id.unwrap_or_default();
         let result = self.with_db(|db| {
+            // 参数化查询：groupId 与搜索词均绑定参数，LIKE 通配符 %/_ 转义避免误命中全表
             let mut sql = "SELECT * FROM notes WHERE 1=1".to_string();
+            let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
             if !gid.is_empty() {
-                sql.push_str(&format!(" AND groupId = '{}'", gid.replace('\'', "''")));
+                sql.push_str(" AND groupId = ?1");
+                params.push(Box::new(gid.clone()));
             }
             if !q.is_empty() {
+                let escaped = q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
                 sql.push_str(&format!(
-                    " AND (title LIKE '%{}%' OR content LIKE '%{}%')",
-                    q.replace('\'', "''"),
-                    q.replace('\'', "''")
+                    " AND (title LIKE ?{} ESCAPE '\\' OR content LIKE ?{} ESCAPE '\\')",
+                    params.len() + 1,
+                    params.len() + 2
                 ));
+                let like = format!("%{}%", escaped);
+                params.push(Box::new(like.clone()));
+                params.push(Box::new(like));
             }
             sql.push_str(" ORDER BY pinned DESC, updatedAt DESC");
             let mut stmt = db.conn().prepare(&sql).map_err(|e| e.to_string())?;
+            let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
             let rows = stmt
-                .query_map([], |row| {
+                .query_map(param_refs.as_slice(), |row| {
                     Ok(json!({
                         "id": row.get::<_, String>("id")?,
                         "title": row.get::<_, String>("title")?,
