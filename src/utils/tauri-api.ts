@@ -1709,7 +1709,7 @@ export interface TauriAPI {
   onSftpUploadProgress: (callback: (data: any) => void) => () => void
   onTerminalClose: (callback: (data: any) => void) => () => void
   onTerminalData: (callback: (data: any) => void) => () => void
-  onAutoBackupCompleted: (callback: (data: any) => void) => () => void
+  onAutoBackupCompleted: (callback: (data: any) => void) => Promise<() => void>
   onCollaborationStarted: (callback: (data: any) => void) => () => void
   onCollaborationEnded: (callback: (data: any) => void) => () => void
   readFileContent: (filePath: string) => Promise<string>
