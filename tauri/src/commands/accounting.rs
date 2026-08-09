@@ -227,10 +227,13 @@ pub async fn upload_accounting_receipt(
     let app_path = core.get_app_path().await.map_err(|e| e)?;
     let app_dir = std::path::PathBuf::from(app_path.as_str().unwrap_or("."));
     let receipt_dir = app_dir.join("accounting-receipts");
-    std::fs::create_dir_all(&receipt_dir).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&receipt_dir).map_err(|_| "创建存储目录失败".to_string())?;
 
     let id = uuid::Uuid::new_v4().to_string().replace("-", "")[..8].to_string();
-    let ext = file_name.rsplit('.').next().unwrap_or("png");
+    // 扩展名白名单：仅保留字母数字，防止含 / 的 file_name 逃逸写入任意路径
+    let ext_raw = file_name.rsplit('.').next().unwrap_or("png");
+    let ext: String = ext_raw.chars().filter(|c| c.is_ascii_alphanumeric()).take(10).collect();
+    let ext = if ext.is_empty() { "png".to_string() } else { ext };
     let safe_name = format!(
         "{}_{}.{}",
         chrono::Utc::now().format("%Y%m%d%H%M%S"),
@@ -244,15 +247,18 @@ pub async fn upload_accounting_receipt(
     } else {
         base64_data.clone()
     };
-    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &clean_data)
-        .map_err(|e| e.to_string())?;
-    // 大小上限：防止写满磁盘（20MB，覆盖常见票据图片/PDF）
+    // 解码前按 base64 膨胀率(~4/3)估算，拒绝超限 payload，避免大内存峰值
     const MAX_RECEIPT_BYTES: usize = 20 * 1024 * 1024;
+    if clean_data.len() > MAX_RECEIPT_BYTES * 2 {
+        return Err("附件超过 20MB 大小限制".to_string());
+    }
+    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &clean_data)
+        .map_err(|_| "附件数据格式错误".to_string())?;
     if bytes.len() > MAX_RECEIPT_BYTES {
         return Err("附件超过 20MB 大小限制".to_string());
     }
 
-    std::fs::write(&file_path, &bytes).map_err(|e| e.to_string())?;
+    std::fs::write(&file_path, &bytes).map_err(|_| "保存附件失败".to_string())?;
 
     let is_pdf = ext.eq_ignore_ascii_case("pdf");
     Ok(serde_json::json!({
