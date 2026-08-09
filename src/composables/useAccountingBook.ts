@@ -684,7 +684,7 @@ async function saveRecord() {
     // Upload attachments first（编辑保留的既有附件有 path，跳过上传；仅上传新选的）
     const attachments: Attachment[] = []
     for (const att of form.value.attachments) {
-      if (att.path) {
+      if (att.path !== undefined && att.path !== '') {
         attachments.push({ path: att.path, type: att.type, name: att.name, size: att.size })
       } else if (att.data && att.data.length > 0 && getTauriAPI().uploadAccountingReceipt) {
         const result = await getTauriAPI().uploadAccountingReceipt(att.name, att.data)
