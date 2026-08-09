@@ -201,6 +201,7 @@ defineOptions({ name: 'KanbanBoard' })
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import { useToast } from '@/composables/useToast'
 import KanbanColumn from './KanbanColumn.vue'
 import TaskDetailDrawer from './TaskDetailDrawer.vue'
 import CreateTaskModal from './CreateTaskModal.vue'
@@ -268,6 +269,7 @@ const loading = ref(true)
 const error = ref('')
 const actionBusy = ref<string | null>(null)
 const showCreateTask = ref(false)
+const toast = useToast()
 const showNewBoard = ref(false)
 const selectedTask = ref<KanbanTaskDetail | null>(null)
 const assignees = ref<Array<{ name: string; on_disk: boolean; counts: Record<string, number> }>>([])
@@ -337,8 +339,12 @@ async function loadBoards() {
   try { boards.value = await invoke<KanbanBoard[]>('kanban_list_boards') } catch (e) { console.error(e) }
 }
 
+let tasksLoading = false
 async function loadTasks() {
-  try { tasks.value = await invoke<KanbanTask[]>('kanban_list_tasks', { board: null, status: null, assignee: null }) } catch (e) { console.error(e) }
+  // 防重入：6 秒轮询 + 操作后手动刷新可能重叠，慢响应时跳过本次
+  if (tasksLoading) {return}
+  tasksLoading = true
+  try { tasks.value = await invoke<KanbanTask[]>('kanban_list_tasks', { board: null, status: null, assignee: null }) } catch (e) { console.error(e) } finally { tasksLoading = false }
 }
 
 async function loadAssignees() {
@@ -403,7 +409,11 @@ async function handleDispatch() {
 async function showTaskDetail(task: KanbanTask) {
   try {
     selectedTask.value = await invoke<KanbanTaskDetail>('kanban_show_task', { taskId: task.id })
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+    // 点击卡片无反应会让人困惑，至少给出可见提示
+    toast.error('加载任务详情失败')
+  }
 }
 
 // Handles actions from both columns and detail drawer
