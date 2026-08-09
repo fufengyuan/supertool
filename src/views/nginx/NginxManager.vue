@@ -825,9 +825,16 @@ async function computeConfigDiff() {
   }
 }
 
+// LCS 全量对比的 O(m×n) 表在超大配置（万行）时会卡死 UI——超限降级为 O(n) 逐行对比
+const MAX_DIFF_LINES = 5000
+
 function computeUnifiedDiff(oldText: string, newText: string): string {
   const oldLines = oldText.split('\n')
   const newLines = newText.split('\n')
+
+  if (oldLines.length > MAX_DIFF_LINES || newLines.length > MAX_DIFF_LINES) {
+    return computeLineDiff(oldLines, newLines)
+  }
 
   // Build LCS table
   const m = oldLines.length
@@ -872,6 +879,26 @@ function computeUnifiedDiff(oldText: string, newText: string): string {
     result.push(op.prefix + op.text)
   }
 
+  return result.join('\n')
+}
+
+// 超限降级：前缀/后缀匹配 + 中间段整体标记（O(n)），避免 LCS 在万行配置卡死
+function computeLineDiff(oldLines: string[], newLines: string[]): string {
+  let start = 0
+  const minLen = Math.min(oldLines.length, newLines.length)
+  while (start < minLen && oldLines[start] === newLines[start]) {start++}
+  let endOld = oldLines.length, endNew = newLines.length
+  while (endOld > start && endNew > start && oldLines[endOld - 1] === newLines[endNew - 1]) {endOld--; endNew--}
+
+  const result: string[] = []
+  result.push('diff --git a/nginx.conf b/nginx.conf')
+  result.push('--- a/nginx.conf')
+  result.push('+++ b/nginx.conf')
+  result.push(`@@ -1,${oldLines.length} +1,${newLines.length} @@`)
+  for (let k = 0; k < start; k++) {result.push(' ' + oldLines[k])}
+  for (let k = start; k < endOld; k++) {result.push('-' + oldLines[k])}
+  for (let k = start; k < endNew; k++) {result.push('+' + newLines[k])}
+  for (let k = endOld; k < oldLines.length; k++) {result.push(' ' + oldLines[k])}
   return result.join('\n')
 }
 
