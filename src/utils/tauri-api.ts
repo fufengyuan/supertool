@@ -961,12 +961,14 @@ export function useNotesAPI() {
 
 export function useWeeklyAPI() {
   return {
-    getWeeklyReports: async (params?: { weekStart?: string; weekEnd?: string }): Promise<WeeklyReport[]> => {
-      const res = await tauriInvoke<WeeklyReport[]>('get_weekly_reports', { params: params ?? {} })
+    getWeeklyReports: async (): Promise<WeeklyReport[]> => {
+      // 后端签名 limit: usize（必填），传固定上限拉最近 50 条
+      const res = await tauriInvoke<WeeklyReport[]>('get_weekly_reports', { limit: 50 })
       return res.success ? (res.data ?? []) : []
     },
     getWeeklyReport: async (id: string): Promise<WeeklyReport | null> => {
-      const res = await tauriInvoke<WeeklyReport | null>('get_weekly_report', { id })
+      // 后端 id: i64，传数字
+      const res = await tauriInvoke<WeeklyReport | null>('get_weekly_report', { id: Number(id) })
       return res.success ? (res.data ?? null) : null
     },
     saveWeeklyReport: async (report: Partial<WeeklyReport>): Promise<WeeklyReport> => {

@@ -139,7 +139,6 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             content TEXT NOT NULL DEFAULT '',
             createdAt TEXT NOT NULL
         );
-
         CREATE TABLE IF NOT EXISTS accounting_categories (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL DEFAULT '',
@@ -642,6 +641,15 @@ pub fn init_db(conn: &Connection) -> Result<()> {
     // Migration: add pinned column to notes for databases created before pinned feature
     let _ = conn.execute(
         "ALTER TABLE notes ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
+    // Migration: 清理周报空 weekStart 垃圾数据（旧版字段名不匹配存的空串）并按周建唯一索引（upsert 去重）
+    let _ = conn.execute(
+        "DELETE FROM weekly_reports WHERE weekStart = ''",
+        [],
+    );
+    let _ = conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_weekly_weekStart ON weekly_reports(weekStart)",
         [],
     );
     // Migration: add name column to git_repos for databases created before v4.1

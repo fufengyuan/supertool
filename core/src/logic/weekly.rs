@@ -1,4 +1,5 @@
 use rusqlite::params;
+use rusqlite::OptionalExtension;
 use serde_json::{Value, json};
 
 /// Weekly module — extracted from mod.rs
@@ -54,13 +55,37 @@ impl super::CoreService {
         let content = params["content"].as_str().unwrap_or("").to_string();
         let now = chrono::Utc::now().to_rfc3339();
         let id = self
-            .with_db(|db| {
-                db.conn_mut()
-                    .execute(
-                        "INSERT INTO weekly_reports (weekStart, weekEnd, content, createdAt) VALUES (?1, ?2, ?3, ?4)",
-                        params![week_start, week_end, content, now],
+            .with_db(|db| -> Result<i64, String> {
+                // 按周 upsert：同一 weekStart 覆盖旧记录，避免 onDataChanged 每次生成都插入重复行
+                let existing: Option<i64> = db
+                    .conn()
+                    .query_row(
+                        "SELECT id FROM weekly_reports WHERE weekStart = ?1",
+                        params![week_start],
+                        |r| r.get(0),
                     )
-                    .map_err(|e| e.to_string())
+                    .optional()
+                    .map_err(|e| e.to_string())?;
+                match existing {
+                    Some(id) => {
+                        db.conn_mut()
+                            .execute(
+                                "UPDATE weekly_reports SET weekEnd=?2, content=?3, createdAt=?4 WHERE id=?1",
+                                params![id, week_end, content, now],
+                            )
+                            .map_err(|e| e.to_string())?;
+                        Ok(id)
+                    }
+                    None => {
+                        db.conn_mut()
+                            .execute(
+                                "INSERT INTO weekly_reports (weekStart, weekEnd, content, createdAt) VALUES (?1, ?2, ?3, ?4)",
+                                params![week_start, week_end, content, now],
+                            )
+                            .map_err(|e| e.to_string())?;
+                        Ok(db.conn().last_insert_rowid())
+                    }
+                }
             })
             .map_err(|e| e.to_string())?;
         Ok(json!({"id": id}))
