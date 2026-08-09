@@ -72,7 +72,7 @@
               <span
                 v-else-if="day.isOfficialHoliday"
                 class="text-[7px] font-semibold text-white bg-emerald-500 dark:bg-emerald-600 rounded-sm px-0.5 leading-tight mt-[1px] truncate max-w-full"
-              >{{ day.festivals[0] }}</span>
+              >{{ day.festivals[0] ?? '' }}</span>
               <span
                 v-else-if="day.jieQi"
                 class="text-[7px] font-semibold text-emerald-600 dark:text-emerald-400 leading-tight mt-[1px]"
@@ -295,49 +295,8 @@ function buildMonthData(y: number, m: number): (DayInfo | null)[] {
     // 节气
     const jieQi = (lunar.getJieQi() as string) || null;
 
-    // 黄历 — 用正确的 API 方法名
-    let almanac: AlmanacInfo | null = null;
-    try {
-      // 获取时辰吉凶
-      const times = lunar.getTimes() as any[];
-      const timeYi: { type: string; value: string }[] = [];
-      for (const t of times) {
-        timeYi.push({
-          type: t.getZhi() as string + '时',
-          value: t.getTianShenLuck() as string,
-        });
-      }
-
-      const pengzuGan = lunar.getPengZuGan() as string || '';
-      const pengzuZhi = lunar.getPengZuZhi() as string || '';
-      const pengzu = [pengzuGan, pengzuZhi].filter(Boolean).join(' ');
-
-      const chongDesc = lunar.getDayChongDesc() as string || '';
-      const sha = lunar.getDaySha() as string || '';
-
-      almanac = {
-        yi: lunar.getDayYi() as string[],
-        ji: lunar.getDayJi() as string[],
-        yearGanZhi: lunar.getYearInGanZhi() as string,
-        monthGanZhi: lunar.getMonthInGanZhi() as string,
-        dayGanZhi: lunar.getDayInGanZhi() as string,
-        zodiac: lunar.getYearShengXiao() as string,
-        constellation: solar.getXingZuo() as string,
-        naYin: lunar.getDayNaYin() as string,
-        pengzu,
-        chongSha: `${chongDesc} 煞${sha}`,
-        gods: {
-          xi: (lunar.getDayPositionXiDesc() as string) || '',
-          fu: (lunar.getDayPositionFuDesc() as string) || '',
-          cai: (lunar.getDayPositionCaiDesc() as string) || '',
-        },
-        xiu: (lunar.getXiu() as string) || '',
-        xiuLuck: (lunar.getXiuLuck() as string) || '',
-        timeYi,
-      };
-    } catch (e) {
-      // 某些日期可能没有完整的黄历数据
-    }
+    // 黄历不再预计算（365 天 × 12 时辰是首屏卡顿主因）——选中时懒算 buildAlmanac
+    const almanac: AlmanacInfo | null = null;
 
     const date = new Date(y, m - 1, d);
     const isHoliday = festivals.length > 0 || date.getDay() === 0 || date.getDay() === 6;
@@ -398,7 +357,52 @@ const almanacTitle = computed(() => {
 });
 
 const selectDay = (day: DayInfo) => {
-  selectedDay.value = day;
+  // 黄历懒计算：选中时再构建完整黄历（避免 365 天 × 12 时辰的预计算卡顿首屏）
+  selectedDay.value = { ...day, almanac: buildAlmanac(day.year, day.month, day.day) };
   showAlmanac.value = true;
 };
+
+// 构建单日完整黄历（从 buildMonthData 提取，仅选中时调用）
+function buildAlmanac(y: number, m: number, d: number): AlmanacInfo | null {
+  try {
+    const solar = LunarJS.Solar.fromYmd(y, m, d);
+    const lunar = solar.getLunar();
+    const times = lunar.getTimes() as any[];
+    const timeYi: { type: string; value: string }[] = [];
+    for (const t of times) {
+      timeYi.push({
+        type: t.getZhi() as string + '时',
+        value: t.getTianShenLuck() as string,
+      });
+    }
+    const pengzuGan = lunar.getPengZuGan() as string || '';
+    const pengzuZhi = lunar.getPengZuZhi() as string || '';
+    const pengzu = [pengzuGan, pengzuZhi].filter(Boolean).join(' ');
+    const chongDesc = lunar.getDayChongDesc() as string || '';
+    const sha = lunar.getDaySha() as string || '';
+    return {
+      yi: lunar.getDayYi() as string[],
+      ji: lunar.getDayJi() as string[],
+      yearGanZhi: lunar.getYearInGanZhi() as string,
+      monthGanZhi: lunar.getMonthInGanZhi() as string,
+      dayGanZhi: lunar.getDayInGanZhi() as string,
+      zodiac: lunar.getYearShengXiao() as string,
+      constellation: solar.getXingZuo() as string,
+      naYin: lunar.getDayNaYin() as string,
+      pengzu,
+      chongSha: `${chongDesc} 煞${sha}`,
+      gods: {
+        xi: (lunar.getDayPositionXiDesc() as string) || '',
+        fu: (lunar.getDayPositionFuDesc() as string) || '',
+        cai: (lunar.getDayPositionCaiDesc() as string) || '',
+      },
+      xiu: (lunar.getXiu() as string) || '',
+      xiuLuck: (lunar.getXiuLuck() as string) || '',
+      timeYi,
+    };
+  } catch (e) {
+    // 某些日期可能没有完整的黄历数据
+    return null;
+  }
+}
 </script>
