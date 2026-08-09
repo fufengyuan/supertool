@@ -221,7 +221,13 @@ watch(wgLogs, () => { nextTick(() => { if (wgLogRef.value && !wgUserScrolledUp.v
 
 // ============ WireGuard Methods ============
 async function loadWgAll() { try { wgConfigs.value = await getTauriAPI().wireguardGetAll() } catch(e:any) { console.error(e) } }
-async function loadWgStatus() { try { const s = await getTauriAPI().wireguardGetStatus(); if (s) { wgStatus.value = s; if (s.log?.length) {wgLogs.value = s.log} } } catch {} }
+let wgStatusLoading = false
+async function loadWgStatus() {
+  // 防重入：2 秒轮询 + 手动触发可能重叠，慢响应时跳过本次
+  if (wgStatusLoading) {return}
+  wgStatusLoading = true
+  try { const s = await getTauriAPI().wireguardGetStatus(); if (s) { wgStatus.value = s; if (s.log?.length) {wgLogs.value = s.log} } } catch {} finally { wgStatusLoading = false }
+}
 function updateWgDuration() { if (!wgStatus.value.connected || !wgStatus.value.connectedSince) { wgDuration.value = ''; return }; const s = (Date.now() - new Date(wgStatus.value.connectedSince).getTime()) / 1000; const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60); wgDuration.value = h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}` }
 
 async function generateKeypair() { generatingKeys.value = true; try { const r = await getTauriAPI().wireguardGenerateKeypair(); if (r) { wgForm.value.privateKey = r.privateKey; wgForm.value.publicKey = r.publicKey; toast.success('密钥对已生成') } } catch(e:any) { toast.error('生成失败: ' + e.message) } finally { generatingKeys.value = false } }
