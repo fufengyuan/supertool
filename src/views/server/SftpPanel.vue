@@ -755,12 +755,18 @@ async function cancelUpload() {
   toast.info('已取消上传')
 }
 
-// 重试上传
+// 重试上传：按实际来源重试（HTML5 entry 或 Tauri 原生路径）
 async function retryUpload() {
   uploadFailed.value = false
   uploadProgress.value = null
   isUploading.value = false
-  await doDragUploadFromPaths(currentPaths)
+  if (currentEntries.length > 0) {
+    await doDragUpload(currentEntries)
+  } else if (currentPaths.length > 0) {
+    await doDragUploadFromPaths(currentPaths)
+  } else {
+    toast.info('没有可重试的上传任务')
+  }
 }
 
 // Tauri 拖拽上传：直接拿到本地绝对路径，无需临时文件

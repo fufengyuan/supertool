@@ -198,6 +198,7 @@
                   @execute="handleExecute"
                   @clear="clearError"
                   @rerun="handleRerun"
+                  @input="(v) => { if (activeTab?.type === 'sql') activeTab.sql = v }"
                   @clear-history="db.queryHistory.value = []"
                 />
                 <DataGrid
@@ -681,6 +682,24 @@ async function doExecute(sqlText: string) {
       : await getTauriAPI().dbExecuteWrite(db.activeConnection.value.id, plainSql)
     const execTime = Math.round(performance.now() - startTime)
 
+    // dbQuery/dbExecuteWrite 失败时返回 { success: false, error } 且不抛异常——必须显式检查，
+    // 否则语法错误/权限错误会显示 0 行并记为成功（绿色）
+    if (queryResult && typeof queryResult === 'object' && 'success' in queryResult && (queryResult as any).success === false) {
+      const errMsg = (queryResult as any).error || '查询执行失败'
+      error.value = String(errMsg)
+      resultRows.value = []
+      resultTotal.value = 0
+      sqlEditorRef.value?.recordExecution(execTime, 0)
+      db.addQueryRecord({
+        sql: sqlText,
+        connectionId: db.activeConnection.value.id,
+        success: false,
+        error: error.value,
+        executionTime: execTime
+      })
+      return
+    }
+
     // dbQuery 返回 { success, rows } 或 { success, error }
     let rows: Record<string, unknown>[] = []
     if (queryResult && typeof queryResult === 'object' && 'rows' in queryResult) {
@@ -722,6 +741,8 @@ function handleRerun(sqlText: string) {
   if (activeTab.value?.type === 'sql') {
     activeTab.value.sql = sqlText
   }
+  // 历史记录点击应真正重新执行（SqlEditor 的 rerun 语义 = 再次运行）
+  doExecute(sqlText)
 }
 
 function handleSelectTable(connId: string, table: string, dbName?: string) {

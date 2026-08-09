@@ -2747,6 +2747,8 @@ const onEndHandler = (data: any) => {
 }
 const onErrorHandler = (data: any) => {
   console.error(`[Log Error] ${data?.serverId}:`, data?.error)
+  // 流式查询中某节点失败（如无权限）必须有可见提示，否则表现为「节点在线但一直没日志」
+  toast.error(`日志流错误: ${data?.error || '未知错误'}`)
 }
 const onStreamStoppedHandler = (data: any) => {
   if (data?.streamId === streamId.value) {
