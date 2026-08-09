@@ -48,7 +48,7 @@
         spellcheck="false"
         @scroll="syncScroll"
         @keydown="handleKeydown"
-        @input="updateHighlight"
+        @input="updateHighlight; emit('input', sql)"
       ></textarea>
     </div>
 
@@ -127,6 +127,7 @@ const emit = defineEmits<{
   clear: []
   rerun: [sql: string]
   'clear-history': []
+  input: [sql: string]
 }>()
 
 const sql = ref('')

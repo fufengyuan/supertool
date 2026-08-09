@@ -593,9 +593,30 @@ async function autoReconnectTab(tab: TerminalTab) {
         if (tab.term.rows > 0 && tab.term.cols > 0) {
           lastResizeRows = tab.term.rows
           lastResizeCols = tab.term.cols
-          getTauriAPI().resizeTerminal(sid, tab.term.rows, tab.term.cols)
+          // API 签名 (terminalId, cols, rows)
+          getTauriAPI().resizeTerminal(sid, tab.term.cols, tab.term.rows)
         }
       }
+
+      // 启动终端输出轮询（与 connectTab 一致，200ms 从 PTY 拉取输出）
+      // 注意：autoReconnect 重建会话后必须重启轮询，否则重连后终端收不到输出
+      const pollInterval = setInterval(async () => {
+        if (tab.status !== 'connected' || !tab.sessionId || !tab.term) {
+          clearInterval(pollInterval)
+          return
+        }
+        try {
+          const result = await getTauriAPI().readTerminal(tab.sessionId)
+          const data = typeof result === 'string' ? result : result?.data
+          if (data && typeof data === 'string' && data.length > 0) {
+            tab.term.write(data)
+          }
+        } catch (e) {
+          // 终端可能已关闭，静默忽略
+        }
+      }, 200)
+      tab.cleanupData = () => clearInterval(pollInterval)
+
       logger.info('[Terminal] autoReconnectTab SUCCESS for', tab.server.name)
       return
     } catch (error) {
@@ -616,22 +637,9 @@ function switchTab(tabId: string) {
   if (tabId === activeTabId.value) {return}
   activeTabId.value = tabId
   // With per-tab containers, switching is just CSS show/hide.
-  // Just fit and focus the new active tab.
+  // 复用 fitActiveTerminal：若终端尚未 open（连接期间切走导致黑屏），先 open 到容器再 fit
   nextTick(() => {
-    const tab = tabs.value.find(t => t.id === tabId)
-    if (!tab || !tab.term) {return}
-    tab.fitAddon?.fit()
-    tab.term.focus()
-    currentTerm = tab.term
-    // Send resize to backend after switching tabs
-    if (tab.sessionId && tab.status === 'connected') {
-      const { rows, cols } = tab.term
-      if (rows > 0 && cols > 0 && (rows !== lastResizeRows || cols !== lastResizeCols)) {
-        lastResizeRows = rows
-        lastResizeCols = cols
-        getTauriAPI().resizeTerminal(tab.sessionId, rows, cols)
-      }
-    }
+    fitActiveTerminal()
   })
 }
 
