@@ -166,11 +166,12 @@
               <p class="text-error">子页面 <strong>{{ tabComponentMap[tab.key] }}</strong> 加载失败</p>
               <button @click="loadTabComponent(tab.key)" class="btn btn-ghost btn-xs mt-2">重试</button>
             </div>
-            <!-- 渲染子组件 -->
+            <!-- 渲染子组件（dataVersion 变化强制重建，导入后自动刷新数据） -->
             <component
               v-else-if="loadedComponents[tab.key]"
               :is="loadedComponents[tab.key]"
               :preset-id="currentPreset.id"
+              :key="dataVersion"
             />
             <!-- 兜底占位 -->
             <div v-else class="flex flex-col items-center justify-center h-32 text-base-content/50">
@@ -474,6 +475,8 @@ const confirmDeleteId = ref('')
 const confirmRollbackId = ref('')
 const deleting = ref(false)
 const currentTab = ref('server')
+// 子页面数据版本：导入/切换预设后 +1 强制重建子组件（子组件 watch presetId + onMounted 重新加载）
+const dataVersion = ref(0)
 const showConfigPreview = ref(false)
 const lastDeployTime = ref('')
 
@@ -750,9 +753,9 @@ async function onImportConfig() {
     const result = await getTauriAPI().importNginxConfig(currentPreset.value.id, configContent.value)
     const summary = result?.data || result
     toast.success(`导入完成: 基本设置 ${summary.basic_settings}，HTTP参数 ${summary.http_params}，Upstreams ${summary.upstreams}，Servers ${summary.servers}，Streams ${summary.streams}`)
-    // Refresh all data
+    // Refresh all data + 强制重建子页面组件（它们各自重新加载数据）
     await loadPresets()
-    // The user will need to reload the tab data, so we can just show a message
+    dataVersion.value++
   } catch (err: any) {
     toast.error('导入失败: ' + (err?.message || err))
   } finally {
