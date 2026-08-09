@@ -1637,7 +1637,7 @@ export interface TauriAPI {
   wireguardAdd: (data: object) => Promise<any>
   wireguardUpdate: (data: object) => Promise<any>
   wireguardDelete: (id: string) => Promise<void>
-  wireguardConnect: (configId: string, configName: string, privateKey: string, peerPublicKey: string, peerEndpoint: string, presharedKey?: string) => Promise<any>
+  wireguardConnect: (configId: string, configName: string, privateKey: string, peerPublicKey: string, peerEndpoint: string, presharedKey?: string, address?: string, mtu?: number) => Promise<any>
   wireguardDisconnect: () => Promise<void>
   wireguardGetStatus: () => Promise<any>
   wireguardGenerateKeypair: () => Promise<{ privateKey: string; publicKey: string }>
