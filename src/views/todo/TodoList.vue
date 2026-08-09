@@ -194,10 +194,10 @@
     <div class="flex items-center justify-between gap-3 mt-1" v-if="selectedTodoIds.length > 0 || (todoStore.completedCount > 0 && filterValue === 'all')">
       <div v-if="selectedTodoIds.length > 0" class="flex items-center gap-2">
         <button @click="batch.batchComplete" class="btn btn-success btn-sm">完成 ({{ selectedTodoIds.length }})</button>
-        <button @click="batch.batchDelete" class="btn btn-error btn-sm">删除 ({{ selectedTodoIds.length }})</button>
+        <button @click="confirmBatchDelete" class="btn btn-error btn-sm">删除 ({{ selectedTodoIds.length }})</button>
       </div>
       <div v-if="todoStore.completedCount > 0 && filterValue === 'all'" class="ml-auto">
-        <button @click="todoStore.clearCompleted" class="btn btn-ghost btn-sm text-base-content/50">清空已完成</button>
+        <button @click="confirmClearCompleted" class="btn btn-ghost btn-sm text-base-content/50">清空已完成</button>
       </div>
     </div>
 
@@ -296,6 +296,7 @@ import { useTodoCollaboration } from '../../composables/useTodoCollaboration'
 import { useTodoBatch } from '../../composables/useTodoBatch'
 import { usePerformance } from '../../composables/usePerformance'
 import { useToast } from '../../composables/useToast'
+import { confirm } from '@tauri-apps/plugin-dialog'
 import { useErrorHandler } from '../../composables/useErrorHandler'
 
 const todoStore = useTodoStore()
@@ -483,10 +484,37 @@ const {
 } = collab
 const batch = useTodoBatch(todoStore as any, todosApi)
 
+// 批量删除/清空已完成确认（Tauri 中原生 confirm 不弹窗，用 plugin-dialog）
+async function confirmBatchDelete() {
+  const n = selectedTodoIds.value.length
+  if (n === 0) {return}
+  const ok = await confirm(`确定删除选中的 ${n} 条任务吗？此操作不可撤销。`, { title: '确认删除', kind: 'warning' })
+  if (ok) {batch.batchDelete()}
+}
+
+async function confirmClearCompleted() {
+  const n = todoStore.completedCount
+  if (n === 0) {return}
+  const ok = await confirm(`确定清空 ${n} 条已完成任务吗？此操作不可撤销。`, { title: '确认清空', kind: 'warning' })
+  if (ok) {todoStore.clearCompleted()}
+}
+
 // Unwrap filter ComputedRefs for v-model compatibility (cast to bypass readonly)
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 const filterValue = computed({ get: () => filters.filterProxy.value, set: (v: string) => { (filters.filterProxy as any).value = v } })
 const tagFilterValue = computed({ get: () => filters.tagFilterProxy.value, set: (v: string) => { (filters.tagFilterProxy as any).value = v } })
-const searchQueryValue = computed({ get: () => filters.searchQueryProxy.value, set: (v: string) => { (filters.searchQueryProxy as any).value = v } })
+const searchQueryValue = computed({
+  get: () => filters.searchQueryProxy.value,
+  set: (v: string) => {
+    // 搜索防抖：清空立即生效，输入 300ms 后写 store（避免每击键全量过滤重渲染）
+    if (searchDebounceTimer) {clearTimeout(searchDebounceTimer)}
+    if (v === '') {
+      (filters.searchQueryProxy as any).value = ''
+    } else {
+      searchDebounceTimer = setTimeout(() => { (filters.searchQueryProxy as any).value = v }, 300)
+    }
+  }
+})
 const priorityFilterValue = computed({ get: () => filters.priorityFilterProxy.value, set: (v: string) => { (filters.priorityFilterProxy as any).value = v } })
 const statusFilterValue = computed({ get: () => filters.statusFilterProxy.value, set: (v: string) => { (filters.statusFilterProxy as any).value = v } })
 
@@ -887,10 +915,10 @@ const setupMenuListeners = () => {
   e.onMenuExportWord(() => { exportTodosAsWord() })
   e.onMenuExportJson(() => { exportTodosAsJson() })
   e.onMenuImportJson(() => { toast.info('导入 JSON 暂未接线') })
-  e.onMenuClearCompleted(() => { todoStore.clearCompleted() })
+  e.onMenuClearCompleted(() => { confirmClearCompleted() })
   e.onMenuSearchTasks(() => { (document.querySelector('.search-input') as HTMLElement | null)?.focus() })
   e.onMenuSelectAll(() => { batch.selectAll() })
-  e.onMenuDeleteSelected(() => { batch.batchDelete() })
+  e.onMenuDeleteSelected(() => { confirmBatchDelete() })
   e.onMenuToggleComplete(() => { if (batch.selectedTodos.value.length > 0) {batch.batchComplete()} })
   e.onMenuSetPriority(async (priority) => {
     for (const id of batch.selectedTodos.value) {
