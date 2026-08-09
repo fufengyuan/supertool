@@ -53,7 +53,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 defineOptions({ name: 'TodoReport' })
 import { ref, computed, onMounted } from 'vue';
 import { useTodoStore } from '@/stores/todoStore';
@@ -72,7 +72,7 @@ onMounted(() => {
 const weekOffset = ref(0);
 
 // 获取周的起止日期
-const getWeekRange = (offset) => {
+const getWeekRange = (offset: number) => {
   const now = new Date();
   const dayOfWeek = now.getDay();
   const startOfWeek = new Date(now);
@@ -100,7 +100,7 @@ const currentWeekLabel = computed(() => {
 });
 
 // 获取指定周的任务
-const getWeekTasks = (offset) => {
+const getWeekTasks = (offset: number) => {
   const range = getWeekRange(offset);
   return todoStore.todos.filter((todo) => {
     if (!todo.completed) {return false;}
@@ -116,16 +116,16 @@ const currentWeekTasks = computed(() => getWeekTasks(weekOffset.value));
 const lastWeekTasks = computed(() => getWeekTasks(weekOffset.value - 1));
 
 // 计算统计数据
-const calculateStats = (tasks) => {
+const calculateStats = (tasks: any[]) => {
   const stats = {
     total: tasks.length,
     byPriority: { high: 0, medium: 0, low: 0 },
-    byTag: {},
+    byTag: {} as Record<string, number>,
   };
 
-  tasks.forEach((task) => {
+  tasks.forEach((task: any) => {
     const priority = task.priority || 'medium';
-    stats.byPriority[priority]++;
+    stats.byPriority[priority as keyof typeof stats.byPriority]++;
 
     const tag = task.tag || '未分类';
     stats.byTag[tag] = (stats.byTag[tag] || 0) + 1;
@@ -141,7 +141,7 @@ const currentWeekStats = computed(() => calculateStats(currentWeekTasks.value));
 const lastWeekStats = computed(() => calculateStats(lastWeekTasks.value));
 
 // 格式化日期（无效日期兜底，避免显示 NaN/NaN）
-const formatDate = (dateString) => {
+const formatDate = (dateString: string) => {
   if (!dateString) {return '';}
   const date = new Date(dateString);
   if (isNaN(date.getTime())) {return '';}
