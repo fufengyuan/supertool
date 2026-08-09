@@ -62,6 +62,7 @@ impl CoreService {
         actor_type: Option<&str>,
         result: Option<&str>,
         limit: usize,
+        offset: usize,
     ) -> Result<Value, String> {
         let limit = limit.clamp(1, 1000);
         self.with_db(|db| {
@@ -79,8 +80,9 @@ impl CoreService {
                 sql.push_str(" AND result = ?");
                 params_vec.push(Box::new(r.to_string()));
             }
-            sql.push_str(" ORDER BY id DESC LIMIT ?");
+            sql.push_str(" ORDER BY id DESC LIMIT ? OFFSET ?");
             params_vec.push(Box::new(limit as i64));
+            params_vec.push(Box::new(offset as i64));
 
             let mut stmt = conn
                 .prepare(&sql)

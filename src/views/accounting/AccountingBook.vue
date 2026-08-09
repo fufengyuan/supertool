@@ -645,6 +645,10 @@
                 <option value="信用卡">信用卡</option>
               </select>
             </div>
+            <div class="flex items-center gap-3 mb-3">
+              <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">税率(%)</label>
+              <input type="number" v-model.number="templateForm.tax_rate" step="0.01" min="0" max="100" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+            </div>
             <div class="flex flex-col items-start gap-1.5 mb-3">
               <label class="text-sm font-medium text-base-content/60">备注</label>
               <input v-model="templateForm.description" placeholder="说明" class="w-full px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />

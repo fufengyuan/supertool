@@ -38,7 +38,9 @@
             class="px-4 py-2.5 hover:bg-base-200/50 transition-colors"
           >
             <div class="flex items-center gap-2 text-xs">
-              <span class="shrink-0 w-4 text-center">{{ statusIcon(e.result) }}</span>
+              <span class="shrink-0 w-4 flex justify-center" :class="{ 'text-success': e.result === 'success', 'text-error': e.result === 'failed', 'text-warning': e.result === 'blocked' }">
+                <SvgIcon :name="statusIconName(e.result)" size="12" />
+              </span>
               <span class="shrink-0 font-mono text-base-content/50">{{ e.createdAt }}</span>
               <span class="shrink-0 badge badge-xs" :class="actorBadgeClass(e.actorType)">{{ e.actorType }}</span>
               <span class="shrink-0 text-base-content/40 font-mono">{{ e.durationMs }}ms</span>
@@ -46,6 +48,11 @@
             <div class="mt-1 ml-6 font-mono text-[11px] text-base-content/80 break-all leading-relaxed" :title="e.command">
               {{ e.command }}
             </div>
+          </div>
+          <div v-if="hasMore" class="px-4 py-2.5 flex justify-center">
+            <button class="btn btn-ghost btn-xs" :disabled="loadingMore" @click="loadMore">
+              {{ loadingMore ? '加载中...' : '加载更多' }}
+            </button>
           </div>
         </div>
       </div>
@@ -74,9 +81,11 @@ const entries = ref<AuditEntry[]>([])
 const actorFilter = ref('')
 const resultFilter = ref('')
 const loading = ref(false)
+const loadingMore = ref(false)
+const PAGE_SIZE = 200
 
-function statusIcon(result: string): string {
-  return result === 'success' ? '✅' : result === 'failed' ? '❌' : result === 'blocked' ? '🚫' : '•'
+function statusIconName(result: string): string {
+  return result === 'success' ? 'check' : result === 'failed' ? 'x' : result === 'blocked' ? 'ban' : 'minus'
 }
 
 function actorBadgeClass(actor: string): string {
@@ -94,7 +103,8 @@ async function load() {
     const res = await getTauriAPI().auditList(
       actorFilter.value || undefined,
       resultFilter.value || undefined,
-      200,
+      PAGE_SIZE,
+      0,
     )
     entries.value = res?.success ? (res.data ?? []) : []
   } catch (e) {
@@ -104,6 +114,29 @@ async function load() {
     loading.value = false
   }
 }
+
+// 加载更多（分页，审计日志多时可查看早期记录）
+async function loadMore() {
+  if (loadingMore.value) {return}
+  loadingMore.value = true
+  try {
+    const res = await getTauriAPI().auditList(
+      actorFilter.value || undefined,
+      resultFilter.value || undefined,
+      PAGE_SIZE,
+      entries.value.length,
+    )
+    const more = res?.success ? (res.data ?? []) : []
+    entries.value = [...entries.value, ...more]
+    hasMore.value = more.length >= PAGE_SIZE
+  } catch (e) {
+    console.error('audit load more failed:', e)
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+const hasMore = ref(true)
 
 onMounted(load)
 </script>
