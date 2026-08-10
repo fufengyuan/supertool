@@ -51,6 +51,9 @@ export interface Project {
   branch?: string;
   repoPath2?: string;
   branch2?: string;
+  /** 关联的 Git 仓库 ID（后端字段，types 曾缺失导致保存时被覆盖清空） */
+  gitRepoId?: string;
+  gitRepoId2?: string;
   createdAt: string;
   updatedAt: string;
   stats?: {

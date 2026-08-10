@@ -73,7 +73,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 defineOptions({ name: 'ProjectList' })
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
