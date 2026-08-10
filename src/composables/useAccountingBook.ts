@@ -2,6 +2,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useToast } from './useToast'
 import { getErrorMessage } from '../utils/helpers'
 import { getTauriAPI } from '../utils/tauri-api'
+import { convertFileSrc } from '@tauri-apps/api/core'
 
 export function useAccountingBook() {
   const toast = useToast()
@@ -832,8 +833,6 @@ function getFileUrl(filePath: string): string {
   if (filePath.startsWith('file://')) {return filePath}
   if (filePath.startsWith('tauri://') || filePath.startsWith('https://asset.localhost')) {return filePath}
   try {
-    // @ts-ignore - convertFileSrc from @tauri-apps/api/core
-    const { convertFileSrc } = window.__TAURI__?.core || {}
     if (convertFileSrc) {return convertFileSrc(filePath)}
   } catch {}
   // Fallback: try asset protocol URL directly
