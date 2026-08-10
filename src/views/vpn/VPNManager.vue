@@ -95,6 +95,11 @@
       <div class="modal-box relative max-w-[600px] max-h-[90vh] overflow-y-auto">
         <button @click="showWgForm = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭"><SvgIcon name="x" size="16" /></button>
         <div class="text-lg font-semibold text-base-content mb-3"><SvgIcon name="zap" size="14" />  {{ editingWg ? '编辑' : '添加' }} WireGuard 配置</div>
+        <div class="flex gap-2 mb-3">
+          <button class="btn btn-sm btn-outline" @click="importWgConf" :disabled="importingWg"><SvgIcon name="fileText" size="14" /> 导入配置文件</button>
+          <button class="btn btn-sm btn-outline" @click="importWgQr" :disabled="importingWg"><SvgIcon name="camera" size="14" /> 从二维码导入</button>
+          <span v-if="importingWg" class="self-center text-xs text-base-content/60">导入中...</span>
+        </div>
         <div class="flex flex-col gap-2.5 text-sm text-base-content mb-4">
           <div class="flex flex-col gap-1">
             <label class="text-xs font-semibold text-base-content/60">名称</label>
@@ -172,6 +177,9 @@ import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import { open } from '@tauri-apps/plugin-dialog'
+import { readTextFile, readFile } from '@tauri-apps/plugin-fs'
+import jsQR from 'jsqr'
 
 const toast = useToast()
 
@@ -202,7 +210,94 @@ let wgDurationTimer: any = null
 const showWgForm = ref(false)
 const editingWg = ref<WgConfig | null>(null)
 const generatingKeys = ref(false)
+const importingWg = ref(false)
 const wgForm = ref<Record<string, any>>({ name: '', privateKey: '', publicKey: '', address: '10.0.0.2/32', dns: '', mtu: 1420, peerPublicKey: '', peerEndpoint: '', peerAllowedIPs: '0.0.0.0/0', peerPersistentKeepalive: 25, presharedKey: '' })
+
+// ─── WireGuard 导入（配置文件 / 二维码） ───
+// 解析结果回填表单（ParsedWgConfig 字段 → wgForm 字段）
+function fillWgFormFromParsed(p: any, name: string) {
+  wgForm.value.name = name;
+  wgForm.value.privateKey = p.private_key || '';
+  wgForm.value.publicKey = p.public_key || '';
+  wgForm.value.address = p.address || '';
+  wgForm.value.dns = p.dns || '';
+  wgForm.value.mtu = p.mtu ?? 1420;
+  wgForm.value.peerPublicKey = p.peer_public_key || '';
+  wgForm.value.peerEndpoint = p.peer_endpoint || '';
+  wgForm.value.peerAllowedIPs = p.peer_allowed_ips || '';
+  wgForm.value.peerPersistentKeepalive = p.peer_persistent_keepalive ?? 25;
+  wgForm.value.presharedKey = p.preshared_key || '';
+  toast.success(`已导入「${name}」配置，核对后点击添加`);
+}
+
+// wgquick:// URI 解码（base64 或明文）
+function decodeQrPayload(payload: string): string {
+  const raw = payload.replace(/-/g, '+').replace(/_/g, '/');
+  try {
+    const dec = atob(raw);
+    if (dec.includes('[Interface]') || dec.includes('[Peer]')) {return dec}
+  } catch { /* 非 base64，按明文处理 */ }
+  return payload;
+}
+
+// 导入 .conf 配置文件
+async function importWgConf() {
+  if (importingWg.value) {return}
+  const file = await open({
+    title: '选择 WireGuard 配置文件',
+    multiple: false,
+    filters: [{ name: 'WireGuard 配置', extensions: ['conf', 'txt', 'ini'] }],
+  });
+  if (!file || Array.isArray(file)) {return}
+  importingWg.value = true;
+  try {
+    const content = await readTextFile(file);
+    const baseName = file.split('/').pop()?.replace(/\.(conf|txt|ini)$/i, '') || 'WireGuard';
+    const parsed = await getTauriAPI().wireguardParseConf(content, baseName);
+    fillWgFormFromParsed(parsed, baseName);
+  } catch (e: any) {
+    toast.error('配置文件解析失败: ' + (e?.message || String(e)));
+  } finally {
+    importingWg.value = false;
+  }
+}
+
+// 从二维码图片导入（官方 app 分享的二维码：内容为配置文件文本或 wgquick:// URI）
+async function importWgQr() {
+  if (importingWg.value) {return}
+  const file = await open({
+    title: '选择二维码图片',
+    multiple: false,
+    filters: [{ name: '二维码图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'] }],
+  });
+  if (!file || Array.isArray(file)) {return}
+  importingWg.value = true;
+  try {
+    const bytes = await readFile(file);
+    const blob = new Blob([bytes]);
+    const bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {throw new Error('无法创建画布上下文')}
+    ctx.drawImage(bitmap, 0, 0);
+    const imageData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+    const qr = jsQR(imageData.data, imageData.width, imageData.height);
+    if (!qr?.data) {throw new Error('未识别到二维码，请换一张清晰的图片')}
+    let content = qr.data.trim();
+    if (content.startsWith('wgquick://')) {
+      content = decodeQrPayload(content.slice('wgquick://'.length));
+    }
+    const baseName = file.split('/').pop()?.replace(/\.[^.]+$/, '') || 'WireGuard';
+    const parsed = await getTauriAPI().wireguardParseConf(content, baseName);
+    fillWgFormFromParsed(parsed, baseName);
+  } catch (e: any) {
+    toast.error('二维码导入失败: ' + (e?.message || String(e)));
+  } finally {
+    importingWg.value = false;
+  }
+}
 
 // ============ Lifecycle ============
 onMounted(async () => {

@@ -1390,6 +1390,11 @@ export function useWireGuardAPI() {
       const res = await tauriInvoke<{ publicKey: string }>('wireguard_derive_public_key', { privateKey })
       return res.success ? (res.data ?? { publicKey: '' }) : { publicKey: '' }
     },
+    wireguardParseConf: async (content: string, name?: string): Promise<any> => {
+      const res = await tauriInvoke<any>('wireguard_parse_conf', { content, name })
+      if (!res.success) {throw new Error(res.error || '配置解析失败')}
+      return res.data
+    },
   }
 }
 
@@ -1563,6 +1568,7 @@ export interface TauriAPI {
   wireguardGetStatus: () => Promise<any>
   wireguardGenerateKeypair: () => Promise<{ privateKey: string; publicKey: string }>
   wireguardDerivePublicKey: (privateKey: string) => Promise<{ publicKey: string }>
+  wireguardParseConf: (content: string, name?: string) => Promise<any>
   // Events
   onTaskUpdated: (callback: (data: any) => void) => Promise<UnlistenFn>
   onTaskStatusChanged: (callback: (data: any) => void) => Promise<UnlistenFn>
@@ -2163,6 +2169,7 @@ export function getTauriAPI(): TauriAPI {
     wireguardGetStatus: wireguard.wireguardGetStatus,
     wireguardGenerateKeypair: wireguard.wireguardGenerateKeypair,
     wireguardDerivePublicKey: wireguard.wireguardDerivePublicKey,
+    wireguardParseConf: wireguard.wireguardParseConf,
     // Nginx
     getNginxPresets: nginx.getNginxPresets,
     addNginxPreset: nginx.addNginxPreset,
