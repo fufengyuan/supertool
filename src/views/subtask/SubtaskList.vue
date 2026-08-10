@@ -31,7 +31,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import type { Subtask } from '../../types'
 import { ref, computed, onMounted } from 'vue';
 import { useErrorHandler } from '../../composables/useErrorHandler';

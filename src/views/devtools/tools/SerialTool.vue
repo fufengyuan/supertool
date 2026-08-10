@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import ToolPage from '../components/ToolPage.vue'
 import { ref } from 'vue'
 import yaml from 'js-yaml'

@@ -1475,6 +1475,39 @@ export function useWireGuardAPI() {
 // ============ 统一 API ============
 
 export interface TauriAPI {
+  // LAN 协作（对照 useLanAPI 实现，@ts-nocheck 清理后 LanUsers/LanChat 等依赖）
+  lanSetStatus: (status: string) => Promise<void>
+  lanRefreshDiscovery: () => Promise<void>
+  lanGetUserInfo: () => Promise<any>
+  lanGetAllUnreadCounts: (userId: string) => Promise<Record<string, number>>
+  lanGetStatus: () => Promise<any>
+  lanGetNetworkInfo: () => Promise<any>
+  lanGetReceivePath: () => Promise<string>
+  lanGetPeers: () => Promise<any[]>
+  lanSetNickName: (name: string) => Promise<void>
+  lanSetAvatar: (avatar: string) => Promise<void>
+  lanSetPeerRemark: (peerId: string, remark: string) => Promise<void>
+  lanGetPeerRemarks: () => Promise<Record<string, string>>
+  lanUploadAvatar: (filePath: string) => Promise<{ path: string; fullPath: string }>
+  lanGetAvatarPath: (avatar: string) => Promise<{ isEmoji: boolean; path: string }>
+  lanShowOpenDialogForDirs: () => Promise<{ filePaths: string[]; canceled: boolean }>
+  lanSetReceivePath: (path: string) => Promise<void>
+  lanGetFileTransferHistory: () => Promise<any[]>
+  lanGetLogs: () => Promise<any[]>
+  lanGetUnreadCount: (peerId: string) => Promise<number>
+  lanMarkMessagesRead: (peerId: string) => Promise<void>
+  lanStop: () => Promise<void>
+  startLan: (userId: string, userName: string) => Promise<any>
+  lanGetMessagesBetween: (userId1: string, userId2: string, limit: number, offset: number) => Promise<any[]>
+  lanSendMessage: (peerId: string, content: string) => Promise<any>
+  lanSendFile: (peerId: string, filePath: string, fileName: string, resumeOffset?: number, fileId?: string) => Promise<any>
+  lanOnMessage: (handler: (data: any) => void) => Promise<UnlistenFn>
+  lanOnFileTransferStarted: (handler: (data: any) => void) => Promise<UnlistenFn>
+  lanOnFileTransferProgress: (handler: (data: any) => void) => Promise<UnlistenFn>
+  lanOnFileTransferCompleted: (handler: (data: any) => void) => Promise<UnlistenFn>
+  lanAssignTask: (peerId: string, task: string) => Promise<void>
+  lanCheckNetworkPermission: () => Promise<{ success: boolean; error?: string; kind?: string }>
+
   // Projects
   getProjects: (onlyActive?: boolean) => Promise<Project[]>
   addProject: (project: Partial<Project>) => Promise<Project>

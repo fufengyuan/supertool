@@ -586,7 +586,8 @@ async function uploadAvatar() {
       title: '选择头像图片',
     });
     if (!selected) {return;}
-    const filePath = typeof selected === 'string' ? selected : selected.path;
+    const filePath = (Array.isArray(selected) ? selected[0] : selected) || '';
+    if (!filePath) {return;}
     uploadingAvatar.value = true;
     const result = await getTauriAPI().lanUploadAvatar(filePath);
     editAvatar.value = result.path;

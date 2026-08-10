@@ -1397,7 +1397,7 @@ async function startRealtimeFullLog() {
   }
   const logPath = paths[0].trim()
   const fileName = logPath.split('/').pop() || 'log.txt'
-  await downloadAndShowLogs([{ path: logPath, name: fileName, isGz: false }], false)
+  await downloadAndShowLogs([{ path: logPath, name: fileName, isDir: false, size: 0, modifyTime: 0, isGz: false }], false)
 }
 
 // 用户选择：历史日志 -> 打开文件选择器
@@ -1785,13 +1785,6 @@ async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boole
   toast.success(msg)
 }
 
-// 完整日志搜索匹配的上下导航已移至 fullLogNextMatch/fullLogPrevMatch（vim 式实现）
-
-async function copyFullLog() {
-  // 提示用户：大文件不支持一次性复制全部
-  toast.info('完整日志过大，请使用"离线查看"下载到本地后再复制')
-}
-
 // 滚动状态
 const showScrollBottom = ref(false)
 // 虚拟滚动：只渲染可视区内的行
@@ -2105,7 +2098,7 @@ function recalculateMatched() {
     ? selectedPreset.value.keywords.map((k: string) => k.toLowerCase())
     : []
   for (const line of logLines.value) {
-    line.matched = keywords.length === 0 || keywords.some(kw => line.content.toLowerCase().includes(kw))
+    line.matched = keywords.length === 0 || keywords.some((kw: string) => line.content.toLowerCase().includes(kw))
   }
   // 触发响应式更新：直接 mutate 对象属性不会让 ref 重新求值，
   // 必须替换数组引用才能让 displayLines computed 重算
@@ -2219,7 +2212,7 @@ async function doSearch() {
 
   try {
     const result = await getTauriAPI().logSearch({
-      preset_id: selectedPreset.value.id,
+      presetId: selectedPreset.value.id,
       keyword: searchKeyword.value.trim(),
       lines: searchContextLines.value
     })
