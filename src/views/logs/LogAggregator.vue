@@ -625,7 +625,7 @@
     </dialog>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 defineOptions({ name: 'LogAggregator' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, nextTick, watch } from 'vue'
