@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import * as logger from '../../../services/logger'
 import { ref, watch, computed } from 'vue'
 import type { DBConnection } from '../../../composables/useDBManager'
@@ -548,7 +548,7 @@ function onRedisKeyContext(event: MouseEvent, conn: DBConnection, dbIndex: numbe
       action: async () => {
         try {
           const res = await getTauriAPI().dbRedisDeleteKey(conn.id, conn.dbIndex || 0, key)
-          if (res?.success) {
+          if (res) {
             // Invalidate cached tree for this db to force reload
             const rk = redisDbKey(conn.id, dbIndex)
             delete redisKeyTrees.value[rk]

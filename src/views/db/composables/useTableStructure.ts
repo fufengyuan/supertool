@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getErrorMessage } from '../../../utils/helpers'
 import { getTauriAPI } from '../../../utils/tauri-api'
@@ -230,8 +230,8 @@ function isColumnModified(col: ColumnDef): boolean {
   const orig = findOriginalColumn(col)
   if (!orig) {return false}
   const { baseType: origType, length: parsedLen, decimals: parsedDec } = parseColumnType(orig.COLUMN_TYPE || orig.type || '')
-  const origPk = orig.primaryKey === true || (orig.COLUMN_KEY || orig.key) === 'PRI' || orig.primaryKey === true
-  const origAi = orig.autoIncrement === true || (orig.EXTRA || '').includes('auto_increment') || orig.autoIncrement === true
+  const origPk = orig.primaryKey === true || (orig.COLUMN_KEY || orig.key) === 'PRI'
+  const origAi = orig.autoIncrement === true || (orig.EXTRA || '').includes('auto_increment')
   // Use originalData's length/decimals directly (from INFORMATION_SCHEMA) instead of re-parsing from type string
   const origLen = orig.length ?? parsedLen ?? null
   const origDec = orig.decimals ?? parsedDec ?? null
@@ -269,8 +269,8 @@ async function refreshWithOriginals() {
       return
     }
     const res = await api.dbGetTableStructure(
-      props.connId,
-      props.tableName,
+      props.connId || '',
+      props.tableName || '',
       props.dbName || undefined
     )
     
@@ -320,8 +320,8 @@ async function refreshWithOriginals() {
         decimals,
         nullable: (c.IS_NULLABLE || c.nullable) === 'YES' || (c.IS_NULLABLE || c.nullable) === true,
         defaultValue: c.COLUMN_DEFAULT ?? c.default ?? (c as any).defaultValue ?? null,
-        primaryKey: c.primaryKey === true || (c.COLUMN_KEY || c.key) === 'PRI' || c.primaryKey === true,
-        autoIncrement: c.autoIncrement === true || (c.EXTRA || '').includes('auto_increment') || c.autoIncrement === true,
+        primaryKey: c.primaryKey === true || (c.COLUMN_KEY || c.key) === 'PRI',
+        autoIncrement: c.autoIncrement === true || (c.EXTRA || '').includes('auto_increment'),
         comment: c.COLUMN_COMMENT || c.comment || (c as any).comment || '',
         _originalData: { ...c },
       }
@@ -682,7 +682,6 @@ function generateDdl(): string[] {
       if (!col._isNew && !col._deleted && col._originalData) {
         const origPk = col._originalData.primaryKey === true
           || (col._originalData.COLUMN_KEY || col._originalData.key) === 'PRI'
-          || col._originalData.primaryKey === true
         if (origPk) {
           origPkCols.push(col._originalName || col.name)
         }
@@ -708,8 +707,7 @@ function generateDdl(): string[] {
       if (col._isNew || col._deleted || !col._originalData) {continue}
       const origAi = col._originalData.autoIncrement === true
         || (col._originalData.EXTRA || '').includes('auto_increment')
-        || col._originalData.autoIncrement === true
-      if (col.autoIncrement !== origAi) {
+      if (Boolean(col.autoIncrement) !== origAi) {
         const colDef = buildColumnDef(col, db)
         sqls.push(`ALTER TABLE ${safeDb}${safeTable} MODIFY COLUMN ${quoteIdent(col.name, db)} ${colDef};`)
       }
@@ -720,14 +718,10 @@ function generateDdl(): string[] {
   for (const idx of indexes.value) {
     if (idx.type === 'PRIMARY') {continue}
     if (idx._deleted && idx._originalName) {
-      if (idx.type === 'PRIMARY') {
-        sqls.push(`ALTER TABLE ${safeDb}${safeTable} DROP PRIMARY KEY;`)
-      } else {
-        const dropSyntax = db === 'postgresql'
+      const dropSyntax = db === 'postgresql'
           ? `DROP INDEX ${quoteIdent(idx._originalName, db)};`
           : `DROP INDEX ${quoteIdent(idx._originalName, db)} ON ${safeDb}${safeTable};`
-        sqls.push(dropSyntax)
-      }
+      sqls.push(dropSyntax)
       continue
     }
     if (idx._isNew) {
@@ -740,14 +734,10 @@ function generateDdl(): string[] {
     // Modified index - drop and recreate
     if (isIndexModified(idx)) {
       if (idx._originalName) {
-        if (idx.type === 'PRIMARY') {
-          sqls.push(`ALTER TABLE ${safeDb}${safeTable} DROP PRIMARY KEY;`)
-        } else {
-          const dropSyntax = db === 'postgresql'
-            ? `DROP INDEX ${quoteIdent(idx._originalName, db)};`
-            : `DROP INDEX ${quoteIdent(idx._originalName, db)} ON ${safeDb}${safeTable};`
-          sqls.push(dropSyntax)
-        }
+        const dropSyntax = db === 'postgresql'
+          ? `DROP INDEX ${quoteIdent(idx._originalName, db)};`
+          : `DROP INDEX ${quoteIdent(idx._originalName, db)} ON ${safeDb}${safeTable};`
+        sqls.push(dropSyntax)
       }
       const validCols = idx.columns.filter(c => c && c.trim())
       if (validCols.length > 0) {
@@ -964,7 +954,7 @@ async function showCreateSql() {
   createSql.value = ''
   showCreateSqlModal.value = true
   try {
-    const res = await getTauriAPI().dbGetCreateSql(props.connId, props.tableName, props.dbName || undefined)
+    const res = await getTauriAPI().dbGetCreateSql(props.connId || '', props.tableName || '', props.dbName || undefined)
     if (res) {
       createSql.value = res
     } else {

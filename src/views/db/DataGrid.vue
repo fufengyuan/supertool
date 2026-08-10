@@ -89,7 +89,7 @@
             </td>
             <td v-for="col in columns" :key="col"
                 class="px-3 py-1.5 border-r border-b border-base-content/10 text-left align-middle text-xs leading-5 whitespace-nowrap max-w-[400px] overflow-hidden text-ellipsis relative cursor-[cell] transition-colors duration-100 hover:bg-primary/10 hover:outline hover:outline-1 hover:outline-base-content/10 hover:-outline-offset-1"
-                :class="{ 'font-semibold !text-primary !bg-primary/5': primaryKeyColumns.includes(col) }"
+                :class="{ 'font-semibold !text-primary !bg-primary/5': (primaryKeyColumns ?? []).includes(col) }"
                 @dblclick="startEdit(idx, col)"
                 :title="String(formatValue(getDisplayValue(idx, col)) ?? 'NULL')">
               <!-- Editing cell -->
@@ -212,7 +212,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue'
 import { useToast } from '../../composables/useToast'
 import FilterBar, { type FilterCondition } from './FilterBar.vue'

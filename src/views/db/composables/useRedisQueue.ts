@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import * as logger from '../../../services/logger'
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useToast } from '../../../composables/useToast'
@@ -142,8 +142,8 @@ const connectionStatus = ref<'connected' | 'disconnected' | 'connecting'>('disco
 async function checkConnection(): Promise<boolean> {
   connectionStatus.value = 'connecting'
   try {
-    const result = await getTauriAPI().dbRedisExec(props.connectionId, 'PING')
-    if (result?.success) {
+    const result = await getTauriAPI().dbRedisExec(props.connectionId, props.redisDbIndex ?? 0, 'PING')
+    if (result != null) {
       connectionStatus.value = 'connected'
       return true
     }
@@ -332,7 +332,7 @@ async function refreshStreams() {
     await checkConnection()
     logger.info('[RedisQueueManager] Connection check passed, calling dbRedisStreams...')
     const result = await withReconnect(() =>
-      getTauriAPI().dbRedisStreams(props.connectionId, props.redisDbIndex ?? 0, streamPattern.value, false)
+      getTauriAPI().dbRedisStreams(props.connectionId, props.redisDbIndex ?? 0, streamPattern.value)
     ) as RedisStreamsResponse
     logger.info('[RedisQueueManager] dbRedisStreams result:', JSON.stringify(result))
     if (result.success) {
@@ -373,7 +373,7 @@ async function loadMoreStreams() {
   loadingMore.value = true
   try {
     const result = await withReconnect(() =>
-      getTauriAPI().dbRedisStreams(props.connectionId, props.redisDbIndex, streamPattern.value, true)
+      getTauriAPI().dbRedisStreams(props.connectionId, props.redisDbIndex ?? 0, streamPattern.value)
     ) as RedisStreamsResponse
     if (result.success) {
       const streamList = result.streams || []
@@ -519,8 +519,7 @@ async function addMessage() {
         props.connectionId,
         props.redisDbIndex ?? 0,
         addKey.value,
-        fields,
-        addMaxlen.value > 0 ? addMaxlen.value : undefined
+        fields
       )
     ) as RedisStreamAddResponse
     if (result.success) {
@@ -601,8 +600,7 @@ async function createGroup() {
         props.connectionId,
         props.redisDbIndex ?? 0,
         selectedStream.value,
-        newGroupName.value,
-        newGroupStartId.value || '0'
+        newGroupName.value
       )
     ) as RedisStreamAddResponse
     if (result.success) {
@@ -673,10 +671,7 @@ async function loadPending(groupName: string) {
         props.connectionId,
         props.redisDbIndex ?? 0,
         selectedStream.value,
-        groupName,
-        '-',
-        '+',
-        100
+        groupName
       )
     ) as RedisStreamPendingResponse
     if (result.success) {
@@ -822,14 +817,14 @@ async function trimQueue() {
 async function refreshDelayQueues() {
   try {
     const result = await withReconnect(() =>
-      getTauriAPI().dbRedisSetKey(props.connectionId, props.redisDbIndex, 'delay:*', 'zset')
+      getTauriAPI().dbRedisKeysTree(props.connectionId, props.redisDbIndex ?? 0, 'delay:*')
     ) as RedisScanKeysResponse
     if (result.success) {
       const delayList = await Promise.all((result.keys || []).map(async (key: string) => {
         let count = 0
         try {
           const infoRes = await withReconnect(() =>
-            getTauriAPI().dbRedisExec(props.connectionId, `ZCARD ${key}`)
+            getTauriAPI().dbRedisExec(props.connectionId, props.redisDbIndex ?? 0, `ZCARD ${key}`)
           ) as RedisExecResponse
           count = Number(infoRes?.result) || 0
         } catch {}
@@ -859,8 +854,7 @@ async function refreshDelayQueue() {
         props.redisDbIndex ?? 0,
         selectedDelayQueue.value,
         -Infinity,
-        Infinity,
-        200
+        Infinity
       )
     ) as RedisZSetRangeResponse
     if (result.success) {
@@ -1003,8 +997,7 @@ async function loadAllPendingIds(): Promise<Set<string>> {
           props.connectionId,
           props.redisDbIndex ?? 0,
           selectedStream.value,
-          g.name as string,
-          '-', '+', 1000
+          g.name as string
         )
       ) as RedisStreamPendingResponse
       if (res.success && res.pending) {
