@@ -1500,10 +1500,10 @@ export interface TauriAPI {
   dbExecuteWrite: (id: string, sql: string) => Promise<{ success: boolean; rows?: any; error?: string }>
   dbGetTables: (id: string, dbName: string) => Promise<{ success: boolean; tables?: any; error?: string }>
   dbGetDatabases: (id: string) => Promise<{ success: boolean; databases?: any; error?: string }>
-  dbGetTableStructure: (id: string, table: string, dbName: string) => Promise<any>
+  dbGetTableStructure: (id: string, table: string, dbName?: string) => Promise<any>
   dbGetTablePrimaryKeys: (id: string, table: string, dbName: string) => Promise<any>
   dbGetViews: (id: string, dbName: string) => Promise<any>
-  dbGetCreateSql: (id: string, table: string, dbName: string) => Promise<string>
+  dbGetCreateSql: (id: string, table: string, dbName?: string) => Promise<string>
   dbCompareStructures: (sourceId: string, sourceDb: string, targetId: string, targetDb: string) => Promise<any>
   dbExecuteStructureSync: (id: string, sqls: string[], dbName: string) => Promise<any>
   dbCompareData: (params: Record<string, unknown>) => Promise<any>
@@ -1795,12 +1795,12 @@ export interface TauriAPI {
   uploadSessionCommit: (sessionId: string) => Promise<any>
   uploadSessionCancel: (sessionId: string) => Promise<any>
   dbRedisStreamInfo: (id: string, dbIndex: number, stream: string) => Promise<any>
-  dbRedisStreams: (id: string, dbIndex: number) => Promise<any>
+  dbRedisStreams: (id: string, dbIndex: number, pattern: string) => Promise<any>
   dbRedisStreamAdd: (id: string, dbIndex: number, stream: string, fields: Record<string, unknown>) => Promise<any>
   dbRedisStreamMessages: (id: string, dbIndex: number, stream: string, start: string, end: string, count?: number) => Promise<any>
   dbRedisStreamDel: (id: string, dbIndex: number, stream: string, entryId: string) => Promise<any>
   dbRedisStreamDelete: (id: string, dbIndex: number, stream: string) => Promise<any>
-  dbRedisStreamConsumers: (id: string, dbIndex: number, stream: string) => Promise<any>
+  dbRedisStreamConsumers: (id: string, dbIndex: number, stream: string, group: string) => Promise<any>
   dbRedisStreamPending: (id: string, dbIndex: number, stream: string, group: string) => Promise<any>
   dbRedisStreamGroupCreate: (id: string, dbIndex: number, stream: string, group: string) => Promise<any>
   dbRedisStreamGroupDestroy: (id: string, dbIndex: number, stream: string, group: string) => Promise<any>
@@ -2606,12 +2606,12 @@ export function getTauriAPI(): TauriAPI {
     uploadSessionCancel: async (sessionId: string) => tauriCall("upload_session_cancel", { sessionId }),
     // Redis Stream
     dbRedisStreamInfo: async (id: string, dbIndex: number, stream: string) => tauriCall("db_redis_stream_info", { connId: id, dbIndex, stream }),
-    dbRedisStreams: async (id: string, dbIndex: number) => tauriCall("db_redis_streams", { connId: id, dbIndex }),
+    dbRedisStreams: async (id: string, dbIndex: number, pattern: string) => tauriCall("db_redis_streams", { connId: id, dbIndex, pattern }),
     dbRedisStreamAdd: async (id: string, dbIndex: number, stream: string, fields: Record<string, unknown>) => tauriCall("db_redis_stream_add", { connId: id, dbIndex, stream, fields }),
     dbRedisStreamMessages: async (id: string, dbIndex: number, stream: string, start: string, end: string, count?: number) => tauriCall("db_redis_stream_messages", { connId: id, dbIndex, stream, start, end, count }),
     dbRedisStreamDel: async (id: string, dbIndex: number, stream: string, entryId: string) => tauriCall("db_redis_stream_del", { connId: id, dbIndex, stream, entryId }),
     dbRedisStreamDelete: async (id: string, dbIndex: number, stream: string) => tauriCall("db_redis_stream_delete", { connId: id, dbIndex, stream }),
-    dbRedisStreamConsumers: async (id: string, dbIndex: number, stream: string) => tauriCall("db_redis_stream_consumers", { connId: id, dbIndex, stream }),
+    dbRedisStreamConsumers: async (id: string, dbIndex: number, stream: string, group: string) => tauriCall("db_redis_stream_consumers", { connId: id, dbIndex, stream, group }),
     dbRedisStreamPending: async (id: string, dbIndex: number, stream: string, group: string) => tauriCall("db_redis_stream_pending", { connId: id, dbIndex, stream, group }),
     dbRedisStreamGroupCreate: async (id: string, dbIndex: number, stream: string, group: string) => tauriCall("db_redis_stream_group_create", { connId: id, dbIndex, stream, group }),
     dbRedisStreamGroupDestroy: async (id: string, dbIndex: number, stream: string, group: string) => tauriCall("db_redis_stream_group_destroy", { connId: id, dbIndex, stream, group }),

@@ -288,7 +288,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import * as logger from '../../services/logger'
 import { getTauriAPI } from '../../utils/tauri-api'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
@@ -519,7 +519,7 @@ async function saveKey() {
 
     // ⚠️ 剥离 Vue Proxy，否则 Tauri IPC 的 structuredClone 会失败
     const plainValue = JSON.parse(JSON.stringify(value))
-    const result = await getTauriAPI().dbRedisSetKey(props.connectionId, selectedKey.value, keyInfo.value.type, plainValue)
+    const result = await getTauriAPI().dbRedisSetKey(props.connectionId, props.redisDbIndex ?? 0, selectedKey.value, plainValue)
     if (result) {
       toast.info('键已保存')
       // Reload key info

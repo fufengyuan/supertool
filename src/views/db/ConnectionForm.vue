@@ -112,7 +112,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, watch, onUnmounted, nextTick, onMounted } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
