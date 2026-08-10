@@ -337,6 +337,7 @@ async fn call_tool(rt: &mut CliRuntime, name: &str, args: &Value) -> Value {
                     args.get("actor").and_then(|v| v.as_str()),
                     args.get("result").and_then(|v| v.as_str()),
                     args.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize,
+                    0,
                 )
                 .map_err(|e| e.to_string())
         }
@@ -498,7 +499,7 @@ async fn log_search(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> 
     let keyword = req_str(args, "keyword")?;
     let lines = args.get("lines").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
     let id = resolve_preset(rt, preset).await?;
-    rt.core.log_search(&id, &keyword, lines).await
+    rt.core.log_search(&id, &keyword, lines, None, None).await
 }
 
 async fn log_tail(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> {

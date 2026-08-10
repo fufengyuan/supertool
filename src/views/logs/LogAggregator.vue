@@ -351,6 +351,16 @@
               {{ fullLogMatchLineNos.length === 0 ? '0/0' : `${fullLogCurrentMatchIndex + 1}/${fullLogMatchLineNos.length}` }}
             </span>
             <button @click="fullLogNextMatch" :disabled="fullLogMatchLineNos.length === 0" class="btn btn-ghost btn-xs text-white/70 hover:text-white border border-white/10 disabled:opacity-30" title="下一个匹配"><SvgIcon name="chevronDown" size="12" /></button>
+            <button
+              @click="copyFullLog"
+              :disabled="fullLogCopying || !fullLogActiveSession?.localPath"
+              class="btn btn-ghost btn-xs text-white/70 hover:text-white border border-white/10 disabled:opacity-30"
+              title="复制完整日志（不受虚拟滚动限制，与选中复制不同）"
+            >
+              <SvgIcon v-if="!fullLogCopying" name="copy" size="12" />
+              <span v-else class="loading loading-spinner loading-xs"></span>
+              {{ fullLogCopying ? '复制中...' : '复制全部' }}
+            </button>
             <button @click="closeFullLogDialog" class="btn btn-ghost btn-xs text-white/70 hover:text-white border border-white/10" title="关闭"><SvgIcon name="x" size="12" /> 关闭</button>
           </div>
         </div>
@@ -698,6 +708,25 @@ const fullLogLoading = ref(false)
 const fullLogLoadingText = ref('')
 const fullLogError = ref('')
 const fullLogSearchKeyword = ref('')
+const fullLogCopying = ref(false)
+
+// 复制完整日志：直接从本地文件读取写入剪贴板。
+// 虚拟滚动 DOM 只渲染可视区，浏览器选中复制只能拿到可视区内容——必须绕过 DOM。
+async function copyFullLog() {
+  const s = fullLogActiveSession.value
+  if (!s?.localPath || fullLogCopying.value) {return}
+  fullLogCopying.value = true
+  try {
+    const content = await getTauriAPI().readLogCacheFile(s.localPath)
+    if (!content) {toast.warning('日志内容为空');return}
+    await navigator.clipboard.writeText(content)
+    toast.success(`已复制 ${content.length.toLocaleString()} 字符（${(content.length / 1024 / 1024).toFixed(1)}MB）`)
+  } catch (e: any) {
+    toast.error('复制失败: ' + (e?.message || String(e)))
+  } finally {
+    fullLogCopying.value = false
+  }
+}
 const fullLogContainer = ref<HTMLElement | null>(null)
 const FULL_LOG_LINE_HEIGHT = 18
 const FULL_LOG_OVERSCAN = 30

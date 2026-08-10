@@ -519,6 +519,12 @@ pub enum LogCommands {
         keyword: String,
         #[arg(short = 'l', long, default_value = "50")]
         lines: usize,
+        /// 搜索历史日志：指定日期 YYYY-MM-DD（查该天写入的轮转日志文件）
+        #[arg(long, conflicts_with = "days")]
+        date: Option<String>,
+        /// 搜索最近 N 天（含今天）的日志（1=仅今天）；默认只查当前日志文件
+        #[arg(long)]
+        days: Option<u64>,
         #[arg(short, long)]
         json: bool,
     },

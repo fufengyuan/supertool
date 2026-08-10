@@ -341,6 +341,8 @@ impl super::CoreService {
         preset_id: &str,
         keyword: &str,
         lines: usize,
+        date: Option<&str>,
+        days: Option<u64>,
     ) -> Result<Value, String> {
         if keyword.trim().is_empty() {
             return Ok(json!({"presetId": preset_id, "keyword": keyword, "matches": []}));
@@ -379,7 +381,7 @@ impl super::CoreService {
             return Err(format!("预设 {} 没有配置日志路径", preset_id));
         }
 
-        let cmd = build_grep_command(&preset, keyword, lines);
+        let cmd = build_grep_command(&preset, keyword, lines, date, days);
         let mut matches = Vec::new();
 
         for server_id in &server_ids {
@@ -654,7 +656,13 @@ fn shell_quote_path(p: &str) -> String {
     }
 }
 
-fn build_grep_command(preset: &Value, keyword: &str, context_lines: usize) -> String {
+fn build_grep_command(
+    preset: &Value,
+    keyword: &str,
+    context_lines: usize,
+    date: Option<&str>,
+    days: Option<u64>,
+) -> String {
     let log_type = preset["logType"].as_str().unwrap_or("file");
     let log_path = preset["logPath"].as_str().unwrap_or("");
     let escaped_kw = keyword.replace('\'', "'\\''");
@@ -664,6 +672,14 @@ fn build_grep_command(preset: &Value, keyword: &str, context_lines: usize) -> St
         String::new()
     };
     let grep = format!("grep{} -i -n '{}'", grep_ctx, escaped_kw);
+
+    // 历史查询目前仅支持 file 类型（docker/journalctl 的历史时间范围语法差异大）
+    if (date.is_some() || days.is_some()) && (log_type == "docker" || log_type == "journalctl") {
+        return format!(
+            "echo '{} 类型暂不支持 --date/--days 历史查询，请查看当前日志'",
+            log_type
+        );
+    }
 
     match log_type {
         "docker" => {
@@ -714,6 +730,24 @@ fn build_grep_command(preset: &Value, keyword: &str, context_lines: usize) -> St
                 return "echo 'No log paths configured'".to_string();
             }
             let q = |p: &str| shell_quote_path(p);
+            // 历史日志：按日期/mtime 匹配日志目录下的轮转文件（任意命名：app.log.1 / app.log-20260806 / app.log.2026-08-06）
+            if date.is_some() || days.is_some() {
+                let boundary = if let Some(d) = date {
+                    format!("-newermt '{} 00:00:00' ! -newermt '{} 23:59:59'", d, d)
+                } else {
+                    format!("-newermt '{} days ago'", days.unwrap_or(1).max(1))
+                };
+                let cmds: Vec<String> = paths
+                    .iter()
+                    .map(|p| {
+                        format!(
+                            "DIR=$(dirname {}); BASE=$(basename {}); find \"$DIR\" -maxdepth 1 -type f \\( -name \"$BASE\" -o -name \"$BASE.*\" -o -name \"$BASE-*\" \\) ! -name '*.gz' {} -exec {} {{}} + 2>/dev/null",
+                            q(p), q(p), boundary, grep,
+                        )
+                    })
+                    .collect();
+                return cmds.join(" ; ");
+            }
             format!(
                 "{} {} 2>/dev/null",
                 grep,

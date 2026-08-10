@@ -556,6 +556,7 @@ fn main() {
             commands::logs::log_tail,
             commands::logs::logs_load_more,
             commands::logs::log_context,
+            commands::logs::read_log_cache_file,
             commands::logs::logs_start_stream,
             commands::logs::logs_stop_stream,
             commands::logs::write_system_log,
