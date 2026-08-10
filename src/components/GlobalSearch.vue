@@ -1,3 +1,4 @@
+<template>
   <Teleport to="body">
     <Transition
       enter-active-class="transition-opacity duration-150 ease"
@@ -316,8 +317,8 @@ const todoResults = computed(() => {
   if (!query.value.trim()) {return []}
   return todos.value.filter(t =>
     fuzzyMatch(t.text, query.value) ||
-    fuzzyMatch(t.tag, query.value) ||
-    fuzzyMatch(t.description, query.value)
+    fuzzyMatch(t.tag || '', query.value) ||
+    fuzzyMatch(t.description || '', query.value)
   ).slice(0, 8)
 })
 
