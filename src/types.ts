@@ -303,6 +303,8 @@ export interface LogLine {
   content: string;
   level: 'info' | 'warn' | 'error' | 'debug';
   raw: string;
+  html?: string;
+  sortKey?: number;
 }
 
 
@@ -367,6 +369,12 @@ export interface NotificationSettings {
   reminderTime: number;
   soundEnabled: boolean;
   desktopEnabled: boolean;
+  quietHoursEnabled?: boolean;
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+  dailySummaryEnabled?: boolean;
+  dailySummaryTime?: string;
+  muteCompleted?: boolean;
 }
 
 export interface Note {

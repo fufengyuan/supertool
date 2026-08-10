@@ -148,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useDBManager } from '../../composables/useDBManager'

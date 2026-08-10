@@ -31,14 +31,14 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue';
 
 const props = defineProps({ subtask: { type: Object, required: true }, isEditing: { type: Boolean, default: false } });
 defineEmits(['toggle', 'edit', 'delete', 'save', 'cancel']);
 
 const editText = ref('');
-const editInputRef = ref(null);
+const editInputRef = ref<HTMLInputElement | null>(null);
 
 watch(() => props.isEditing, async (val) => {
   if (val) {

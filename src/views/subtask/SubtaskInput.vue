@@ -14,13 +14,13 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 const emit = defineEmits(['add', 'cancel']);
 const text = ref('');
-const inputRef = ref(null);
+const inputRef = ref<HTMLInputElement | null>(null);
 
 onMounted(() => inputRef.value?.focus());
 

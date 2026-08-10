@@ -164,13 +164,13 @@
             <!-- 组件加载失败 -->
             <div v-else-if="componentStates[tab.key] === 'error'" class="flex flex-col items-center justify-center h-32 text-base-content/50">
               <p class="text-error">子页面 <strong>{{ tabComponentMap[tab.key] }}</strong> 加载失败</p>
-              <button @click="loadTabComponent(tab.key)" class="btn btn-ghost btn-xs mt-2">重试</button>
+              <button @click="loadTabComponent(tab.key as NginxTabKey)" class="btn btn-ghost btn-xs mt-2">重试</button>
             </div>
             <!-- 渲染子组件（dataVersion 变化强制重建，导入后自动刷新数据） -->
             <component
               v-else-if="loadedComponents[tab.key]"
               :is="loadedComponents[tab.key]"
-              :preset-id="currentPreset.id"
+              :preset-id="currentPreset?.id"
               :key="dataVersion"
             />
             <!-- 兜底占位 -->
@@ -409,7 +409,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 defineOptions({ name: 'NginxManager' })
 import { ref, computed, reactive, onMounted, markRaw } from 'vue'
 import { useNginxConfig } from '../../composables/useNginxConfig'
@@ -516,7 +516,9 @@ const tabs = [
   { key: 'param', label: '额外参数', icon: 'menu' },
   { key: 'deny', label: '黑白名单', icon: 'shield' },
   { key: 'password', label: '密码文件', icon: 'lock' },
-]
+] as const
+
+type NginxTabKey = (typeof tabs)[number]['key']
 
 // Map tab keys to component file names
 const tabComponentMap = {
@@ -552,11 +554,11 @@ function switchTab(tabKey: string) {
   currentTab.value = tabKey
   // Lazy-load the component if not already loaded
   if (!loadedComponents[tabKey] && componentStates[tabKey] !== 'loading') {
-    loadTabComponent(tabKey)
+    loadTabComponent(tabKey as NginxTabKey)
   }
 }
 
-async function loadTabComponent(tabKey: string) {
+async function loadTabComponent(tabKey: NginxTabKey) {
   const fileName = tabComponentMap[tabKey]
   try {
     // Vite needs static import paths for code-splitting in production builds
@@ -613,7 +615,7 @@ const groupedPresets = computed(() => {
   for (const preset of presets.value) {
     const g = preset.groupName || '默认'
     if (!groups.has(g)) {groups.set(g, [])}
-    groups.get(g).push(preset)
+    groups.get(g)?.push(preset)
   }
   return Array.from(groups.entries()).map(([groupName, presets]) => ({
     groupName,

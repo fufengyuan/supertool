@@ -387,7 +387,7 @@
 </template>
 
 <script setup lang="ts">
-import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { computed } from 'vue'
 import { useConnectionTree } from './composables/useConnectionTree'
 import type { DBConnection } from '../../composables/useDBManager'
