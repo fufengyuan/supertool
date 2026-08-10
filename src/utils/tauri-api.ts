@@ -1506,8 +1506,13 @@ export interface TauriAPI {
   lanOnFileTransferStarted: (handler: (data: any) => void) => Promise<UnlistenFn>
   lanOnFileTransferProgress: (handler: (data: any) => void) => Promise<UnlistenFn>
   lanOnFileTransferCompleted: (handler: (data: any) => void) => Promise<UnlistenFn>
+  onLogsLine: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onLogsServerEnd: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onLogsError: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onLogsStreamStopped: (callback: (data: any) => void) => Promise<UnlistenFn>
   lanAssignTask: (peerId: string, task: string) => Promise<void>
   lanCheckNetworkPermission: () => Promise<{ success: boolean; error?: string; kind?: string }>
+  notificationTest: () => Promise<any>
 
   // Projects
   getProjects: (onlyActive?: boolean) => Promise<Project[]>
@@ -1652,7 +1657,7 @@ export interface TauriAPI {
   getDbConnections: () => Promise<any[]>
   setDbConnections: (connections: any[]) => Promise<void>
   getNotificationSettings: () => Promise<NotificationSettings | null>
-  setNotificationSettings: (settings: NotificationSettings) => Promise<void>
+  setNotificationSettings: (settings: Partial<NotificationSettings>) => Promise<void>
   // App
   getAppVersion: () => Promise<string>
   // Data Backup
@@ -1689,7 +1694,7 @@ export interface TauriAPI {
   showOpenDialogForDirs: () => Promise<any>
   showOpenDialog: (options?: Record<string, unknown>) => Promise<any>
   getGitCommits: (path: string, since?: string) => Promise<any>,
-  scanLocalGitRepos: (directories: string[]) => Promise<any>
+  scanLocalGitRepos: (directories?: string[]) => Promise<any>
   getGitBranches: (path: string) => Promise<any>
   openInFileManager: (path: string) => Promise<any>
   getGitCommitDetail: (repoPath: string, commitHash: string) => Promise<any>
@@ -2402,7 +2407,7 @@ export function getTauriAPI(): TauriAPI {
     },
     // Git
     getGitCommits: async (path: string, since?: string): Promise<any> => tauriCall('get_git_commits', { repoPath: path, since }),
-    scanLocalGitRepos: async (directories: string[]): Promise<any> => tauriCall('scan_local_repos', { directories }),
+    scanLocalGitRepos: async (directories?: string[]): Promise<any> => tauriCall('scan_local_repos', { directories: directories ?? [] }),
     getGitBranches: async (path: string): Promise<any> => tauriCall('get_git_branches', { repoPath: path }),
     openInFileManager: async (path: string): Promise<any> => tauriCall('open_in_file_manager', { path }),
     fetchPageContent: async (url: string): Promise<string> => tauriCall('fetch_page_content', { url }),

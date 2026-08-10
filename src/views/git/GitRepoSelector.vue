@@ -107,7 +107,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import { ref, computed } from 'vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import { getTauriAPI } from '@/utils/tauri-api'
@@ -181,7 +181,7 @@ const scanWithCustomDirs = async () => {
   }
 };
 
-const selectRepo = (repo) => {
+const selectRepo = (repo: any) => {
   manualPath.value = '';
   manualPathValid.value = false;
   manualPathInvalid.value = '';

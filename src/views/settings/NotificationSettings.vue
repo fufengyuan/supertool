@@ -107,7 +107,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, onMounted, computed } from 'vue';
 import { useErrorHandler } from '../../composables/useErrorHandler';
@@ -165,6 +165,7 @@ onMounted(async () => {
     try {
       const api = getTauriAPI();
       const loadedSettings = await api.getNotificationSettings();
+      if (!loadedSettings) {return}
       settings.value = {
         ...settings.value,
         ...loadedSettings,

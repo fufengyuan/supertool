@@ -56,7 +56,7 @@
   </Teleport>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed } from 'vue';
 import { getTauriAPI } from '../../utils/tauri-api'

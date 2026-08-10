@@ -13,13 +13,13 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 const props = defineProps({
   stats: { type: Object, required: true },
   title: { type: String, default: '标签分布' },
 });
 
-const getTagPercentage = (tag) => {
+const getTagPercentage = (tag: string) => {
   if (props.stats.total === 0) {return 0;}
   return (props.stats.byTag[tag] / props.stats.total) * 100;
 };

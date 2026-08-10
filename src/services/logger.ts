@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 /**
  * logger.ts — 日志服务
  *

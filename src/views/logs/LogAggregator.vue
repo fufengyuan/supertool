@@ -632,7 +632,7 @@ import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, next
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast'
-import type { Server } from '../../types'
+import type { Server, ServerGroup } from '../../types'
 import GroupedServerSelector from '../server/GroupedServerSelector.vue'
 
 const toast = useToast()
@@ -640,9 +640,9 @@ const toast = useToast()
 // 状态
 const presets = ref<any[]>([])
 const allServers = ref<Server[]>([])
-const allGroups = ref<Array<{ id: string; name: string; color: string; parentId: string | null }>>([])
+const allGroups = ref<ServerGroup[]>([])
 const selectedPreset = ref<any | null>(null)
-const logLines = ref<Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string; isMatch?: boolean; matched?: boolean; lineNum?: string }>>([])
+const logLines = ref<Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string; isMatch?: boolean; matched?: boolean; lineNum?: string; html?: string; sortKey?: number }>>([])
 const isStreaming = ref(false)
 const followMode = ref(true)
 const userScrolledUp = ref(false)
@@ -1397,7 +1397,7 @@ async function startRealtimeFullLog() {
   }
   const logPath = paths[0].trim()
   const fileName = logPath.split('/').pop() || 'log.txt'
-  await downloadAndShowLogs([{ path: logPath, name: fileName, isDir: false, size: 0, modifyTime: 0, isGz: false }], false)
+  await downloadAndShowLogs([{ path: logPath, name: fileName, isDir: false, size: 0, modifyTime: '0', isGz: false }], false)
 }
 
 // 用户选择：历史日志 -> 打开文件选择器
@@ -2212,8 +2212,8 @@ async function doSearch() {
 
   try {
     const result = await getTauriAPI().logSearch({
+      query: searchKeyword.value.trim(),
       presetId: selectedPreset.value.id,
-      keyword: searchKeyword.value.trim(),
       lines: searchContextLines.value
     })
 
@@ -2293,7 +2293,7 @@ function scheduleFlush() {
         timestamp: now,
         content,
         level: detectLevel(content),
-        matched: presetKeywords.length === 0 || presetKeywords.some(kw => content.toLowerCase().includes(kw)),
+        matched: presetKeywords.length === 0 || presetKeywords.some((kw: string) => content.toLowerCase().includes(kw)),
         sortKey: parsedTime ?? (now + validCount * 0.001)
       }
       seenServerIds.add(data.serverId)
@@ -2501,7 +2501,7 @@ async function loadMoreHistory() {
         ? selectedPreset.value.keywords.map((k: string) => k.toLowerCase())
         : []
       const kwMatch = (content: string) =>
-        presetKeywords.length === 0 || presetKeywords.some(kw => content.toLowerCase().includes(kw))
+        presetKeywords.length === 0 || presetKeywords.some((kw: string) => content.toLowerCase().includes(kw))
 
       // 历史日志按时间正序回填：服务器返回的是"更早的行"，需要插入到现有头部之前
       // 为保证 sortKey 单调，给每条历史行分配一个递减的小数偏移

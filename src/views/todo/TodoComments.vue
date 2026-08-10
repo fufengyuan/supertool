@@ -23,7 +23,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 
 const { locale: i18nLocale } = useI18n();
@@ -34,7 +34,7 @@ defineProps({
 });
 defineEmits(['update:input', 'add']);
 
-const formatTime = (timestamp) => {
+const formatTime = (timestamp: number | string | null | undefined) => {
   if (!timestamp) {return '';}
   return new Date(timestamp).toLocaleString(i18nLocale.value, {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',

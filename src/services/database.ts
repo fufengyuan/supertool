@@ -1,6 +1,6 @@
-// @ts-nocheck
+
 // 数据库服务 - 封装 Tauri API 调用
-import type { Todo } from '../types';
+import type { Todo, Tag } from '../types';
 import { getTauriAPI } from '../utils/tauri-api'
 
 // 检查是否在 Tauri 环境中
@@ -58,7 +58,10 @@ export const deleteTodo = async (id: string): Promise<string> => {
 
 export const deleteTodos = async (ids: string[]): Promise<string[]> => {
   if (isTauri()) {
-    await getTauriAPI().deleteTodo(ids);
+    // 后端 delete_todo 单条删除，批量循环调用
+    for (const id of ids) {
+      await getTauriAPI().deleteTodo(id);
+    }
     return ids;
   }
   // 降级到 localStorage
@@ -79,7 +82,7 @@ export const getTags = async (): Promise<string[]> => {
   return saved ? JSON.parse(saved) : ['工作', '生活', '学习', '其他'];
 };
 
-export const addTag = async (name: string): Promise<string> => {
+export const addTag = async (name: string): Promise<Tag> => {
   if (isTauri()) {
     return await getTauriAPI().addTag(name);
   }
@@ -89,7 +92,7 @@ export const addTag = async (name: string): Promise<string> => {
     tags.push(name);
     localStorage.setItem('tags', JSON.stringify(tags));
   }
-  return name;
+  return { name };
 };
 
 export const deleteTag = async (name: string): Promise<string> => {
@@ -114,7 +117,7 @@ export const getSetting = async (key: string): Promise<string | null> => {
   return localStorage.getItem(key);
 };
 
-export const setSetting = async (key: string, value: string): Promise<{ key: string; value: string }> => {
+export const setSetting = async (key: string, value: string): Promise<{ key: string; value: string } | undefined> => {
   if (isTauri()) {
     return await getTauriAPI().setSetting(key, value);
   }
