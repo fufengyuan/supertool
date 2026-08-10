@@ -121,7 +121,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
@@ -271,15 +271,15 @@ async function refresh() {
     }
 
     // Disks
-    const diskLines = r(commands[9]).split('\n').filter(l => l.trim())
-    disks.value = diskLines.map(line => {
+    const diskLines = r(commands[9]).split('\n').filter((l: string) => l.trim())
+    disks.value = diskLines.map((line: string) => {
       const dm = line.match(/^(\S+)\s+(\d+)G\s+(\d+)G\s+(\d+)%/)
       return dm ? { mount: dm[1], used: parseInt(dm[3]), total: parseInt(dm[2]), percent: parseInt(dm[4]) } : null
     }).filter(Boolean) as DiskInfo[]
 
     // Processes
     const procLines = r(commands[10]).split('\n').slice(1)
-    processes.value = procLines.map(line => {
+    processes.value = procLines.map((line: string) => {
       const parts = line.trim().split(/\s+/)
       return parts.length >= 11 ? { pid: parts[1], cpu: parts[2], mem: parts[3], cmd: parts[10] } : null
     }).filter(Boolean) as ProcessInfo[]

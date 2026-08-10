@@ -128,7 +128,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import * as logger from '../../services/logger'
 import { getTauriAPI } from '../../utils/tauri-api'
@@ -137,7 +137,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 
-import type { Server } from '../../types'
+import type { Server, ServerGroup } from '../../types'
 import ServerMonitor from './ServerMonitor.vue'
 import GroupedServerSelector from './GroupedServerSelector.vue'
 
@@ -193,15 +193,8 @@ const allServers = computed<Server[]>(() => {
   return result
 })
 
-interface GroupNode {
-  id: string
-  name: string
-  color: string
-  parentId?: string | null
-}
-
 // Load groups from API when selector is shown
-const groups = ref<GroupNode[]>([])
+const groups = ref<ServerGroup[]>([])
 
 async function loadGroups() {
   if (groups.value.length > 0) {return}
@@ -515,8 +508,12 @@ async function connectTab(tab: TerminalTab) {
       console.error(`[Terminal] Connection attempt ${attempt} failed:`, lastError)
       term.writeln(`\x1b[1;31m✗ 尝试 ${attempt} 失败: ${lastError.message}\x1b[0m`)
       // 清理本次尝试的监听器，避免累积
-      if (tab.cleanupData) { tab.cleanupData(); tab.cleanupData = null }
-      if (tab.cleanupClose) { tab.cleanupClose(); tab.cleanupClose = null }
+      const cleanupDataFn = tab.cleanupData as (() => void) | null
+      const cleanupCloseFn = tab.cleanupClose as (() => void) | null
+      if (cleanupDataFn) { cleanupDataFn() }
+      if (cleanupCloseFn) { cleanupCloseFn() }
+      tab.cleanupData = null
+      tab.cleanupClose = null
       tab.sessionId = null
     }
   }
@@ -566,7 +563,7 @@ async function autoReconnectTab(tab: TerminalTab) {
       /* TODO(tauri-events): tab.cleanupData = getTauriAPI().onTerminalData((data) => {
         if (data.terminalId === tab.sessionId && tab.term) tab.term.write(data.data)
       })
-      */tab.cleanupClose = getTauriAPI().onTerminalClose((data) => {
+      */getTauriAPI().onTerminalClose((data: any) => {
         if (data.terminalId === tab.sessionId) {
           tab.status = 'disconnected'
           if (tab.term) {
@@ -575,7 +572,7 @@ async function autoReconnectTab(tab: TerminalTab) {
           }
           autoReconnectTab(tab)
         }
-      })
+      }).then((unlisten) => { tab.cleanupClose = unlisten })
 
       // 重新创建终端会话
       const sid = `term_${tab.id}_${Date.now()}`

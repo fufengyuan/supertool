@@ -180,7 +180,7 @@ export function useServersAPI() {
       if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
-    updateServer: async (server: Server): Promise<Server> => {
+    updateServer: async (server: Partial<Server>): Promise<Server> => {
       const res = await tauriInvoke<Server>('update_server', { server })
       if (!res.success) {throw new Error(res.error)}
       return res.data!
@@ -1485,7 +1485,7 @@ export interface TauriAPI {
   getAllServers: () => Promise<Server[]>
   getServerById: (serverId: string) => Promise<Server | null>
   addServer: (server: Partial<Server>) => Promise<Server>
-  updateServer: (server: Server) => Promise<Server>
+  updateServer: (server: Partial<Server>) => Promise<Server>
   deleteServer: (serverId: string) => Promise<void>
   getAllServerGroups: () => Promise<ServerGroup[]>
   getServerGroups: () => Promise<ServerGroup[]>
@@ -1707,12 +1707,13 @@ export interface TauriAPI {
   onSftpDownloadProgress: (callback: (data: any) => void) => () => void
   onSftpUploadDone: (callback: (data: any) => void) => () => void
   onSftpUploadProgress: (callback: (data: any) => void) => () => void
-  onTerminalClose: (callback: (data: any) => void) => () => void
+  onTerminalClose: (callback: (data: any) => void) => Promise<() => void>
   onTerminalData: (callback: (data: any) => void) => () => void
   onAutoBackupCompleted: (callback: (data: any) => void) => Promise<() => void>
   onCollaborationStarted: (callback: (data: any) => void) => () => void
   onCollaborationEnded: (callback: (data: any) => void) => () => void
   readFileContent: (filePath: string) => Promise<string>
+  readLogCacheFile: (path: string) => Promise<string>
   getUserInfo: () => Promise<any>
   lanGetUserInfo: () => Promise<any>
   setStatus: (status: string) => Promise<any>
@@ -1784,6 +1785,7 @@ export interface TauriAPI {
   downloadFileWithProgress: (downloadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string) => Promise<any>
   onSftpDownloadProgress: (handler: (payload: { downloadId: string; serverId: string; serverName: string; fileName: string; downloaded: number; total: number }) => void) => Promise<UnlistenFn>
   uploadFile: (serverId: string, localPath: string, remotePath: string) => Promise<any>
+  sftpCreateDir: (serverId: string, path: string) => Promise<any>
   uploadFileWithProgress: (uploadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string) => Promise<any>
   onSftpUploadProgress: (handler: (payload: { uploadId: string; serverId: string; serverName: string; fileName: string; uploaded: number; total: number; percent: number }) => void) => Promise<UnlistenFn>
   uploadFolder: (serverId: string, localPath: string, remotePath: string) => Promise<any>
@@ -2597,8 +2599,7 @@ export function getTauriAPI(): TauriAPI {
     listSftpDir: async (serverId: string, path: string) => tauriCall("list_sftp_dir", { serverId, path }),
     openSftpFileEditor: async (serverId: string, filePath: string) => tauriCall("open_sftp_file_editor", { serverId, filePath }),
     deleteSftpFile: async (serverId: string, filePath: string, isDir = false) => tauriCall("delete_sftp_file", { serverId, filePath, isDir }),
-    sftpCreateDir: async (serverId: string, path: string) => tauriCall("sftp_create_dir", { serverId, path }),
-    uploadSessionStart: async (serverId: string, remotePath: string) => tauriCall("upload_session_start", { serverId, remotePath }),
+    sftpCreateDir: async (serverId: string, path: string) => tauriCall("sftp_create_dir", { serverId, path }),    uploadSessionStart: async (serverId: string, remotePath: string) => tauriCall("upload_session_start", { serverId, remotePath }),
     uploadSessionAdd: async (sessionId: string, localPath: string, remotePath: string) => tauriCall("upload_session_add", { sessionId, localPath, remotePath }),
     uploadSessionCheckConflicts: async (sessionId: string) => tauriCall("upload_session_check_conflicts", { sessionId }),
     uploadSessionCommit: async (sessionId: string) => tauriCall("upload_session_commit", { sessionId }),
@@ -2711,6 +2712,7 @@ export function getTauriAPI(): TauriAPI {
     // 文件浏览
     getFileTree: async (repoPath: string, subdir?: string) => tauriCall<FileTreeEntry[]>('get_file_tree', { repoPath, subdir }),
     readFileContent: async (repoPath: string, filePath: string) => tauriCall<string>('read_file_content', { repoPath, filePath }),
+  readLogCacheFile: async (path: string) => tauriCall<string>('read_log_cache_file', { path }),
     saveFileContent: async (repoPath: string, filePath: string, content: string) => tauriCall<void>('save_file_content', { repoPath, filePath, content }),
 
     // ============ 操作审计 ============

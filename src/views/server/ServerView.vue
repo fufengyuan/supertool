@@ -190,9 +190,10 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import type { ServerGroup } from '../../types';
 import ServerItem from '@/views/server/ServerItem.vue';
 import ServerForm from '@/views/server/ServerForm.vue';
 import TerminalPanel from '@/views/server/TerminalPanel.vue';
@@ -208,7 +209,7 @@ const toast = useToast();
 const { handleError } = useErrorHandler();
 
 const servers = ref<Server[]>([]);
-const groups = ref<Array<{ id: string; name: string; color: string; parentId: string | null }>>([]);
+const groups = ref<ServerGroup[]>([]);
 const connectionStatusMap = ref<Record<string, string>>({});
 const showAddServer = ref(false);
 const editingServer = ref<Server | null>(null);
@@ -310,7 +311,7 @@ const allFilteredServers = computed(() => {
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.trim().toLowerCase();
     filtered = filtered.filter(
-      (s) =>
+      (s: any) =>
         s.name.toLowerCase().includes(q) ||
         s.host.toLowerCase().includes(q)
     );
@@ -320,7 +321,7 @@ const allFilteredServers = computed(() => {
 
 // 根分组（没有父分组的）
 const rootGroups = computed(() => {
-  return groups.value.filter(g => !g.parentId);
+  return groups.value.filter((g: ServerGroup) => !g.parentId);
 });
 
 function getServersByGroup(groupId: string | null): Server[] {
@@ -387,11 +388,21 @@ function onTerminalOpenSftp(server: Server, path: string) {
 
 function editServer(server: Server) {
   editingServer.value = server;
-  const { password, ...serverWithoutPassword } = server;
+  // 白名单重建表单（Server 的可选字段 privateKey/protocol 等不进入表单结构，避免类型不匹配）
   serverForm.value = {
-    ...serverWithoutPassword,
+    id: server.id,
+    name: server.name,
+    host: server.host,
+    port: server.port,
+    username: server.username,
+    sshKeyPath: server.sshKeyPath || '',
     password: '',
     tagsInput: server.tags?.join(',') || '',
+    description: server.description || '',
+    groupId: server.groupId || null,
+    requiresApproval: !!server.requiresApproval,
+    createdAt: server.createdAt || '',
+    updatedAt: server.updatedAt || '',
   };
 }
 
@@ -457,12 +468,12 @@ function cancelEditGroup() {
   newGroupColor.value = '#6c63ff';
 }
 
-function getGroupDepth(group: { parentId: string | null }): number {
+function getGroupDepth(group: { parentId?: string | null }): number {
   let depth = 0;
   let current = group.parentId;
   while (current) {
     depth++;
-    const parent = groups.value.find(g => g.id === current);
+    const parent = groups.value.find((g: ServerGroup) => g.id === current);
     current = parent?.parentId || null;
   }
   return depth;
@@ -485,12 +496,22 @@ async function deleteGroup(groupId: string) {
 async function testConnection() {
   testResult.value = null;
   try {
-    const server = {
-      ...serverForm.value,
+    // 白名单字段（serverForm 含 tagsInput 等表单专用字段）
+    const server: Partial<Server> = {
+      id: serverForm.value.id ?? undefined,
+      name: serverForm.value.name,
+      host: serverForm.value.host,
+      port: serverForm.value.port,
+      username: serverForm.value.username,
+      sshKeyPath: serverForm.value.sshKeyPath || '',
+      password: serverForm.value.password || '',
       tags: serverForm.value.tagsInput
         .split(',')
         .map((t: string) => t.trim())
         .filter((t: string) => t),
+      description: serverForm.value.description || '',
+      groupId: serverForm.value.groupId || null,
+      requiresApproval: !!serverForm.value.requiresApproval,
     };
     testResult.value = await getTauriAPI().testServerConnection(server);
   } catch (error: any) {

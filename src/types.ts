@@ -335,6 +335,7 @@ export interface Server {
   tags?: string[];
   description?: string;
   groupId?: string | null;
+  requiresApproval?: boolean;
   orderNum?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -344,6 +345,7 @@ export interface ServerGroup {
   id: string;
   name: string;
   color?: string;
+  parentId?: string | null;
   orderNum?: number;
   createdAt?: string;
 }

@@ -78,16 +78,11 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { computed } from 'vue';
 import ServerItem from './ServerItem.vue';
 
-interface GroupNode {
-  id: string;
-  name: string;
-  color: string;
-  parentId: string | null;
-}
+import type { ServerGroup } from '../../types'
 
 const props = defineProps<{
-  group: GroupNode;
-  groups: GroupNode[];
+  group: ServerGroup;
+  groups: ServerGroup[];
   depth: number;
   expandedGroups: Set<string | null>;
   servers: any[];

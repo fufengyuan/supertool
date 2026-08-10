@@ -51,23 +51,16 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Server } from '../../types'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 // Vue 3 <script setup> auto-registers recursive components by filename.
 // The component references itself in the template as <ServerGroupNode>.
 import ServerGroupNode from './ServerGroupNode.vue'
-
-interface GroupNode {
-  id: string
-  name: string
-  color: string
-  parentId?: string | null
-}
+import type { Server, ServerGroup } from '../../types'
 
 const props = defineProps<{
-  group: GroupNode
-  groups: GroupNode[]
+  group: ServerGroup
+  groups: ServerGroup[]
   servers: Server[]
   modelValue: string | string[]
   mode: 'single' | 'multi'
