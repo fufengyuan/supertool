@@ -161,13 +161,7 @@
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
-
-interface ServerGroup {
-  id: string;
-  name: string;
-  color: string;
-  parentId?: string | null;
-}
+import type { ServerGroup } from '../../types';
 
 interface TestResult {
   success: boolean;

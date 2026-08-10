@@ -188,7 +188,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 defineOptions({ name: 'ServerManager' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
@@ -201,13 +201,13 @@ import GroupTree from './GroupTree.vue';
 import Modal from '../../components/ui/Modal.vue';
 import { useToast } from '../../composables/useToast';
 import { useErrorHandler } from '../../composables/useErrorHandler';
-import type { Server } from '../../types';
+import type { Server, ServerGroup } from '../../types';
 
 const toast = useToast();
 const { handleError } = useErrorHandler();
 
 const servers = ref<Server[]>([]);
-const groups = ref<Array<{ id: string; name: string; color: string; parentId: string | null }>>([]);
+const groups = ref<ServerGroup[]>([]);
 const connectionStatusMap = ref<Record<string, string>>({});
 const showAddServer = ref(false);
 const editingServer = ref<Server | null>(null);
@@ -321,23 +321,23 @@ const allFilteredServers = computed(() => {
 
 // 根分组（没有父分组的）
 const rootGroups = computed(() => {
-  return groups.value.filter(g => !g.parentId);
+  return groups.value.filter((g: ServerGroup) => !g.parentId);
 });
 
 // 获取子分组
 function getChildGroups(groupId: string) {
-  return groups.value.filter(g => g.parentId === groupId);
+  return groups.value.filter((g: ServerGroup) => g.parentId === groupId);
 }
 
-function getServersByGroup(groupId) {
-  return servers.value.filter((s) => (s.groupId || null) === (groupId || null));
+function getServersByGroup(groupId: string | null) {
+  return servers.value.filter((s: any) => (s.groupId || null) === (groupId || null));
 }
 
-function getOnlineCount(groupId) {
+function getOnlineCount(groupId: string | null) {
   return getServersByGroup(groupId).filter(s => connectionStatusMap.value[s.id] === 'online').length;
 }
 
-function getFilteredServers(serverList) {
+function getFilteredServers(serverList: any[]) {
   if (!searchQuery.value.trim()) {return serverList;}
   const q = searchQuery.value.trim().toLowerCase();
   return serverList.filter(
@@ -359,7 +359,7 @@ function collapseAllGroups() {
   expandedGroups.value = new Set<string | null>();
 }
 
-function toggleGroup(groupId) {
+function toggleGroup(groupId: string | null) {
   if (expandedGroups.value.has(groupId)) {
     expandedGroups.value.delete(groupId);
   } else {
@@ -368,7 +368,7 @@ function toggleGroup(groupId) {
   expandedGroups.value = new Set(expandedGroups.value);
 }
 
-function openTerminal(server) {
+function openTerminal(server: any) {
   terminalServer.value = server;
 }
 function openSftp(server: Server, initialPath?: string) {
@@ -395,7 +395,7 @@ function onTerminalOpenSftp(server: Server, path: string) {
   openSftp(server, path);
 }
 
-async function editServer(server) {
+async function editServer(server: any) {
   editingServer.value = server;
   // 列表接口不返回密码（get_all_servers 会移除 password），编辑时单独按 id 获取解密后的密码回填
   let password = '';
@@ -420,7 +420,7 @@ async function editServer(server) {
   };
 }
 
-async function deleteServer(serverId) {
+async function deleteServer(serverId: string) {
   try {
     await getTauriAPI().deleteServer(serverId);
     delete connectionStatusMap.value[serverId];
@@ -467,7 +467,7 @@ function addGroupAsChild(parentId: string) {
 }
 
 function editGroup(groupId: string) {
-  const group = groups.value.find(g => g.id === groupId);
+  const group = groups.value.find((g: ServerGroup) => g.id === groupId);
   if (!group) {return;}
   editingGroupId.value = groupId;
   addingChildTo.value = null;
@@ -485,20 +485,20 @@ function cancelEditGroup() {
 }
 
 // 计算分组深度（用于缩进显示）
-function getGroupDepth(group: { parentId: string | null }): number {
+function getGroupDepth(group: { parentId?: string | null }): number {
   let depth = 0;
   let current = group.parentId;
   while (current) {
     depth++;
-    const parent = groups.value.find(g => g.id === current);
+    const parent = groups.value.find((g: ServerGroup) => g.id === current);
     current = parent?.parentId || null;
   }
   return depth;
 }
 
-async function deleteGroup(groupId) {
+async function deleteGroup(groupId: string | null) {
   try {
-    await getTauriAPI().deleteServerGroup(groupId);
+    await getTauriAPI().deleteServerGroup(groupId ?? '');
     await loadGroups();
     await loadServers();
     if (selectedGroup.value === groupId) {
@@ -513,22 +513,33 @@ async function deleteGroup(groupId) {
 async function testConnection() {
   testResult.value = null;
   try {
-    const server = {
-      ...serverForm.value,
+    // 白名单字段（serverForm 含 tagsInput 等表单专用字段，不适合直接透传）
+    const server: Partial<Server> = {
+      id: serverForm.value.id ?? undefined,
+      name: serverForm.value.name,
+      host: serverForm.value.host,
+      port: serverForm.value.port,
+      username: serverForm.value.username,
+      sshKeyPath: serverForm.value.sshKeyPath || '',
+      password: serverForm.value.password || '',
       tags: serverForm.value.tagsInput
         .split(',')
         .map((t) => t.trim())
         .filter((t) => t),
+      description: serverForm.value.description || '',
+      groupId: serverForm.value.groupId || null,
+      requiresApproval: !!serverForm.value.requiresApproval,
     };
     testResult.value = await getTauriAPI().testServerConnection(server);
   } catch (error) {
-    testResult.value = { success: false, error: error.message };
+    testResult.value = { success: false, error: (error as Error).message };
   }
 }
 
 async function saveServer() {
   const now = new Date().toISOString();
-  const server = {
+  // 白名单字段（去掉 tagsInput 等表单专用字段，满足 Partial<Server> 类型）
+  const server: Partial<Server> = {
     id: serverForm.value.id || Date.now().toString(),
     name: serverForm.value.name,
     host: serverForm.value.host,

@@ -53,20 +53,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { Server } from '../../types'
+import type { Server, ServerGroup } from '../../types'
 import ServerGroupNode from './ServerGroupNode.vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 
-interface GroupNode {
-  id: string
-  name: string
-  color: string
-  parentId?: string | null
-}
-
 const props = defineProps<{
   servers: Server[]
-  groups: GroupNode[]
+  groups: ServerGroup[]
   modelValue: string | string[]  // string for single, string[] for multi
   mode?: 'single' | 'multi'  // default: 'multi'
 }>()

@@ -179,12 +179,14 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import * as logger from '../../services/logger'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { tempDir } from '@tauri-apps/api/path';
+import { writeFile, mkdir, remove } from '@tauri-apps/plugin-fs';
 import { useToast } from '../../composables/useToast';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 
@@ -194,6 +196,8 @@ interface SftpFile {
   size?: number;
   modifyTime?: string;
 }
+
+import type { Server } from '../../types'
 
 const props = defineProps<{
   server: Server;
@@ -443,7 +447,7 @@ async function loadDir() {
     // 连接由 onMounted 初始化时完成，Rust 端会自动重连
     const result = await getTauriAPI().listSftpDir(props.server.id, currentPath.value);
     if (result.success) {
-      files.value = result.files.sort((a, b) => {
+      files.value = result.files.sort((a: any, b: any) => {
         if (a.type === 'directory' && b.type !== 'directory') {return -1;}
         if (a.type !== 'directory' && b.type === 'directory') {return 1;}
         return a.name.localeCompare(b.name);
@@ -494,11 +498,11 @@ function goUp() {
   loadDir();
 }
 
-function selectFile(file) {
+function selectFile(file: any) {
   selectedFile.value = file;
 }
 
-function enterDir(file) {
+function enterDir(file: any) {
   if (file.type === 'directory') {
     const base = currentPath.value === '/' ? '' : currentPath.value;
     currentPath.value = base + '/' + file.name;
@@ -506,7 +510,7 @@ function enterDir(file) {
   }
 }
 
-async function handleDoubleClick(file) {
+async function handleDoubleClick(file: any) {
   if (file.type === 'directory') {
     enterDir(file);
   } else {
@@ -514,7 +518,7 @@ async function handleDoubleClick(file) {
   }
 }
 
-async function openFileEditor(file) {
+async function openFileEditor(file: any) {
   try {
     const remotePath = currentPath.value + '/' + file.name;
     const result = await getTauriAPI().openSftpFileEditor(props.server.id, remotePath);
@@ -526,7 +530,7 @@ async function openFileEditor(file) {
   }
 }
 
-async function downloadFile(file) {
+async function downloadFile(file: any) {
   try {
     // 获取用户下载目录
     const downloadsDir = await getTauriAPI().getDownloadsDir()
@@ -663,7 +667,7 @@ async function onDrop(event: DragEvent) {
   await doDragUpload(entries)
 }
 
-async function doDragUpload(entries) {
+async function doDragUpload(entries: any) {
   if (!entries || entries.length === 0) {return}
 
   isUploading.value = true
@@ -706,17 +710,16 @@ async function doDragUpload(entries) {
       const fileName = item.path.replace(/^\//, '')
       uploadProgress.value = { file: fileName, percent: 0 }
 
-      // 直接通过 IPC 上传：将文件写入 Tauri 临时目录后上传
-      const tempDir = await window.__TAURI__.path.tempDir()
+      // 通过 IPC 上传：先写入 Tauri 临时目录（Tauri v2 API）
+      const tempDirPath = await tempDir()
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const tempFilePath = `${tempDir}sftp_${Date.now()}_${safeName}`
+      const tempFilePath = `${tempDirPath}sftp_${Date.now()}_${safeName}`
 
-      // Tauri v2 fs API: writeFile / mkdir / remove
       const parentDir = tempFilePath.substring(0, tempFilePath.lastIndexOf('/'))
       if (parentDir) {
-        await window.__TAURI__.fs.mkdir(parentDir, { recursive: true }).catch(() => {})
+        await mkdir(parentDir, { recursive: true }).catch(() => {})
       }
-      await window.__TAURI__.fs.writeFile(tempFilePath, bytes)
+      await writeFile(tempFilePath, bytes)
 
       const uploadId = `upload-${Date.now()}-${++uploadIdCounter}`
       await getTauriAPI().uploadFileWithProgress(
@@ -729,7 +732,7 @@ async function doDragUpload(entries) {
       )
 
       // 清理临时文件
-      try { await window.__TAURI__.fs.remove(tempFilePath) } catch {}
+      try { await remove(tempFilePath) } catch {}
 
       successCount++
     }
@@ -859,7 +862,7 @@ function readDirRecursive(entry: any): Promise<{ path: string; file: File }[]> {
   })
 }
 
-async function deleteFile(file) {
+async function deleteFile(file: any) {
   deleteTarget.value = file;
   showDeleteConfirm.value = true;
 }
@@ -881,7 +884,7 @@ async function confirmDelete() {
   }
 }
 
-function formatSize(size) {
+function formatSize(size: number | null | undefined) {
   if (size === undefined || size === null) {return '-';}
   if (size === 0) {return '0 B';}
   if (size < 1024) {return size + ' B';}
@@ -890,7 +893,7 @@ function formatSize(size) {
   return (size / 1024 / 1024 / 1024).toFixed(1) + ' GB';
 }
 
-function formatDate(dateStr) {
+function formatDate(dateStr: string | null | undefined) {
   if (!dateStr) {return '-';}
   try {
     return new Date(dateStr).toLocaleString('zh-CN', {
