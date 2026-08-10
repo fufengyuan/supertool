@@ -53,9 +53,11 @@ pub async fn log_search(
     preset_id: String,
     keyword: String,
     lines: usize,
+    date: Option<String>,
+    days: Option<u64>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] log_search() called");
-    let result = core.log_search(&preset_id, &keyword, lines).await?;
+    let result = core.log_search(&preset_id, &keyword, lines, date.as_deref(), days).await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
@@ -391,6 +393,28 @@ fn stream_server_logs(
 
 /// 前端拦截 console.log 后调用，将日志写入文件
 #[tauri::command(rename_all = "camelCase")]
-pub fn write_system_log(level: String, prefix: String, message: String) {
-    crate::system_logger::SystemLogger::write_frontend_log(&level, &prefix, &message);
+pub fn write_system_log(level: String, prefix: String, message: String) {    crate::system_logger::SystemLogger::write_frontend_log(&level, &prefix, &message);
+}
+
+/// 读取已下载的离线日志本地文件（"复制全部"用，原样输出不做行号加工）。
+/// 仅限 ~/.supertool 下载缓存目录下的文件，防止任意路径读取。
+#[tauri::command(rename_all = "camelCase")]
+pub async fn read_log_cache_file(path: String) -> Result<String, String> {
+    log::info!("[Tauri CMD] read_log_cache_file() called");
+    let home = std::env::var("HOME").unwrap_or_default();
+    let allowed = format!("{}/.supertool", home);
+    let expanded = shellexpand::tilde(&path).to_string();
+    if !expanded.starts_with(&allowed) {
+        return Err("仅允许读取 ~/.supertool 缓存目录下的日志文件".to_string());
+    }
+    let content = tokio::fs::read(&expanded)
+        .await
+        .map_err(|e| format!("读取日志文件失败: {}", e))?;
+    if content.len() > 256 * 1024 * 1024 {
+        return Err(format!(
+            "日志文件过大（{}MB），请直接查看文件",
+            content.len() / 1024 / 1024
+        ));
+    }
+    Ok(String::from_utf8_lossy(&content).to_string())
 }

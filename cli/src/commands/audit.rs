@@ -14,7 +14,7 @@ pub async fn cmd_audit(runtime: &mut CliRuntime, action: &AuditCommands) -> Resu
             runtime.set_json(*json);
             let entries = runtime
                 .core
-                .list_audit(actor.as_deref(), result.as_deref(), *limit)
+                .list_audit(actor.as_deref(), result.as_deref(), *limit, 0)
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             if runtime.json_mode {
                 print_json(&entries);

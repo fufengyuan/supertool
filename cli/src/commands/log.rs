@@ -80,13 +80,15 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
             preset_id,
             keyword,
             lines,
+            date,
+            days,
             json,
         } => {
             runtime.set_json(*json);
             let actual_id = resolve_preset_id(runtime, preset_id).await?;
             let resp: serde_json::Value = runtime
                 .core
-                .log_search(&actual_id, keyword, *lines)
+                .log_search(&actual_id, keyword, *lines, date.as_deref(), *days)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
 
