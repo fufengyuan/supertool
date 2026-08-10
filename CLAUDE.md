@@ -185,7 +185,7 @@ git commit -m "chore: update dependencies"       # 版本号不变
 ## Conventions（2026-08 补充）
 
 - **core todo 更新是 PATCH 语义**：`core/src/logic/todo.rs` 的 `update_todo` 只更新请求中提供的字段（含 `orderNum`），不会误清空未传字段；前端 `updateTodo(todo)` 传部分字段即可。
-- **@ts-nocheck 状态**：全项目已清零（2026-08 批量清理完成），仅 `src/utils/tauri-api.ts` 保留（136 个历史类型错误，暂不清理）；其余文件已全部移除。改 tauri-api 时**必须同步实现与接口声明**（TauriAPI interface），否则其他文件 vue-tsc 会报错。
+- **@ts-nocheck 状态**：全项目已清零（2026-08 完成，含 tauri-api.ts 157 个历史类型错误）。改 tauri-api 时**必须同步实现与接口声明**（TauriAPI interface），否则其他文件 vue-tsc 会报错。
 - **清理 @ts-nocheck 踩过的坑**（后续改这些模块注意）：① tauri-api 存在同名方法两组实现（如 dbRedisStreams 754 行组与 2609 行组），**后者覆盖前者**，签名不一致导致参数失效（pattern/group 被忽略）——改接口声明时必须对照 `getTauriAPI` 对象里最后出现的实现；② 接口声明返回 `() => void` 但实现 `return listen(...)` 返回 Promise<UnlistenFn>（onTerminalClose/onLogs*），调用方把 Promise 当函数调用会 TypeError——接口声明应与实现一致用 `Promise<UnlistenFn>`；③ 表单对象直接展开传给后端（`{...serverForm.value}`）会带 tagsInput 等多余字段——用白名单重建；④ 日志行/服务器组等类型用本地内联接口时与 types.ts 不同步（缺 html/sortKey/parentId 字段）——优先用 types.ts 类型。
 - **LAN 事件约定**：发送事件用 `tauri-api` 的 `lanBroadcast*` 系列方法（走 `lan_broadcast_*` 后端命令，参数为 JSON 字符串）；`on*` 系列只用于监听（`listen` 事件）。误用 `onXxx(todoId, editor)` 发送会导致运行时 TypeError。
 - **lint 配置**（.oxlintrc.json）：`eqeqeq` 允许 `!= null` 惯用法（`null: ignore`）、`no-unused-vars` 豁免 `_` 前缀与 catch 参数；全项目 lint 当前 0 错误。
