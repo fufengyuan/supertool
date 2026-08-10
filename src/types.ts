@@ -32,6 +32,8 @@ export interface Subtask {
   text: string;
   completed: boolean;
   orderNum: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Tag {
@@ -215,8 +217,10 @@ export interface AccountingCategory {
   name: string;
   type: 'income' | 'expense';
   icon: string;
+  color?: string;
   sortOrder: number;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface AccountingRecord {
@@ -283,6 +287,8 @@ export interface LogPreset {
   name: string;
   serverIds: string[];
   logPath: string;
+  path?: string;
+  description?: string;
   logType: 'file' | 'journalctl' | 'docker' | 'custom';
   keywords: string[];
   maxLines: number;
@@ -347,9 +353,11 @@ export interface ServerGroup {
   id: string;
   name: string;
   color?: string;
+  description?: string;
   parentId?: string | null;
   orderNum?: number;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ApiResponse<T = any> {
@@ -393,8 +401,10 @@ export interface NoteGroup {
   id: string;
   name: string;
   icon?: string;
+  color?: string;
   orderNum?: number;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface WeeklyReport {

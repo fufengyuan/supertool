@@ -841,7 +841,7 @@ function computeUnifiedDiff(oldText: string, newText: string): string {
   // Build LCS table
   const m = oldLines.length
   const n = newLines.length
-  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array.from({ length: n + 1 }).fill(0) as number[])
   for (let i = 1; i <= m; i++) {
     const oi = oldLines[i - 1]
     for (let j = 1; j <= n; j++) {
