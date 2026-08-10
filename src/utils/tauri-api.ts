@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 /**
  * Tauri API — 统一 IPC/原生接口层
  * 覆盖 81+ 个 Tauri commands
@@ -9,7 +7,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
 import type {
-  Project, Server, ServerGroup, DbConnectionConfig, ApiResponse, ProjectStats,
+  Project, Server, ServerGroup, DbConnectionConfig, ProjectStats,
   Todo, Tag, Subtask, Note, NoteGroup, WeeklyReport, MfaSecret,
   AccountingRecord, AccountingCategory, Budget, LogPreset, NotificationSettings,
 } from '../types'
@@ -69,7 +67,15 @@ function isStandardResponse(obj: unknown): boolean {
   return typeof o['success'] === 'boolean' && ('data' in o || 'error' in o)
 }
 
-async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}, silent = !import.meta.env.DEV): Promise<ApiResponse<T>> {
+/** 后端响应结构不统一：标准 { success, data/error } 与扁平 { success, rows } 等并存，放宽为兼容结构 */
+interface TauriResponse {
+  success?: boolean
+  error?: string
+  data?: any
+  [key: string]: any
+}
+
+async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}, silent = !import.meta.env.DEV): Promise<TauriResponse> {
   if (!silent) {console.log(`[Tauri IPC] → ${command}  ${safeJsonLog(args, 200)}`)}
   const t0 = performance.now()
   try {
@@ -80,7 +86,7 @@ async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {
     }
     // 后端已返回标准格式 { success, data/error } → 直接透传，避免再包一层造成双层嵌套
     if (isStandardResponse(raw)) {
-      return raw as ApiResponse<T>
+      return raw as unknown as TauriResponse
     }
     // 非标准格式（裸值/扁平对象）→ 包装为统一响应
     return { success: true, data: raw as unknown as T }
@@ -224,7 +230,7 @@ export function useServersAPI() {
         username: server.username ?? '', password: server.password ?? null,
         sshKeyPath: server.sshKeyPath ?? null,
       })
-      return { success: res.success && res.data === true, error: res.error }
+      return { success: !!res.success && res.data === true, error: res.error }
     },
   }
 }
@@ -241,11 +247,11 @@ export function useDatabaseAPI() {
       normalized.username = normalized.username || user || ''
       if (!normalized.dbName && database) {normalized.dbName = database}
       const res = await tauriInvoke<boolean>('db_connect', { config: normalized })
-      return { success: res.success, error: res.error }
+      return { success: !!res.success, error: res.error }
     },
     dbDisconnect: async (id: string): Promise<{ success: boolean; error?: string }> => {
       const res = await tauriInvoke<boolean>('db_disconnect', { id })
-      return { success: res.success, error: res.error }
+      return { success: !!res.success, error: res.error }
     },
     dbExecuteWrite: async (id: string, sql: string): Promise<{ success: boolean; rows?: any; error?: string }> => {
       const res = await tauriInvoke<any>('db_execute_write', { id, sql })
@@ -257,7 +263,7 @@ export function useDatabaseAPI() {
       if (res.success && res.data) {
         return { success: res.data.success ?? true, rows: res.data.rows, error: res.data.error }
       }
-      return { success: res.success, error: res.error }
+      return { success: !!res.success, error: res.error }
     },
     getTables: async (id: string, dbName: string): Promise<{ success: boolean; tables?: any; error?: string }> => {
       const res = await tauriInvoke<any>('db_get_tables', { id, dbName })
@@ -268,7 +274,7 @@ export function useDatabaseAPI() {
         const tables = rows.map((r: any) => Object.values(r)[0] || r);
         return { success: true, tables: tables, error: res.data.error }
       }
-      return { success: res.success, error: res.error }
+      return { success: !!res.success, error: res.error }
     },
     getDatabases: async (id: string): Promise<{ success: boolean; databases?: any; error?: string }> => {
       const res = await tauriInvoke<any>('db_get_databases', { id })
@@ -281,12 +287,12 @@ export function useDatabaseAPI() {
           }
           return r;
         });
-        return { success: true, databases: names, error: null }
+        return { success: true, databases: names, error: undefined }
       }
-      return { success: res.success, error: res.error }
+      return { success: !!res.success, error: res.error }
     },
     // 表结构 & 视图
-    dbGetTableStructure: async (id: string, table: string, dbName: string): Promise<any> => {
+    dbGetTableStructure: async (id: string, table: string, dbName?: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_get_table_structure', { id, table, dbName })
       if (res.success) {
         // Return full object with rows + indexes so composable can access both
@@ -319,7 +325,7 @@ export function useDatabaseAPI() {
       }
       return [];
     },
-    dbGetCreateSql: async (id: string, table: string, dbName: string): Promise<string> => {
+    dbGetCreateSql: async (id: string, table: string, dbName?: string): Promise<string> => {
       const res = await tauriInvoke<any>('db_get_create_sql', { id, table, dbName })
       if (res.success && res.data?.rows && res.data.rows.length > 0) {
         return res.data.rows[0]['Create Table'] ?? res.data.rows[0]?.['Create View'] ?? ''
@@ -329,11 +335,11 @@ export function useDatabaseAPI() {
     // 结构对比 & 同步
     dbCompareStructures: async (sourceId: string, sourceDb: string, targetId: string, targetDb: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_compare_structures', { sourceId, sourceDb, targetId, targetDb })
-      return res.success && res.data ? res.data : {}
+      return !!res.success && res.data ? res.data : {}
     },
     dbExecuteStructureSync: async (id: string, sqls: string[], dbName: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_execute_structure_sync', { id, sqls, targetDbName: dbName })
-      return res.success && res.data ? res.data : null
+      return !!res.success && res.data ? res.data : null
     },
     // 数据对比 & 同步
     dbCompareData: async (params: Record<string, unknown>): Promise<any> => {
@@ -341,28 +347,28 @@ export function useDatabaseAPI() {
       // Vue passes: sourceId, targetId, table, primaryKeys, columns, sourceDb, targetDb, tablePrimaryKeys
       const { table, ...rest } = params as any
       const res = await tauriInvoke<any>('db_compare_data', { ...rest, tableName: table })
-      return res.success && res.data ? res.data : {}
+      return !!res.success && res.data ? res.data : {}
     },
     dbExecuteDataSync: async (params: Record<string, unknown>): Promise<any> => {
       const res = await tauriInvoke<any>('db_execute_data_sync', { params })
-      return res.success && res.data ? res.data : { synced: 0 }
+      return !!res.success && res.data ? res.data : { synced: 0 }
     },
     // 数据库备份
     dbBackupCreate: async (id: string, dbName: string, objects: any[]): Promise<any> => {
       const res = await tauriInvoke<any>('db_backup_create', { id, dbName, objects })
-      return res.success && res.data ? res.data : null
+      return !!res.success && res.data ? res.data : null
     },
     dbBackupList: async (id?: string): Promise<any[]> => {
       const res = await tauriInvoke<any>('db_backup_list', { id: id ?? null })
-      return res.success && res.data ? (res.data.backups ?? []) : []
+      return !!res.success && res.data ? (res.data.backups ?? []) : []
     },
     dbBackupRestore: async (id: string, file: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_backup_restore', { id, file })
-      return res.success && res.data ? res.data : null
+      return !!res.success && res.data ? res.data : null
     },
     dbBackupDelete: async (file: string): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_backup_delete', { file })
-      return res.success && res.data?.success === true
+      return !!res.success && res.data?.success === true
     },
     // Redis 操作
     dbRedisDatabases: async (id: string): Promise<{ success: boolean; databases: Array<{ db: number; keys: number }> }> => {
@@ -375,7 +381,7 @@ export function useDatabaseAPI() {
     },
     dbRedisKeys: async (id: string, dbIndex: number, pattern: string): Promise<string[]> => {
       const res = await tauriInvoke<any>('db_redis_keys', { id, dbIndex, pattern })
-      return res.success && res.data ? (res.data.keys ?? []) : []
+      return !!res.success && res.data ? (res.data.keys ?? []) : []
     },
     dbRedisKeysTree: async (id: string, dbIndex: number, pattern: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_keys_tree', { id, dbIndex, pattern })
@@ -503,7 +509,7 @@ export function useDatabaseAPI() {
     },
     checkNetworkPermission: async (host: string, port: number): Promise<{ success: boolean; error?: string }> => {
       const res = await tauriInvoke<boolean>('check_network_permission', { host, port })
-      return { success: res.success && res.data === true, error: res.error }
+      return { success: !!res.success && res.data === true, error: res.error }
     },
     // ── Schema modification ──
     // TODO: Re-implement with proper db_name support and matching frontend/Rust signatures.
@@ -566,7 +572,7 @@ export function useLanAPI() {
     },
     lanGetPeerRemarks: async (): Promise<Record<string, string>> => {
       const res = await tauriInvoke<any>('lan_get_peer_remarks')
-      return res.success && res.data ? (res.data.remarks ?? {}) : {}
+      return !!res.success && res.data ? (res.data.remarks ?? {}) : {}
     },
     lanUploadAvatar: async (filePath: string): Promise<{ path: string; fullPath: string }> => {
       const res = await tauriInvoke<{ path: string; fullPath: string }>('lan_upload_avatar', { filePath })
@@ -610,10 +616,6 @@ export function useLanAPI() {
     lanStop: async (): Promise<void> => {
       await tauriInvoke('lan_stop')
     },
-    startLan: async (userId: string, userName: string): Promise<any> => {
-      const res = await tauriInvoke<any>('lan_start', { userId, userName })
-      return res.success ? res.data : { success: false, error: res.error }
-    },
     lanGetMessagesBetween: async (userId1: string, userId2: string, limit: number, offset: number): Promise<any[]> => {
       const res = await tauriInvoke<any>('lan_get_messages_between', { userId1, userId2, limit, offset })
       if (res.success && res.data) {
@@ -623,7 +625,7 @@ export function useLanAPI() {
     },
     lanSendMessage: async (peerId: string, content: string): Promise<any> => {
       const res = await tauriInvoke<any>('lan_send_message', { peerId, content })
-      return { success: res.success, sent: res.success ? res.data?.sent : false, error: res.error }
+      return { success: !!res.success, sent: res.success ? res.data?.sent : false, error: res.error }
     },
     lanSendFile: async (peerId: string, filePath: string, fileName: string, resumeOffset = 0, fileId?: string): Promise<any> => {
       const res = await tauriInvoke<any>('lan_send_file', { peerId, filePath, fileName, resumeOffset, fileId })
@@ -706,15 +708,6 @@ export function useLanAPI() {
       return res.success ? (res.data ?? {}) : {}
     },
     // ── LAN 事件监听 ──
-    onLanPeerDiscovered: async (handler: (payload: any) => void): Promise<UnlistenFn> => {
-      return listen('lan-peer-discovered', (event) => handler(event.payload))
-    },
-    onLanPeerLost: async (handler: (payload: any) => void): Promise<UnlistenFn> => {
-      return listen('lan-peer-lost', (event) => handler(event.payload))
-    },
-    onLanPeerAvatarUpdated: async (handler: (payload: any) => void): Promise<UnlistenFn> => {
-      return listen('lan-peer-avatar-updated', (event) => handler(event.payload))
-    },
     onLanMessage: async (handler: (payload: any) => void): Promise<UnlistenFn> => {
       return listen('lan-message-received', (event) => handler(event.payload))
     },
@@ -751,82 +744,9 @@ export function useLanAPI() {
     onLanFileReceived: async (handler: (payload: any) => void): Promise<UnlistenFn> => {
       return listen('lan-file-received', (event) => handler(event.payload))
     },
-    // Redis Stream & ZSet 队列管理
-    dbRedisStreams: async (id: string, dbIndex: number, pattern: string): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_streams', { id, dbIndex, pattern })
-      return res.success && res.data ? (res.data.streams ?? []) : []
-    },
-    dbRedisStreamInfo: async (id: string, dbIndex: number, stream: string): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_stream_info', { id, dbIndex, stream })
-      return res.success && res.data ? (res.data.info ?? null) : null
-    },
-    dbRedisStreamMessages: async (id: string, dbIndex: number, stream: string, count?: number, start?: string): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_stream_messages', { id, dbIndex, stream, count: count ?? 100, start: start ?? '-' })
-      return res.success && res.data ? (res.data.messages ?? []) : []
-    },
-    dbRedisStreamAdd: async (id: string, dbIndex: number, stream: string, data: Record<string, string>): Promise<string> => {
-      const res = await tauriInvoke<any>('db_redis_stream_add', { id, dbIndex, stream, data })
-      return res.success && res.data ? (res.data.message_id ?? '') : ''
-    },
-    dbRedisStreamDel: async (id: string, dbIndex: number, stream: string): Promise<boolean> => {
-      const res = await tauriInvoke<any>('db_redis_stream_del', { id, dbIndex, stream })
-      return res.success && res.data?.success === true
-    },
-    dbRedisStreamDelete: async (id: string, dbIndex: number, stream: string): Promise<boolean> => {
-      const res = await tauriInvoke<any>('db_redis_stream_delete', { id, dbIndex, stream })
-      return res.success && res.data?.success === true
-    },
-    dbRedisStreamGroupCreate: async (id: string, dbIndex: number, stream: string, group: string): Promise<boolean> => {
-      const res = await tauriInvoke<any>('db_redis_stream_group_create', { id, dbIndex, stream, group })
-      return res.success && res.data?.success === true
-    },
-    dbRedisStreamGroupDestroy: async (id: string, dbIndex: number, stream: string, group: string): Promise<boolean> => {
-      const res = await tauriInvoke<any>('db_redis_stream_group_destroy', { id, dbIndex, stream, group })
-      return res.success && res.data?.success === true
-    },
-    dbRedisStreamConsumers: async (id: string, dbIndex: number, stream: string, group: string): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_stream_consumers', { id, dbIndex, stream, group })
-      return res.success && res.data ? (res.data.consumers ?? []) : []
-    },
-    dbRedisStreamPending: async (id: string, dbIndex: number, stream: string, group: string): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_stream_pending', { id, dbIndex, stream, group })
-      return res.success && res.data ? (res.data.pending ?? []) : []
-    },
-    dbRedisStreamClaim: async (id: string, dbIndex: number, stream: string, group: string, consumer: string, msgIds: string[]): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_stream_claim', { id, dbIndex, stream, group, consumer, msgIds })
-      return res.success && res.data ? (res.data.result ?? []) : []
-    },
-    dbRedisStreamAck: async (id: string, dbIndex: number, stream: string, group: string, msgIds: string[]): Promise<boolean> => {
-      const res = await tauriInvoke<any>('db_redis_stream_ack', { id, dbIndex, stream, group, msgIds })
-      return res.success && res.data?.success === true
-    },
-    dbRedisStreamRetry: async (id: string, dbIndex: number, stream: string, group: string, consumer: string, msgIds: string[]): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_stream_retry', { id, dbIndex, stream, group, consumer, msgIds })
-      return res.success && res.data ? (res.data.result ?? []) : []
-    },
-    dbRedisStreamTrim: async (id: string, dbIndex: number, stream: string, count: number): Promise<boolean> => {
-      const res = await tauriInvoke<any>('db_redis_stream_trim', { id, dbIndex, stream, count })
-      return res.success && res.data?.success === true
-    },
     dbRedisScanKeys: async (id: string, dbIndex: number, pattern: string, type?: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_scan_keys', { id, dbIndex, pattern, type: type ?? '*' })
-      return res.success && res.data ? (res.data.keys ?? []) : []
-    },
-    dbRedisZSetRange: async (id: string, dbIndex: number, key: string, start: number, stop: number): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_zset_range', { id, dbIndex, key, start, stop })
-      return res.success && res.data ? (res.data.result ?? []) : []
-    },
-    dbRedisZSetRemove: async (id: string, dbIndex: number, key: string, members: string[]): Promise<boolean> => {
-      const res = await tauriInvoke<any>('db_redis_zset_remove', { id, dbIndex, key, members })
-      return res.success && res.data?.success === true
-    },
-    // 表结构导出
-    dbGetTableStructure: async (id: string, table: string, dbName: string): Promise<any> => {
-      const res = await tauriInvoke<any>('db_get_table_structure', { id, table, dbName })
-      if (res.success) {
-        return { rows: res.rows ?? res.data?.rows ?? [], indexes: res.indexes ?? res.data?.indexes ?? [] }
-      }
-      return { rows: [], indexes: [] }
+      return !!res.success && res.data ? (res.data.keys ?? []) : []
     },
   }
 }
@@ -1202,10 +1122,10 @@ export function useLogsAPI() {
       const res = await tauriInvoke<string>('delete_log_preset', { id })
       if (!res.success) {throw new Error(res.error)}
     },
-    logSearch: async (params: { preset_id: string; keyword: string; lines?: number }): Promise<any> => {
+    logSearch: async (params: { query?: string; presetId?: string; lines?: number }): Promise<any> => {
       const res = await tauriCall<any>('log_search', {
-        presetId: params.preset_id,
-        keyword: params.keyword,
+        presetId: params.presetId,
+        keyword: params.query,
         lines: params.lines ?? 50
       })
       return res
@@ -1365,7 +1285,7 @@ export function useSettingsAPI() {
       const res = await tauriInvoke<NotificationSettings | null>('get_notification_settings')
       return res.success ? (res.data ?? null) : null
     },
-    setNotificationSettings: async (settings: NotificationSettings): Promise<void> => {
+    setNotificationSettings: async (settings: Partial<NotificationSettings>): Promise<void> => {
       const res = await tauriInvoke<string>('set_notification_settings', { settings })
       if (!res.success) {throw new Error(res.error)}
     },
@@ -1476,44 +1396,6 @@ export function useWireGuardAPI() {
 // ============ 统一 API ============
 
 export interface TauriAPI {
-  // LAN 协作（对照 useLanAPI 实现，@ts-nocheck 清理后 LanUsers/LanChat 等依赖）
-  lanSetStatus: (status: string) => Promise<void>
-  lanRefreshDiscovery: () => Promise<void>
-  lanGetUserInfo: () => Promise<any>
-  lanGetAllUnreadCounts: (userId: string) => Promise<Record<string, number>>
-  lanGetStatus: () => Promise<any>
-  lanGetNetworkInfo: () => Promise<any>
-  lanGetReceivePath: () => Promise<string>
-  lanGetPeers: () => Promise<any[]>
-  lanSetNickName: (name: string) => Promise<void>
-  lanSetAvatar: (avatar: string) => Promise<void>
-  lanSetPeerRemark: (peerId: string, remark: string) => Promise<void>
-  lanGetPeerRemarks: () => Promise<Record<string, string>>
-  lanUploadAvatar: (filePath: string) => Promise<{ path: string; fullPath: string }>
-  lanGetAvatarPath: (avatar: string) => Promise<{ isEmoji: boolean; path: string }>
-  lanShowOpenDialogForDirs: () => Promise<{ filePaths: string[]; canceled: boolean }>
-  lanSetReceivePath: (path: string) => Promise<void>
-  lanGetFileTransferHistory: () => Promise<any[]>
-  lanGetLogs: () => Promise<any[]>
-  lanGetUnreadCount: (peerId: string) => Promise<number>
-  lanMarkMessagesRead: (peerId: string) => Promise<void>
-  lanStop: () => Promise<void>
-  startLan: (userId: string, userName: string) => Promise<any>
-  lanGetMessagesBetween: (userId1: string, userId2: string, limit: number, offset: number) => Promise<any[]>
-  lanSendMessage: (peerId: string, content: string) => Promise<any>
-  lanSendFile: (peerId: string, filePath: string, fileName: string, resumeOffset?: number, fileId?: string) => Promise<any>
-  lanOnMessage: (handler: (data: any) => void) => Promise<UnlistenFn>
-  lanOnFileTransferStarted: (handler: (data: any) => void) => Promise<UnlistenFn>
-  lanOnFileTransferProgress: (handler: (data: any) => void) => Promise<UnlistenFn>
-  lanOnFileTransferCompleted: (handler: (data: any) => void) => Promise<UnlistenFn>
-  onLogsLine: (callback: (data: any) => void) => Promise<UnlistenFn>
-  onLogsServerEnd: (callback: (data: any) => void) => Promise<UnlistenFn>
-  onLogsError: (callback: (data: any) => void) => Promise<UnlistenFn>
-  onLogsStreamStopped: (callback: (data: any) => void) => Promise<UnlistenFn>
-  lanAssignTask: (peerId: string, task: string) => Promise<void>
-  lanCheckNetworkPermission: () => Promise<{ success: boolean; error?: string; kind?: string }>
-  notificationTest: () => Promise<any>
-
   // Projects
   getProjects: (onlyActive?: boolean) => Promise<Project[]>
   addProject: (project: Partial<Project>) => Promise<Project>
@@ -1567,7 +1449,7 @@ export interface TauriAPI {
   dbInsertTableRow: (connId: string, table: string, row: Record<string, unknown>, dbName?: string) => Promise<any>
   dbDeleteTableRow: (connId: string, table: string, row: Record<string, unknown>, dbName?: string) => Promise<any>
   detectToolPaths: () => Promise<Record<string, string>>
-  detectBuildTools: () => Promise<any[]>
+  detectBuildTools: () => Promise<Record<string, any>>
   detectSdkVersions: () => Promise<Record<string, any>>
   getCicdConfigs: () => Promise<any[]>
   getCicdGroups: () => Promise<any[]>
@@ -1647,8 +1529,8 @@ export interface TauriAPI {
   addLogPreset: (preset: Partial<LogPreset>) => Promise<LogPreset>
   updateLogPreset: (id: string, updates: Partial<LogPreset>) => Promise<LogPreset>
   deleteLogPreset: (id: string) => Promise<void>
-  logSearch: (params: { query: string; presetId?: string; lines?: number }) => Promise<any>
-  logTail: (params: { path: string; lines?: number }) => Promise<any>
+  logSearch: (params: any) => Promise<any>
+  logTail: (params: { preset_id: string; lines?: number }) => Promise<any>
   logsLoadMore: (params: { streamId: string; presetId: string; currentCount: number; batchSize?: number }) => Promise<any>
   // Settings
   getMenuIcon: (key: string) => Promise<string | null>
@@ -1682,8 +1564,8 @@ export interface TauriAPI {
   wireguardGenerateKeypair: () => Promise<{ privateKey: string; publicKey: string }>
   wireguardDerivePublicKey: (privateKey: string) => Promise<{ publicKey: string }>
   // Events
-  onTaskUpdated: (callback: (data: any) => void) => () => void
-  onTaskStatusChanged: (callback: (data: any) => void) => () => void
+  onTaskUpdated: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onTaskStatusChanged: (callback: (data: any) => void) => Promise<UnlistenFn>
   gitSyncStatus: () => Promise<any>
   // Git Repo Management
   getGitRepos: () => Promise<any>
@@ -1702,57 +1584,59 @@ export interface TauriAPI {
   convertHtmlToMd: (html: string) => Promise<string>
   // Calculator
   getCalculatorHistory: (limit?: number) => Promise<any>
-  onMenuNewTask: (callback: () => void) => () => void
-  onMenuExportMarkdown: (callback: () => void) => () => void
-  onMenuExportWord: (callback: () => void) => () => void
-  onMenuExportJson: (callback: () => void) => () => void
-  onMenuImportJson: (callback: () => void) => () => void
-  onMenuClearCompleted: (callback: () => void) => () => void
-  onMenuSearchTasks: (callback: () => void) => () => void
-  onMenuSelectAll: (callback: () => void) => () => void
-  onMenuDeleteSelected: (callback: () => void) => () => void
-  onMenuToggleComplete: (callback: () => void) => () => void
-  onMenuSetPriority: (callback: (priority: string) => void) => () => void
-  onMenuSetTag: (callback: () => void) => () => void
+  onMenuNewTask: (callback: () => void) => Promise<UnlistenFn>
+  onMenuExportMarkdown: (callback: () => void) => Promise<UnlistenFn>
+  onMenuExportWord: (callback: () => void) => Promise<UnlistenFn>
+  onMenuExportJson: (callback: () => void) => Promise<UnlistenFn>
+  onMenuImportJson: (callback: () => void) => Promise<UnlistenFn>
+  onMenuClearCompleted: (callback: () => void) => Promise<UnlistenFn>
+  onMenuSearchTasks: (callback: () => void) => Promise<UnlistenFn>
+  onMenuSelectAll: (callback: () => void) => Promise<UnlistenFn>
+  onMenuDeleteSelected: (callback: () => void) => Promise<UnlistenFn>
+  onMenuToggleComplete: (callback: () => void) => Promise<UnlistenFn>
+  onMenuSetPriority: (callback: (priority: string) => void) => Promise<UnlistenFn>
+  onMenuSetTag: (callback: () => void) => Promise<UnlistenFn>
   onMenuAbout: (callback: () => void) => Promise<UnlistenFn>
-  onMenuShortcutsHelp: (callback: () => void) => () => void | Promise<UnlistenFn>
+  onMenuShortcutsHelp: (callback: () => void) => Promise<UnlistenFn> | Promise<UnlistenFn>
   onMenuNav: (callback: (view: string) => void) => Promise<UnlistenFn>
-  onMenuToggleLanPanel: (callback: () => void) => () => void | Promise<UnlistenFn>
-  onMenuToggleLocale: (callback: () => void) => () => void | Promise<UnlistenFn>
+  onMenuToggleLanPanel: (callback: () => void) => Promise<UnlistenFn> | Promise<UnlistenFn>
+  onMenuToggleLocale: (callback: () => void) => Promise<UnlistenFn> | Promise<UnlistenFn>
   onMenuToggleTheme: (callback: () => void) => Promise<UnlistenFn>
   onMenuSearch: (callback: () => void) => Promise<UnlistenFn>
-  onMenuSwitchView: (callback: (view: string) => void) => () => void | Promise<UnlistenFn>
-  onMenuCheckUpdate: (callback: () => void) => () => void
-  onTaskCommentAdded: (callback: (data: any) => void) => () => void
-  onTaskAssigned: (callback: (data: any) => void) => () => void
+  onMenuSwitchView: (callback: (view: string) => void) => Promise<UnlistenFn> | Promise<UnlistenFn>
+  onMenuCheckUpdate: (callback: () => void) => Promise<UnlistenFn>
+  onTaskCommentAdded: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onTaskAssigned: (callback: (data: any) => void) => Promise<UnlistenFn>
   onDataChanged: (callback: (data: any) => void) => Promise<() => void>
   onTodosChanged: (callback: () => void) => Promise<() => void>
-  onDeployProgress: (callback: (data: any) => void) => () => void
-  onDeployNotification: (callback: (data: any) => void) => () => void
+  onDeployProgress: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onDeployNotification: (callback: (data: any) => void) => Promise<UnlistenFn>
   onDeployLogIdCreated: (callback: (data: any) => void) => Promise<UnlistenFn>
-  onFileReceived: (callback: (data: any) => void) => () => void
-  onFileTransferCompleted: (callback: (data: any) => void) => () => void
-  onFileTransferError: (callback: (data: any) => void) => () => void
-  onFileTransferProgress: (callback: (data: any) => void) => () => void
-  onFileTransferStarted: (callback: (data: any) => void) => () => void
-  onGitSyncStatusUpdated: (callback: (data: any) => void) => () => void
-  onLanPeerDiscovered: (callback: (data: any) => void) => () => void
-  onLanPeerLost: (callback: (data: any) => void) => () => void
-  onLanPeerAvatarUpdated: (callback: (data: any) => void) => () => void
-  onMessage: (callback: (data: any) => void) => () => void
-  onServerConnected: (callback: (data: any) => void) => () => void
-  onServerDisconnected: (callback: (data: any) => void) => () => void
-  onServerHeartbeatFailed: (callback: (data: any) => void) => () => void
-  onSftpDownloadProgress: (callback: (data: any) => void) => () => void
-  onSftpUploadDone: (callback: (data: any) => void) => () => void
-  onSftpUploadProgress: (callback: (data: any) => void) => () => void
+  onFileReceived: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onFileTransferCompleted: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onFileTransferError: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onFileTransferProgress: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onFileTransferStarted: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onGitSyncStatusUpdated: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onLanPeerDiscovered: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onLanPeerLost: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onLanPeerAvatarUpdated: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onMessage: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onServerConnected: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onServerDisconnected: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onServerHeartbeatFailed: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onSftpDownloadProgress: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onSftpUploadDone: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onSftpUploadProgress: (callback: (data: any) => void) => Promise<UnlistenFn>
   onTerminalClose: (callback: (data: any) => void) => Promise<() => void>
-  onTerminalData: (callback: (data: any) => void) => () => void
+  onTerminalData: (callback: (data: any) => void) => Promise<UnlistenFn>
   onAutoBackupCompleted: (callback: (data: any) => void) => Promise<() => void>
-  onCollaborationStarted: (callback: (data: any) => void) => () => void
-  onCollaborationEnded: (callback: (data: any) => void) => () => void
-  readFileContent: (filePath: string) => Promise<string>
+  onCollaborationStarted: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onCollaborationEnded: (callback: (data: any) => void) => Promise<UnlistenFn>
+  readFileContent: (repoPath: string, filePath: string) => Promise<string>
+  saveFileContent: (repoPath: string, filePath: string, content: string) => Promise<void>
   readLogCacheFile: (path: string) => Promise<string>
+  getFileTree: (repoPath: string, subdir?: string) => Promise<any>
   getUserInfo: () => Promise<any>
   lanGetUserInfo: () => Promise<any>
   setStatus: (status: string) => Promise<any>
@@ -1774,6 +1658,34 @@ export interface TauriAPI {
   lanMarkMessagesRead: (peerId: string) => Promise<any>
   lanGetUnreadCount: (peerId: string) => Promise<number>
   lanGetAllUnreadCounts: (userId: string) => Promise<any>
+  lanSetStatus: (status: string) => Promise<void>
+  lanRefreshDiscovery: () => Promise<void>
+  lanGetStatus: () => Promise<any>
+  lanGetNetworkInfo: () => Promise<any>
+  lanGetReceivePath: () => Promise<string>
+  lanGetPeers: () => Promise<any[]>
+  lanSetNickName: (name: string) => Promise<void>
+  lanSetAvatar: (avatar: string) => Promise<void>
+  lanSetPeerRemark: (peerId: string, remark: string) => Promise<void>
+  lanGetPeerRemarks: () => Promise<Record<string, string>>
+  lanUploadAvatar: (filePath: string) => Promise<{ path: string; fullPath: string }>
+  lanGetAvatarPath: (avatar: string) => Promise<{ isEmoji: boolean; path: string }>
+  lanShowOpenDialogForDirs: () => Promise<{ filePaths: string[]; canceled: boolean }>
+  lanSetReceivePath: (path: string) => Promise<void>
+  lanGetFileTransferHistory: () => Promise<any[]>
+  lanGetLogs: () => Promise<any[]>
+  lanStop: () => Promise<void>
+  lanAssignTask: (peerId: string, task: string) => Promise<void>
+  lanCheckNetworkPermission: () => Promise<{ success: boolean; error?: string; kind?: string }>
+  onLogsLine: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onLogsServerEnd: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onLogsError: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onLogsStreamStopped: (callback: (data: any) => void) => Promise<UnlistenFn>
+  onNav: (callback: (view: string) => void) => Promise<UnlistenFn>
+  playSound: () => Promise<any>
+  getDeployHistory: (projectId: string, limit?: number) => Promise<any>
+  getRollbackHistory: (configId: string) => Promise<any>
+  notificationTest: () => Promise<any>
   lanBroadcastMessage: (message: string) => Promise<void>
   lanBroadcastTaskUpdate: (task: string) => Promise<void>
   lanBroadcastTaskStatusChange: (task: string) => Promise<void>
@@ -1790,7 +1702,7 @@ export interface TauriAPI {
   lanSaveTempFile: (base64Data: string, fileName: string) => Promise<any>
   lanScreenshot: () => Promise<any>
   startLan: (userId: string, userName: string) => Promise<any>
-  sendFile: (userId: string, filePath: string) => Promise<any>
+  sendFile: (peerId: string, filePath: string, fileName: string) => Promise<any>
   openFile: (filePath: string) => Promise<any>
   openFileFolder: (filePath: string) => Promise<any>
   saveTempFile: (base64Data: string, fileName: string) => Promise<string | null>
@@ -1822,11 +1734,9 @@ export interface TauriAPI {
   getDownloadsDir: () => Promise<any>
   downloadFile: (serverId: string, remotePath: string, localPath: string) => Promise<any>
   downloadFileWithProgress: (downloadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string) => Promise<any>
-  onSftpDownloadProgress: (handler: (payload: { downloadId: string; serverId: string; serverName: string; fileName: string; downloaded: number; total: number }) => void) => Promise<UnlistenFn>
   uploadFile: (serverId: string, localPath: string, remotePath: string) => Promise<any>
   sftpCreateDir: (serverId: string, path: string) => Promise<any>
   uploadFileWithProgress: (uploadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string) => Promise<any>
-  onSftpUploadProgress: (handler: (payload: { uploadId: string; serverId: string; serverName: string; fileName: string; uploaded: number; total: number; percent: number }) => void) => Promise<UnlistenFn>
   uploadFolder: (serverId: string, localPath: string, remotePath: string) => Promise<any>
   uploadSessionStart: (serverId: string, remotePath: string) => Promise<any>
   uploadSessionAdd: (sessionId: string, localPath: string, remotePath: string) => Promise<any>
@@ -1854,7 +1764,6 @@ export interface TauriAPI {
   logPresetsUpdate: (id: string, updates: Record<string, unknown>) => Promise<any>
   logPresetsAdd: (preset: Record<string, unknown>) => Promise<any>
   logPresetsDelete: (id: string) => Promise<any>
-  generateTotp: (secret: string, digits?: number, period?: number, algorithm?: string) => Promise<any>
   parseOtpAuthUri: (uri: string) => Promise<any>
   apiRequestsUpdate: (id: string, updates: Record<string, unknown>) => Promise<any>
   apiRequestsAdd: (req: Record<string, unknown>) => Promise<any>
@@ -1868,19 +1777,12 @@ export interface TauriAPI {
   getTags: () => Promise<any>
   syncTaskStatus: (todoId: string, completed: boolean) => Promise<any>
   createRepeatInstance: (todoId: string) => Promise<any>
+  deleteTodos: (ids: string[]) => Promise<any>
+  updateTodoOrder: (items: any[]) => Promise<any>
   gitSyncInit: () => Promise<any>
   gitSyncPull: () => Promise<any>
   gitSyncPush: () => Promise<any>
   gitSyncConfigure: (params: Record<string, unknown>) => Promise<any>
-  checkBudgetAlerts: () => Promise<any>
-  getTemplates: () => Promise<any>
-  addTemplate: (template: Record<string, unknown>) => Promise<any>
-  updateTemplate: (id: string, template: Record<string, unknown>) => Promise<any>
-  deleteTemplate: (id: string) => Promise<any>
-  useTemplate: (id: string) => Promise<any>
-  uploadAccountingReceipt: (name: string, data: string) => Promise<any>
-  getAccountingReceiptFile: (path: string) => Promise<any>
-  exportAccountingCSV: (params?: Record<string, unknown>) => Promise<any>
   checkMavenAvailable: (path?: string) => Promise<any>
   checkJavaAvailable: (path?: string) => Promise<any>
   checkNodeAvailable: (path?: string) => Promise<any>
@@ -2059,7 +1961,6 @@ export function getTauriAPI(): TauriAPI {
 
   cachedAPI = {
     // Projects
-    getServers: projects.getAllServers,
     getProjects: projects.getProjects,
     addProject: projects.addProject,
     updateProject: projects.updateProject,
@@ -2218,7 +2119,7 @@ export function getTauriAPI(): TauriAPI {
     addLogPreset: logs.addLogPreset,
     updateLogPreset: logs.updateLogPreset,
     deleteLogPreset: logs.deleteLogPreset,
-    logSearch: async (params: Record<string, unknown>) => tauriCall("log_search", {
+    logSearch: async (params: any): Promise<any> => tauriCall("log_search", {
       presetId: (params as any).preset_id || (params as any).presetId,
       keyword: (params as any).keyword || (params as any).query,
       lines: (params as any).lines ?? 50
@@ -2341,8 +2242,8 @@ export function getTauriAPI(): TauriAPI {
     getAlertHistory: alert.getAlertHistory,
     triggerAlertCheck: alert.triggerAlertCheck,
     // Events
-    onTaskUpdated: (_callback: (data: any) => void) => { return () => {} },
-    onTaskStatusChanged: (_callback: (data: any) => void) => { return () => {} },
+    onTaskUpdated: (_callback: (data: any) => void) => { return Promise.resolve(() => {}) },
+    onTaskStatusChanged: (_callback: (data: any) => void) => { return Promise.resolve(() => {}) },
     gitSyncStatus: async (): Promise<any> => {
       const res = await tauriInvoke<any>('git_sync_status')
       // Rust returns flat { enabled, remote_url, branch, ... }, not { success, data }
@@ -2526,7 +2427,6 @@ export function getTauriAPI(): TauriAPI {
     onCollaborationEnded: (callback: (data: any) => void) => { return listen('collaboration-ended', (e) => callback(e.payload)) as Promise<UnlistenFn> },
 
     // LAN Chat
-    sendMessage: async (peerId: string, content: string): Promise<any> => { return tauriCall('lan_send_message', { peerId, content }); },
     sendFile: async (peerId: string, filePath: string, fileName: string): Promise<any> => { return tauriCall('lan_send_file', { peerId, filePath, fileName }); },
     getMessagesBetween: async (peerId: string): Promise<any> => { return tauriCall('lan_get_message_history', { peerId }); },
     markMessagesRead: async (peerId: string): Promise<any> => { return tauriCall('lan_mark_messages_read', { peerId }); },
@@ -2598,7 +2498,7 @@ export function getTauriAPI(): TauriAPI {
       const res = await tauriCall("lan_get_receive_path")
       return (res as any)?.data as string || res as string || ''
     },
-    getPeers: async () => tauriCall("lan_get_peers"),
+    getPeers: async (): Promise<any> => tauriCall("lan_get_peers"),
     setNickName: async (name: string) => tauriCall("lan_set_nick_name", { name }),
     setAvatar: async (avatar: string) => tauriCall("lan_set_avatar", { avatar }),
     setReceivePath: async (path: string) => tauriCall("lan_set_receive_path", { path }),
@@ -2749,7 +2649,7 @@ export function getTauriAPI(): TauriAPI {
     gitRawCommand: async (repoPath: string, args: string[]) => tauriCall('git_raw_command', { repoPath, args }),
     getGitCommitDetail: async (repoPath: string, commitHash: string) => tauriCall('get_git_commit_detail', { repoPath, commitHash }),
     // 文件浏览
-    getFileTree: async (repoPath: string, subdir?: string) => tauriCall<FileTreeEntry[]>('get_file_tree', { repoPath, subdir }),
+    getFileTree: async (repoPath: string, subdir?: string) => tauriCall<any[]>('get_file_tree', { repoPath, subdir }),
     readFileContent: async (repoPath: string, filePath: string) => tauriCall<string>('read_file_content', { repoPath, filePath }),
   readLogCacheFile: async (path: string) => tauriCall<string>('read_log_cache_file', { path }),
     saveFileContent: async (repoPath: string, filePath: string, content: string) => tauriCall<void>('save_file_content', { repoPath, filePath, content }),
@@ -2771,5 +2671,5 @@ export function getTauriAPI(): TauriAPI {
 
   }
 
-  return cachedAPI
+  return cachedAPI as TauriAPI
 }

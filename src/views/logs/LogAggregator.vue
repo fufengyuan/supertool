@@ -860,7 +860,7 @@ function clearFullLogAnchor() { fullLogAnchorLine.value = -1 }
 const fullLogHeightPrefix = computed(() => {
   const session = fullLogActiveSession.value
   const total = session ? session.totalLines : 0
-  const prefix = new Array(total + 1)
+  const prefix = Array.from({ length: total + 1 })
   prefix[0] = 0
   if (total > 0) {
     const h = session?.rowHeights ?? []
@@ -2271,8 +2271,8 @@ function scheduleFlush() {
     if (logBuffer.length === 0) {return}
     const batch = logBuffer.splice(0, logBuffer.length)
     const len = logLines.value.length
-    // 预分配数组空间，避免频繁扩容
-    const newLines: Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string; matched?: boolean; sortKey: number }> = new Array(batch.length)
+    // 预分配数组空间，避免频繁扩容（unicorn: 用 Array.from 替代 new Array(n)）
+    const newLines: Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string; matched?: boolean; sortKey: number }> = Array.from({ length: batch.length })
     const now = Date.now()
     // 预计算当前预设关键字（流式模式下只需计算一次）
     const presetKeywords = queryMode.value === 'stream' && selectedPreset.value?.keywords?.length

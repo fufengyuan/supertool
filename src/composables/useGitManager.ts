@@ -1451,7 +1451,7 @@ function confirmDeleteBranch(name: string) {
     if (!repoPath.value || !applyPatchFile.value) {return}
     try {
       // 读取补丁文件内容
-      const content = await api.readFileContent(applyPatchFile.value)
+      const content = await api.readFileContent(repoPath.value, applyPatchFile.value)
       await api.gitApplyPatch(repoPath.value, content)
       toast.success('补丁已应用')
       refreshAll()
