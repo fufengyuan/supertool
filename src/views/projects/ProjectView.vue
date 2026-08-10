@@ -131,7 +131,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ProjectForm from '@/views/projects/ProjectForm.vue';

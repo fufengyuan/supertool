@@ -137,7 +137,7 @@ title="✏️ 编辑项目"
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 defineOptions({ name: 'ProjectDetail' })
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -151,7 +151,7 @@ import { useTodoStore } from '../../stores/todoStore'
 import { useProjectStore } from '../../stores/projectStore'
 import { useProjects } from '../../composables/useProjects'
 import { useErrorHandler } from '../../composables/useErrorHandler'
-import type { Project } from '../../types'
+import type { Project, Todo } from '../../types'
 
 const props = defineProps({
   id: { type: String, required: true }
@@ -204,11 +204,13 @@ const loadProjectData = async () => {
 
 const handleAddTask = async (text: string) => {
   try {
-    const newTask = {
+    const newTask: Partial<Todo> = {
       id: crypto.randomUUID(), text, completed: false, priority: 'medium' as const,
-      dueDate: null, description: '', tag: '默认', createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(), projectId: project.value?.id
-    }
+      dueDate: undefined, description: '', tag: '默认', createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    // projectId 可选：仅在选择了项目时设置（避免 undefined 赋给可选字段的类型报错）
+    if (project.value?.id) {newTask.projectId = project.value.id}
     await todoStore.addTodo(newTask)
     await loadProjectData()
   } catch (error) { handleError(error, { context: 'handleAddTask' }) }

@@ -50,7 +50,7 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref } from 'vue'
 
@@ -65,12 +65,12 @@ const emit = defineEmits(['task-added', 'task-toggled', 'task-deleted', 'data-re
 
 const newTaskText = ref('')
 
-const formatDate = (dateString) => {
+const formatDate = (dateString: string) => {
   if (!dateString) {return ''}
   return new Date(dateString).toLocaleDateString('zh-CN')
 }
 
-const priorityLabel = (priority) => {
+const priorityLabel = (priority: string) => {
   switch (priority) {
     case 'low': return '低'
     case 'medium': return '中'
@@ -86,6 +86,6 @@ const addTask = async () => {
   newTaskText.value = ''
 }
 
-const toggleTask = (task) => { emit('task-toggled', task) }
-const deleteTask = (task) => { emit('task-deleted', task) }
+const toggleTask = (task: any) => { emit('task-toggled', task) }
+const deleteTask = (task: any) => { emit('task-deleted', task) }
 </script>

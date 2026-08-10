@@ -120,7 +120,7 @@
   </form>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
 import { ref, reactive, watch, onMounted } from 'vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import UiInput from '../../components/ui/Input.vue';
@@ -128,8 +128,9 @@ import ColorPicker from './ColorPicker.vue';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 import { useToast } from '../../composables/useToast';
 import { getTauriAPI } from '../../utils/tauri-api';
+import type { Project } from '../../types';
 
-const props = defineProps({ project: { type: Object, default: null } });
+const props = defineProps<{ project: Project | null }>();
 const emit = defineEmits(['save', 'cancel']);
 
 const { handleError } = useErrorHandler();
@@ -232,9 +233,9 @@ const clearRepoSelection2 = () => {
   availableBranches2.value = [];
 };
 
-const getRepoNameByPath = (path) => path.split('/').pop() || path;
+const getRepoNameByPath = (path: string) => path.split('/').pop() || path;
 
-const loadBranchesForRepo = async (repoPath, currentBranch) => {
+const loadBranchesForRepo = async (repoPath: string, currentBranch: string) => {
   if (!repoPath) {return;}
   branchesLoading.value = true;
   try {
@@ -245,7 +246,7 @@ const loadBranchesForRepo = async (repoPath, currentBranch) => {
   }
 };
 
-const loadBranchesForRepo2 = async (repoPath, currentBranch) => {
+const loadBranchesForRepo2 = async (repoPath: string, currentBranch: string) => {
   if (!repoPath) {return;}
   branchesLoading2.value = true;
   try {
@@ -259,7 +260,7 @@ const loadBranchesForRepo2 = async (repoPath, currentBranch) => {
 const initForm = () => {
   if (props.project) {
     formData.name = props.project.name;
-    formData.description = props.project.description;
+    formData.description = props.project.description || '';
     formData.color = props.project.color || '#6366f1';
     formData.category = props.project.category || '';
     formData.gitUrl1 = props.project.gitUrl1 || '';
@@ -270,8 +271,8 @@ const initForm = () => {
     formData.branch2 = props.project.branch2 || '';
     formData.gitRepoId = props.project.gitRepoId || '';
     formData.gitRepoId2 = props.project.gitRepoId2 || '';
-    if (props.project.repoPath) {loadBranchesForRepo(props.project.repoPath, props.project.branch);}
-    if (props.project.repoPath2) {loadBranchesForRepo2(props.project.repoPath2, props.project.branch2);}
+    if (props.project.repoPath) {loadBranchesForRepo(props.project.repoPath, props.project.branch ?? '');}
+    if (props.project.repoPath2) {loadBranchesForRepo2(props.project.repoPath2, props.project.branch2 ?? '');}
   } else {
     Object.assign(formData, {
       name: '',
