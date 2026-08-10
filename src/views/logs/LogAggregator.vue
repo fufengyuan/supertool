@@ -860,7 +860,7 @@ function clearFullLogAnchor() { fullLogAnchorLine.value = -1 }
 const fullLogHeightPrefix = computed(() => {
   const session = fullLogActiveSession.value
   const total = session ? session.totalLines : 0
-  const prefix = Array.from({ length: total + 1 })
+  const prefix: number[] = Array.from({ length: total + 1 }, () => 0)
   prefix[0] = 0
   if (total > 0) {
     const h = session?.rowHeights ?? []
