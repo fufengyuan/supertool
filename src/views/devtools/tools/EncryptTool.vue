@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import ToolPage from '../components/ToolPage.vue'
 import { ref, computed } from 'vue'
 import CryptoJS from 'crypto-js'
