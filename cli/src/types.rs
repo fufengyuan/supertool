@@ -48,13 +48,15 @@ pub enum Commands {
         #[command(subcommand)]
         action: CicdCommands,
     },
-    /// 数据库管理 — SQL 查询/表结构/Redis 操作
+    /// 数据库管理 — SQL 查询（审批连接只读白名单）/表结构/Redis 操作
     Db {
+        /// 数据库管理 — SQL 查询（审批连接只读白名单）/表结构/Redis 操作
         #[command(subcommand)]
         action: DbCommands,
     },
-    /// 日志管理 — 流式查询/搜索/上下文定位/预设
+    /// 日志管理 — 搜索（含历史轮转日志 --date/--days）/流式查询/上下文定位/预设
     Log {
+        /// 日志管理 — 流式查询/搜索（含历史轮转日志 --date/--days）/上下文定位/预设
         #[command(subcommand)]
         action: LogCommands,
     },
@@ -63,7 +65,7 @@ pub enum Commands {
         #[command(subcommand)]
         action: GitCommands,
     },
-    /// MFA 管理 — 查看密钥、生成 TOTP 验证码
+    /// MFA 管理 — 查看密钥、生成 TOTP 验证码（Base32 校验）/批量 codes
     Mfa {
         #[command(subcommand)]
         action: MfaCommands,

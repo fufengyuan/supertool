@@ -28,6 +28,8 @@ pub fn print_guide() {
     println!("    stool git pull --path <repo>        stool git push --path <repo>");
     println!("  日志管理:");
     println!("    stool log list [-j]                 stool log search <id> 'keyword'");
+    println!("    stool log search <id> 'kw' --date 2026-08-06   历史轮转日志");
+    println!("    stool log search <id> 'kw' --days 7            最近 7 天");
     println!("    stool log tail <id> [-l 100]");
     println!("  MFA 管理:");
     println!("    stool mfa list [-j]                 stool mfa add '名称' <secret>");

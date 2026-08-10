@@ -138,7 +138,9 @@ stool cicd tools [--scan-path /project/dir] [-j]    # Detect build tools, SDK ve
 stool log list [-j]
 stool log add "Name" --server-ids "id1,id2" --log-path /var/log/app.log [--log-type tail]
 stool log delete <id>
-stool log search <preset_id> "keyword" [-l 50]
+stool log search <preset_id> "keyword" [-l 50]              # Current log file
+stool log search <preset_id> "keyword" --date 2026-08-06    # History: rotated files written on that day
+stool log search <preset_id> "keyword" --days 7             # History: last N days (incl. today)
 stool log tail <preset_id> [-l 100]                # Static tail (not streaming)
 stool log context <preset_id> <server_id> <line_num> [-c 20]  # View context lines around line_num
 ```
@@ -146,6 +148,7 @@ stool log context <preset_id> <server_id> <line_num> [-c 20]  # View context lin
 **Notes**:
 - `preset_id` can be a numeric index (1-based) — CLI auto-resolves to actual ID.
 - `log context`: Shows `context_lines` lines centered around `line_num` (half before, half after). Target line marked with `▶`.
+- **Historical search** (`--date` / `--days`, mutually exclusive): runs `find` by mtime over all rotated files in the log dir (`app.log.1`, `app.log-20260806`, `app.log.2026-08-06`, ...) then greps each. `docker`/`journalctl` types not supported for history yet. Without either flag, only the current file is searched.
 
 ---
 
@@ -208,7 +211,8 @@ stool git checkout --path <repo_path> --branch <branch>
 stool mfa list [-j]
 stool mfa add "Name" <secret> [--issuer ISSUER] [--digits 6] [--period 30] [--algorithm SHA1]
 stool mfa delete <id>
-stool mfa code <identifier>           # Generate TOTP (by ID or 1-based index)
+stool mfa code <identifier>           # Generate TOTP (by ID / index / name keyword)
+stool mfa codes [-j]                  # Batch: current codes for all secrets
 stool mfa parse-uri "otpauth://..."
 ```
 
@@ -296,4 +300,6 @@ stool backup export-csv    # Export todo data as CSV
 9. **`cicd history --status`**: Filter by `success`, `failed`, `rolled_back`, `cancelled`.
 10. **`log context`**: Target line is marked with `▶`. Context lines show line numbers.
 11. **Redis `db_index`**: Read from connection config's `dbIndex` field. Default is 0.
-12. **Servers with `requiresApproval`**: CLI blocks command execution on servers that require approval. Use GUI for these.
+12. **Servers with `requiresApproval`**: CLI blocks write ops (exec/exec-batch/mkdir/rm) on servers requiring approval; read-only ops pass. exit 3.
+13. **DB `requiresApproval`**: read-only whitelist (`SELECT/SHOW/EXPLAIN/DESC/PRAGMA` queries only); `WITH` is NOT whitelisted (can carry writes); `PRAGMA x=y` state-changing forms blocked. exit 3 on write SQL / redis set|delete.
+14. **TOTP Base32**: MFA secret must be valid Base32 (validated on add); the HMAC key is the Base32-decoded bytes, not the ASCII string (RFC 6238).

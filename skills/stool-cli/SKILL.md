@@ -1,11 +1,11 @@
 ---
 name: stool-cli
 category: devops
-description: SuperTool `stool` CLI v6.5.0 — AI Agent 专属运维工具。直连 `supertool-core` 共享库，零 UDS/HTTP 依赖。支持服务器管理、CI/CD、数据库、Git、日志、MFA、笔记、记账、周报、Nginx、备份。
+description: SuperTool `stool` CLI v6.11+ — AI Agent 专属运维工具。直连 `supertool-core` 共享库，零 UDS/HTTP 依赖。支持服务器管理、CI/CD、数据库、Git、日志（含历史轮转搜索）、MFA、审计、笔记、记账、周报、Nginx、备份、MCP 接入。
 trigger: 使用 stool 命令、排查 CLI 失败、添加新 CLI 命令、AI 运维操作
 ---
 
-# SuperTool `stool` CLI v6.5.0
+# SuperTool `stool` CLI v6.11+
 
 > AI Agent 专属运维工具 —— 直连 `supertool-core` 共享库，零 UDS/HTTP 依赖，完全独立运行。
 
@@ -131,7 +131,7 @@ stool cicd tools [--scan-path /项目路径] [-j]          # 检测构建工具 
 ### 🗄️ 数据库
 ```bash
 stool db list [-j]
-stool db query -d <db_id> "SELECT ..." [-j]                     # 执行 SQL
+stool db query -d <db_id> "SELECT ..." [-j]                     # 执行 SQL（审批连接只读白名单）
 stool db databases -d <db_id> [-j]                              # 列出数据库
 stool db tables -d <db_id> [--db 库名] [-j]                     # 列出表
 stool db structure -d <db_id> [--db 库名] <表名> [-j]           # 表结构
@@ -143,7 +143,7 @@ stool db disconnect <id>                                        # 无状态，�
 
 ### 🗄️ Redis
 ```bash
-stool db redis -d <id> keys [pattern]                # 列出 key（默认 *）
+stool db redis -d <id> keys [pattern]                # 列出 key（SCAN 迭代，默认 *，大 key 空间不阻塞）
 stool db redis -d <id> get <key>                     # 获取值（显示类型 + 值）
 stool db redis -d <id> set <key> <value>             # 设置 string
 stool db redis -d <id> delete <key>                  # 删除 key
@@ -163,7 +163,9 @@ stool db redis -d <id> s-card <key>                  # Set 基数
 ### 📝 日志
 ```bash
 stool log list [-j]
-stool log search <preset> "关键词" [-l 50]
+stool log search <preset> "关键词" [-l 50]                          # 当前日志文件
+stool log search <preset> "关键词" --date 2026-08-06 [-l 50]       # 历史：搜某天写入的轮转日志文件
+stool log search <preset> "关键词" --days 7 [-l 50]                # 历史：搜最近 7 天（含今天）
 stool log tail <preset> [-l 100]                            # 静态 tail（非流式）
 stool log context <preset> <server_id> <行号> [-c 20]       # 查看上下文（目标行 ▶ 标记）
 stool log add "名称" --server-ids "id1,id2" --log-path /var/log/app.log [--log-type tail]
@@ -171,6 +173,15 @@ stool log delete <id>
 ```
 
 **`preset` 智能解析**: 可用序号（1-based），CLI 自动转 UUID。 **`log context`**: 显示 `行号` 周边上下文，目标行用 `▶` 标记。 **`-l` 限制**: `log search` 默认只搜最近 `maxLines` 行（预设配置，如 500），历史日志可能搜不到，需增大 `-l` 或用 `log tail` 翻更多。
+
+**历史日志搜索（`--date` / `--days`）**:
+
+- `--date YYYY-MM-DD` 与 `--days N` 互斥（clap conflicts_with）
+- 实现：SSH 上 `find` 按 mtime 匹配日志目录下**所有轮转文件**（任意命名：`app.log.1` / `app.log-20260806` / `app.log.2026-08-06`），逐文件 grep
+- 默认（不带参数）只查当前日志文件；`--days 1` = 仅今天，等价于不查历史
+- `docker` / `journalctl` 类型暂不支持历史查询（返回提示）
+
+**离线日志复制（GUI）**: 离线日志弹窗是虚拟滚动（DOM 只渲染可视区），浏览器选中复制只能拿到可视区——用工具栏「复制全部」按钮直接从本地缓存文件读取全文写入剪贴板。
 
 #### 日志排查实战经验
 
@@ -220,9 +231,12 @@ stool git checkout --path <路径> --branch <分支>
 stool mfa list [-j]
 stool mfa add "名称" <密钥> [--issuer 发行方] [--digits 6] [--period 30] [--algorithm SHA1]
 stool mfa delete <id>
-stool mfa code <标识>                    # 生成 TOTP（按 ID 或序号）
+stool mfa code <标识>                    # 生成 TOTP（按 ID / 序号 / 名称关键字）
+stool mfa codes [-j]                     # 批量输出所有密钥当前验证码
 stool mfa parse-uri "otpauth://..."
 ```
+
+**TOTP 标准（RFC 6238）**: secret 必须 **Base32 编码**（添加时即校验，非法立即报错）；HMAC key 用 Base32 解码后的原始字节（曾直接用 ASCII 字符串导致验证码与标准算法不一致，2026-08 修复）。`mfa code ""`（空标识符）不模糊匹配、明确报错。
 
 ### 📝 笔记管理
 ```bash
@@ -362,7 +376,9 @@ systemctl restart myapp"
 2. **UUID 不可截断** — 所有 list 输出完整 36 位 UUID
 3. **高危命令拦截** — `server exec` / `exec-batch` 拦截 `rm -rf`、`kill -9`、`shutdown`、`curl|sh` 等
 4. **`server rm` 路径拦截** — 系统目录（`/`、`/etc`、`/usr`、`/bin`、`/boot`、`/sys`、`/proc`）拒绝删除
-5. **requiresApproval 拦截（生产环境护栏）** — 审批开关只存在于 **服务器 / 数据库 / CICD** 三个模块（GUI 有对应审批配置）；只读操作放行，**写/变更操作拦截**（exit 3）：
+5. **TOTP Base32** — MFA secret 必须是合法 Base32（添加时校验）；HMAC key 用 Base32 解码后原始字节，不是 ASCII 字符串
+6. **虚拟滚动选中复制** — 离线日志/大日志列表 DOM 只渲染可视区，浏览器选中复制拿不到虚拟行；用「复制全部」按钮从数据源复制
+7. **requiresApproval 拦截（生产环境护栏）** — 审批开关只存在于 **服务器 / 数据库 / CICD** 三个模块（GUI 有对应审批配置）；只读操作放行，**写/变更操作拦截**（exit 3）：
    - `server`：写拦截 exec / exec-batch / mkdir / rm；只读放行 read / ls / download / java-ps / health / diagnose / test
    - `cicd`：写拦截 deploy / rollback / cancel（list/status/history/logs 读操作放行）
    - `db`：写拦截非只读 SQL（INSERT/UPDATE/DELETE/DROP/WITH 携带写语句等）与 redis set/delete；只读放行 SELECT/WITH 查询类白名单（SELECT/SHOW/EXPLAIN/DESC/PRAGMA 查询）、tables/structure/data、redis keys/get/type/ttl/h-get 等
