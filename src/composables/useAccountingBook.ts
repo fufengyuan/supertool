@@ -210,6 +210,20 @@ function initTrendResizeObserver() {
 }
 
 // Computed
+// 历史值下拉（从已有记录去重提取，输入即记忆、下次直接选）
+function distinctValues(get: (r: any) => string): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const r of records.value) {
+    const v = (get(r) || '').trim()
+    if (v && !seen.has(v)) {seen.add(v); out.push(v)}
+  }
+  return out.slice(0, 50)
+}
+const supplierOptions = computed(() => distinctValues(r => r.supplier))
+const entityOptions = computed(() => distinctValues(r => r.entity))
+const projectOptions = computed(() => distinctValues(r => r.project))
+
 const formCategories = computed(() => {
   if (categories.value.length === 0) {
     // Fallback enterprise categories
@@ -977,6 +991,7 @@ onBeforeUnmount(() => {
     trendData, trendChartRef, trendChartWidth, trendLoading,
     formCategories, filteredCategories, incomeCategories, expenseCategories,
     topCategories, totalPages, formValid,
+    supplierOptions, entityOptions, projectOptions,
     loadData, loadStats, loadBudgets, loadCategories, loadTemplates, loadTrend,
     saveRecord, editRecord, deleteRecord,
     openPreview, closePreview, removeAttachment, handleFileSelect,

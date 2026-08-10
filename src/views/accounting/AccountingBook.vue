@@ -330,7 +330,7 @@
               <div class="font-mono text-sm text-primary font-semibold p-2 bg-primary/10 rounded-lg w-full">{{ form.voucher_number }}</div>
             </div>
 
-            <!-- Type Toggle -->
+            <!-- 类型 Toggle -->
             <div class="flex items-center gap-3 mb-3">
               <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">类型</label>
               <div class="flex gap-1 flex-1">
@@ -345,7 +345,7 @@
               </div>
             </div>
 
-            <!-- Date & Amount Row -->
+            <!-- 日期 & 金额 -->
             <div class="flex items-center gap-3 mb-3">
               <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">日期</label>
               <input type="date" v-model="form.date" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
@@ -353,43 +353,14 @@
               <input type="number" v-model.number="form.amount" step="0.01" min="0" placeholder="0.00" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-mono text-base font-bold" />
             </div>
 
-            <!-- Category & Status -->
+            <!-- 分类（下拉）+ 付款方式（下拉） -->
             <div class="flex items-center gap-3 mb-3">
               <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">分类</label>
               <select v-model="form.category" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10">
                 <option value="">选择分类</option>
                 <option v-for="cat in formCategories" :key="cat.id" :value="cat.name">{{ cat.name }}</option>
               </select>
-              <label class="text-sm font-medium text-base-content/60 w-[60px] shrink-0 text-right">审批状态</label>
-              <select v-model="form.status" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10">
-                <option value="pending">待审批</option>
-                <option value="approved">已审批</option>
-                <option value="rejected">已驳回</option>
-                <option value="reimbursed">已报销</option>
-              </select>
-            </div>
-
-            <!-- Enterprise Fields Row 1 -->
-            <div class="flex items-center gap-3 mb-3">
-              <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">企业主体</label>
-              <input v-model="form.entity" placeholder="企业主体/部门" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
-              <label class="text-sm font-medium text-base-content/60 w-[60px] shrink-0 text-right">所属项目</label>
-              <input v-model="form.project" placeholder="所属项目" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
-            </div>
-
-            <!-- Enterprise Fields Row 2 -->
-            <div class="flex items-center gap-3 mb-3">
-              <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">供应商</label>
-              <input v-model="form.supplier" placeholder="供应商/对方" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
-              <label class="text-sm font-medium text-base-content/60 w-[60px] shrink-0 text-right">发票号</label>
-              <input v-model="form.invoice_number" placeholder="发票号码" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
-            </div>
-
-            <!-- Enterprise Fields Row 3 -->
-            <div class="flex items-center gap-3 mb-3">
-              <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">税额</label>
-              <input type="number" v-model.number="form.tax_amount" step="0.01" min="0" placeholder="0.00" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
-              <label class="text-sm font-medium text-base-content/60 w-[60px] shrink-0 text-right">付款方式</label>
+              <label class="text-sm font-medium text-base-content/60 w-[60px] shrink-0 text-right">付款</label>
               <select v-model="form.payment_method" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10">
                 <option value="">选择付款方式</option>
                 <option value="银行转账">银行转账</option>
@@ -400,13 +371,52 @@
               </select>
             </div>
 
-            <!-- Enterprise Fields Row 4 -->
+            <!-- 对方/供应商（历史下拉）+ 备注 -->
             <div class="flex items-center gap-3 mb-3">
-              <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">审批人</label>
-              <input v-model="form.approver" placeholder="审批人" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+              <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">对方</label>
+              <input v-model="form.supplier" list="supplierOptions" placeholder="供应商/对方（可输入新的）" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
               <label class="text-sm font-medium text-base-content/60 w-[60px] shrink-0 text-right">备注</label>
-              <input v-model="form.description" placeholder="可选备注说明" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+              <input v-model="form.description" placeholder="备注说明" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
             </div>
+            <datalist id="supplierOptions">
+              <option v-for="v in supplierOptions" :key="v" :value="v" />
+            </datalist>
+
+            <!-- 更多字段（折叠，默认收起减少录入负担） -->
+            <details class="mb-3 rounded-lg border border-base-content/10">
+              <summary class="cursor-pointer select-none px-3 py-2 text-xs font-medium text-base-content/60 hover:bg-base-200 transition-colors">更多字段（主体/项目/发票/税额/状态/审批人）</summary>
+              <div class="px-3 py-3 flex flex-col gap-3 border-t border-base-content/10">
+                <div class="flex items-center gap-3">
+                  <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">企业主体</label>
+                  <input v-model="form.entity" list="entityOptions" placeholder="企业主体/部门" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                  <label class="text-sm font-medium text-base-content/60 w-[60px] shrink-0 text-right">所属项目</label>
+                  <input v-model="form.project" list="projectOptions" placeholder="所属项目" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                </div>
+                <datalist id="entityOptions">
+                  <option v-for="v in entityOptions" :key="v" :value="v" />
+                </datalist>
+                <datalist id="projectOptions">
+                  <option v-for="v in projectOptions" :key="v" :value="v" />
+                </datalist>
+                <div class="flex items-center gap-3">
+                  <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">发票号</label>
+                  <input v-model="form.invoice_number" placeholder="发票号码" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                  <label class="text-sm font-medium text-base-content/60 w-[60px] shrink-0 text-right">税额</label>
+                  <input type="number" v-model.number="form.tax_amount" step="0.01" min="0" placeholder="0.00" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                </div>
+                <div class="flex items-center gap-3">
+                  <label class="text-sm font-medium text-base-content/60 w-[70px] shrink-0">审批人</label>
+                  <input v-model="form.approver" placeholder="审批人" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                  <label class="text-sm font-medium text-base-content/60 w-[60px] shrink-0 text-right">审批状态</label>
+                  <select v-model="form.status" class="flex-1 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 text-base-content text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10">
+                    <option value="pending">待审批</option>
+                    <option value="approved">已审批</option>
+                    <option value="rejected">已驳回</option>
+                    <option value="reimbursed">已报销</option>
+                  </select>
+                </div>
+              </div>
+            </details>
 
             <!-- Receipt Upload Area -->
             <div class="flex flex-col items-start gap-1.5 mb-3">
@@ -699,6 +709,7 @@ const {
   trendData, trendChartRef, trendChartWidth, trendLoading,
   formCategories, filteredCategories, incomeCategories, expenseCategories,
   topCategories, totalPages, formValid,
+  supplierOptions, entityOptions, projectOptions,
   loadData, loadStats, loadBudgets, loadCategories, loadTemplates, loadTrend,
   saveRecord, editRecord, deleteRecord,
   openPreview, closePreview, removeAttachment, handleFileSelect,
