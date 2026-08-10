@@ -126,6 +126,7 @@
                 spellcheck="false"
                 @input="onUriInput"
               ></textarea>
+              <p v-if="batchUriCount > 1" class="mt-2 text-xs text-primary">识别到 <strong>{{ batchUriCount }}</strong> 条 otpauth:// 链接，点击下方「批量导入」一次全部添加</p>
             </div>
 
             <div class="mb-4 grid grid-cols-2 gap-3">
@@ -176,9 +177,38 @@
           </div>
           <div class="flex justify-end gap-3 border-t border-base-content/10 px-5 py-4">
             <button class="btn btn-ghost btn-sm" @click="closeDialogs">取消</button>
-            <button class="btn btn-primary btn-sm" @click="submitForm" :disabled="submitting">
+            <template v-if="!editingTarget && batchUriCount > 1">
+              <button class="btn btn-outline btn-sm" @click="batchImport" :disabled="batchImporting">
+                {{ batchImporting ? '导入中...' : `批量导入 ${batchUriCount} 条` }}
+              </button>
+            </template>
+            <button class="btn btn-primary btn-sm" @click="submitForm" :disabled="submitting || batchUriCount > 1">
               {{ submitting ? '处理中...' : (editingTarget ? '保存' : '添加') }}
             </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 批量导入结果弹层 -->
+    <Teleport to="body">
+      <div v-if="batchResult && batchResult.failed.length > 0" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45">
+        <div class="w-[90%] max-w-[480px] rounded-xl border border-base-content/10 bg-base-100 shadow-lg">
+          <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
+            <h3 class="m-0 text-base font-semibold text-base-content"><SvgIcon name="alertTriangle" size="14" /> 批量导入结果</h3>
+            <button class="btn btn-ghost btn-square btn-sm text-lg text-base-content/60" @click="batchResult = null">×</button>
+          </div>
+          <div class="px-5 py-4">
+            <p class="text-sm m-0 mb-3">成功 <strong class="text-success">{{ batchResult.success }}</strong> / {{ batchResult.total }} 条，以下 {{ batchResult.failed.length }} 条失败：</p>
+            <div class="max-h-56 overflow-y-auto space-y-2">
+              <div v-for="(f, i) in batchResult.failed" :key="i" class="rounded-lg border border-error/15 bg-error/5 px-3 py-2 text-xs">
+                <div class="break-all font-mono text-error">{{ f.line }}</div>
+                <div class="mt-0.5 text-error/70">{{ f.error }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="flex justify-end border-t border-base-content/10 px-5 py-4">
+            <button class="btn btn-primary btn-sm" @click="batchResult = null">知道了</button>
           </div>
         </div>
       </div>
@@ -241,6 +271,8 @@ const deleteTarget = ref<MfaEntry | null>(null);
 const editingTarget = ref<MfaEntry | null>(null);
 const showCopyToast = ref(false);
 const previewCode = ref('');
+const batchImporting = ref(false);
+const batchResult = ref<{ total: number; success: number; failed: { line: string; error: string }[] } | null>(null);
 
 // 统计信息
 const activeCodes = computed(() => secrets.value.length);
@@ -332,12 +364,70 @@ async function copyCode(entry: MfaEntry) {
   }
 }
 
+// 识别粘贴框中的 otpauth:// 行数（多行时进入批量导入模式）
+const batchUriCount = computed(() => {
+  if (editingTarget.value) {return 0}
+  return uriInput.value.split('\n').map(l => l.trim()).filter(l => l.startsWith('otpauth://')).length;
+});
+
+// 批量导入：逐行解析并添加，汇总成功/失败
+async function batchImport() {
+  const lines = uriInput.value.split('\n').map(l => l.trim()).filter(l => l.startsWith('otpauth://'));
+  if (lines.length === 0) {
+    toast.error('未识别到 otpauth:// 链接');
+    return;
+  }
+  batchImporting.value = true;
+  batchResult.value = null;
+  const failed: { line: string; error: string }[] = [];
+  let success = 0;
+  for (const line of lines) {
+    try {
+      const parsed: any = await getTauriAPI().parseOtpAuthUri(line);
+      const secret = String(parsed.secret || '').trim().toUpperCase().replace(/[=\s]/g, '');
+      if (!secret) {
+        failed.push({ line, error: '密钥为空' });
+        continue;
+      }
+      await getTauriAPI().addMfaSecret({
+        name: String(parsed.issuer || parsed.name || '未命名').trim() || '未命名',
+        secret,
+        account: String(parsed.account || ''),
+        issuer: String(parsed.issuer || ''),
+        digits: parsed.digits || 6,
+        period: parsed.period || 30,
+        algorithm: parsed.algorithm || 'sha1',
+      });
+      success++;
+    } catch (e: any) {
+      failed.push({ line, error: e?.message || '解析或添加失败' });
+    }
+  }
+  batchResult.value = { total: lines.length, success, failed };
+  batchImporting.value = false;
+  if (failed.length === 0) {
+    toast.success(`批量导入成功：${success} 条`);
+    await loadSecrets();
+    await refreshCodes();
+    closeDialogs();
+  } else {
+    toast.warning(`成功 ${success} 条，失败 ${failed.length} 条`);
+    // 有失败时刷新已成功的部分
+    await loadSecrets();
+    await refreshCodes();
+  }
+}
+
 // URI 输入时自动解析
 async function onUriInput() {
   formError.value = '';
   previewCode.value = '';
   const val = uriInput.value.trim();
   if (!val) {return;}
+
+  // 多行（批量导入场景）不自动解析，交给批量按钮
+  const lines = val.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length > 1) {return;}
 
   // 尝试解析 otpauth:// URI
   if (val.startsWith('otpauth://')) {
