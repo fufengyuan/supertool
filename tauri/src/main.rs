@@ -482,6 +482,7 @@ fn main() {
             commands::servers::sftp_download_file,
             commands::servers::sftp_download_file_with_progress,
             commands::servers::sftp_upload_folder,
+            commands::servers::sftp_upload_folder_zip,
             commands::servers::sftp_get_downloads_dir,
             commands::servers::list_sftp_dir,
             commands::servers::open_sftp_file_editor,

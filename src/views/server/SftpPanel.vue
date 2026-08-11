@@ -186,7 +186,7 @@ import { getTauriAPI } from '../../utils/tauri-api'
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { tempDir } from '@tauri-apps/api/path';
-import { writeFile, mkdir, remove } from '@tauri-apps/plugin-fs';
+import { writeFile, mkdir, remove, readDir, stat } from '@tauri-apps/plugin-fs';
 import { useToast } from '../../composables/useToast';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 
@@ -790,36 +790,66 @@ async function doDragUploadFromPaths(paths: string[]) {
       await getTauriAPI().connectServer(props.server.id)
     }
 
-    let successCount = 0
+    // 分类拖入项：目录 → zip 打包上传+远程解压（单文件传输，快且保留结构）；文件 → 单文件上传
+    const dirs: { localPath: string; name: string }[] = []
+    const files: { localPath: string; relPath: string }[] = []
+    for (const p of paths) {
+      try {
+        const st = await stat(p)
+        if (st.isDirectory) {
+          const name = (p.split('/').pop() || p.split('\\').pop() || 'folder')
+          dirs.push({ localPath: p, name })
+        } else if (st.isFile) {
+          files.push({ localPath: p, relPath: (p.split('/').pop() || p.split('\\').pop() || 'unknown') })
+        }
+      } catch (e: any) {
+        toast.error(`无法读取 ${p}: ${e?.message || e}`)
+      }
+    }
 
-    for (let i = 0; i < paths.length; i++) {
-      const localPath = paths[i]
-      const fileName = localPath.split('/').pop() || localPath.split('\\').pop() || 'unknown'
+    let successCount = 0
+    const baseRemote = currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/'
+
+    // 1) 目录：zip 打包上传 + 远程解压（每个目录一次请求）
+    for (const d of dirs) {
+      uploadProgress.value = { file: d.name, percent: 0 }
+      uploadMessage.value = `正在打包并上传目录 ${d.name}...`
+      try {
+        // 上传到 baseRemote/目录名/ 下（zip 内容为目录内文件，解压后平铺进该目录）
+        const remoteDir = baseRemote + d.name
+        await getTauriAPI().sftpUploadFolderZip(props.server.id, d.localPath, remoteDir)
+        successCount++
+      } catch (err: any) {
+        toast.error(`目录上传失败 ${d.name}: ${err.message}`)
+      }
+    }
+
+    // 2) 文件：单文件上传（保持原有逻辑）
+    for (const f of files) {
+      const relPath = f.relPath
+      const fileName = relPath.split('/').pop() || 'unknown'
 
       uploadProgress.value = { file: fileName, percent: 0 }
 
-      const remotePath = currentPath.value.endsWith('/')
-        ? currentPath.value + fileName
-        : currentPath.value + '/' + fileName
-
       try {
+        const remotePath = baseRemote + relPath
         const uploadId = `upload-${Date.now()}-${++uploadIdCounter}`
         await getTauriAPI().uploadFileWithProgress(
           uploadId,
           props.server.id,
           props.server.name || props.server.id,
           remotePath,
-          localPath,
+          f.localPath,
           fileName
         )
         successCount++
       } catch (err: any) {
-        toast.error(`上传失败 ${fileName}: ${err.message}`)
+        toast.error(`上传失败 ${relPath}: ${err.message}`)
       }
     }
 
     uploadProgress.value = null
-    if (successCount > 0) {toast.success(`成功上传 ${successCount} 个文件`)}
+    if (successCount > 0) {toast.success(`成功上传 ${successCount} 项`)}
     await loadDir()
   } catch (error: any) {
     uploadProgress.value = null

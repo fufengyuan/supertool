@@ -1746,6 +1746,7 @@ export interface TauriAPI {
   sftpCreateDir: (serverId: string, path: string) => Promise<any>
   uploadFileWithProgress: (uploadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string) => Promise<any>
   uploadFolder: (serverId: string, localPath: string, remotePath: string) => Promise<any>
+  sftpUploadFolderZip: (serverId: string, localDir: string, remoteDir: string) => Promise<any>
   uploadSessionStart: (serverId: string, remotePath: string) => Promise<any>
   uploadSessionAdd: (sessionId: string, localPath: string, remotePath: string) => Promise<any>
   uploadSessionCheckConflicts: (sessionId: string) => Promise<any>
@@ -2461,6 +2462,7 @@ export function getTauriAPI(): TauriAPI {
     },
     downloadFile: async (serverId: string, remotePath: string, localPath: string): Promise<any> => { return tauriCall('sftp_download_file', { serverId, remotePath, localPath }); },
     uploadFolder: async (serverId: string, remotePath: string, localPath: string): Promise<any> => { return tauriCall('sftp_upload_folder', { serverId, remotePath, localPath }); },
+    sftpUploadFolderZip: async (serverId: string, localDir: string, remoteDir: string): Promise<any> => { return tauriCall('sftp_upload_folder_zip', { serverId, localDir, remoteDir }); },
     // 带进度事件的下载：通过 'sftp:download-progress' 事件上报进度
     downloadFileWithProgress: async (downloadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string): Promise<any> => {
       return tauriCall('sftp_download_file_with_progress', { downloadId, serverId, serverName, remotePath, localPath, fileName });
