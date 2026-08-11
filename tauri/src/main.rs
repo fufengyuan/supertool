@@ -158,6 +158,7 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .on_window_event(|window, event| {
             // 主窗口关闭时，退出整个应用（含 floating-todo 等子窗口）
             // 否则悬浮窗会残留，只能强制退出

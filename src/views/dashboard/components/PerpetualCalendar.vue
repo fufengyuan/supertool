@@ -90,7 +90,7 @@
     </div>
 
     <!-- 黄历详情弹窗 -->
-    <Modal v-model="showAlmanac" :title="almanacTitle" size="lg" class="max-w-2xl">
+    <Modal v-model="showAlmanac" :title="almanacTitle" width="40rem">
       <div class="space-y-4 text-sm" v-if="selectedDay">
         <!-- 基本信息 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">

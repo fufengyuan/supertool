@@ -1,6 +1,6 @@
 [package]
 name = "supertool"
-version = "6.15.0"
+version = "6.15.1"
 description = "SuperTool - Tauri 2.0 Migration"
 authors = ["fufengyuan"]
 edition = "2024"
@@ -16,6 +16,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-store = "2"
 
 # Database
 supertool-core = { path = "../core" }
