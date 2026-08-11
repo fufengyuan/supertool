@@ -149,10 +149,10 @@ impl WireGuardManager {
             config_name, peer_endpoint
         ));
 
-        // Find the stool binary path. Try bundled resource first (release),
-        // fall back to env var (dev), then PATH.
-        let stool_path = locate_stool_binary()?;
-        self.add_log(&format!("使用 stool: {}", stool_path));
+        // Find the tunnel host binary: 直接使用当前可执行文件（tauri 二进制自带 wg-tunnel 模式），
+        // 不再依赖外部 stool 二进制与路径探测（同属 supertool-core，逻辑单一来源）。
+        let tunnel_exe = tunnel_binary_path()?;
+        self.add_log(&format!("使用自身隧道模式启动 (wg-tunnel, exe: {})", tunnel_exe));
 
         // Write tunnel config to temp file
         let ts = chrono::Utc::now().timestamp_millis();
@@ -183,7 +183,7 @@ impl WireGuardManager {
         }
         #[cfg(not(target_os = "macos"))]
         self.add_log("请求 macOS 系统授权（请在密码框中输入密码）...");
-        let pid = spawn_tunnel_subprocess(&stool_path, &conf_path, &uds_path).await?;
+        let pid = spawn_tunnel_subprocess(&conf_path, &uds_path).await?;
         self.add_log(&format!("tunnel 子进程已启动 (PID: {})", pid));
 
         // Store subprocess metadata
@@ -672,7 +672,7 @@ pub fn is_passwordless_installed() -> bool {
 #[cfg(target_os = "macos")]
 pub async fn install_passwordless() -> Result<(), String> {
     let user = current_username()?;
-    let stool = locate_stool_binary()?;
+    let stool = tunnel_binary_path()?;
     // Resolve to canonical path so the sudoers wildcard match is precise.
     let stool_canonical = std::fs::canonicalize(&stool)
         .map(|p| p.to_string_lossy().to_string())
@@ -777,73 +777,35 @@ pub async fn uninstall_passwordless() -> Result<(), String> {
     Err("当前平台暂不支持免密配置".to_string())
 }
 
-/// Locate the bundled or installed `stool` binary that hosts `wg-tunnel`.
-fn locate_stool_binary() -> Result<String, String> {
-    // 1. Env override (dev/test)
-    if let Ok(p) = std::env::var("SUPERTOOL_STOOL_PATH") {
-        if std::path::Path::new(&p).exists() {
+/// Locate the tunnel host binary: 当前可执行文件自带 wg-tunnel 模式（tauri 主进程），
+/// 无外部 stool 依赖。dev 模式下 cargo run 的 target 目录亦可直接使用。
+fn tunnel_binary_path() -> Result<String, String> {
+    if let Ok(current_exe) = std::env::current_exe() {
+        let p = current_exe.to_string_lossy().to_string();
+        if !p.is_empty() {
             return Ok(p);
         }
     }
-    // 2. Bundled next to the GUI binary (Tauri resource)
-    if let Ok(current_exe) = std::env::current_exe() {
-        if let Some(dir) = current_exe.parent() {
-            // macOS: bundled in Contents/Resources or sibling of the app binary
-            let candidates = [
-                dir.join("stool"),
-                dir.join("../Resources/stool"),
-                dir.join("../Resources/_up_/target/release/stool"),
-            ];
-            for c in &candidates {
-                if c.exists() {
-                    return Ok(c.to_string_lossy().to_string());
-                }
-            }
-        }
-    }
-    // 3. Cargo target dir (dev)
-    let dev_candidates = [
-        "target/release/stool",
-        "target/debug/stool",
-        "../target/release/stool",
-        "../target/debug/stool",
-    ];
-    for c in &dev_candidates {
-        if std::path::Path::new(c).exists() {
-            return Ok(std::fs::canonicalize(c)
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|_| c.to_string()));
-        }
-    }
-    // 4. PATH
-    if let Ok(out) = std::process::Command::new("which").arg("stool").output() {
-        if out.status.success() {
-            let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if !p.is_empty() {
-                return Ok(p);
-            }
-        }
-    }
-    Err("找不到 stool 可执行文件（请确保已构建：cargo build -p stool --release）".to_string())
+    Err("无法定位当前可执行文件".to_string())
 }
 
-/// Spawn `sudo stool wg-tunnel` via macOS `osascript` (native password dialog).
+/// Spawn `sudo <current_exe> wg-tunnel` via macOS `osascript` (native password dialog).
 /// Returns the spawned PID. The subprocess is detached and lives until stopped.
 async fn spawn_tunnel_subprocess(
-    stool_path: &str,
     conf_path: &str,
     uds_path: &str,
 ) -> Result<u32, String> {
     #[cfg(target_os = "macos")]
     {
         let q = |s: &str| s.replace('\'', "'\\''");
+        let tunnel_exe = tunnel_binary_path()?;
 
         // ── Fast path: passwordless sudo is configured ──
         // Use `sudo -n` directly. No password prompt, no osascript dialog.
         if is_passwordless_installed() {
             let inner = format!(
                 "sudo -n '{}' wg-tunnel --conf '{}' --uds '{}' </dev/null >/tmp/supertool-wg.log 2>&1 & echo $!",
-                q(stool_path),
+                q(&tunnel_exe),
                 q(conf_path),
                 q(uds_path),
             );
@@ -865,7 +827,7 @@ async fn spawn_tunnel_subprocess(
         // ── Slow path: pop up the macOS auth dialog ──
         let inner = format!(
             "'{}' wg-tunnel --conf '{}' --uds '{}' </dev/null >/tmp/supertool-wg.log 2>&1 & echo $!",
-            q(stool_path),
+            q(&tunnel_exe),
             q(conf_path),
             q(uds_path),
         );

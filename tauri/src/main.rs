@@ -151,6 +151,34 @@ fn update_frequent_menu(items: Vec<String>) -> Result<(), String> {
 }
 
 fn main() {
+    // ── wg-tunnel 模式：由 WireGuard 管理器以 sudo 提权启动的隧道宿主进程 ──
+    // 直接在当前进程运行 supertool-core 的隧道逻辑（boringtun），不进 GUI 初始化。
+    // 用法: supertool wg-tunnel --conf <json路径> --uds <socket路径>
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "wg-tunnel") {
+        let arg_val = |name: &str| -> String {
+            args.iter()
+                .position(|a| a == name)
+                .and_then(|i| args.get(i + 1))
+                .cloned()
+                .unwrap_or_default()
+        };
+        let conf_path = arg_val("--conf");
+        let uds_path = arg_val("--uds");
+        let rt = tokio::runtime::Runtime::new()
+            .map_err(|e| e.to_string())
+            .unwrap_or_else(|e| {
+                eprintln!("[wg-tunnel] 创建 runtime 失败: {}", e);
+                std::process::exit(1);
+            });
+        if let Err(e) = rt.block_on(
+            supertool_core::logic::wireguard_tunnel::run_tunnel(&conf_path, &uds_path),
+        ) {
+            eprintln!("[wg-tunnel] {}", e);
+            std::process::exit(1);
+        }
+        std::process::exit(0);
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
