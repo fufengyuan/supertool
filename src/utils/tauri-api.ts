@@ -938,8 +938,9 @@ export function useMfaAPI() {
       if (!res.success) {throw new Error(res.error)}
     },
     generateTotp: async (secret: string, digits?: number, period?: number, algorithm?: string): Promise<string> => {
-      const res = await tauriInvoke<string>('generate_totp', { secret, digits: digits ?? 6, period: period ?? 30, algorithm: algorithm ?? 'SHA1' })
-      return res.success ? (res.data ?? '') : ''
+      const res = await tauriInvoke<any>('generate_totp', { secret, digits: digits ?? 6, period: period ?? 30, algorithm: algorithm ?? 'SHA1' })
+      // 后端返回 { code, remaining, algorithm }，取 code 字段
+      return res.success ? (res.data && typeof res.data === 'object' ? String(res.data.code ?? '') : '') : ''
     },
   }
 }
@@ -2574,8 +2575,11 @@ export function getTauriAPI(): TauriAPI {
     logPresetsAdd: async (preset: Record<string, unknown>) => tauriCall("add_log_preset", { preset }),
     logPresetsDelete: async (id: string) => tauriCall("delete_log_preset", { id }),
     // MFA
-    generateTotp: async (secret: string, digits?: number, period?: number, algorithm?: string) => 
-      tauriCall("generate_totp", { secret, digits, period, algorithm }, true),
+    generateTotp: async (secret: string, digits?: number, period?: number, algorithm?: string): Promise<string> => {
+      const res: any = await tauriCall("generate_totp", { secret, digits, period, algorithm }, true)
+      // 后端返回 { code, remaining, algorithm }，取 code 字段（曾整个对象被当验证码显示成 JSON）
+      return res && typeof res === 'object' && 'code' in res ? String(res.code) : ''
+    },
     // API Requests
     apiRequestsUpdate: async (id: string, updates: Record<string, unknown>) => tauriCall("api_requests_update", { id, updates }),
     apiRequestsAdd: async (req: Record<string, unknown>) => tauriCall("api_requests_add", { req }),
