@@ -331,7 +331,18 @@ function editWgConfig(cfg: WgConfig) { editingWg.value = cfg; wgForm.value = { n
 
 async function saveWgConfig() { try { const data = { ...wgForm.value, mtu: wgForm.value.mtu !== '' && wgForm.value.mtu != null ? Number(wgForm.value.mtu) : null, peerPersistentKeepalive: wgForm.value.peerPersistentKeepalive !== '' && wgForm.value.peerPersistentKeepalive != null ? Number(wgForm.value.peerPersistentKeepalive) : null }; if (editingWg.value) { await getTauriAPI().wireguardUpdate({ ...data, id: editingWg.value.id }) } else { await getTauriAPI().wireguardAdd(data)    }; const wasEditing = !!editingWg.value; showWgForm.value = false; editingWg.value = null; await loadWgAll(); toast.success(wasEditing ? '已更新' : '已添加')} catch(e:any) { toast.error('保存失败: ' + e.message) } }
 
-async function wgConnect(cfg: WgConfig) { if (wgStatus.value.connected) { await wgDisconnect(); await new Promise(r => setTimeout(r, 500)) }; try { const r = await getTauriAPI().wireguardConnect(cfg.id, cfg.name, cfg.privateKey, cfg.peerPublicKey, cfg.peerEndpoint, cfg.presharedKey || undefined, cfg.address, cfg.mtu); if (!r?.success) {toast.error('连接失败: ' + (r?.error || '未知错误'));} await loadWgStatus() } catch(e:any) { toast.error('连接失败: ' + e.message) } }
+async function wgConnect(cfg: WgConfig) {
+  if (wgStatus.value.connected) { await wgDisconnect(); await new Promise(r => setTimeout(r, 500)) }
+  // 立即显示「正在连接」状态（connect 最长等 30s UDS，避免期间无反馈）
+  wgStatus.value = { ...wgStatus.value, state: 'connecting', connected: false, configId: cfg.id, configName: cfg.name }
+  try {
+    await getTauriAPI().wireguardConnect(cfg.id, cfg.name, cfg.privateKey, cfg.peerPublicKey, cfg.peerEndpoint, cfg.presharedKey || undefined, cfg.address, cfg.mtu)
+    await loadWgStatus()
+  } catch(e:any) {
+    toast.error('连接失败: ' + e.message)
+    await loadWgStatus()
+  }
+}
 
 async function wgDisconnect() { try { await getTauriAPI().wireguardDisconnect(); await loadWgStatus(); toast.info('已断开') } catch(e:any) { toast.error('断开失败: ' + e.message) } }
 function selectWgConfig(cfg: WgConfig) {
