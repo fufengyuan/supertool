@@ -174,6 +174,14 @@ impl WireGuardManager {
 
         // On macOS, use osascript to elevate privileges. This pops a native
         // system password dialog ("SuperTool wants to make changes").
+        // 免密已配置时走 sudo -n，无需弹密码框（避免误导用户以为要输密码）
+        #[cfg(target_os = "macos")]
+        if is_passwordless_installed() {
+            self.add_log("使用已配置的免密授权启动隧道...");
+        } else {
+            self.add_log("请求 macOS 系统授权（请在密码框中输入密码）...");
+        }
+        #[cfg(not(target_os = "macos"))]
         self.add_log("请求 macOS 系统授权（请在密码框中输入密码）...");
         let pid = spawn_tunnel_subprocess(&stool_path, &conf_path, &uds_path).await?;
         self.add_log(&format!("tunnel 子进程已启动 (PID: {})", pid));

@@ -1373,7 +1373,8 @@ export function useWireGuardAPI() {
     },
     wireguardConnect: async (configId: string, configName: string, privateKey: string, peerPublicKey: string, peerEndpoint: string, presharedKey?: string, address?: string, mtu?: number): Promise<any> => {
       const res = await tauriInvoke<any>('wireguard_connect', { configId, configName, privateKey, peerPublicKey, peerEndpoint, presharedKey, address, mtu })
-      return res.success ? res.data : null
+      if (!res.success) {throw new Error(res.error || '连接失败')}
+      return res.data
     },
     wireguardDisconnect: async (): Promise<void> => {
       const res = await tauriInvoke<string>('wireguard_disconnect')
