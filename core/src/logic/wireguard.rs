@@ -1,6 +1,8 @@
 /// WireGuard 管理器 — boringtun 0.7 + tun2 TUN device for real IP packet forwarding
 use serde::{Deserialize, Serialize};
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::sync::{Arc, Mutex};
+use crate::logic::wireguard_tunnel as wg_tunnel;
 
 use boringtun::noise::Tunn;
 use boringtun::noise::TunnResult;
@@ -29,16 +31,12 @@ pub struct WireGuardStatus {
 
 pub struct WireGuardManager {
     status: Arc<Mutex<WireGuardStatus>>,
+    /// 进程内隧道转发 task（boringtun 在自身进程异步运行）
     tunnel_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
-    stop_tx: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+    /// 隧道实时状态（内存共享，由转发 task 更新）
+    tunnel_status: Arc<Mutex<wg_tunnel::TunnelStatus>>,
     max_log_lines: usize,
-    /// PID of the elevated `stool wg-tunnel` subprocess (when using subprocess mode)
-    subprocess_pid: Mutex<Option<u32>>,
-    /// UDS path for talking to the subprocess
-    subprocess_status_path: Mutex<Option<String>>,
-    /// Conf file path (cleaned up after subprocess starts)
-    subprocess_conf: Mutex<Option<String>>,
-    /// Background poller handle that mirrors subprocess status into self.status
+    /// Background poller handle that mirrors tunnel status into self.status
     poller_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
 }
 
@@ -57,11 +55,8 @@ impl WireGuardManager {
                 latest_handshake: None,
             })),
             tunnel_handle: Mutex::new(None),
-            stop_tx: Mutex::new(None),
+            tunnel_status: Arc::new(Mutex::new(wg_tunnel::TunnelStatus::default())),
             max_log_lines: 500,
-            subprocess_pid: Mutex::new(None),
-            subprocess_status_path: Mutex::new(None),
-            subprocess_conf: Mutex::new(None),
             poller_handle: Mutex::new(None),
         }
     }
@@ -149,15 +144,10 @@ impl WireGuardManager {
             config_name, peer_endpoint
         ));
 
-        // Find the tunnel host binary: 直接使用当前可执行文件（tauri 二进制自带 wg-tunnel 模式），
-        // 不再依赖外部 stool 二进制与路径探测（同属 supertool-core，逻辑单一来源）。
-        let tunnel_exe = tunnel_binary_path()?;
-        self.add_log(&format!("使用自身隧道模式启动 (wg-tunnel, exe: {})", tunnel_exe));
-
         // Write tunnel config to temp file
         let ts = chrono::Utc::now().timestamp_millis();
         let conf_path = format!("/tmp/supertool-wg-{}.json", ts);
-        let status_path = format!("/tmp/supertool-wg-{}.status.json", ts);
+        let socket_path = format!("/tmp/supertool-wg-{}.sock", ts);
 
         let conf_json = serde_json::json!({
             "configId": config_id,
@@ -177,73 +167,95 @@ impl WireGuardManager {
         // 免密已配置时走 sudo -n，无需弹密码框（避免误导用户以为要输密码）
         #[cfg(target_os = "macos")]
         if is_passwordless_installed() {
-            self.add_log("使用已配置的免密授权启动隧道...");
+            self.add_log("使用已配置的免密授权创建 TUN 设备...");
         } else {
             self.add_log("请求 macOS 系统授权（请在密码框中输入密码）...");
         }
         #[cfg(not(target_os = "macos"))]
         self.add_log("请求 macOS 系统授权（请在密码框中输入密码）...");
-        let pid = spawn_tunnel_subprocess(&conf_path, &status_path).await?;
-        self.add_log(&format!("tunnel 子进程已启动 (PID: {})", pid));
 
-        // Store subprocess metadata
+        // ── 一次性提权辅助进程：创建 TUN 设备（需 root）→ 通过 SCM_RIGHTS 传 fd → 退出 ──
+        // 隧道转发在本进程内异步运行（boringtun），无常驻子进程。
+        let listener = tokio::net::UnixListener::bind(&socket_path)
+            .map_err(|e| format!("监听 fd 传递 socket 失败: {}", e))?;
+        let _ = spawn_tunnel_subprocess(&conf_path, &socket_path).await?;
+
+        // 等待辅助进程连接并接收 TUN fd（最长 30s）
+        let tun_fd = match tokio::time::timeout(
+            tokio::time::Duration::from_secs(30),
+            async {
+                let (stream, _) = listener.accept().await.map_err(|e| format!("接受辅助进程连接失败: {}", e))?;
+                wg_tunnel::recv_fd(stream.as_raw_fd())
+            },
+        )
+        .await
         {
-            *self.subprocess_pid.lock().unwrap() = Some(pid);
-            *self.subprocess_status_path.lock().unwrap() = Some(status_path.clone());
-            *self.subprocess_conf.lock().unwrap() = Some(conf_path.clone());
-        }
-
-        // Wait for the status file to appear (up to 30s)
-        let mut status_ready = false;
-        for _ in 0..150 {
-            if std::path::Path::new(&status_path).exists() {
-                status_ready = true;
-                break;
+            Ok(Ok(fd)) => fd,
+            Ok(Err(e)) => {
+                let _ = std::fs::remove_file(&socket_path);
+                return Err(e);
             }
-            tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-        }
-        if !status_ready {
-            // Try to read the subprocess log to give a useful error
-            let wg_log_path = "/tmp/supertool-wg.log";
-            let log_tail = std::fs::read_to_string(wg_log_path)
-                .unwrap_or_default()
-                .lines()
-                .rev()
-                .take(10)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect::<Vec<_>>()
-                .join("\n");
-            let detail = if log_tail.trim().is_empty() {
-                String::new()
-            } else {
-                format!("\n子进程日志:\n{}", log_tail)
-            };
-            return Err(format!("tunnel 子进程启动超时（30s 未就绪）{}", detail));
-        }
-        self.add_log("隧道进程已就绪（状态文件就位）");
+            Err(_) => {
+                // 读子进程日志帮助排错
+                let log_tail = std::fs::read_to_string("/tmp/supertool-wg.log")
+                    .unwrap_or_default()
+                    .lines()
+                    .rev()
+                    .take(10)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let _ = std::fs::remove_file(&socket_path);
+                return Err(format!("辅助进程未返回 TUN 设备（30s 超时）{}", if log_tail.trim().is_empty() { String::new() } else { format!("\n辅助进程日志:\n{}", log_tail) }));
+            }
+        };
+        drop(listener);
+        let _ = std::fs::remove_file(&socket_path);
+        self.add_log("TUN 设备已创建（fd 已接收），在进程内启动隧道转发...");
 
-        // Mark as connected
+        // ── 进程内异步运行隧道（boringtun 转发循环） ──
+        let tunnel_status = self.tunnel_status.clone();
+        {
+            let mut s = tunnel_status.lock().unwrap();
+            s.log.clear();
+            s.bytes_sent = 0;
+            s.bytes_received = 0;
+            s.connected = false;
+            s.latest_handshake = None;
+            s.log.push(format!(
+                "正在连接 WireGuard: {} -> {}",
+                config_name, peer_endpoint
+            ));
+        }
+
+        let conf_path_for_task = conf_path.clone();
+        let ts_for_task = tunnel_status.clone();
+        let tunnel_task = tokio::spawn(async move {
+            let _ = wg_tunnel::run_tunnel_in_process(&conf_path_for_task, tun_fd, ts_for_task).await;
+        });
+        *self.tunnel_handle.lock().unwrap() = Some(tunnel_task);
+
+        // 内存状态同步 task：TunnelStatus → WireGuardStatus（每 2s）
+        let ts_sync = tunnel_status.clone();
+        let wg_status = self.status.clone();
+        let poller = tokio::spawn(async move {
+            sync_tunnel_status(ts_sync, wg_status).await;
+        });
+        *self.poller_handle.lock().unwrap() = Some(poller);
+
+        // Mark as connected（隧道进程内已建立）
         {
             let mut status = self.status.lock().unwrap();
             status.state = "connected".to_string();
             status.connected = true;
             status.connected_since = Some(chrono::Utc::now().to_rfc3339());
         }
-        self.add_log("✅ WireGuard 隧道已建立");
+        self.add_log("✅ WireGuard 隧道已建立（进程内异步运行）");
 
-        // Spawn poller that mirrors subprocess status into self.status every 2s
-        let status_arc = self.status.clone();
-        let status_path_for_poll = status_path.clone();
-        let poller = tokio::spawn(async move {
-            poll_subprocess_status(status_path_for_poll, status_arc).await;
-        });
-        *self.poller_handle.lock().unwrap() = Some(poller);
-
-        // Clean up the conf file (the subprocess has already loaded it)
+        // Clean up the conf file（转发 task 已加载）
         let _ = std::fs::remove_file(&conf_path);
-        *self.subprocess_conf.lock().unwrap() = None;
 
         Ok(true)
     }
@@ -258,48 +270,12 @@ impl WireGuardManager {
     }
 
     pub async fn disconnect(&self) -> Result<(), String> {
-        // Stop the status poller first
-        if let Some(handle) = self.poller_handle.lock().unwrap().take() {
+        // 停止进程内隧道转发 task 与状态同步 task
+        if let Some(handle) = self.tunnel_handle.lock().unwrap().take() {
             handle.abort();
         }
-
-        // Stop the tunnel subprocess via SIGTERM（sudo kill 提权——子进程以 root 运行）
-        let status_path = self.subprocess_status_path.lock().unwrap().clone();
-        if let Some(pid) = self.subprocess_pid.lock().unwrap().take() {
-            // sudo -n kill：若免密已配置直接生效；否则回退 kill（同 uid 时可用）
-            let killed = std::process::Command::new("sudo")
-                .arg("-n")
-                .arg("kill")
-                .arg(pid.to_string())
-                .output()
-                .map(|o| o.status.success())
-                .unwrap_or(false);
-            if !killed {
-                let _ = std::process::Command::new("kill")
-                    .arg(pid.to_string())
-                    .output();
-            }
-        }
-        if let Some(path) = status_path {
-            // 等状态文件消失（子进程退出会清理），最多 3s
-            for _ in 0..30 {
-                if !std::path::Path::new(&path).exists() {
-                    break;
-                }
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-            }
-            let _ = std::fs::remove_file(&path);
-        }
-
-        *self.subprocess_status_path.lock().unwrap() = None;
-
-        // Clean up legacy in-process handles (in case we ever fall back)
-        if let Some(tx) = self.stop_tx.lock().unwrap().take() {
-            let _ = tx.send(());
-        }
-        let handle = { self.tunnel_handle.lock().unwrap().take() };
-        if let Some(handle) = handle {
-            let _ = tokio::time::timeout(tokio::time::Duration::from_secs(5), handle).await;
+        if let Some(handle) = self.poller_handle.lock().unwrap().take() {
+            handle.abort();
         }
 
         {
@@ -321,6 +297,9 @@ impl WireGuardManager {
             status.log.clear();
             status.latest_handshake = None;
             status.connected_since = None;
+        }
+        if let Ok(mut ts) = self.tunnel_status.lock() {
+            ts.connected = false;
         }
         self.add_log("✅ 已断开");
         Ok(())
@@ -684,7 +663,7 @@ pub async fn install_passwordless() -> Result<(), String> {
 
     let rule = format!(
         "# SuperTool WireGuard tunnel — auto-generated, safe to remove\n\
-         {} ALL=(root) NOPASSWD: {} wg-tunnel --conf /tmp/supertool-wg-* --status /tmp/supertool-wg-*\n",
+         {} ALL=(root) NOPASSWD: {} wg-tunnel --conf /tmp/supertool-wg-* --socket /tmp/supertool-wg-*\n",
         user, stool_canonical
     );
 
@@ -797,7 +776,7 @@ fn tunnel_binary_path() -> Result<String, String> {
 /// Returns the spawned PID. The subprocess is detached and lives until stopped.
 async fn spawn_tunnel_subprocess(
     conf_path: &str,
-    status_path: &str,
+    socket_path: &str,
 ) -> Result<u32, String> {
     #[cfg(target_os = "macos")]
     {
@@ -808,10 +787,10 @@ async fn spawn_tunnel_subprocess(
         // Use `sudo -n` directly. No password prompt, no osascript dialog.
         if is_passwordless_installed() {
             let inner = format!(
-                "sudo -n '{}' wg-tunnel --conf '{}' --status '{}' </dev/null >/tmp/supertool-wg.log 2>&1 & echo $!",
+                "sudo -n '{}' wg-tunnel --conf '{}' --socket '{}' </dev/null >/tmp/supertool-wg.log 2>&1 & echo $!",
                 q(&tunnel_exe),
                 q(conf_path),
-                q(status_path),
+                q(socket_path),
             );
             let output = tokio::process::Command::new("sh")
                 .args(["-c", &inner])
@@ -830,10 +809,10 @@ async fn spawn_tunnel_subprocess(
 
         // ── Slow path: pop up the macOS auth dialog ──
         let inner = format!(
-            "'{}' wg-tunnel --conf '{}' --status '{}' </dev/null >/tmp/supertool-wg.log 2>&1 & echo $!",
+            "'{}' wg-tunnel --conf '{}' --socket '{}' </dev/null >/tmp/supertool-wg.log 2>&1 & echo $!",
             q(&tunnel_exe),
             q(conf_path),
-            q(status_path),
+            q(socket_path),
         );
         let escaped = inner.replace('\\', "\\\\").replace('"', "\\\"");
         let osa = format!(
@@ -871,50 +850,27 @@ async fn spawn_tunnel_subprocess(
 
 /// Send a single JSON command to the tunnel subprocess via UDS and read the response.
 /// Periodically read the tunnel status file and mirror it into self.status.
-async fn poll_subprocess_status(status_path: String, status: Arc<Mutex<WireGuardStatus>>) {
+/// 内存同步：把隧道实时状态（TunnelStatus）镜像到 WireGuardStatus（每 2s）
+async fn sync_tunnel_status(
+    tunnel_status: Arc<Mutex<wg_tunnel::TunnelStatus>>,
+    status: Arc<Mutex<WireGuardStatus>>,
+) {
     let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(2));
     loop {
         interval.tick().await;
-        let content = std::fs::read_to_string(&status_path);
-        match content {
-            Ok(json) => {
-                let Ok(sub_status) = serde_json::from_str::<serde_json::Value>(&json) else {
-                    continue;
-                };
-                if let Ok(mut s) = status.lock() {
-                    if let Some(bs) = sub_status.get("bytesSent").and_then(|v| v.as_u64()) {
-                        s.bytes_sent = bs;
-                    }
-                    if let Some(br) = sub_status.get("bytesReceived").and_then(|v| v.as_u64()) {
-                        s.bytes_received = br;
-                    }
-                    if let Some(lh) = sub_status.get("latestHandshake").and_then(|v| v.as_str()) {
-                        s.latest_handshake = Some(lh.to_string());
-                    }
-                    if let Some(log) = sub_status.get("log").and_then(|v| v.as_array()) {
-                        let lines: Vec<String> = log
-                            .iter()
-                            .filter_map(|l| l.as_str().map(|s| s.to_string()))
-                            .collect();
-                        if !lines.is_empty() {
-                            s.log = lines;
-                        }
-                    }
-                    if let Some(connected) = sub_status.get("connected").and_then(|v| v.as_bool()) {
-                        if !connected {
-                            s.connected = false;
-                            s.state = "disconnected".to_string();
-                            break;
-                        }
-                    }
-                }
+        let snapshot = { tunnel_status.lock().unwrap().clone() };
+        if let Ok(mut s) = status.lock() {
+            s.bytes_sent = snapshot.bytes_sent;
+            s.bytes_received = snapshot.bytes_received;
+            if let Some(lh) = snapshot.latest_handshake {
+                s.latest_handshake = Some(lh);
             }
-            Err(_) => {
-                // Status file gone — subprocess likely exited (SIGTERM or fatal error)
-                if let Ok(mut s) = status.lock() {
-                    s.connected = false;
-                    s.state = "disconnected".to_string();
-                }
+            if !snapshot.log.is_empty() {
+                s.log = snapshot.log.clone();
+            }
+            if !snapshot.connected {
+                s.connected = false;
+                s.state = "disconnected".to_string();
                 break;
             }
         }
