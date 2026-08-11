@@ -221,8 +221,8 @@ async fn dispatch(cli: &Cli) -> Result<(), anyhow::Error> {
             let mut rt = init_rt(cli)?;
             cmd_mcp(&mut rt, action).await
         }
-        types::Commands::WgTunnel { conf, uds } => {
-            supertool_core::logic::wireguard_tunnel::run_tunnel(conf, uds)
+        types::Commands::WgTunnel { conf, status } => {
+            supertool_core::logic::wireguard_tunnel::run_tunnel(conf, status)
                 .await
                 .map_err(|e| output::fail(output::EXIT_BUSINESS, format!("[wg-tunnel] {}", e)))
         }

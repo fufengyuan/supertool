@@ -111,9 +111,9 @@ pub enum Commands {
         /// 配置 JSON 文件路径
         #[arg(long)]
         conf: String,
-        /// UDS 控制 socket 路径
+        /// 状态 JSON 文件路径（父进程轮询）
         #[arg(long)]
-        uds: String,
+        status: String,
     },
 }
 

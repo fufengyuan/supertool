@@ -35,7 +35,7 @@ pub struct WireGuardManager {
     /// PID of the elevated `stool wg-tunnel` subprocess (when using subprocess mode)
     subprocess_pid: Mutex<Option<u32>>,
     /// UDS path for talking to the subprocess
-    subprocess_uds: Mutex<Option<String>>,
+    subprocess_status_path: Mutex<Option<String>>,
     /// Conf file path (cleaned up after subprocess starts)
     subprocess_conf: Mutex<Option<String>>,
     /// Background poller handle that mirrors subprocess status into self.status
@@ -60,7 +60,7 @@ impl WireGuardManager {
             stop_tx: Mutex::new(None),
             max_log_lines: 500,
             subprocess_pid: Mutex::new(None),
-            subprocess_uds: Mutex::new(None),
+            subprocess_status_path: Mutex::new(None),
             subprocess_conf: Mutex::new(None),
             poller_handle: Mutex::new(None),
         }
@@ -157,7 +157,7 @@ impl WireGuardManager {
         // Write tunnel config to temp file
         let ts = chrono::Utc::now().timestamp_millis();
         let conf_path = format!("/tmp/supertool-wg-{}.json", ts);
-        let uds_path = format!("/tmp/supertool-wg-{}.sock", ts);
+        let status_path = format!("/tmp/supertool-wg-{}.status.json", ts);
 
         let conf_json = serde_json::json!({
             "configId": config_id,
@@ -183,26 +183,26 @@ impl WireGuardManager {
         }
         #[cfg(not(target_os = "macos"))]
         self.add_log("请求 macOS 系统授权（请在密码框中输入密码）...");
-        let pid = spawn_tunnel_subprocess(&conf_path, &uds_path).await?;
+        let pid = spawn_tunnel_subprocess(&conf_path, &status_path).await?;
         self.add_log(&format!("tunnel 子进程已启动 (PID: {})", pid));
 
         // Store subprocess metadata
         {
             *self.subprocess_pid.lock().unwrap() = Some(pid);
-            *self.subprocess_uds.lock().unwrap() = Some(uds_path.clone());
+            *self.subprocess_status_path.lock().unwrap() = Some(status_path.clone());
             *self.subprocess_conf.lock().unwrap() = Some(conf_path.clone());
         }
 
-        // Wait for UDS socket to appear (up to 30s)
-        let mut socket_ready = false;
+        // Wait for the status file to appear (up to 30s)
+        let mut status_ready = false;
         for _ in 0..150 {
-            if std::path::Path::new(&uds_path).exists() {
-                socket_ready = true;
+            if std::path::Path::new(&status_path).exists() {
+                status_ready = true;
                 break;
             }
             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
         }
-        if !socket_ready {
+        if !status_ready {
             // Try to read the subprocess log to give a useful error
             let wg_log_path = "/tmp/supertool-wg.log";
             let log_tail = std::fs::read_to_string(wg_log_path)
@@ -220,9 +220,9 @@ impl WireGuardManager {
             } else {
                 format!("\n子进程日志:\n{}", log_tail)
             };
-            return Err(format!("tunnel 子进程启动超时（30s 未创建 UDS socket）{}", detail));
+            return Err(format!("tunnel 子进程启动超时（30s 未就绪）{}", detail));
         }
-        self.add_log("UDS 通信已就绪");
+        self.add_log("隧道进程已就绪（状态文件就位）");
 
         // Mark as connected
         {
@@ -235,9 +235,9 @@ impl WireGuardManager {
 
         // Spawn poller that mirrors subprocess status into self.status every 2s
         let status_arc = self.status.clone();
-        let uds_for_poll = uds_path.clone();
+        let status_path_for_poll = status_path.clone();
         let poller = tokio::spawn(async move {
-            poll_subprocess_status(uds_for_poll, status_arc).await;
+            poll_subprocess_status(status_path_for_poll, status_arc).await;
         });
         *self.poller_handle.lock().unwrap() = Some(poller);
 
@@ -263,11 +263,25 @@ impl WireGuardManager {
             handle.abort();
         }
 
-        // Send stop command via UDS, then wait briefly for subprocess to exit
-        let uds_path = self.subprocess_uds.lock().unwrap().clone();
-        if let Some(path) = uds_path {
-            let _ = send_uds_command(&path, "stop").await;
-            // Wait up to 3 seconds for the subprocess to actually exit
+        // Stop the tunnel subprocess via SIGTERM（sudo kill 提权——子进程以 root 运行）
+        let status_path = self.subprocess_status_path.lock().unwrap().clone();
+        if let Some(pid) = self.subprocess_pid.lock().unwrap().take() {
+            // sudo -n kill：若免密已配置直接生效；否则回退 kill（同 uid 时可用）
+            let killed = std::process::Command::new("sudo")
+                .arg("-n")
+                .arg("kill")
+                .arg(pid.to_string())
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+            if !killed {
+                let _ = std::process::Command::new("kill")
+                    .arg(pid.to_string())
+                    .output();
+            }
+        }
+        if let Some(path) = status_path {
+            // 等状态文件消失（子进程退出会清理），最多 3s
             for _ in 0..30 {
                 if !std::path::Path::new(&path).exists() {
                     break;
@@ -277,17 +291,7 @@ impl WireGuardManager {
             let _ = std::fs::remove_file(&path);
         }
 
-        // Force kill subprocess if still alive (best effort)
-        if let Some(pid) = self.subprocess_pid.lock().unwrap().take() {
-            // Use sudo kill — we don't have permission to kill a root process otherwise
-            let _ = std::process::Command::new("sudo")
-                .arg("-n")
-                .arg("kill")
-                .arg(pid.to_string())
-                .output();
-        }
-
-        *self.subprocess_uds.lock().unwrap() = None;
+        *self.subprocess_status_path.lock().unwrap() = None;
 
         // Clean up legacy in-process handles (in case we ever fall back)
         if let Some(tx) = self.stop_tx.lock().unwrap().take() {
@@ -680,7 +684,7 @@ pub async fn install_passwordless() -> Result<(), String> {
 
     let rule = format!(
         "# SuperTool WireGuard tunnel — auto-generated, safe to remove\n\
-         {} ALL=(root) NOPASSWD: {} wg-tunnel --conf /tmp/supertool-wg-* --uds /tmp/supertool-wg-*\n",
+         {} ALL=(root) NOPASSWD: {} wg-tunnel --conf /tmp/supertool-wg-* --status /tmp/supertool-wg-*\n",
         user, stool_canonical
     );
 
@@ -793,7 +797,7 @@ fn tunnel_binary_path() -> Result<String, String> {
 /// Returns the spawned PID. The subprocess is detached and lives until stopped.
 async fn spawn_tunnel_subprocess(
     conf_path: &str,
-    uds_path: &str,
+    status_path: &str,
 ) -> Result<u32, String> {
     #[cfg(target_os = "macos")]
     {
@@ -804,10 +808,10 @@ async fn spawn_tunnel_subprocess(
         // Use `sudo -n` directly. No password prompt, no osascript dialog.
         if is_passwordless_installed() {
             let inner = format!(
-                "sudo -n '{}' wg-tunnel --conf '{}' --uds '{}' </dev/null >/tmp/supertool-wg.log 2>&1 & echo $!",
+                "sudo -n '{}' wg-tunnel --conf '{}' --status '{}' </dev/null >/tmp/supertool-wg.log 2>&1 & echo $!",
                 q(&tunnel_exe),
                 q(conf_path),
-                q(uds_path),
+                q(status_path),
             );
             let output = tokio::process::Command::new("sh")
                 .args(["-c", &inner])
@@ -826,10 +830,10 @@ async fn spawn_tunnel_subprocess(
 
         // ── Slow path: pop up the macOS auth dialog ──
         let inner = format!(
-            "'{}' wg-tunnel --conf '{}' --uds '{}' </dev/null >/tmp/supertool-wg.log 2>&1 & echo $!",
+            "'{}' wg-tunnel --conf '{}' --status '{}' </dev/null >/tmp/supertool-wg.log 2>&1 & echo $!",
             q(&tunnel_exe),
             q(conf_path),
-            q(uds_path),
+            q(status_path),
         );
         let escaped = inner.replace('\\', "\\\\").replace('"', "\\\"");
         let osa = format!(
@@ -866,62 +870,47 @@ async fn spawn_tunnel_subprocess(
 }
 
 /// Send a single JSON command to the tunnel subprocess via UDS and read the response.
-async fn send_uds_command(uds_path: &str, cmd: &str) -> Result<serde_json::Value, String> {
-    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-    use tokio::net::UnixStream;
-
-    let stream = UnixStream::connect(uds_path)
-        .await
-        .map_err(|e| format!("UDS 连接失败: {}", e))?;
-    let (read_half, mut write_half) = stream.into_split();
-
-    let payload = format!("{{\"cmd\":\"{}\"}}\n", cmd);
-    write_half
-        .write_all(payload.as_bytes())
-        .await
-        .map_err(|e| format!("UDS 写入失败: {}", e))?;
-
-    let mut reader = BufReader::new(read_half);
-    let mut line = String::new();
-    reader
-        .read_line(&mut line)
-        .await
-        .map_err(|e| format!("UDS 读取失败: {}", e))?;
-    serde_json::from_str(&line).map_err(|e| format!("响应解析失败: {}", e))
-}
-
-/// Periodically poll the subprocess for status and mirror it into self.status.
-async fn poll_subprocess_status(uds_path: String, status: Arc<Mutex<WireGuardStatus>>) {
+/// Periodically read the tunnel status file and mirror it into self.status.
+async fn poll_subprocess_status(status_path: String, status: Arc<Mutex<WireGuardStatus>>) {
     let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(2));
     loop {
         interval.tick().await;
-        match send_uds_command(&uds_path, "status").await {
-            Ok(resp) => {
-                if let Some(sub_status) = resp.get("status") {
-                    if let Ok(mut s) = status.lock() {
-                        if let Some(bs) = sub_status.get("bytesSent").and_then(|v| v.as_u64()) {
-                            s.bytes_sent = bs;
+        let content = std::fs::read_to_string(&status_path);
+        match content {
+            Ok(json) => {
+                let Ok(sub_status) = serde_json::from_str::<serde_json::Value>(&json) else {
+                    continue;
+                };
+                if let Ok(mut s) = status.lock() {
+                    if let Some(bs) = sub_status.get("bytesSent").and_then(|v| v.as_u64()) {
+                        s.bytes_sent = bs;
+                    }
+                    if let Some(br) = sub_status.get("bytesReceived").and_then(|v| v.as_u64()) {
+                        s.bytes_received = br;
+                    }
+                    if let Some(lh) = sub_status.get("latestHandshake").and_then(|v| v.as_str()) {
+                        s.latest_handshake = Some(lh.to_string());
+                    }
+                    if let Some(log) = sub_status.get("log").and_then(|v| v.as_array()) {
+                        let lines: Vec<String> = log
+                            .iter()
+                            .filter_map(|l| l.as_str().map(|s| s.to_string()))
+                            .collect();
+                        if !lines.is_empty() {
+                            s.log = lines;
                         }
-                        if let Some(br) = sub_status.get("bytesReceived").and_then(|v| v.as_u64()) {
-                            s.bytes_received = br;
-                        }
-                        if let Some(lh) = sub_status.get("latestHandshake").and_then(|v| v.as_str())
-                        {
-                            s.latest_handshake = Some(lh.to_string());
-                        }
-                        if let Some(connected) = sub_status.get("connected").and_then(|v| v.as_bool())
-                        {
-                            if !connected {
-                                s.connected = false;
-                                s.state = "disconnected".to_string();
-                                break;
-                            }
+                    }
+                    if let Some(connected) = sub_status.get("connected").and_then(|v| v.as_bool()) {
+                        if !connected {
+                            s.connected = false;
+                            s.state = "disconnected".to_string();
+                            break;
                         }
                     }
                 }
             }
             Err(_) => {
-                // UDS gone — subprocess likely exited
+                // Status file gone — subprocess likely exited (SIGTERM or fatal error)
                 if let Ok(mut s) = status.lock() {
                     s.connected = false;
                     s.state = "disconnected".to_string();
