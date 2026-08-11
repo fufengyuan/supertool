@@ -183,9 +183,9 @@ impl WireGuardManager {
             .map_err(|e| format!("监听 fd 传递 socket 失败: {}", e))?;
         let _ = spawn_tunnel_subprocess(&conf_path, &socket_path).await?;
 
-        // 等待辅助进程连接并接收 TUN fd（最长 30s）
+        // 等待辅助进程连接并接收 TUN fd（最长 60s——osascript 弹密码框等待用户输入）
         let tun_fd = match tokio::time::timeout(
-            tokio::time::Duration::from_secs(30),
+            tokio::time::Duration::from_secs(60),
             async {
                 let (stream, _) = listener.accept().await.map_err(|e| format!("接受辅助进程连接失败: {}", e))?;
                 wg_tunnel::recv_fd(stream.as_raw_fd())
@@ -648,7 +648,26 @@ fn current_username() -> Result<String, String> {
 
 /// Check whether passwordless sudo is installed for the current user + stool binary.
 pub fn is_passwordless_installed() -> bool {
-    std::path::Path::new(SUDOERS_PATH).exists()
+    if !std::path::Path::new(SUDOERS_PATH).exists() {
+        return false;
+    }
+    // 精确匹配：sudoers 规则必须包含当前二进制路径 + 当前参数（--socket）。
+    // 旧规则（--uds/--status 时代）不匹配新命令，视为未装，走 osascript 弹框。
+    let Ok(content) = std::fs::read_to_string(SUDOERS_PATH) else {
+        return false;
+    };
+    if !content.contains("wg-tunnel --conf /tmp/supertool-wg-* --socket /tmp/supertool-wg-*") {
+        return false;
+    }
+    if let Ok(exe) = tunnel_binary_path() {
+        let exe_canonical = std::fs::canonicalize(&exe)
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| exe.clone());
+        if content.contains(&exe_canonical) || content.contains(&exe) {
+            return true;
+        }
+    }
+    false
 }
 
 /// Install passwordless sudoers rule. Pops up the macOS auth dialog ONCE
