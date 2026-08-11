@@ -45,20 +45,26 @@
         </div>
         <div class="flex-1 overflow-y-auto p-2">
           <div v-for="cfg in wgConfigs" :key="cfg.id" 
-               class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-box cursor-pointer transition-colors border-l-[3px] border-l-transparent hover:bg-base-200"
+               class="flex items-center justify-between px-3 py-2.5 mb-1 rounded-box cursor-pointer transition-all border-l-[3px] hover:bg-base-200"
                :class="{
-                 'bg-primary/10 border-l-primary': wgStatus.configId === cfg.id,
+                 'bg-primary/10 border-l-primary': wgStatus.configId === cfg.id && wgStatus.connected,
                  'bg-info/20 border-l-info': wgStatus.state === 'connecting' && wgStatus.configId === cfg.id
                }"
-               @click="selectWgConfig(cfg)">
+               :title="isActiveWg(cfg) ? (wgStatus.connected ? '点击断开' : '点击连接') : '点击连接'"
+               @click="toggleWg(cfg)">
             <div class="flex-1 min-w-0">
-              <span class="block text-sm font-medium text-base-content truncate">{{ cfg.name }}</span>
+              <div class="flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="wgStateDot(cfg)"></span>
+                <span class="block text-sm font-medium text-base-content truncate">{{ cfg.name }}</span>
+                <span v-if="isActiveWg(cfg) && wgStatus.connected" class="badge badge-xs badge-success shrink-0">已连接</span>
+                <span v-else-if="isActiveWg(cfg) && wgStatus.state === 'connecting'" class="badge badge-xs badge-info shrink-0">连接中</span>
+              </div>
               <span class="block text-[11px] text-base-content/60 truncate mt-0.5">{{ cfg.peerEndpoint }}</span>
             </div>
             <div class="flex gap-1 shrink-0">
-              <button v-if="wgStatus.configId === cfg.id && wgStatus.connected" class="btn btn-ghost btn-xs px-1" title="已连接"><SvgIcon name="check" size="14" /> </button>
-              <button v-else-if="wgStatus.state === 'connecting' && wgStatus.configId === cfg.id" class="btn btn-ghost btn-xs px-1" title="连接中"><SvgIcon name="clock" size="14" /> </button>
-              <button v-else class="btn btn-ghost btn-xs px-1" @click.stop="wgConnect(cfg)" title="连接"><SvgIcon name="play" size="14" class="inline-block" /></button>
+              <button v-if="isActiveWg(cfg) && wgStatus.connected" class="btn btn-xs btn-error" @click.stop="wgDisconnect"><SvgIcon name="power" size="12" /> 断开</button>
+              <button v-else-if="isActiveWg(cfg) && wgStatus.state === 'connecting'" class="btn btn-xs btn-info opacity-60" disabled><SvgIcon name="clock" size="12" /> 连接中...</button>
+              <button v-else class="btn btn-xs btn-primary" @click.stop="wgConnect(cfg)"><SvgIcon name="play" size="12" /> 连接</button>
               <button class="btn btn-ghost btn-xs px-1" @click.stop="editWgConfig(cfg)" title="编辑"><SvgIcon name="pencil" size="14" /> </button>
               <button class="btn btn-ghost btn-xs px-1" @click.stop="wgDelete(cfg)" title="删除"><SvgIcon name="trash" size="14" /> </button>
             </div>
@@ -345,6 +351,21 @@ async function wgConnect(cfg: WgConfig) {
 }
 
 async function wgDisconnect() { try { await getTauriAPI().wireguardDisconnect(); await loadWgStatus(); toast.info('已断开') } catch(e:any) { toast.error('断开失败: ' + e.message) } }
+// 列表项状态辅助
+function isActiveWg(cfg: WgConfig): boolean { return wgStatus.value.configId === cfg.id }
+function wgStateDot(cfg: WgConfig): string {
+  if (wgStatus.value.configId === cfg.id && wgStatus.value.connected) {return 'bg-success'}
+  if (wgStatus.value.state === 'connecting' && wgStatus.value.configId === cfg.id) {return 'bg-info animate-pulse'}
+  return 'bg-base-content/20'
+}
+// 点击列表项：当前项已连接/连接中则断开，否则连接（IDEA/VPN 客户端直觉交互）
+function toggleWg(cfg: WgConfig) {
+  if (wgStatus.value.configId === cfg.id && (wgStatus.value.connected || wgStatus.value.state === 'connecting')) {
+    wgDisconnect()
+  } else {
+    wgConnect(cfg)
+  }
+}
 function selectWgConfig(cfg: WgConfig) {
   // 点击配置项：回填表单打开编辑（此前为空函数，点了没反应）
   editingWg.value = cfg
