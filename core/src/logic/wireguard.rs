@@ -162,6 +162,9 @@ impl WireGuardManager {
         std::fs::write(&conf_path, conf_json.to_string())
             .map_err(|e| format!("写入配置文件失败: {}", e))?;
 
+        // 防御：清理可能残留的同名 socket（异常中断后遗留，bind 会失败）
+        let _ = std::fs::remove_file(&socket_path);
+
         // On macOS, use osascript to elevate privileges. This pops a native
         // system password dialog ("SuperTool wants to make changes").
         // 免密已配置时走 sudo -n，无需弹密码框（避免误导用户以为要输密码）
