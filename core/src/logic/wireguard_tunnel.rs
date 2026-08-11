@@ -1,18 +1,16 @@
 /// WireGuard tunnel subprocess — runs as root, owns the TUN device,
-/// runs boringtun forwarding loop, and exposes a UDS control socket.
+/// runs boringtun forwarding loop, and writes live status to a JSON file.
 ///
 /// Designed to be spawned via `osascript` from the unprivileged Tauri main process:
-///   `sudo /path/to/stool wg-tunnel --conf /tmp/wg.json --uds /tmp/wg.sock`
+///   `sudo /path/to/supertool wg-tunnel --conf /tmp/wg.json --status /tmp/wg-status.json`
 ///
-/// The parent process talks to this subprocess via UDS JSON-lines protocol:
-///   → {"cmd":"status"}     ← {"ok":true,"status":{...}}
-///   → {"cmd":"stop"}        ← {"ok":true}
+/// The parent process polls the status file for byte counts and terminates the
+/// tunnel by sending SIGTERM to this process's PID.
 use boringtun::noise::{Tunn, TunnResult};
 use boringtun::x25519::{PublicKey, StaticSecret};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixListener;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tun2::Configuration;
 
 /// Tunnel config passed from parent process via JSON file
@@ -66,12 +64,12 @@ const TUN_MTU: usize = 1500;
 const WG_BUF: usize = 1580;
 const MAX_LOG_LINES: usize = 500;
 
-/// Main entry point for the `stool wg-tunnel` subcommand.
-/// Reads conf from JSON file, sets up TUN + UDP + boringtun, listens on UDS.
-/// Returns once the tunnel exits (either via UDS stop command or fatal error).
-pub async fn run_tunnel(conf_path: &str, uds_path: &str) -> Result<(), String> {
+/// Main entry point for the `wg-tunnel` subcommand.
+/// Reads conf from JSON file, sets up TUN + UDP + boringtun, writes live status
+/// to a JSON file (polled by the parent), and runs until SIGTERM kills it.
+pub async fn run_tunnel(conf_path: &str, status_path: &str) -> Result<(), String> {
     // Write startup marker so the log is easy to correlate
-    eprintln!("[wg-tunnel] starting: conf={} uds={}", conf_path, uds_path);
+    eprintln!("[wg-tunnel] starting: conf={} status={}", conf_path, status_path);
 
     // 1. Load conf
     let conf_text = std::fs::read_to_string(conf_path)
@@ -149,7 +147,7 @@ pub async fn run_tunnel(conf_path: &str, uds_path: &str) -> Result<(), String> {
         let _ = socket.send(packet).await;
     }
 
-    // 7. Shared status + stop signal
+    // 7. Shared status
     let status = Arc::new(Mutex::new(TunnelStatus::new()));
     {
         let mut s = status.lock().unwrap();
@@ -160,97 +158,42 @@ pub async fn run_tunnel(conf_path: &str, uds_path: &str) -> Result<(), String> {
             conf.config_name, conf.peer_endpoint
         ));
     }
-    let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
 
-    // 8. Set up UDS listener BEFORE forwarding (parent waits for it)
-    // Remove any stale socket file from previous run
-    let _ = std::fs::remove_file(uds_path);
-    let listener = UnixListener::bind(uds_path).map_err(|e| format!("UDS bind 失败: {}", e))?;
-    // Make socket writable by owner only (default is rwx for owner). Fine since
-    // both parent (user) and this child (sudo'd from same user) can read it.
-    use std::os::unix::fs::PermissionsExt;
-    let _ = std::fs::set_permissions(uds_path, std::fs::Permissions::from_mode(0o600));
-
-    // 9. Spawn forwarding loop and UDS server concurrently
+    // 8. Spawn forwarding loop and status-file writer concurrently.
+    //    父进程通过轮询 status_path 获取状态，通过 SIGTERM 停止本进程。
     let status_for_fwd = status.clone();
     let fwd_handle = tokio::spawn(async move {
-        forwarding_loop(tunn, tun_device, socket, status_for_fwd, stop_rx).await;
+        forwarding_loop(tunn, tun_device, socket, status_for_fwd).await;
     });
 
-    let status_for_uds = status.clone();
-    let stop_tx_arc = Arc::new(tokio::sync::Mutex::new(Some(stop_tx)));
-    let uds_handle = tokio::spawn(async move {
-        run_uds_server(listener, status_for_uds, stop_tx_arc).await;
+    let status_for_write = status.clone();
+    let status_path_owned = status_path.to_string();
+    let writer_handle = tokio::spawn(async move {
+        write_status_task(status_for_write, status_path_owned).await;
     });
 
-    // Wait for forwarding loop to exit (triggered by UDS stop or fatal error)
+    // Wait for forwarding loop to exit (fatal error) — normal stop is SIGTERM.
     let _ = fwd_handle.await;
-    uds_handle.abort();
+    writer_handle.abort();
 
-    // Clean up UDS socket file
-    let _ = std::fs::remove_file(uds_path);
+    // Clean up status file
+    let _ = std::fs::remove_file(status_path);
 
     Ok(())
 }
 
-#[derive(Deserialize)]
-#[serde(tag = "cmd", rename_all = "snake_case")]
-enum UdsCommand {
-    Status,
-    Stop,
-}
-
-#[derive(Serialize)]
-struct UdsResponse {
-    ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    status: Option<TunnelStatus>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
-}
-
-async fn run_uds_server(
-    listener: UnixListener,
-    status: Arc<Mutex<TunnelStatus>>,
-    stop_tx: Arc<tokio::sync::Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
-) {
+/// Periodically serialize the live tunnel status to a JSON file (atomic rename),
+/// so the unprivileged parent process can poll it without IPC.
+async fn write_status_task(status: Arc<Mutex<TunnelStatus>>, status_path: String) {
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
     loop {
-        let (stream, _) = match listener.accept().await {
-            Ok(x) => x,
-            Err(_) => continue,
-        };
-        let status = status.clone();
-        let stop_tx = stop_tx.clone();
-        tokio::spawn(async move {
-            let (read_half, mut write_half) = stream.into_split();
-            let mut reader = BufReader::new(read_half);
-            let mut line = String::new();
-            while reader.read_line(&mut line).await.unwrap_or(0) > 0 {
-                let trimmed = line.trim().to_string();
-                line.clear();
-                let resp = match serde_json::from_str::<UdsCommand>(&trimmed) {
-                    Ok(UdsCommand::Status) => UdsResponse {
-                        ok: true,
-                        status: Some(status.lock().unwrap().clone()),
-                        error: None,
-                    },
-                    Ok(UdsCommand::Stop) => {
-                        if let Some(tx) = stop_tx.lock().await.take() {
-                            let _ = tx.send(());
-                        }
-                        UdsResponse { ok: true, status: None, error: None }
-                    }
-                    Err(e) => UdsResponse {
-                        ok: false,
-                        status: None,
-                        error: Some(format!("invalid command: {}", e)),
-                    },
-                };
-                let resp_json = serde_json::to_string(&resp).unwrap_or_default();
-                let _ = write_half.write_all(resp_json.as_bytes()).await;
-                let _ = write_half.write_all(b"\n").await;
-            }
-        });
+        interval.tick().await;
+        let snapshot = status.lock().unwrap().clone();
+        let json = serde_json::to_string(&snapshot).unwrap_or_default();
+        let tmp = format!("{}.tmp", status_path);
+        if std::fs::write(&tmp, json).is_ok() {
+            let _ = std::fs::rename(&tmp, &status_path);
+        }
     }
 }
 
@@ -259,7 +202,6 @@ async fn forwarding_loop(
     mut tun_device: tun2::AsyncDevice,
     socket: tokio::net::UdpSocket,
     status: Arc<Mutex<TunnelStatus>>,
-    mut stop_rx: tokio::sync::oneshot::Receiver<()>,
 ) {
     let mut tun_read_buf = [0u8; TUN_MTU];
     let mut wg_encap_buf = [0u8; WG_BUF];
@@ -348,11 +290,6 @@ async fn forwarding_loop(
                 if let Ok(mut s) = status.lock() {
                     s.latest_handshake = Some(chrono::Utc::now().to_rfc3339());
                 }
-            }
-
-            _ = &mut stop_rx => {
-                add_log(&status, "收到停止信号, 关闭隧道...".to_string());
-                break;
             }
         }
 
