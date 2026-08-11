@@ -313,6 +313,70 @@ impl super::CoreService {
             .await?;
         Ok(json!({"success": true, "data": {"bytesUploaded": size, "remotePath": remote_path}}))
     }
+
+    /// 目录 zip 打包上传 + 远程解压（参考 CICD 部署：单文件传输，快且保留结构）。
+    /// 本地用系统 zip 打包 → sftp 上传 → ssh 远程 unzip -o 解压到目标目录。
+    pub async fn sftp_upload_dir_as_zip(
+        &self,
+        server_id: &str,
+        local_dir: &str,
+        remote_dir: &str,
+    ) -> Result<Value, String> {
+        if !std::path::Path::new(local_dir).is_dir() {
+            return Err("本地路径不是目录".to_string());
+        }
+        let q = |s: &str| s.replace('\'', "'\\''");
+
+        // 1. 本地打包（系统 zip，macOS/Linux 自带）
+        let ts = chrono::Utc::now().timestamp_millis();
+        let zip_path = format!("/tmp/supertool-sftp-{}.zip", ts);
+        let out = std::process::Command::new("zip")
+            .args(["-r", &zip_path, "."])
+            .current_dir(local_dir)
+            .output()
+            .map_err(|e| format!("zip 命令启动失败: {}", e))?;
+        if !out.status.success() {
+            let _ = std::fs::remove_file(&zip_path);
+            return Err(format!(
+                "本地打包失败: {}",
+                String::from_utf8_lossy(&out.stderr)
+            ));
+        }
+
+        // 2. 确保远程目录存在并上传 zip
+        let rdir = remote_dir.trim_end_matches('/').to_string();
+        {
+            let sid = server_id.to_string();
+            let mkdir_cmd = format!("mkdir -p '{}'", q(&rdir));
+            let _ = self
+                .run_ssh_with_retry(server_id, move |ssh| ssh.exec_command(&sid, &mkdir_cmd))
+                .await?;
+        }
+        let remote_zip = format!("{}/.supertool-upload.zip", rdir);
+        self.sftp_upload_to_remote(server_id, &zip_path, &remote_zip)
+            .await?;
+
+        // 3. 远程解压并清理
+        {
+            let sid = server_id.to_string();
+            let unzip_cmd = format!(
+                "cd '{}' && unzip -o .supertool-upload.zip && rm -f .supertool-upload.zip",
+                q(&rdir)
+            );
+            let res = self
+                .run_ssh_with_retry(server_id, move |ssh| ssh.exec_command(&sid, &unzip_cmd))
+                .await?;
+            if !res.success {
+                let _ = std::fs::remove_file(&zip_path);
+                return Err(format!("远程解压失败: {}", res.error_output));
+            }
+        }
+
+        // 4. 清理本地 zip
+        let _ = std::fs::remove_file(&zip_path);
+
+        Ok(json!({"success": true, "data": {"remotePath": rdir}}))
+    }
     // ============ PTY Terminal 包装方法 ============
     pub async fn ssh_create_terminal(
         &self,

@@ -252,6 +252,19 @@ pub async fn sftp_upload_folder(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub async fn sftp_upload_folder_zip(
+    core: State<'_, supertool_core::logic::CoreService>,
+    server_id: String,
+    local_dir: String,
+    remote_dir: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] sftp_upload_folder_zip() called");
+    core.ensure_ssh_connected(&server_id).await?;
+    core.sftp_upload_dir_as_zip(&server_id, &local_dir, &remote_dir)
+        .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub fn sftp_get_downloads_dir() -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] sftp_get_downloads_dir() called");
     let download_dir = dirs::download_dir()
