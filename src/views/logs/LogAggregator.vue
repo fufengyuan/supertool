@@ -1804,7 +1804,12 @@ const MAX_LINES = computed(() => {
 const totalItems = computed(() => displayLines.value.length)
 
 const visibleStart = computed(() => {
-  return Math.max(0, Math.floor(scrollTop.value / VIRTUAL_LINE_HEIGHT) - OVERSCAN)
+  // 长行换行会使实际内容高度高于「行数 × 行高」的估算值，scrollTop 反推的行号可能
+  // 超出总行数 → slice 返回空数组 → 白屏（初次打开、日志量少时最易触发，滚动后恢复）。
+  // 钳制到 [0, total-1]，保证渲染窗口永远非空。
+  const total = totalItems.value
+  const raw = Math.floor(scrollTop.value / VIRTUAL_LINE_HEIGHT) - OVERSCAN
+  return Math.max(0, Math.min(raw, Math.max(0, total - 1)))
 })
 
 const visibleEnd = computed(() => {
