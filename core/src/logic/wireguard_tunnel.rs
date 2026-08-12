@@ -138,12 +138,14 @@ const MAX_LOG_LINES: usize = 500;
 // SCM_RIGHTS：跨进程传递 TUN fd（辅助进程 root 创建 → 主进程）
 // ────────────────────────────────────────────────────────────────────────────
 
-/// 通过已连接的 unix socket 把 fd 传给对方（SCM_RIGHTS，一条空数据 + 附属 fd）
+/// 通过已连接的 unix socket 把 fd 传给对方（SCM_RIGHTS）
 pub fn send_fd(sock: RawFd, fd_to_send: RawFd) -> Result<(), String> {
     unsafe {
+        // macOS 上 sendmsg 必须携带至少 1 字节 payload 才会可靠传递 cmsg（SCM_RIGHTS）
+        let mut data: u8 = 0;
         let mut iov = libc::iovec {
-            iov_base: std::ptr::null_mut(),
-            iov_len: 0,
+            iov_base: &mut data as *mut u8 as *mut libc::c_void,
+            iov_len: 1,
         };
         let mut msg: libc::msghdr = std::mem::zeroed();
         msg.msg_iov = &mut iov;
@@ -224,10 +226,8 @@ pub async fn run_tunnel(conf_path: &str, socket_path: &str) -> Result<(), String
         .map_err(|e| format!("创建 TUN 设备失败: {}", e))?;
 
     let raw_fd = tun_device.as_raw_fd();
-    // 需要释放 AsyncDevice 的 fd 所有权以便传走（避免关闭）。用 into_raw_fd 语义：
-    // AsyncDevice 无 into_raw_fd，这里用 ManuallyDrop 避免 drop 时关闭 fd。
-    let fd_to_send = std::mem::ManuallyDrop::new(tun_device);
-    let _ = &fd_to_send;
+    // 用 ManuallyDrop 包裹：send_fd 传走 fd 后不 drop（避免关闭 fd），进程退出由 OS 回收
+    let _fd_to_send = std::mem::ManuallyDrop::new(tun_device);
 
     // 连接主进程 socket
     let stream = tokio::net::UnixStream::connect(socket_path)
