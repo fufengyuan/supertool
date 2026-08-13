@@ -24,6 +24,15 @@
         </button>
       </div>
 
+      <!-- SPA 动态渲染页面提示 -->
+      <div v-if="spaWarn" class="flex items-start gap-2 mb-3 px-3 py-2 bg-warning/10 border border-warning/30 rounded-lg text-xs text-warning">
+        <SvgIcon name="alertTriangle" size="14" class="mt-0.5 shrink-0" />
+        <div class="flex-1">
+          <p class="leading-relaxed">{{ spaWarn }}</p>
+          <button class="btn btn-xs btn-outline mt-1.5" @click="openInBrowser"><SvgIcon name="globe" size="11" /> 在浏览器中打开</button>
+        </div>
+      </div>
+
       <div class="flex items-center gap-3 mb-3">
         <div class="flex-1 h-px bg-base-content/10"></div>
         <span class="text-[11px] text-base-content/40">或者直接粘贴 HTML</span>
@@ -80,6 +89,7 @@ import { gfm } from 'turndown-plugin-gfm'
 import { renderMarkdown, setupCopyCode } from '../../../composables/useMarkdownRenderer'
 import { copyText } from '../toolUtils'
 import { getTauriAPI } from '../../../utils/tauri-api'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import { useToast } from '@/composables/useToast'
 
 defineEmits<{ back: [] }>()
@@ -91,6 +101,25 @@ const output = ref('')
 const loading = ref(false)
 // 输出视图：Markdown 源码 / 渲染预览
 const viewMode = ref<'md' | 'preview'>('md')
+
+// SPA 动态渲染页面检测：抓到的 HTML 是空壳（正文靠 JS 渲染，reqwest 拿不到）
+const spaWarn = ref('')
+// 最近一次抓取成功的 URL（openInBrowser 用它，避免用户改输入框后打开无关地址）
+const fetchedUrl = ref('')
+
+// 去掉 script/style/标签后统计可见文本长度
+function extractTextLength(html: string): number {
+  const body = html
+    .replace(/<script[\s\S]*?<\/script>/g, ' ')
+    .replace(/<style[\s\S]*?<\/style>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+  return body.replace(/\s+/g, ' ').trim().length
+}
+
+// 判定：HTML 较大但可见文本极少 → SPA 空壳
+function isSpaShell(html: string): boolean {
+  return html.length > 1500 && extractTextLength(html) < 200
+}
 
 // 渲染预览（marked + DOMPurify 消毒 + 代码高亮）
 const previewHtml = computed(() => (output.value ? renderMarkdown(output.value) : ''))
@@ -146,10 +175,18 @@ async function fetchUrl() {
   loading.value = true
   try {
     const text = await getTauriAPI().fetchPageContent(url)
+    fetchedUrl.value = url
     htmlInput.value = text
     await doConvert(text)
+    // SPA 空壳检测：转换结果几乎为空且原始 HTML 是动态渲染壳 → 明确提示
+    if (isSpaShell(text) && output.value.trim().length < 80) {
+      spaWarn.value = '该页面正文可能由 JS 动态渲染（SPA）或尚未渲染完成，直接抓取只能拿到空壳。请点击下方按钮在浏览器中打开，全选复制正文后粘贴到下方 HTML 输入框。'
+    } else {
+      spaWarn.value = ''
+    }
   } catch (err: any) {
     toast.error(`获取网页失败: ${err.message || String(err)}`)
+    spaWarn.value = ''
   } finally {
     loading.value = false
   }
@@ -161,6 +198,19 @@ async function convert() {
     return
   }
   await doConvert(htmlInput.value)
+}
+
+// 在系统浏览器中打开抓取成功的网址（SPA 页面提示引导用）
+async function openInBrowser() {
+  const url = fetchedUrl.value.trim()
+  if (!/^https?:\/\/.+/.test(url)) {
+    return
+  }
+  try {
+    await openUrl(url)
+  } catch (e: any) {
+    toast.error(`打开浏览器失败: ${e?.message || String(e)}`)
+  }
 }
 
 async function doConvert(html: string) {
@@ -190,6 +240,8 @@ function clear() {
   urlInput.value = ''
   output.value = ''
   viewMode.value = 'md'
+  spaWarn.value = ''
+  fetchedUrl.value = ''
 }
 </script>
 
