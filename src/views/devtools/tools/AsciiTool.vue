@@ -79,8 +79,9 @@ interface CharInfo {
 
 const results = computed<CharInfo[]>(() => {
   if (!input.value) {return []}
+  // Array.from 按码点迭代，codePointAt 取完整码点（emoji/非 BMP 字符不再是代理单元）
   return Array.from(input.value).map(ch => {
-    const code = ch.charCodeAt(0)
+    const code = ch.codePointAt(0) || 0
     return {
       char: ch,
       dec: String(code),
