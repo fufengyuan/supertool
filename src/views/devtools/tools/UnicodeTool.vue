@@ -116,6 +116,16 @@ function toUnicode() {
   }
 }
 
+// Unicode → String（支持 \uXXXX 代理对 与 \u{1F600} 大括号形式，1-6 位）
+const UNICODE_RE = /\\u\{([0-9a-fA-F]{1,6})\}|\\u([0-9a-fA-F]{4})/g
+
+function unicodeToText(str: string): string {
+  return str.replace(UNICODE_RE, (_, brace, plain) => {
+    const code = parseInt(brace ?? plain, 16)
+    return fromCodePointSafe(code)
+  })
+}
+
 // Unicode → String
 function fromUnicode() {
   if (!inputText.value.trim()) {
@@ -123,9 +133,7 @@ function fromUnicode() {
     return
   }
   try {
-    outputText.value = inputText.value.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => {
-      return String.fromCharCode(parseInt(hex, 16))
-    })
+    outputText.value = unicodeToText(inputText.value)
   } catch (e: any) {
     toast.error(`转换失败: ${e.message}`)
     outputText.value = ''
@@ -152,6 +160,21 @@ function toHtmlEntity() {
   }
 }
 
+// HTML 实体 → String（支持十进制 &#123; 与十六进制 &#x1F600; / &#X1F600;，大小写不敏感）
+const HTML_ENTITY_RE = /&#(x[0-9a-fA-F]{1,6}|X[0-9a-fA-F]{1,6}|[0-9]{1,7});/g
+
+// 码点转字符：超过 Unicode 上限（0x10FFFF）时用替换字符 U+FFFD，避免 RangeError 中断
+function fromCodePointSafe(code: number): string {
+  return code >= 0 && code <= 0x10FFFF ? String.fromCodePoint(code) : '\uFFFD'
+}
+
+function htmlEntityToText(str: string): string {
+  return str.replace(HTML_ENTITY_RE, (_, num) => {
+    const code = (num[0] === 'x' || num[0] === 'X') ? parseInt(num.slice(1), 16) : parseInt(num, 10)
+    return fromCodePointSafe(code)
+  })
+}
+
 // HTML Entity → String
 function fromHtmlEntity() {
   if (!inputText.value.trim()) {
@@ -159,9 +182,7 @@ function fromHtmlEntity() {
     return
   }
   try {
-    outputText.value = inputText.value.replace(/&#(\d+);/g, (_, dec) => {
-      return String.fromCodePoint(parseInt(dec, 10))
-    })
+    outputText.value = htmlEntityToText(inputText.value)
   } catch (e: any) {
     toast.error(`转换失败: ${e.message}`)
     outputText.value = ''
@@ -188,6 +209,13 @@ function toCssEntity() {
   }
 }
 
+// CSS 实体 → String（CSS 转义支持 1-6 位十六进制，贪婪匹配）
+const CSS_ENTITY_RE = /\\[0-9a-fA-F]{1,6}/g
+
+function cssEntityToText(str: string): string {
+  return str.replace(CSS_ENTITY_RE, m => fromCodePointSafe(parseInt(m.slice(1), 16)))
+}
+
 // CSS Entity → String
 function fromCssEntity() {
   if (!inputText.value.trim()) {
@@ -195,9 +223,7 @@ function fromCssEntity() {
     return
   }
   try {
-    outputText.value = inputText.value.replace(/\\([0-9a-fA-F]{4})/g, (_, hex) => {
-      return String.fromCharCode(parseInt(hex, 16))
-    })
+    outputText.value = cssEntityToText(inputText.value)
   } catch (e: any) {
     toast.error(`转换失败: ${e.message}`)
     outputText.value = ''
@@ -211,9 +237,7 @@ function previewUnicode() {
     return
   }
   try {
-    unicodePreview.value = unicodeInput.value.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => {
-      return String.fromCharCode(parseInt(hex, 16))
-    })
+    unicodePreview.value = unicodeToText(unicodeInput.value)
   } catch {
     unicodePreview.value = ''
   }
@@ -225,9 +249,7 @@ function previewHtml() {
     return
   }
   try {
-    htmlPreview.value = htmlInput.value.replace(/&#(\d+);/g, (_, dec) => {
-      return String.fromCodePoint(parseInt(dec, 10))
-    })
+    htmlPreview.value = htmlEntityToText(htmlInput.value)
   } catch {
     htmlPreview.value = ''
   }
