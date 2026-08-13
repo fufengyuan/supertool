@@ -11,6 +11,14 @@
         <button class="btn btn-sm join-item" :class="mode === 'encode' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'encode'">编码</button>
         <button class="btn btn-sm join-item" :class="mode === 'decode' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'decode'">解码</button>
       </div>
+      <label class="flex items-center gap-1 text-[11px] text-base-content/50">
+        编码策略
+        <select v-model="encodeMode" class="select select-xs select-bordered bg-base-200/60 w-[170px]" title="Component：空格→%20（encodeURIComponent，默认）；URI：保留 / : ? & = 等结构字符（encodeURI）；Form：空格→+（application/x-www-form-urlencoded / qs 库风格）">
+          <option value="component">Component（%20）</option>
+          <option value="uri">URI（保留结构字符）</option>
+          <option value="form">Form（空格→+）</option>
+        </select>
+      </label>
       <button class="btn btn-primary btn-sm ml-auto" @click="process">
         {{ mode === 'encode' ? '编码' : '解码' }}
       </button>
@@ -64,6 +72,8 @@ const toast = useToast()
 const mode = ref<'encode' | 'decode'>('encode')
 const inputText = ref('')
 const outputText = ref('')
+// 编码策略：component = encodeURIComponent（空格→%20）；uri = encodeURI（保留结构字符）；form = 空格→+
+const encodeMode = ref<'component' | 'uri' | 'form'>('component')
 
 const examples = [
   { label: '中文', text: '你好世界' },
@@ -81,10 +91,20 @@ function process() {
 
   try {
     if (mode.value === 'encode') {
-      // Encode each component separately to handle URLs properly
-      outputText.value = encodeURIComponent(inputText.value)
+      // 按所选策略编码：component 逐组件转义；uri 保留 URL 结构字符；form 用 + 表示空格
+      if (encodeMode.value === 'uri') {
+        outputText.value = encodeURI(inputText.value)
+      } else if (encodeMode.value === 'form') {
+        outputText.value = encodeURIComponent(inputText.value).replace(/%20/g, '+')
+      } else {
+        outputText.value = encodeURIComponent(inputText.value)
+      }
     } else {
-      outputText.value = decodeURIComponent(inputText.value.trim())
+      // 解码：form 策略先把 + 还原为空格（其他策略 + 是字面量，不处理）
+      const str = encodeMode.value === 'form' ? inputText.value.replace(/\+/g, ' ') : inputText.value
+      outputText.value = encodeMode.value === 'uri'
+        ? decodeURI(str.trim())
+        : decodeURIComponent(str.trim())
     }
   } catch (e: any) {
     toast.error(`${mode.value === 'encode' ? '编码' : '解码'}失败: ${e.message}`)
