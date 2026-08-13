@@ -2,26 +2,111 @@ use reqwest;
 use tauri::{AppHandle, Url, WebviewUrl, WebviewWindowBuilder};
 use tokio::sync::oneshot;
 
+/// 校验抓取 URL：仅允许公网 http/https（reqwest 主路径与 WebView 次路径共用，
+/// 防止任一入口被用于探测内网/回环/云元数据服务）
+fn validate_fetch_url(url: &str) -> Result<(), String> {
+    let parsed = Url::parse(url).map_err(|e| format!("无效的 URL: {}", e))?;
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err("仅支持 http/https 协议".into());
+    }
+    if let Some(host) = parsed.host() {
+        if is_blocked_host(&host) {
+            return Err(format!("不支持抓取内网/回环地址（{}）", host));
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn fetch_page_content(url: String) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
+        // 禁用自动重定向：手动逐跳跟随并重新校验（防 302 跳转绕过 SSRF 拦截到内网/元数据端点）
+        .redirect(reqwest::redirect::Policy::none())
         .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .build()
         .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
 
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("请求失败: {}", e))?;
+    let mut current = url;
+    for _ in 0..5 {
+        validate_fetch_url(&current)?;
+        let response = client
+            .get(&current)
+            .send()
+            .await
+            .map_err(|e| format!("请求失败: {}", e))?;
 
-    let text = response
-        .text()
-        .await
-        .map_err(|e| format!("读取响应失败: {}", e))?;
+        // 302/301 重定向：仅跳转状态码才解析 Location 进入下一跳（每跳重新校验目标地址）
+        if response.status().is_redirection() {
+            if let Some(loc) = response.headers().get(reqwest::header::LOCATION) {
+                let loc_str = loc.to_str().map_err(|e| format!("无效的重定向地址: {}", e))?;
+                if !loc_str.trim().is_empty() {
+                    current = response
+                        .url()
+                        .join(loc_str)
+                        .map_err(|e| format!("解析重定向地址失败: {}", e))?
+                        .to_string();
+                    continue;
+                }
+            }
+        }
 
-    Ok(text)
+        let text = response.text().await.map_err(|e| format!("读取响应失败: {}", e))?;
+        return Ok(text);
+    }
+    Err("重定向次数过多（超过 5 次）".into())
+}
+
+/// IPv4 私网/回环/链路本地/CGNAT 段判定（IPv4 直连与 IPv4-mapped IPv6 共用）
+fn is_blocked_v4(o: [u8; 4]) -> bool {
+    if o[0] == 127 || o[0] == 0 {
+        return true; // 回环 + 未指定
+    }
+    // 私网：10/8、172.16/12、192.168/16；链路本地：169.254/16；
+    // CGNAT 共享地址段 100.64/10（阿里云元数据端点 100.100.100.200 在此）
+    o[0] == 10
+        || (o[0] == 172 && (16..=31).contains(&o[1]))
+        || (o[0] == 192 && o[1] == 168)
+        || (o[0] == 169 && o[1] == 254)
+        || (o[0] == 100 && (64..=127).contains(&o[1]))
+}
+
+/// 拒绝回环/私网/链路本地/CGNAT 地址（防 SSRF 类：恶意 URL 触发本地服务或云元数据端点）。
+/// 接收 `Url::host()` 的 `Host<&str>` 枚举（注意：host_str() 对 IPv6 返回带方括号的
+/// 字符串 "[::1]"，直接 parse<IpAddr> 会失败导致绕过——必须用 Host 枚举匹配）。
+/// 注：仅拦截字面 IP/localhost；域名 DNS 重绑定到内网无法静态识别，属已知局限。
+fn is_blocked_host(host: &url::Host<&str>) -> bool {
+    match host {
+        url::Host::Domain(domain) => {
+            let h = domain.to_lowercase();
+            h == "localhost" || h.ends_with(".localhost")
+        }
+        url::Host::Ipv4(v4) => is_blocked_v4(v4.octets()),
+        url::Host::Ipv6(v6) => {
+            // IPv4-mapped IPv6（::ffff:10.0.0.1 等）按 V4 判定，防绕过
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return is_blocked_v4(v4.octets());
+            }
+            // IPv4-compatible IPv6（::127.0.0.1 等，前 6 段全 0）同样按 V4 判定
+            let seg = v6.segments();
+            if seg[0] == 0 && seg[1] == 0 && seg[2] == 0 && seg[3] == 0 && seg[4] == 0 && seg[5] == 0 {
+                let v4 = [
+                    (seg[6] >> 8) as u8,
+                    (seg[6] & 0xff) as u8,
+                    (seg[7] >> 8) as u8,
+                    (seg[7] & 0xff) as u8,
+                ];
+                return is_blocked_v4(v4);
+            }
+            if v6.is_loopback() || v6.is_unspecified() {
+                return true;
+            }
+            // ULA fc00::/7；链路本地 fe80::/10；site-local fec0::/10（已废弃，顺带拦截）
+            (0xfc00..=0xfdff).contains(&seg[0])
+                || (0xfe80..=0xfebf).contains(&seg[0])
+                || (0xfec0..=0xfeff).contains(&seg[0])
+        }
+    }
 }
 
 /// JS 渲染页面（SPA）抓取：开隐藏 WebView 加载 URL，等脚本执行完渲染后提取正文 HTML。
@@ -29,10 +114,8 @@ pub async fn fetch_page_content(url: String) -> Result<String, String> {
 /// 注意：隐藏 WebView 中远程页面无 Tauri IPC 权限（capabilities 仅 local），无本地数据面。
 #[tauri::command]
 pub async fn fetch_page_content_js(app: AppHandle, url: String) -> Result<String, String> {
+    validate_fetch_url(&url)?;
     let parsed = Url::parse(&url).map_err(|e| format!("无效的 URL: {}", e))?;
-    if parsed.scheme() != "http" && parsed.scheme() != "https" {
-        return Err("仅支持 http/https 协议".into());
-    }
 
     // 唯一窗口 label（原子计数器，避免时间戳碰撞与 close 失败后同 label 重建冲突）
     static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -41,8 +124,23 @@ pub async fn fetch_page_content_js(app: AppHandle, url: String) -> Result<String
         COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     );
 
+    // 导航锁源：只允许与初始 URL 同 host:port 的顶层导航，禁止 file: 等本地 scheme
+    // （防页面自我导航到任意地址/同主机其他端口，配合无 IPC 权限的远程页面；
+    //   用 port_or_known_default 比较，避免 https 默认 443 被误判为不同端口）
+    let initial_host = parsed.host_str().unwrap_or("").to_string();
+    let initial_port = parsed.port_or_known_default();
+
     let webview = WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(parsed))
         .visible(false)
+        .on_navigation(move |nav_url| {
+            if nav_url.scheme() == "file" {
+                return false;
+            }
+            match nav_url.host_str() {
+                Some(h) => h == initial_host && nav_url.port_or_known_default() == initial_port,
+                None => false,
+            }
+        })
         .build()
         .map_err(|e| format!("创建抓取窗口失败: {}", e))?;
 
@@ -56,45 +154,70 @@ pub async fn fetch_page_content_js(app: AppHandle, url: String) -> Result<String
     result
 }
 
-/// 等页面 JS 渲染完成后提取正文容器 HTML
+/// 正文容器候选选择器（SAMPLE_JS / EXTRACT_JS 内嵌同一列表）：
+/// SPA 文档站结构差异大，固定顺序取第一个可能命中侧边栏/目录等窄容器，
+/// 故按「文本最多」选取。
+
+/// 采样 JS：返回各候选容器中文本最长的长度（找不到正文容器返回 0）
+const SAMPLE_JS: &str = r#"(function(){
+    var sels = ['main','article','[role="main"]','.markdown-body','.markdown','#content','#article-content','.article-content','.doc-content','.doc-content-wrapper','.markdown-content','[class*="detail-content"]','[class*="doc-detail"]'];
+    var best = 0;
+    for (var i = 0; i < sels.length; i++) {
+        var el = document.querySelector(sels[i]);
+        if (el) { var l = el.innerText ? el.innerText.trim().length : 0; if (l > best) best = l; }
+    }
+    return best;
+})()"#;
+
+/// 提取 JS：取文本最多的候选容器（回退 body），剥离导航/脚本/交互元素
+const EXTRACT_JS: &str = r#"(function(){
+    var sels = ['main','article','[role="main"]','.markdown-body','.markdown','#content','#article-content','.article-content','.doc-content','.doc-content-wrapper','.markdown-content','[class*="detail-content"]','[class*="doc-detail"]'];
+    var best = null, bestLen = 0;
+    for (var i = 0; i < sels.length; i++) {
+        var el = document.querySelector(sels[i]);
+        if (!el) continue;
+        var l = el.innerText ? el.innerText.trim().length : 0;
+        if (l > bestLen) { bestLen = l; best = el; }
+    }
+    var root = best || document.body;
+    var clone = root.cloneNode(true);
+    clone.querySelectorAll('script,style,nav,header,footer,aside,iframe,form,button,input,select,textarea,svg,.ad,.ads,.advertisement').forEach(function(el){el.remove()});
+    return clone.innerHTML;
+})()"#;
+
+/// 等页面 JS 渲染完成后提取正文容器 HTML。
+/// 等待策略（解决 SPA 懒加载正文导致"判定过早只抓到目录"的问题）：
+/// 1) 轮询正文容器文本长度，需连续两次采样相同（内容稳定）才认为渲染完成；
+/// 2) 稳定后再等 1.2s 让异步注入收尾，提取后校验 HTML 长度 >800，否则重置继续等待重试。
 async fn fetch_rendered_html(webview: &tauri::WebviewWindow) -> Result<String, String> {
-    // 轮询判定渲染完成（最多 15s）：
-    // 判定条件=正文容器存在且文本>200，或页面整体文本>1000（避免 404/验证页提前判定）
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
-    let mut rendered = false;
-    while std::time::Instant::now() < deadline {
-        let js = r#"(function(){
-            var root = document.querySelector('main, article, [role="main"], .markdown-body, #content, .article-content, .doc-content, .markdown') || document.body;
-            return JSON.stringify({ has: !!document.querySelector('article, main, [role="main"]'), len: root.innerText.trim().length });
-        })()"#;
-        match eval_js_string(webview, js).await {
-            Ok(s) => {
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&s) {
-                    let has = v.get("has").and_then(|x| x.as_bool()).unwrap_or(false);
-                    let len = v.get("len").and_then(|x| x.as_i64()).unwrap_or(0);
-                    if len > 200 && (has || len > 1000) {
-                        rendered = true;
-                        break;
-                    }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    let mut prev_len: i64 = -1;
+    loop {
+        if std::time::Instant::now() >= deadline {
+            return Err("等待页面渲染超时（20 秒），页面可能加载缓慢、需要登录或验证".into());
+        }
+        let len: i64 = match eval_js_string(webview, SAMPLE_JS).await {
+            Ok(s) => serde_json::from_str::<serde_json::Value>(&s)
+                .ok()
+                .and_then(|v| v.as_i64())
+                .unwrap_or(-1),
+            Err(_) => -1,
+        };
+        if len > 200 && len == prev_len {
+            // 内容稳定：等异步注入收尾，再提取并校验
+            tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+            match eval_js_string(webview, EXTRACT_JS).await {
+                Ok(html) if html.chars().count() > 800 => return Ok(html),
+                _ => {
+                    // 提取过短或失败：重置稳定标记，继续等待重试
+                    prev_len = -1;
                 }
             }
-            Err(_) => { /* 页面尚未就绪，继续等待 */ }
+        } else {
+            prev_len = len;
         }
         tokio::time::sleep(std::time::Duration::from_millis(700)).await;
     }
-    if !rendered {
-        return Err("等待页面渲染超时（15 秒），页面可能加载缓慢、需要登录或验证".into());
-    }
-
-    // 提取正文容器（优先正文选择器，回退 body），并剥离导航/脚本/交互元素。
-    // 注：剥离 header/footer 可能误伤正文整体包在其内的罕见页面，属已知取舍
-    let js = r#"(function(){
-        var root = document.querySelector('main, article, [role="main"], .markdown-body, #content, .article-content, .doc-content, .markdown') || document.body;
-        var clone = root.cloneNode(true);
-        clone.querySelectorAll('script,style,nav,header,footer,aside,iframe,form,button,input,select,textarea,svg,.ad,.ads,.advertisement').forEach(function(el){el.remove()});
-        return clone.innerHTML;
-    })()"#;
-    eval_js_string(webview, js).await
 }
 
 /// 在 webview 中执行 JS 并取回结果（eval_with_callback 的结果是 JSON 序列化字符串）
@@ -117,4 +240,60 @@ async fn eval_js_string(webview: &tauri::WebviewWindow, js: &str) -> Result<Stri
 
     // JS 返回字符串时回调里是带引号的 JSON；返回数字时是裸数字——统一反序列化
     Ok(serde_json::from_str::<String>(&json).unwrap_or_else(|_| json))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_rejects_internal_hosts() {
+        // IPv4 私网/回环/链路本地/CGNAT
+        for u in [
+            "http://127.0.0.1:8080/",
+            "http://localhost/",
+            "http://10.0.0.1/",
+            "http://172.16.0.1/",
+            "http://192.168.1.1/",
+            "http://169.254.169.254/latest/meta-data/",
+            "http://100.100.100.200/",   // 阿里云元数据
+            "http://100.64.0.1/",        // CGNAT 段起点
+            "http://100.127.255.255/",   // CGNAT 段终点
+            // IPv6 回环/私网/mapped/compatible
+            "http://[::1]/",
+            "http://[::ffff:127.0.0.1]/",
+            "http://[::ffff:10.0.0.1]/",
+            "http://[::127.0.0.1]/",
+            "http://[fd00::1]/",
+            "http://[fe80::1]/",
+            "http://[fec0::1]/",  // site-local（已废弃）
+        ] {
+            assert!(validate_fetch_url(u).is_err(), "应拦截: {}", u);
+        }
+    }
+
+    #[test]
+    fn validate_allows_public_hosts() {
+        for u in [
+            "https://example.com/",
+            "http://8.8.8.8/",
+            "http://114.114.114.114/",
+            "https://opendocs.alipay.com/pre-open/07wrzc",
+            "http://172.32.0.1/",   // 私网段外
+            "http://100.128.0.1/",  // CGNAT 段外
+            "http://169.255.0.1/",  // 链路本地段外
+            // 公网 IPv6（防新分支过度拦截回归）
+            "http://[2606:4700::1111]/",
+            "http://[::ffff:8.8.8.8]/",
+        ] {
+            assert!(validate_fetch_url(u).is_ok(), "应放行: {}", u);
+        }
+    }
+
+    #[test]
+    fn validate_rejects_bad_scheme() {
+        assert!(validate_fetch_url("file:///etc/passwd").is_err());
+        assert!(validate_fetch_url("ftp://example.com/").is_err());
+        assert!(validate_fetch_url("javascript:alert(1)").is_err());
+    }
 }
