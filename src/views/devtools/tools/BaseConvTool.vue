@@ -13,6 +13,18 @@
             <option v-for="b in baseOptions" :key="b" :value="b">{{ b }}</option>
           </select>
         </div>
+        <div>
+          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">自定义目标进制 <span class="text-base-content/30">(2-64，可选)</span></span>
+          <input
+            v-model.number="targetBase"
+            type="number"
+            min="2"
+            max="64"
+            placeholder="留空使用常用进制"
+            class="input input-bordered input-sm w-[130px] font-mono text-xs bg-base-200/60"
+            @input="convert"
+          />
+        </div>
       </div>
       <div class="mt-3">
         <span class="text-[11px] font-medium text-base-content/50 mb-1 block">输入数值</span>
@@ -58,6 +70,8 @@ defineEmits<{ back: [] }>()
 const toast = useToast()
 const input = ref('')
 const inputBase = ref(10)
+// 自定义目标进制（2-64），空 = 仅显示常用进制
+const targetBase = ref<number | null>(null)
 
 const baseOptions = computed(() => {
   const bases: number[] = []
@@ -77,8 +91,14 @@ const targetBases = [
 ]
 
 const results = computed(() => {
-  if (!input.value.trim()) {return targetBases.map(b => ({ ...b, value: '' }))}
-  return targetBases.map(b => ({
+  const baseItems = [...targetBases]
+  // 自定义目标进制（2-64 整数），与预设去重后追加显示
+  const tb = targetBase.value
+  if (typeof tb === 'number' && Number.isInteger(tb) && tb >= 2 && tb <= 64 && !baseItems.some(b => b.base === tb)) {
+    baseItems.push({ label: `自定义 (${tb})`, base: tb })
+  }
+  if (!input.value.trim()) {return baseItems.map(b => ({ ...b, value: '' }))}
+  return baseItems.map(b => ({
     ...b,
     value: baseConvert(input.value, inputBase.value, b.base),
   }))
