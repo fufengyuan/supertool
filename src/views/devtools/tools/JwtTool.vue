@@ -103,7 +103,10 @@ function base64UrlDecode(str: string): string {
   while (base64.length % 4) {
     base64 += '='
   }
-  return atob(base64)
+  // JWT header/payload 是对 UTF-8 字节做的 base64url，atob 得到 Latin-1 字符串，
+  // 必须按 UTF-8 解码，否则中文 payload（如 name:张三）会乱码
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+  return new TextDecoder('utf-8').decode(bytes)
 }
 
 function formatDate(timestamp: number): string {
