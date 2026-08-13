@@ -141,6 +141,45 @@ function getTimezoneOffset(tz: string, date: Date): string {
   }
 }
 
+// 某时刻在指定时区的 UTC 偏移（毫秒；UTC+8 → +8*3600*1000）
+function getTzOffsetMs(timeZone: string, date: Date): number {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    }).formatToParts(date)
+    const get = (t: string) => Number(parts.find(p => p.type === t)?.value)
+    // 午夜时 Intl 可能输出 hour=24，取模回 0
+    const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second'))
+    return asUtc - date.getTime()
+  } catch {
+    return 0
+  }
+}
+
+// 兼容 'YYYY-MM-DD HH:mm:ss' 与 'YYYY-MM-DDTHH:mm:ss'：
+// 空格分隔格式在 Safari/WKWebView 下会 Invalid Date，统一替换为 ISO 的 T 分隔
+function parseFlexibleDateTime(str: string): Date {
+  return new Date(str.trim().replace(/ /g, 'T'))
+}
+
+// 把「某时区下的墙钟时间字符串」转为真实 UTC 毫秒时间戳。
+// 旧实现用 new Date(str) 按本地时区解析，时区选择完全不生效——这里先取墙钟分量，
+// 再用所选时区偏移做两次迭代修正（DST 切换时刻精度 ±1h 可接受）。
+function zonedTimeToUtcMs(dateStr: string, timeZone: string): number {
+  const d = parseFlexibleDateTime(dateStr)
+  const wall = { y: d.getFullYear(), m: d.getMonth(), day: d.getDate(), h: d.getHours(), min: d.getMinutes(), s: d.getSeconds() }
+  const naiveUtc = Date.UTC(wall.y, wall.m, wall.day, wall.h, wall.min, wall.s)
+  let result = naiveUtc - getTzOffsetMs(timeZone, new Date(naiveUtc))
+  const offset2 = getTzOffsetMs(timeZone, new Date(result))
+  if (offset2 !== getTzOffsetMs(timeZone, new Date(naiveUtc))) {
+    result = naiveUtc - offset2
+  }
+  return result
+}
+
 /* Date → Timestamp */
 const datetimeInput = ref('')
 const outputTimezone = ref('Asia/Shanghai')
@@ -149,12 +188,12 @@ const tsOutput = ref('')
 function convertDateToTs() {
   if (!datetimeInput.value) { tsOutput.value = ''; return }
   try {
-    // Create date in selected timezone
-    const d = new Date(datetimeInput.value)
+    const d = parseFlexibleDateTime(datetimeInput.value)
     if (isNaN(d.getTime())) { tsOutput.value = '错误: 无效的日期'; return }
-    const sec = Math.floor(d.getTime() / 1000)
-    const ms = d.getTime()
-    tsOutput.value = `秒: ${sec}\n毫秒: ${ms}\nISO: ${d.toISOString()}`
+    // 按所选输出时区解析墙钟时间（旧实现按本地时区，outputTimezone 选择无效）
+    const ms = zonedTimeToUtcMs(datetimeInput.value, outputTimezone.value)
+    const sec = Math.floor(ms / 1000)
+    tsOutput.value = `秒: ${sec}\n毫秒: ${ms}\nISO: ${new Date(ms).toISOString()}\n时区: ${outputTimezone.value}`
   } catch {
     tsOutput.value = '错误: 转换失败'
   }
