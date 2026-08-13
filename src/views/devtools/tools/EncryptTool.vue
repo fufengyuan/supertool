@@ -33,7 +33,17 @@
     <template v-if="!isAsymmetric">
       <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 flex flex-col gap-3">
         <div>
-          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">密钥 (Key) <span class="text-base-content/30">{{ keyHint }}</span></span>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-medium text-base-content/50">密钥 (Key) <span class="text-base-content/30">{{ keyHint }}</span></span>
+            <label class="flex items-center gap-1 text-[11px] text-base-content/50">
+              格式
+              <select v-model="keyFormat" class="select select-xs select-bordered bg-base-200/60 w-[90px]" title="密钥解析格式">
+                <option value="hex">Hex</option>
+                <option value="base64">Base64</option>
+                <option value="utf8">UTF-8 文本</option>
+              </select>
+            </label>
+          </div>
           <div class="flex gap-2">
             <input
               v-model="key"
@@ -45,13 +55,23 @@
           </div>
         </div>
         <div v-if="showIV">
-          <span class="text-[11px] font-medium text-base-content/50 mb-1 block">初始向量 (IV) <span class="text-base-content/30">16 字节 (32 hex)</span></span>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-medium text-base-content/50">初始向量 (IV) <span class="text-base-content/30">16 字节</span></span>
+            <label class="flex items-center gap-1 text-[11px] text-base-content/50">
+              格式
+              <select v-model="ivFormat" class="select select-xs select-bordered bg-base-200/60 w-[90px]" title="IV 解析格式">
+                <option value="hex">Hex</option>
+                <option value="base64">Base64</option>
+                <option value="utf8">UTF-8 文本</option>
+              </select>
+            </label>
+          </div>
           <div class="flex gap-2">
             <input
               v-model="iv"
               class="input input-bordered input-sm w-full font-mono text-xs bg-base-200/60"
               type="text"
-              placeholder="hex 格式，留空自动生成"
+              :placeholder="ivPlaceholder"
             />
             <button class="btn btn-outline btn-sm" @click="generateIV" title="生成随机 IV">🎲 生成</button>
           </div>
@@ -86,17 +106,34 @@
     <!-- 输入输出 -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[200px]">
-        <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="arrowDown" size="12" /> 输入</h4>
+        <div class="flex items-center justify-between mb-2.5">
+          <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="arrowDown" size="12" /> 输入</h4>
+          <label class="flex items-center gap-1 text-[11px] text-base-content/50">
+            明文格式
+            <select v-model="plainFormat" class="select select-xs select-bordered bg-base-200/60 w-[110px]" :disabled="isAsymmetric" :title="isAsymmetric ? '非对称加密仅支持 UTF-8 文本' : '输入内容的解析/输出内容的编码格式'">
+              <option value="utf8">UTF-8</option>
+              <option value="hex">Hex</option>
+              <option value="base64">Base64</option>
+            </select>
+          </label>
+        </div>
         <textarea
           v-model="inputText"
           class="textarea textarea-bordered w-full min-h-[110px] font-mono text-xs flex-1 resize-none bg-base-200/60"
-          :placeholder="mode === 'encrypt' ? '输入要加密的文本...' : '输入要解密的文本（hex/C1C3C2 格式）...'"
+          :placeholder="inputPlaceholder"
         ></textarea>
       </div>
       <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4 min-h-[200px]">
         <div class="flex items-center justify-between mb-2.5">
           <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="arrowUp" size="12" /> 输出</h4>
-          <div class="flex gap-1.5">
+          <div class="flex items-center gap-1.5">
+            <label class="flex items-center gap-1 text-[11px] text-base-content/50" v-if="mode === 'encrypt' || !isAsymmetric">
+              密文格式
+              <select v-model="cipherFormat" class="select select-xs select-bordered bg-base-200/60 w-[90px]" title="密文输出/输入格式（base64 兼容常见工具）">
+                <option value="base64">Base64</option>
+                <option value="hex">Hex</option>
+              </select>
+            </label>
             <button class="btn btn-primary btn-xs" @click="copyResult" :disabled="!outputText"><SvgIcon name="copy" size="11" /> 复制</button>
             <button class="btn btn-ghost btn-xs" @click="clearAll" :disabled="!inputText && !outputText">清空</button>
           </div>
@@ -135,6 +172,11 @@ const key = ref('')
 const iv = ref('')
 const inputText = ref('')
 const outputText = ref('')
+// 格式控制：密钥/IV/明文（输入内容）均支持 hex / base64 / UTF-8 文本；密文支持 base64 / hex
+const keyFormat = ref<'hex' | 'base64' | 'utf8'>('hex')
+const ivFormat = ref<'hex' | 'base64' | 'utf8'>('hex')
+const plainFormat = ref<'utf8' | 'hex' | 'base64'>('utf8')
+const cipherFormat = ref<'base64' | 'hex'>('base64')
 
 // SM2/RSA keys
 const asymmetricPublicKey = ref('')
@@ -162,30 +204,145 @@ const keyConfigs: Record<string, KeyConfig> = {
 
 const keyHint = computed(() => {
   const cfg = keyConfigs[algorithm.value]
-  return cfg ? cfg.description : ''
+  if (!cfg) {return ''}
+  if (keyFormat.value === 'utf8') {return `${cfg.name} ${cfg.keyBits}bit，可输入任意文本密钥`}
+  const bytes = cfg.keyBytes
+  return keyFormat.value === 'hex' ? `${bytes * 2} 位 hex（${bytes} 字节）` : `Base64（${bytes} 字节 ≈ ${Math.ceil(bytes / 3) * 4} 字符）`
 })
 
 const keyPlaceholder = computed(() => {
   const cfg = keyConfigs[algorithm.value]
-  return cfg ? `${cfg.keyBytes * 2} 位 hex 密钥...` : '输入密钥'
+  if (!cfg) {return '输入密钥'}
+  if (keyFormat.value === 'utf8') {return `${cfg.keyBits}bit 文本密钥...`}
+  return keyFormat.value === 'hex' ? `${cfg.keyBytes * 2} 位 hex 密钥...` : `${cfg.keyBytes} 字节 base64 密钥...`
 })
 
-function generateRandomHex(length: number): string {
+const ivPlaceholder = computed(() => {
+  return ivFormat.value === 'hex' ? 'hex 格式，留空自动生成' : ivFormat.value === 'base64' ? 'base64 格式，留空自动生成' : 'UTF-8 文本，留空自动生成'
+})
+
+const inputPlaceholder = computed(() => {
+  if (isAsymmetric.value) {
+    return mode.value === 'encrypt' ? '输入要加密的文本（仅支持 UTF-8）...' : '输入要解密的文本（base64）...'
+  }
+  const fmt = mode.value === 'encrypt' ? plainFormat.value : cipherFormat.value
+  const fmtName = fmt === 'hex' ? 'hex' : fmt === 'base64' ? 'base64' : 'UTF-8 文本'
+  return mode.value === 'encrypt' ? `输入要加密的内容（${fmtName}）...` : `输入要解密的密文（${fmtName}）...`
+})
+
+function randomBytes(length: number): Uint8Array {
   const bytes = new Uint8Array(length)
   crypto.getRandomValues(bytes)
-  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+  return bytes
+}
+
+function bytesToHex(bytes: Uint8Array | ArrayBuffer): string {
+  const arr = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes
+  return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('')
+}
+
+function bytesToBase64(bytes: Uint8Array | ArrayBuffer): string {
+  const arr = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes
+  let bin = ''
+  for (let i = 0; i < arr.length; i++) {bin += String.fromCharCode(arr[i])}
+  return btoa(bin)
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const clean = hex.replace(/\s+/g, '')
+  if (clean.length % 2 !== 0) {throw new Error('Hex 长度必须为偶数')}
+  if (!/^[0-9a-fA-F]+$/.test(clean)) {throw new Error('无效的 Hex 字符串')}
+  const bytes = new Uint8Array(clean.length / 2)
+  for (let i = 0; i < clean.length; i += 2) {
+    bytes[i / 2] = parseInt(clean.substring(i, i + 2), 16)
+  }
+  return bytes
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64.replace(/\s+/g, ''))
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) {bytes[i] = bin.charCodeAt(i)}
+  return bytes
+}
+
+function utf8ToBytes(text: string): Uint8Array {
+  return new TextEncoder().encode(text)
+}
+
+function bytesToUtf8(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    throw new Error('解密结果无法按 UTF-8 解码，请改用 Hex/Base64 明文格式查看')
+  }
+}
+
+// 按格式解析输入为字节（明文 / 密文通用）
+function parseBytes(str: string, format: 'utf8' | 'hex' | 'base64'): Uint8Array {
+  if (format === 'hex') {return hexToBytes(str)}
+  if (format === 'base64') {return base64ToBytes(str)}
+  return utf8ToBytes(str)
+}
+
+// 字节按格式编码为字符串（明文输出用）
+function bytesToString(bytes: Uint8Array, format: 'utf8' | 'hex' | 'base64'): string {
+  if (format === 'hex') {return bytesToHex(bytes)}
+  if (format === 'base64') {return bytesToBase64(bytes)}
+  return bytesToUtf8(bytes)
+}
+
+// Uint8Array ↔ CryptoJS WordArray（crypto-js 类型为任意声明，这里用轻量接口）
+// 注意：WordArray.create 直接持有同一 ArrayBuffer，勿再修改源数组
+interface WordArrayLike {
+  words: number[]
+  sigBytes: number
+}
+
+function bytesToWordArray(bytes: Uint8Array): WordArrayLike {
+  return (CryptoJS as any).lib.WordArray.create(bytes) as WordArrayLike
+}
+
+function wordArrayToBytes(wa: WordArrayLike): Uint8Array {
+  const words = wa.words
+  const sigBytes = wa.sigBytes
+  const bytes = new Uint8Array(sigBytes)
+  for (let i = 0; i < sigBytes; i++) {
+    bytes[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff
+  }
+  return bytes
 }
 
 function generateKey() {
   const cfg = keyConfigs[algorithm.value]
   if (!cfg) {return}
-  key.value = generateRandomHex(cfg.keyBytes)
-  toast.success(`已生成 ${cfg.name} ${cfg.keyBits}bit 随机密钥 (${cfg.keyBytes} 字节)`)
+  if (keyFormat.value === 'utf8') {
+    // 文本密钥：生成可读随机串
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
+    key.value = Array.from(randomBytes(cfg.keyBytes), b => chars[b % chars.length]).join('')
+  } else {
+    const bytes = randomBytes(cfg.keyBytes)
+    key.value = keyFormat.value === 'hex' ? bytesToHex(bytes) : bytesToBase64(bytes)
+  }
+  toast.success(`已生成 ${cfg.name} ${cfg.keyBits}bit 随机密钥 (${keyFormat.value === 'utf8' ? '文本' : cfg.keyBytes + ' 字节'})`)
 }
 
 function generateIV() {
-  iv.value = generateRandomHex(16)
-  toast.success('已生成随机 IV (128 bit)')
+  makeRandomIv()
+  toast.success(`已生成随机 IV (128 bit, ${ivFormat.value === 'hex' ? 'hex' : ivFormat.value === 'base64' ? 'base64' : 'UTF-8'})`)
+}
+
+// 生成随机 IV 并回填 iv 输入框：UTF-8 格式下随机字节几乎必然不是合法 UTF-8，
+// 改为生成 16 字符可读串（ASCII，UTF-8 编码后恰为 16 字节），其余格式用随机字节
+function makeRandomIv(): Uint8Array {
+  if (ivFormat.value === 'utf8') {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
+    iv.value = Array.from(randomBytes(16), b => chars[b % chars.length]).join('')
+  } else {
+    const bytes = randomBytes(16)
+    iv.value = ivFormat.value === 'hex' ? bytesToHex(bytes) : bytesToBase64(bytes)
+  }
+  return parseBytes(iv.value, ivFormat.value)
 }
 
 function generateAsymmetricKeys() {
@@ -218,7 +375,7 @@ function onAlgorithmChange() {
 
 function process() {
   if (!inputText.value.trim()) {
-    toast.warning('请输入文本')
+    toast.warning('请输入内容')
     return
   }
 
@@ -238,31 +395,37 @@ function process() {
     return
   }
 
+  // Rabbit 使用 passphrase 语义（EVP_BytesToKey），仅支持文本密钥
+  if (algorithm.value === 'Rabbit' && keyFormat.value !== 'utf8') {
+    toast.warning('Rabbit 使用口令派生密钥，密钥格式请选择 UTF-8 文本')
+    return
+  }
+
   try {
     if (algorithm.value === 'SM4') {
       processSM4()
       return
     }
 
-    // Rabbit: pass hex string as passphrase (CryptoJS uses EVP_BytesToKey)
+    // Rabbit: passphrase 直接传入（CryptoJS 内部做 EVP_BytesToKey）
     if (algorithm.value === 'Rabbit') {
       processRabbit()
       return
     }
 
-    // AES, DES, TripleDES, RC4: parse hex key as raw WordArray
-    const keyHex = key.value.trim()
-    const keyWord = CryptoJS.enc.Hex.parse(keyHex)
+    // AES, DES, TripleDES, RC4: 密钥按所选格式解析为字节 → WordArray
+    const keyWord = bytesToWordArray(parseBytes(key.value.trim(), keyFormat.value))
     let cfg2: any = { mode: CryptoJS.mode.ECB, padding: CryptoJS.pad.Pkcs7 }
 
     if (showIV.value) {
       cfg2.mode = CryptoJS.mode.CBC
       if (iv.value.trim()) {
-        cfg2.iv = CryptoJS.enc.Hex.parse(iv.value.trim())
+        cfg2.iv = bytesToWordArray(parseBytes(iv.value.trim(), ivFormat.value))
       } else {
         if (mode.value === 'encrypt') {
-          cfg2.iv = CryptoJS.enc.Hex.parse(generateRandomHex(16))
-          toast.info(`加密使用随机 IV: ${cfg2.iv.toString()}`)
+          const ivBytes = makeRandomIv()
+          cfg2.iv = bytesToWordArray(ivBytes)
+          toast.info(`加密使用随机 IV: ${iv.value}`)
         } else {
           toast.warning('CBC 模式解密需要提供 IV')
           return
@@ -277,17 +440,22 @@ function process() {
     }
 
     if (mode.value === 'encrypt') {
-      const result = cryptoModule.encrypt(inputText.value, keyWord, cfg2)
-      outputText.value = result.toString()
+      // 明文按所选格式解析为字节后加密，输出密文按密文格式编码
+      const plainWA = bytesToWordArray(parseBytes(inputText.value, plainFormat.value))
+      const result = cryptoModule.encrypt(plainWA, keyWord, cfg2)
+      const ctBytes = wordArrayToBytes(result.ciphertext)
+      outputText.value = cipherFormat.value === 'hex' ? bytesToHex(ctBytes) : bytesToBase64(ctBytes)
     } else {
-      const result = cryptoModule.decrypt(inputText.value, keyWord, cfg2)
-      const decrypted = result.toString(CryptoJS.enc.Utf8)
-      if (!decrypted) {
+      // 密文按密文格式解析（base64 / hex），与加密输出完全对称
+      const ctBytes = parseBytes(inputText.value, cipherFormat.value)
+      const result = cryptoModule.decrypt({ ciphertext: bytesToWordArray(ctBytes) }, keyWord, cfg2)
+      const plainBytes = wordArrayToBytes(result)
+      if (plainBytes.length === 0) {
         toast.error('解密失败：密钥不正确或数据已损坏')
         outputText.value = ''
         return
       }
-      outputText.value = decrypted
+      outputText.value = bytesToString(plainBytes, plainFormat.value)
     }
   } catch (e: any) {
     toast.error(`${mode.value === 'encrypt' ? '加密' : '解密'}失败: ${e.message}`)
@@ -296,52 +464,84 @@ function process() {
 }
 
 function processRabbit() {
-  // Rabbit uses passphrase-based key derivation (EVP_BytesToKey)
-  // Pass the hex key string directly as the passphrase
+  // Rabbit 使用 passphrase 派生密钥（EVP_BytesToKey + 随机 salt，OpenSSL 格式）。
+  // 密文 = Salted__(8B) + salt(8B) + ciphertext，与 openssl enc / 旧版 base64 输出兼容。
   const keyStr = key.value.trim()
+  const SALTED = [0x53, 0x61, 0x6c, 0x74, 0x65, 0x64, 0x5f, 0x5f] // "Salted__"
   if (mode.value === 'encrypt') {
-    const result = CryptoJS.Rabbit.encrypt(inputText.value, keyStr)
-    outputText.value = result.toString()
+    const plainWA = bytesToWordArray(parseBytes(inputText.value, plainFormat.value))
+    const result = CryptoJS.Rabbit.encrypt(plainWA, keyStr)
+    const saltBytes = result.salt ? wordArrayToBytes(result.salt) : new Uint8Array(0)
+    const ctBytes = wordArrayToBytes(result.ciphertext)
+    const combined = new Uint8Array(8 + saltBytes.length + ctBytes.length)
+    combined.set(SALTED, 0)
+    combined.set(saltBytes, 8)
+    combined.set(ctBytes, 8 + saltBytes.length)
+    outputText.value = cipherFormat.value === 'hex' ? bytesToHex(combined) : bytesToBase64(combined)
   } else {
-    const result = CryptoJS.Rabbit.decrypt(inputText.value, keyStr)
-    const decrypted = result.toString(CryptoJS.enc.Utf8)
-    if (!decrypted) {
+    const rawBytes = parseBytes(inputText.value, cipherFormat.value)
+    // CryptoJS OpenSSL 解析要求 base64 字符串（含 Salted__ 前缀），先统一转回
+    const opensslStr = bytesToBase64(rawBytes)
+    const result = CryptoJS.Rabbit.decrypt(opensslStr, keyStr)
+    const plainBytes = wordArrayToBytes(result)
+    if (plainBytes.length === 0) {
       toast.error('解密失败：密钥不正确或数据已损坏')
       outputText.value = ''
       return
     }
-    outputText.value = decrypted
+    outputText.value = bytesToString(plainBytes, plainFormat.value)
   }
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes)
+  return copy.buffer
 }
 
 function processSM4() {
   try {
-    const keyHex = key.value.trim()
-    const ivHex = iv.value.trim() ? padHex(iv.value.trim(), 32) : padHex(generateRandomHex(16), 32)
+    const keyBytes = parseBytes(key.value.trim(), keyFormat.value)
+    // SM4 密钥/IV 固定 16 字节：补齐 / 截断，gm-crypto 要求 32 位 hex 字符串
+    const key16 = new Uint8Array(16)
+    key16.set(keyBytes.slice(0, 16))
+    const keyHex = bytesToHex(key16)
+    let ivBytes: Uint8Array
+    if (iv.value.trim()) {
+      ivBytes = parseBytes(iv.value.trim(), ivFormat.value)
+    } else if (mode.value === 'encrypt') {
+      ivBytes = makeRandomIv()
+      toast.info(`加密使用随机 IV: ${iv.value}`)
+    } else {
+      toast.warning('CBC 模式解密需要提供 IV')
+      return
+    }
+    const iv16 = new Uint8Array(16)
+    iv16.set(ivBytes.slice(0, 16))
+    const ivHex = bytesToHex(iv16)
 
     if (mode.value === 'encrypt') {
-      const encrypted = SM4.encrypt(inputText.value, keyHex, {
+      const inputAB = toArrayBuffer(parseBytes(inputText.value, plainFormat.value))
+      const encrypted = SM4.encrypt(inputAB, keyHex, {
         mode: SM4.constants.CBC,
         iv: ivHex,
-        outputEncoding: 'base64',
+        outputEncoding: cipherFormat.value === 'hex' ? 'hex' : 'base64',
       })
-      outputText.value = typeof encrypted === 'string' ? encrypted : btoa(String.fromCharCode(...new Uint8Array(encrypted)))
+      outputText.value = typeof encrypted === 'string' ? encrypted : bytesToBase64(new Uint8Array(encrypted))
     } else {
-      const decrypted = SM4.decrypt(inputText.value, keyHex, {
+      const ctBytes = parseBytes(inputText.value, cipherFormat.value)
+      // 解密输出统一走 hex（无损），再按明文格式转换
+      const decrypted = SM4.decrypt(toArrayBuffer(ctBytes), keyHex, {
         mode: SM4.constants.CBC,
         iv: ivHex,
-        outputEncoding: 'utf8',
+        outputEncoding: 'hex',
       })
-      outputText.value = typeof decrypted === 'string' ? decrypted : new TextDecoder().decode(decrypted)
+      const plainBytes = hexToBytes(typeof decrypted === 'string' ? decrypted : bytesToHex(new Uint8Array(decrypted)))
+      outputText.value = bytesToString(plainBytes, plainFormat.value)
     }
   } catch (e: any) {
     toast.error(`SM4 ${mode.value === 'encrypt' ? '加密' : '解密'}失败: ${e.message}`)
     outputText.value = ''
   }
-}
-
-function padHex(hex: string, length: number): string {
-  return hex.replace(/\s/g, '').padEnd(length, '0').slice(0, length)
 }
 
 function processAsymmetric() {
@@ -357,26 +557,38 @@ function processAsymmetric() {
   }
 }
 
+// 非对称库（sm-crypto / jsencrypt）内部按 UTF-8 处理文本，加密输入仅支持 UTF-8
+function checkAsymmetricPlainFormat() {
+  if (mode.value === 'encrypt' && plainFormat.value !== 'utf8') {
+    toast.warning('非对称加密（SM2/RSA）明文仅支持 UTF-8 文本，如需加密字节请先用 Base64/Hex 转换工具')
+    return false
+  }
+  return true
+}
+
 function processSM2Internal() {
+  if (!checkAsymmetricPlainFormat()) {return}
   if (mode.value === 'encrypt') {
     if (!asymmetricPublicKey.value.trim()) {
       toast.warning('加密需要公钥')
       return
     }
-    const encrypted = sm2.doEncrypt(inputText.value, asymmetricPublicKey.value.trim(), 0)
-    outputText.value = encrypted
+    const encryptedHex = sm2.doEncrypt(inputText.value, asymmetricPublicKey.value.trim(), 0)
+    outputText.value = cipherFormat.value === 'hex' ? encryptedHex : bytesToBase64(hexToBytes(encryptedHex))
   } else {
     if (!asymmetricPrivateKey.value.trim()) {
       toast.warning('解密需要私钥')
       return
     }
-    const decrypted = sm2.doDecrypt(inputText.value.trim(), asymmetricPrivateKey.value.trim(), 0)
+    // sm-crypto 输出/接收 hex 密文；选择 base64 时先互转
+    const inputHex = cipherFormat.value === 'hex' ? inputText.value.trim() : bytesToHex(base64ToBytes(inputText.value.trim()))
+    const decrypted = sm2.doDecrypt(inputHex, asymmetricPrivateKey.value.trim(), 0)
     if (!decrypted) {
       toast.error('解密失败：私钥不匹配或数据已损坏')
       outputText.value = ''
       return
     }
-    outputText.value = decrypted
+    outputText.value = bytesToString(utf8ToBytes(decrypted), plainFormat.value)
   }
 }
 
@@ -386,6 +598,7 @@ function processRSA() {
       toast.warning('加密需要公钥')
       return
     }
+    if (!checkAsymmetricPlainFormat()) {return}
     const key = new JSEncrypt()
     key.setPublicKey(asymmetricPublicKey.value.trim())
     const encrypted = key.encrypt(inputText.value)
@@ -394,7 +607,8 @@ function processRSA() {
       outputText.value = ''
       return
     }
-    outputText.value = encrypted
+    // jsencrypt 输出 base64；选择 hex 时互转
+    outputText.value = cipherFormat.value === 'base64' ? encrypted : bytesToHex(base64ToBytes(encrypted))
   } else {
     if (!asymmetricPrivateKey.value.trim()) {
       toast.warning('解密需要私钥')
@@ -402,28 +616,16 @@ function processRSA() {
     }
     const key = new JSEncrypt()
     key.setPrivateKey(asymmetricPrivateKey.value.trim())
-    const decrypted = key.decrypt(inputText.value.trim())
+    // jsencrypt 接收 base64 密文；选择 hex 时先互转
+    const inputB64 = cipherFormat.value === 'base64' ? inputText.value.trim() : bytesToBase64(hexToBytes(inputText.value.trim()))
+    const decrypted = key.decrypt(inputB64)
     if (!decrypted) {
       toast.error('解密失败：私钥不匹配或数据已损坏')
       outputText.value = ''
       return
     }
-    outputText.value = decrypted
+    outputText.value = bytesToString(utf8ToBytes(decrypted), plainFormat.value)
   }
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const clean = hex.replace(/\s/g, '')
-  const bytes = new Uint8Array(clean.length / 2)
-  for (let i = 0; i < clean.length; i += 2) {
-    bytes[i / 2] = parseInt(clean.substring(i, i + 2), 16)
-  }
-  return bytes
-}
-
-function bytesToHex(bytes: Uint8Array | ArrayBuffer): string {
-  const arr = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes
-  return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('')
 }
 
 function copyResult() {
