@@ -21,8 +21,3 @@ pub async fn fetch_page_content(url: String) -> Result<String, String> {
 
     Ok(text)
 }
-
-#[tauri::command]
-pub async fn convert_html_to_md(html: String) -> Result<String, String> {
-    Ok(html2md::parse_html(&html))
-}
