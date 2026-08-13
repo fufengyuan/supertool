@@ -54,9 +54,16 @@
     <div v-if="output" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
       <div class="flex items-center justify-between mb-2.5">
         <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> Markdown 输出</h4>
-        <span class="text-[11px] text-base-content/40">{{ output.length }} 字符 · {{ output.split('\n').length }} 行</span>
+        <div class="flex items-center gap-2">
+          <div class="join">
+            <button class="btn btn-xs join-item" :class="viewMode === 'md' ? 'btn-primary' : 'btn-ghost'" @click="viewMode = 'md'">Markdown</button>
+            <button class="btn btn-xs join-item" :class="viewMode === 'preview' ? 'btn-primary' : 'btn-ghost'" @click="viewMode = 'preview'">预览</button>
+          </div>
+          <span class="text-[11px] text-base-content/40">{{ output.length }} 字符 · {{ output.split('\n').length }} 行</span>
+        </div>
       </div>
-      <div class="p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs text-base-content whitespace-pre-wrap break-all max-h-[480px] overflow-y-auto">{{ output }}</div>
+      <div v-if="viewMode === 'md'" class="p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs text-base-content whitespace-pre-wrap break-all max-h-[480px] overflow-y-auto">{{ output }}</div>
+      <div v-else class="markdown-body p-3 bg-base-200/60 border border-base-content/10 rounded-lg max-h-[480px] overflow-y-auto" v-html="previewHtml" @click="onPreviewClick"></div>
     </div>
     <div v-else class="py-14 text-center text-xs text-base-content/40 bg-base-100/50 border border-dashed border-base-content/15 rounded-xl">
       Markdown 结果将显示在这里
@@ -67,9 +74,10 @@
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import ToolPage from '../components/ToolPage.vue'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import TurndownService from 'turndown'
 import { gfm } from 'turndown-plugin-gfm'
+import { renderMarkdown, setupCopyCode } from '../../../composables/useMarkdownRenderer'
 import { copyText } from '../toolUtils'
 import { getTauriAPI } from '../../../utils/tauri-api'
 import { useToast } from '@/composables/useToast'
@@ -81,6 +89,14 @@ const htmlInput = ref('')
 const urlInput = ref('')
 const output = ref('')
 const loading = ref(false)
+// 输出视图：Markdown 源码 / 渲染预览
+const viewMode = ref<'md' | 'preview'>('md')
+
+// 渲染预览（marked + DOMPurify 消毒 + 代码高亮）
+const previewHtml = computed(() => (output.value ? renderMarkdown(output.value) : ''))
+
+// 复制按钮事件委托（setupCopyCode 返回 handler，绑到预览容器 click）
+const onPreviewClick = setupCopyCode()
 
 // 前端 HTML→Markdown：turndown（CommonMark/GFM 工业标准），替代后端 html2md
 // （html2md 不剥离 script/style，实体解码错误，已弃用）
@@ -173,5 +189,37 @@ function clear() {
   htmlInput.value = ''
   urlInput.value = ''
   output.value = ''
+  viewMode.value = 'md'
 }
 </script>
+
+<style scoped>
+/* 预览渲染样式（v-html 内容用 :deep 穿透；不依赖 NoteManager 是否访问过） */
+.markdown-body {
+  line-height: 1.7;
+  font-size: 14px;
+  color: var(--color-base-content);
+}
+.markdown-body :deep(h1) { font-size: 24px; font-weight: 700; margin: 18px 0 10px; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); padding-bottom: 6px; }
+.markdown-body :deep(h2) { font-size: 20px; font-weight: 600; margin: 16px 0 8px; }
+.markdown-body :deep(h3) { font-size: 17px; font-weight: 600; margin: 14px 0 6px; }
+.markdown-body :deep(p) { margin: 8px 0; }
+.markdown-body :deep(code) { background: var(--color-base-200); padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', ui-monospace, monospace; font-size: 13px; }
+.markdown-body :deep(pre) { background: var(--color-base-200); padding: 14px; border-radius: 8px; overflow-x: auto; margin: 12px 0; }
+.markdown-body :deep(pre code) { background: none; padding: 0; }
+.markdown-body :deep(blockquote) { border-left: 3px solid var(--color-primary); padding-left: 14px; margin: 12px 0; color: color-mix(in oklab, var(--color-base-content) 65%, transparent); }
+.markdown-body :deep(ul), .markdown-body :deep(ol) { padding-left: 24px; margin: 8px 0; }
+.markdown-body :deep(li) { margin: 4px 0; }
+.markdown-body :deep(a) { color: var(--color-primary); text-decoration: underline; }
+.markdown-body :deep(img) { max-width: 100%; border-radius: 8px; margin: 12px 0; }
+.markdown-body :deep(table) { border-collapse: collapse; width: 100%; margin: 12px 0; }
+.markdown-body :deep(th), .markdown-body :deep(td) { border: 1px solid color-mix(in oklab, var(--color-base-content) 12%, transparent); padding: 8px 12px; text-align: left; }
+.markdown-body :deep(th) { background: var(--color-base-200); font-weight: 600; }
+/* 代码块复制按钮 */
+.markdown-body :deep(.code-block-wrapper) { background: var(--color-base-200); border-radius: 8px; overflow: hidden; margin: 12px 0; }
+.markdown-body :deep(.code-block-wrapper pre) { margin: 0; border-radius: 0; background: transparent; }
+.markdown-body :deep(.code-header) { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; background: color-mix(in oklab, var(--color-base-content) 6%, transparent); font-size: 11px; color: var(--color-base-content); }
+.markdown-body :deep(.copy-btn) { background: none; border: none; color: var(--color-base-content); opacity: 0.6; cursor: pointer; padding: 2px; display: inline-flex; }
+.markdown-body :deep(.copy-btn:hover) { opacity: 1; }
+.markdown-body :deep(.copy-btn.copied) { color: var(--color-success, #4ade80); opacity: 1; }
+</style>
