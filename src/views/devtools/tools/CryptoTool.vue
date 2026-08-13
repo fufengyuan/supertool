@@ -7,7 +7,16 @@
   >
     <!-- 文本哈希 -->
     <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
-      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> 文本哈希</h4>
+      <div class="flex items-center justify-between mb-2.5">
+        <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> 文本哈希</h4>
+        <label class="flex items-center gap-1 text-[11px] text-base-content/50">
+          输出格式
+          <select v-model="outputFormat" class="select select-xs select-bordered bg-base-200/60 w-[90px]" title="哈希摘要的输出编码：Hex（默认，常见）或 Base64（API 签名/二进制场景常用）">
+            <option value="hex">Hex</option>
+            <option value="base64">Base64</option>
+          </select>
+        </label>
+      </div>
       <textarea
         v-model="inputText"
         class="textarea textarea-bordered w-full min-h-[100px] font-mono text-xs bg-base-200/60 resize-none"
@@ -97,6 +106,26 @@ const batchResults = ref<{ input: string; sha256: string; sm3: string }[]>([])
 const fileHashResults = ref<Record<string, string> | null>(null)
 const fileHashing = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
+// 摘要输出编码：hex（默认）/ base64（API 签名、二进制场景）
+const outputFormat = ref<'hex' | 'base64'>('hex')
+
+// sm-crypto 的 sm3 只输出 hex 字符串，需 base64 时手动转换
+function hexToBase64(hex: string): string {
+  const clean = hex.replace(/\s+/g, '')
+  const bytes = new Uint8Array(clean.length / 2)
+  for (let i = 0; i < clean.length; i += 2) {bytes[i / 2] = parseInt(clean.substring(i, i + 2), 16)}
+  let bin = ''
+  for (let i = 0; i < bytes.length; i++) {bin += String.fromCharCode(bytes[i])}
+  return btoa(bin)
+}
+
+// 统一摘要输出：CryptoJS WordArray 或 sm3 的 hex 字符串 → 按所选格式编码
+function formatDigest(digest: any): string {
+  if (typeof digest === 'string') {
+    return outputFormat.value === 'hex' ? digest : hexToBase64(digest)
+  }
+  return outputFormat.value === 'hex' ? digest.toString() : digest.toString(CryptoJS.enc.Base64)
+}
 
 function computeHashes() {
   if (!inputText.value.trim()) {
@@ -106,15 +135,15 @@ function computeHashes() {
   try {
     const text = inputText.value
     singleResults.value = {
-      MD5: CryptoJS.MD5(text).toString(),
-      SHA1: CryptoJS.SHA1(text).toString(),
-      SHA224: CryptoJS.SHA224(text).toString(),
-      SHA256: CryptoJS.SHA256(text).toString(),
-      SHA384: CryptoJS.SHA384(text).toString(),
-      SHA512: CryptoJS.SHA512(text).toString(),
-      SHA3: CryptoJS.SHA3(text).toString(),
-      RIPEMD160: CryptoJS.RIPEMD160(text).toString(),
-      SM3: sm3(text),
+      MD5: formatDigest(CryptoJS.MD5(text)),
+      SHA1: formatDigest(CryptoJS.SHA1(text)),
+      SHA224: formatDigest(CryptoJS.SHA224(text)),
+      SHA256: formatDigest(CryptoJS.SHA256(text)),
+      SHA384: formatDigest(CryptoJS.SHA384(text)),
+      SHA512: formatDigest(CryptoJS.SHA512(text)),
+      SHA3: formatDigest(CryptoJS.SHA3(text)),
+      RIPEMD160: formatDigest(CryptoJS.RIPEMD160(text)),
+      SM3: formatDigest(sm3(text)),
     }
   } catch (e: any) {
     toast.error(`哈希计算失败: ${e.message}`)
@@ -135,8 +164,8 @@ function computeBatch() {
   try {
     batchResults.value = lines.map(line => ({
       input: line,
-      sha256: CryptoJS.SHA256(line).toString(),
-      sm3: sm3(line),
+      sha256: formatDigest(CryptoJS.SHA256(line)),
+      sm3: formatDigest(sm3(line)),
     }))
     toast.success(`已处理 ${lines.length} 行`)
   } catch (e: any) {
@@ -165,11 +194,11 @@ async function handleFileHash(event: Event) {
     const byteArray = Array.from(bytes)
 
     fileHashResults.value = {
-      MD5: CryptoJS.MD5(wordArray).toString(),
-      SHA1: CryptoJS.SHA1(wordArray).toString(),
-      SHA256: CryptoJS.SHA256(wordArray).toString(),
-      SHA512: CryptoJS.SHA512(wordArray).toString(),
-      SM3: sm3(byteArray),
+      MD5: formatDigest(CryptoJS.MD5(wordArray)),
+      SHA1: formatDigest(CryptoJS.SHA1(wordArray)),
+      SHA256: formatDigest(CryptoJS.SHA256(wordArray)),
+      SHA512: formatDigest(CryptoJS.SHA512(wordArray)),
+      SM3: formatDigest(sm3(byteArray)),
     }
   } catch (e: any) {
     toast.error(`文件哈希计算失败: ${e.message}`)
