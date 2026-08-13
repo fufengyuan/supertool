@@ -68,9 +68,11 @@
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import ToolPage from '../components/ToolPage.vue'
 import { ref } from 'vue'
-import { useToast } from '@/composables/useToast'
+import TurndownService from 'turndown'
+import { gfm } from 'turndown-plugin-gfm'
 import { copyText } from '../toolUtils'
 import { getTauriAPI } from '../../../utils/tauri-api'
+import { useToast } from '@/composables/useToast'
 
 defineEmits<{ back: [] }>()
 
@@ -79,6 +81,36 @@ const htmlInput = ref('')
 const urlInput = ref('')
 const output = ref('')
 const loading = ref(false)
+
+// 前端 HTML→Markdown：turndown（CommonMark/GFM 工业标准），替代后端 html2md
+// （html2md 不剥离 script/style，实体解码错误，已弃用）
+function createConverter(): TurndownService {
+  const td = new TurndownService({
+    headingStyle: 'atx',        // # 标题（通用性优于 setext 下划线式）
+    bulletListMarker: '-',
+    codeBlockStyle: 'fenced',
+    fence: '```',
+    emDelimiter: '*',
+    strongDelimiter: '**',
+  })
+  // GFM 表格支持
+  td.use(gfm)
+  // turndown 默认不处理这些标签——显式剥离页面骨架/脚本/交互元素。
+  // 用 nodeName 判断，规避 svg 不在 HTMLElementTagNameMap 的类型限制。
+  // 注意：不剥 form 容器本身（部分站点正文在 form 内，如搜索页），只剥控件
+  const NON_CONTENT_TAGS = new Set([
+    'SCRIPT', 'STYLE', 'HEAD', 'TITLE', 'META', 'LINK', 'IFRAME', 'NOSCRIPT', 'TEMPLATE',
+    'INPUT', 'BUTTON', 'SELECT', 'OPTION', 'TEXTAREA', 'LABEL',
+    'SVG', 'CANVAS', 'AUDIO', 'VIDEO', 'OBJECT', 'EMBED',
+  ])
+  td.addRule('stripNonContent', {
+    filter: node => NON_CONTENT_TAGS.has(node.nodeName.toUpperCase()),
+    replacement: () => '',
+  })
+  return td
+}
+
+const converter = createConverter()
 
 function validateHtml(html: string): boolean {
   return html.trim().length > 0
@@ -117,7 +149,7 @@ async function convert() {
 
 async function doConvert(html: string) {
   try {
-    const markdown = await getTauriAPI().convertHtmlToMd(html)
+    const markdown = converter.turndown(html)
     output.value = markdown
     if (!markdown.trim()) {
       toast.warning('转换结果为空，请检查 HTML 内容')
