@@ -7,7 +7,16 @@
   >
     <!-- String ↔ Hex -->
     <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
-      <h4 class="text-xs font-semibold text-base-content/70 mb-2.5 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> String ↔ Hex</h4>
+      <div class="flex items-center justify-between mb-2.5">
+        <h4 class="text-xs font-semibold text-base-content/70 flex items-center gap-1.5"><SvgIcon name="fileText" size="12" /> String ↔ Hex</h4>
+        <label class="flex items-center gap-1 text-[11px] text-base-content/50">
+          编码
+          <select v-model="encoding" class="select select-xs select-bordered bg-base-200/60 w-[100px]" title="字符与字节的编码方式：UTF-8 为多字节安全编码（推荐，中文/emoji 与 Base64 工具一致）；Latin-1 为单字节（旧版行为）">
+            <option value="utf8">UTF-8</option>
+            <option value="latin1">Latin-1</option>
+          </select>
+        </label>
+      </div>
       <textarea
         v-model="stringHexInput"
         class="textarea textarea-bordered w-full font-mono text-sm bg-base-200/60 min-h-[100px] resize-none"
@@ -86,6 +95,8 @@ const toast = useToast()
 // String ↔ Hex
 const stringHexInput = ref('')
 const stringHexOutput = ref('')
+// 字符↔字节编码：UTF-8（多字节，中文/emoji 安全，与 Base64 工具一致）/ Latin-1（单字节）
+const encoding = ref<'utf8' | 'latin1'>('utf8')
 
 // Hex ↔ Base64
 const hexBase64Input = ref('')
@@ -111,10 +122,18 @@ function stringToHex() {
     return
   }
   try {
-    stringHexOutput.value = stringHexInput.value
-      .split('')
-      .map(c => c.charCodeAt(0).toString(16).padStart(2, '0'))
-      .join(' ')
+    let bytes: Uint8Array
+    if (encoding.value === 'utf8') {
+      // 按 UTF-8 逐字节编码，中文/emoji 与 Base64 工具语义一致
+      bytes = new TextEncoder().encode(stringHexInput.value)
+    } else {
+      // Latin-1：每个字符取低 8 位（与旧版 charCodeAt 行为一致，仅适合单字节字符）
+      bytes = new Uint8Array(stringHexInput.value.length)
+      for (let i = 0; i < stringHexInput.value.length; i++) {
+        bytes[i] = stringHexInput.value.charCodeAt(i) & 0xff
+      }
+    }
+    stringHexOutput.value = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join(' ')
   } catch (e: any) {
     toast.error(`转换失败: ${e.message}`)
     stringHexOutput.value = ''
@@ -139,10 +158,21 @@ function hexToString() {
       stringHexOutput.value = ''
       return
     }
-    stringHexOutput.value = hex
-      .match(/.{2}/g)!
-      .map(h => String.fromCharCode(parseInt(h, 16)))
-      .join('')
+    const bytes = new Uint8Array(hex.length / 2)
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16)
+    }
+    if (encoding.value === 'utf8') {
+      try {
+        stringHexOutput.value = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+      } catch {
+        toast.error('无法按 UTF-8 解码（可能不是 UTF-8 字节序列），请切换到 Latin-1 编码查看')
+        stringHexOutput.value = ''
+        return
+      }
+    } else {
+      stringHexOutput.value = Array.from(bytes, b => String.fromCharCode(b)).join('')
+    }
   } catch (e: any) {
     toast.error(`转换失败: ${e.message}`)
     stringHexOutput.value = ''
@@ -231,16 +261,12 @@ function quickConvert() {
   }
   try {
     const text = quickInput.value
-    const hex = text
-      .split('')
-      .map(c => c.charCodeAt(0).toString(16).padStart(2, '0'))
-      .join(' ')
+    // 快速转换统一按 UTF-8 逐字节处理，保证 Hex / Base64 / Unicode 表达同一字节序列
+    const bytes = new TextEncoder().encode(text)
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join(' ')
 
-    const binary = text
-      .split('')
-      .map(c => String.fromCharCode(c.charCodeAt(0)))
-      .join('')
-    const base64 = btoa(unescape(encodeURIComponent(text)))
+    const binary = Array.from(bytes, b => String.fromCharCode(b)).join('')
+    const base64 = btoa(binary)
 
     const unicode = text
       .split('')
