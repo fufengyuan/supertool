@@ -47,7 +47,8 @@ export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
 }
 
 /* ─── Base Conversion (2-64) ─── */
-const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+// i < 10 用数字 '0'-'9'；i >= 10 从此表取值：A-Z(10-35) → a-z(36-61) → +(62) → /(63)
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+/'
 
 export function baseConvert(numStr: string, fromBase: number, toBase: number): string {
   if (fromBase < 2 || fromBase > 64 || toBase < 2 || toBase > 64) {return '错误: 支持 2-64 进制'}
