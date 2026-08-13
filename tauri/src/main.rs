@@ -933,6 +933,7 @@ fn main() {
             update_frequent_menu,
             // HTTP Fetch (HTML to Markdown tool)
             commands::fetch::fetch_page_content,
+            commands::fetch::fetch_page_content_js,
             // Agent commands (direct DB access)
             // Image commands
             commands::image::image_compress,
