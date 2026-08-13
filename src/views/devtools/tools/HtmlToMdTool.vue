@@ -24,6 +24,11 @@
         </button>
       </div>
 
+      <!-- 加载进度（SPA 页面 WebView 渲染抓取时提示等待） -->
+      <div v-if="loading" class="flex items-center gap-1.5 mb-3 text-[11px] text-base-content/50">
+        <span class="loading loading-spinner loading-xs"></span>{{ loadingText }}
+      </div>
+
       <!-- SPA 动态渲染页面提示 -->
       <div v-if="spaWarn" class="flex items-start gap-2 mb-3 px-3 py-2 bg-warning/10 border border-warning/30 rounded-lg text-xs text-warning">
         <SvgIcon name="alertTriangle" size="14" class="mt-0.5 shrink-0" />
@@ -99,6 +104,8 @@ const htmlInput = ref('')
 const urlInput = ref('')
 const output = ref('')
 const loading = ref(false)
+// 加载进度文案（SPA 页面降级 WebView 抓取时显示）
+const loadingText = ref('')
 // 输出视图：Markdown 源码 / 渲染预览
 const viewMode = ref<'md' | 'preview'>('md')
 
@@ -173,8 +180,23 @@ async function fetchUrl() {
   }
 
   loading.value = true
+  loadingText.value = '正在获取页面...'
   try {
-    const text = await getTauriAPI().fetchPageContent(url)
+    let text = await getTauriAPI().fetchPageContent(url)
+    // SPA 空壳（正文靠 JS 渲染）→ 自动降级：开隐藏 WebView 执行 JS 后抓取
+    if (isSpaShell(text)) {
+      loadingText.value = '检测到 JS 动态渲染页面，正在浏览器内核中渲染抓取（约 5-15 秒）...'
+      try {
+        text = await getTauriAPI().fetchPageContentJs(url)
+      } catch {
+        // WebView 抓取失败：保留原始空壳，跳过转换，直接走 SPA 提示引导
+        fetchedUrl.value = url
+        htmlInput.value = text
+        output.value = ''
+        spaWarn.value = '该页面正文可能由 JS 动态渲染（SPA）或需要登录，浏览器内核抓取失败。请点击下方按钮在浏览器中打开，全选复制正文后粘贴到下方 HTML 输入框。'
+        return
+      }
+    }
     fetchedUrl.value = url
     htmlInput.value = text
     await doConvert(text)
@@ -189,6 +211,7 @@ async function fetchUrl() {
     spaWarn.value = ''
   } finally {
     loading.value = false
+    loadingText.value = ''
   }
 }
 
