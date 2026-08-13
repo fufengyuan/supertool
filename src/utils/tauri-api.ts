@@ -1589,7 +1589,6 @@ export interface TauriAPI {
   openInFileManager: (path: string) => Promise<any>
   getGitCommitDetail: (repoPath: string, commitHash: string) => Promise<any>
   fetchPageContent: (url: string) => Promise<string>
-  convertHtmlToMd: (html: string) => Promise<string>
   // Calculator
   getCalculatorHistory: (limit?: number) => Promise<any>
   onMenuNewTask: (callback: () => void) => Promise<UnlistenFn>
@@ -2322,7 +2321,6 @@ export function getTauriAPI(): TauriAPI {
     getGitBranches: async (path: string): Promise<any> => tauriCall('get_git_branches', { repoPath: path }),
     openInFileManager: async (path: string): Promise<any> => tauriCall('open_in_file_manager', { path }),
     fetchPageContent: async (url: string): Promise<string> => tauriCall('fetch_page_content', { url }),
-    convertHtmlToMd: async (html: string): Promise<string> => tauriCall('convert_html_to_md', { html }),
     // Subtask
     updateTodoCompletionBasedOnSubtasks: async (todoId: string): Promise<any> => { return tauriCall('update_todo_completion_based_on_subtasks', { todoId }); },
     // Project
