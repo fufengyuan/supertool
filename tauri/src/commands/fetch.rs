@@ -169,7 +169,9 @@ const SAMPLE_JS: &str = r#"(function(){
     return best;
 })()"#;
 
-/// 提取 JS：取文本最多的候选容器（回退 body），剥离导航/脚本/交互元素
+/// 提取 JS：取文本最多的候选容器（回退 body），剥离导航/脚本/交互元素，
+/// 保留文本节点内的换行（white-space:pre-line 页面的换行只在文本 \n 里，转成 <br> 防 turndown 折叠），
+/// 并附加容器外的代码块（正文容器可能不含 pre，代码块在独立容器）
 const EXTRACT_JS: &str = r#"(function(){
     var sels = ['main','article','[role="main"]','.markdown-body','.markdown','#content','#article-content','.article-content','.doc-content','.doc-content-wrapper','.markdown-content','[class*="detail-content"]','[class*="doc-detail"]'];
     var best = null, bestLen = 0;
@@ -182,7 +184,42 @@ const EXTRACT_JS: &str = r#"(function(){
     var root = best || document.body;
     var clone = root.cloneNode(true);
     clone.querySelectorAll('script,style,nav,header,footer,aside,iframe,form,button,input,select,textarea,svg,.ad,.ads,.advertisement').forEach(function(el){el.remove()});
-    return clone.innerHTML;
+
+    // 是否在 pre 内（pre/code 的换行必须保留原样，不转 br）
+    function insidePre(node) {
+        var p = node.parentNode;
+        while (p) { if (p.nodeName === 'PRE') return true; p = p.parentNode; }
+        return false;
+    }
+    // 文本节点内的 \n → <br>（浏览器 pre-line 渲染的换行在 HTML 层只是文本换行符）
+    (function preserveNewlines(el){
+        if (!el.childNodes) return;
+        for (var i = 0; i < el.childNodes.length; i++) {
+            var node = el.childNodes[i];
+            if (node.nodeType === 3) {
+                if (insidePre(node) || !node.nodeValue || node.nodeValue.indexOf('\n') === -1) continue;
+                var frag = document.createDocumentFragment();
+                node.nodeValue.split('\n').forEach(function(part, j){
+                    if (j > 0) frag.appendChild(document.createElement('br'));
+                    if (part) frag.appendChild(document.createTextNode(part));
+                });
+                node.parentNode.replaceChild(frag, node);
+            } else if (node.nodeType === 1 && node.nodeName !== 'PRE') {
+                preserveNewlines(node);
+            }
+        }
+    })(clone);
+
+    // 附加正文容器外的代码块（防代码块在独立容器时丢失）
+    var outside = [];
+    document.querySelectorAll('pre').forEach(function(p){
+        if (!best || !best.contains(p)) outside.push(p.cloneNode(true));
+    });
+    var html = clone.innerHTML;
+    if (outside.length) {
+        html += '\n' + outside.map(function(p){ return '<div class="extracted-code">' + p.outerHTML + '</div>' }).join('');
+    }
+    return html;
 })()"#;
 
 /// 等页面 JS 渲染完成后提取正文容器 HTML。
