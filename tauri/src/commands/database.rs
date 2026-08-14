@@ -9,6 +9,8 @@ use mysql_async::{Pool as MySqlPool, Row, prelude::Queryable};
 use redis::aio::MultiplexedConnection as RedisConn;
 use tokio_postgres::{Client as PgClient, NoTls};
 
+use crate::commands::es::EsClient;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DbConnectionConfig {
     pub id: String,
@@ -34,6 +36,7 @@ pub enum DbConnection {
     Postgres(std::sync::Arc<tokio_postgres::Client>),
     Redis(RedisConn),
     Sqlite(DbConnectionConfig), // SQLite is file-based, config is enough
+    Elasticsearch(EsClient),    // HTTP REST client
 }
 
 pub static CONNECTION_POOL: LazyLock<TokioMutex<HashMap<String, DbConnection>>> =
@@ -456,6 +459,7 @@ pub async fn db_connect(config: DbConnectionConfig) -> Result<serde_json::Value,
         "postgres" => connect_postgres(&config).await?,
         "redis" => connect_redis(&config).await?,
         "sqlite" => DbConnection::Sqlite(config.clone()),
+        "elasticsearch" => DbConnection::Elasticsearch(crate::commands::es::connect_es(&config).await?),
         other => return Err(format!("Unsupported database type: {}", other)),
     };
     let mut pool = CONNECTION_POOL.lock().await;
@@ -491,6 +495,7 @@ pub async fn db_query(id: String, sql: String) -> Result<serde_json::Value, Stri
         DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), &sql).await,
         DbConnection::Redis(c) => execute_redis_command(c, &sql).await,
         DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, &sql).await,
+        DbConnection::Elasticsearch(_) => Err("Elasticsearch 不支持 SQL 查询".to_string()),
     }
 }
 
@@ -509,6 +514,7 @@ pub async fn db_execute_write(id: String, sql: String) -> Result<serde_json::Val
         // SQLite 写操作必须用 READ_WRITE 连接（execute_sqlite_query 是只读连接）
         DbConnection::Sqlite(cfg) => execute_sqlite_write(cfg, &sql).await,
         DbConnection::Redis(_) => Err("Redis 不支持 SQL 写操作".to_string()),
+        DbConnection::Elasticsearch(_) => Err("Elasticsearch 不支持 SQL 写操作".to_string()),
     }
 }
 
@@ -2294,6 +2300,9 @@ pub async fn db_backup_restore(id: String, file: String) -> Result<serde_json::V
             DbConnection::Redis(_) => {
                 return Err("Redis 不支持备份恢复操作".to_string());
             }
+            DbConnection::Elasticsearch(_) => {
+                return Err("Elasticsearch 不支持备份恢复操作".to_string());
+            }
         }
     }
 
@@ -3792,6 +3801,10 @@ pub async fn db_test(config: DbConnectionConfig) -> Result<serde_json::Value, St
         }
         "sqlite" => {
             connect_sqlite(&config)?;
+            Ok(serde_json::json!({ "success": true }))
+        }
+        "elasticsearch" => {
+            crate::commands::es::connect_es(&config).await?;
             Ok(serde_json::json!({ "success": true }))
         }
         other => Err(format!("Unsupported database type: {}", other)),

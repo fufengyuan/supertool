@@ -23,6 +23,12 @@
             Redis 管理器
           </button>
         </template>
+        <template v-else-if="db.activeConnection.value.type === 'elasticsearch'">
+          <button @click="openEsManager" class="btn btn-primary btn-sm gap-1.5" title="Elasticsearch 管理器">
+            <SvgIcon name="search" size="14" />
+            ES 管理器
+          </button>
+        </template>
         <template v-else>
           <div class="flex gap-0.5 p-0.5 bg-base-200 rounded-lg">
             <button
@@ -140,6 +146,20 @@
               </div>
               <button @click="openRedisManager" class="btn btn-primary btn-sm gap-1.5">
                 <SvgIcon name="key" size="14" /> 打开 Redis 管理器
+              </button>
+            </div>
+          </template>
+          <template v-else-if="db.activeConnection.value?.type === 'elasticsearch'">
+            <div class="flex flex-col items-center gap-5 max-w-[340px] text-center">
+              <div class="w-20 h-20 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shadow-sm">
+                <SvgIcon name="search" size="40" stroke-width="1.5" class="text-indigo-500/60" />
+              </div>
+              <div>
+                <p class="text-base font-semibold text-base-content m-0 mb-1.5">Elasticsearch 连接已就绪</p>
+                <p class="text-xs text-base-content/50 m-0 leading-relaxed">管理索引、浏览文档、执行搜索</p>
+              </div>
+              <button @click="openEsManager" class="btn btn-primary btn-sm gap-1.5">
+                <SvgIcon name="search" size="14" /> 打开 ES 管理器
               </button>
             </div>
           </template>
@@ -338,6 +358,15 @@
               />
             </template>
 
+            <!-- Elasticsearch Manager tab -->
+            <template v-else-if="activeTab?.type === 'esManager'">
+              <EsManager
+                :connection-id="activeTab.connectionId"
+                :connection-name="activeTab.connectionName"
+                :connection="db.connections.value.find(c => c.id === activeTab!.connectionId)"
+              />
+            </template>
+
             <!-- Redis Queue tab -->
             <template v-else-if="activeTab?.type === 'redisQueue'">
               <RedisQueueManager
@@ -412,6 +441,7 @@ import DataGrid from './DataGrid.vue'
 import TableStructure from './TableStructure.vue'
 import RedisManager from './RedisManager.vue'
 import RedisQueueManager from './RedisQueueManager.vue'
+import EsManager from './EsManager.vue'
 import StructureSync from './StructureSync.vue'
 import DataSync from './DataSync.vue'
 import DBBackup from './DBBackup.vue'
@@ -530,6 +560,7 @@ function getTabIcon(tab: WorkspaceTab | null): string {
     case 'tableStructure': return 'grid'
     case 'redisConsole': return 'terminal'
     case 'redisManager': return 'key'
+    case 'esManager': return 'search'
     case 'structureSync': return 'tool'
     case 'dataSync': return 'package'
     case 'backup': return 'archive'
@@ -542,6 +573,7 @@ function getTabIconClass(tab: WorkspaceTab | null): string {
   switch (tab.type) {
     case 'redisConsole': return 'text-red-500'
     case 'redisManager': return 'text-red-500'
+    case 'esManager': return 'text-indigo-500'
     case 'backup': return 'text-orange-500'
     case 'tableStructure': return 'text-primary'
     default: return ''
@@ -630,6 +662,11 @@ async function handleDeleteConnection(id: string) {
 function openRedisManager() {
   if (!db.activeConnection.value) {return}
   db.openRedisManagerTab(db.activeConnection.value.id, db.activeConnection.value.name)
+}
+
+function openEsManager() {
+  if (!db.activeConnection.value) {return}
+  db.openEsManagerTab(db.activeConnection.value.id, db.activeConnection.value.name)
 }
 
 function openBackupTab() {
@@ -1188,6 +1225,8 @@ onMounted(async () => {
 watch(() => db.activeConnection.value, (conn) => {
   if (conn?.type === 'redis' && db.tabs.value.length === 0) {
     db.openRedisManagerTab(conn.id, conn.name)
+  } else if (conn?.type === 'elasticsearch' && db.tabs.value.length === 0) {
+    db.openEsManagerTab(conn.id, conn.name)
   }
 })
 </script>

@@ -4,7 +4,7 @@ import { ref, computed, watch } from 'vue'
 export interface DBConnection {
   id: string
   name: string
-  type: 'mysql' | 'postgresql' | 'redis' | 'sqlite'
+  type: 'mysql' | 'postgresql' | 'redis' | 'sqlite' | 'elasticsearch'
   host: string
   port: number
   user?: string
@@ -41,7 +41,7 @@ export interface ExpandedState {
   redisFolders: Set<string>   // expanded Redis key folders: "connId:dbIndex:folderPath"
 }
 
-export type TabType = 'sql' | 'tableData' | 'tableStructure' | 'redisConsole' | 'redisManager' | 'redisQueue' | 'structureSync' | 'dataSync' | 'backup'
+export type TabType = 'sql' | 'tableData' | 'tableStructure' | 'redisConsole' | 'redisManager' | 'redisQueue' | 'esManager' | 'structureSync' | 'dataSync' | 'backup'
 
 export interface WorkspaceTab {
   id: string
@@ -420,6 +420,16 @@ export function useDBManager() {
     return addTab(tab)
   }
 
+  // Convenience: open Elasticsearch Manager tab
+  const openEsManagerTab = (connectionId: string, connectionName: string) => {
+    return addTab({
+      type: 'esManager',
+      title: `${connectionName} - Elasticsearch`,
+      connectionId,
+      connectionName,
+    })
+  }
+
   // Convenience: open Structure Sync tab
   const openStructureSyncTab = () => {
     return addTab({
@@ -501,6 +511,7 @@ export function useDBManager() {
     openRedisConsoleTab,
     openRedisManagerTab,
     openRedisQueueTab,
+    openEsManagerTab,
     openStructureSyncTab,
     openDataSyncTab,
     openBackupTab

@@ -10,7 +10,7 @@ declare module '*.vue' {
 interface DBConfig {
   id: string
   name: string
-  type: 'mysql' | 'postgresql' | 'redis' | 'sqlite'
+  type: 'mysql' | 'postgresql' | 'redis' | 'sqlite' | 'elasticsearch'
   host: string
   port: number
   user: string
