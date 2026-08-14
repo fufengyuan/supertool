@@ -438,6 +438,75 @@ export function useDatabaseAPI() {
       const res = await tauriInvoke<any>('db_redis_exec', { id, dbIndex, command })
       return res.success ? (res.result ?? null) : null
     },
+    // Elasticsearch
+    esClusterHealth: async (id: string): Promise<any> => {
+      const res = await tauriInvoke<any>('es_cluster_health', { id })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esNodes: async (id: string): Promise<any> => {
+      const res = await tauriInvoke<any>('es_nodes', { id })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esClusterStats: async (id: string): Promise<any> => {
+      const res = await tauriInvoke<any>('es_cluster_stats', { id })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esListIndices: async (id: string): Promise<any> => {
+      const res = await tauriInvoke<any>('es_list_indices', { id })
+      return res.success ? (res.data ?? []) : { success: false, error: res.error }
+    },
+    esIndexInfo: async (id: string, index: string): Promise<any> => {
+      const res = await tauriInvoke<any>('es_index_info', { id, index })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esIndexMapping: async (id: string, index: string): Promise<any> => {
+      const res = await tauriInvoke<any>('es_index_mapping', { id, index })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esCreateIndex: async (id: string, index: string, body: any): Promise<any> => {
+      const res = await tauriInvoke<any>('es_create_index', { id, index, body })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esUpdateIndexSettings: async (id: string, index: string, settings: any): Promise<any> => {
+      const res = await tauriInvoke<any>('es_update_index_settings', { id, index, settings })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esDeleteIndex: async (id: string, indices: string): Promise<any> => {
+      const res = await tauriInvoke<any>('es_delete_index', { id, indices })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esAliases: async (id: string): Promise<any> => {
+      const res = await tauriInvoke<any>('es_aliases', { id })
+      return res.success ? (res.data ?? []) : { success: false, error: res.error }
+    },
+    esUpdateAliases: async (id: string, actions: any): Promise<any> => {
+      const res = await tauriInvoke<any>('es_update_aliases', { id, actions })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esReindex: async (id: string, source: string, dest: string): Promise<any> => {
+      const res = await tauriInvoke<any>('es_reindex', { id, source, dest })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esSearch: async (id: string, index: string, body: any, from?: number, size?: number): Promise<any> => {
+      const res = await tauriInvoke<any>('es_search', { id, index, body, from, size })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esGetDocument: async (id: string, index: string, docId: string): Promise<any> => {
+      const res = await tauriInvoke<any>('es_get_document', { id, index, docId })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esIndexDocument: async (id: string, index: string, docId: string | undefined, body: any): Promise<any> => {
+      const res = await tauriInvoke<any>('es_index_document', { id, index, docId, body })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esUpdateDocument: async (id: string, index: string, docId: string, body: any): Promise<any> => {
+      const res = await tauriInvoke<any>('es_update_document', { id, index, docId, body })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
+    esDeleteDocument: async (id: string, index: string, docId: string): Promise<any> => {
+      const res = await tauriInvoke<any>('es_delete_document', { id, index, docId })
+      return res.success ? (res.data ?? null) : { success: false, error: res.error }
+    },
     // CICD 工具检测
     detectToolPaths: async (): Promise<Record<string, string>> => {
       const res = await tauriInvoke<Record<string, string>>('detect_tool_paths')
@@ -1449,6 +1518,24 @@ export interface TauriAPI {
   dbRedisAddKey: (id: string, dbIndex: number, keyType: string, key: string, value: any) => Promise<boolean>
   dbRedisDeleteKey: (id: string, dbIndex: number, key: string) => Promise<boolean>
   dbRedisExec: (id: string, dbIndex: number, command: string) => Promise<any>
+  // Elasticsearch
+  esClusterHealth: (id: string) => Promise<any>
+  esNodes: (id: string) => Promise<any>
+  esClusterStats: (id: string) => Promise<any>
+  esListIndices: (id: string) => Promise<any>
+  esIndexInfo: (id: string, index: string) => Promise<any>
+  esIndexMapping: (id: string, index: string) => Promise<any>
+  esCreateIndex: (id: string, index: string, body: any) => Promise<any>
+  esUpdateIndexSettings: (id: string, index: string, settings: any) => Promise<any>
+  esDeleteIndex: (id: string, indices: string) => Promise<any>
+  esAliases: (id: string) => Promise<any>
+  esUpdateAliases: (id: string, actions: any) => Promise<any>
+  esReindex: (id: string, source: string, dest: string) => Promise<any>
+  esSearch: (id: string, index: string, body: any, from?: number, size?: number) => Promise<any>
+  esGetDocument: (id: string, index: string, docId: string) => Promise<any>
+  esIndexDocument: (id: string, index: string, docId: string | undefined, body: any) => Promise<any>
+  esUpdateDocument: (id: string, index: string, docId: string, body: any) => Promise<any>
+  esDeleteDocument: (id: string, index: string, docId: string) => Promise<any>
   dbTest: (config: Record<string, unknown>) => Promise<any>
   dbGetTableDataFiltered: (filter: Record<string, unknown>) => Promise<any>
   dbGetTablesFiltered: (filter: Record<string, unknown>) => Promise<any>
@@ -2016,6 +2103,24 @@ export function getTauriAPI(): TauriAPI {
     dbRedisAddKey: database.dbRedisAddKey,
     dbRedisDeleteKey: database.dbRedisDeleteKey,
     dbRedisExec: database.dbRedisExec,
+    // Elasticsearch
+    esClusterHealth: database.esClusterHealth,
+    esNodes: database.esNodes,
+    esClusterStats: database.esClusterStats,
+    esListIndices: database.esListIndices,
+    esIndexInfo: database.esIndexInfo,
+    esIndexMapping: database.esIndexMapping,
+    esCreateIndex: database.esCreateIndex,
+    esUpdateIndexSettings: database.esUpdateIndexSettings,
+    esDeleteIndex: database.esDeleteIndex,
+    esAliases: database.esAliases,
+    esUpdateAliases: database.esUpdateAliases,
+    esReindex: database.esReindex,
+    esSearch: database.esSearch,
+    esGetDocument: database.esGetDocument,
+    esIndexDocument: database.esIndexDocument,
+    esUpdateDocument: database.esUpdateDocument,
+    esDeleteDocument: database.esDeleteDocument,
     detectToolPaths: database.detectToolPaths,
     detectBuildTools: database.detectBuildTools,
     detectSdkVersions: database.detectSdkVersions,

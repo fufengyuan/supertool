@@ -6,6 +6,7 @@ pub mod cli_install;
 pub mod data_backup;
 pub mod database;
 pub mod disk_cleaner;
+pub mod es;
 pub mod fetch;
 pub mod floating_todo;
 pub mod git;

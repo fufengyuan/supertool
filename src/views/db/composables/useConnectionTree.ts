@@ -238,13 +238,15 @@ function onSearchFocus() {
 
 function expandAllForSearch() {
   for (const conn of props.sortedConnections) {
-    if (conn.type === 'redis') {
+    if (conn.type === 'redis' || conn.type === 'elasticsearch') {
       if (!props.isConnectionExpanded(conn.id)) {
         emit('toggle', conn.id)
       }
-      for (const redisDb of redisDatabases.value[conn.id] || []) {
-        if (!props.isRedisDatabaseExpanded(conn.id, redisDb.db)) {
-          emit('toggle-redis-database', conn.id, redisDb.db)
+      if (conn.type === 'redis') {
+        for (const redisDb of redisDatabases.value[conn.id] || []) {
+          if (!props.isRedisDatabaseExpanded(conn.id, redisDb.db)) {
+            emit('toggle-redis-database', conn.id, redisDb.db)
+          }
         }
       }
     } else {
@@ -717,8 +719,8 @@ watch(
         const conn = props.sortedConnections.find(c => c.id === item.id)
         if (!conn) {continue}
 
-        // Redis doesn't have databases
-        if (conn.type === 'redis') {
+        // Redis / Elasticsearch don't have databases (ES 索引在 EsManager 内管理)
+        if (conn.type === 'redis' || conn.type === 'elasticsearch') {
           databases.value[item.id] = []
           continue
         }

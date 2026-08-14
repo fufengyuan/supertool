@@ -18,6 +18,7 @@
               <option value="postgresql">PostgreSQL</option>
               <option value="redis">Redis</option>
               <option value="sqlite">SQLite</option>
+              <option value="elasticsearch">Elasticsearch</option>
             </select>
           </div>
         </div>
@@ -50,12 +51,12 @@
           <div class="flex gap-4">
             <div class="flex-1 min-w-0" v-if="localForm.type !== 'redis'">
               <label class="label"><span class="label-text">用户名</span></label>
-              <input v-model="localForm.user" class="input input-bordered w-full" placeholder="root" />
+              <input v-model="localForm.user" class="input input-bordered w-full" :placeholder="localForm.type === 'elasticsearch' ? '无认证留空' : 'root'" />
             </div>
             <div class="flex-1 min-w-0" :class="{ 'basis-full': localForm.type === 'redis' }">
               <label class="label"><span class="label-text">密码</span></label>
               <div class="relative">
-                <input v-model="localForm.password" :type="showPassword ? 'text' : 'password'" class="input input-bordered w-full pr-10" autocomplete="off" :placeholder="localForm.type === 'redis' ? '无密码留空' : '密码'" />
+                <input v-model="localForm.password" :type="showPassword ? 'text' : 'password'" class="input input-bordered w-full pr-10" autocomplete="off" :placeholder="localForm.type === 'redis' ? '无密码留空' : (localForm.type === 'elasticsearch' ? '无认证留空' : '密码')" />
                 <button
                   type="button"
                   class="absolute right-2.5 top-1/2 -translate-y-1/2 text-base-content/50 hover:text-base-content"
@@ -68,7 +69,7 @@
             </div>
           </div>
 
-          <div class="mt-4" v-if="localForm.type !== 'redis'">
+          <div class="mt-4" v-if="localForm.type !== 'redis' && localForm.type !== 'elasticsearch'">
             <label class="label"><span class="label-text">数据库名</span></label>
             <input v-model="localForm.database" class="input input-bordered w-full" placeholder="database_name" />
           </div>
@@ -183,7 +184,8 @@ const defaultPort = computed(() => {
   const map: Record<string, string> = {
     mysql: '3306',
     postgresql: '5432',
-    redis: '6379'
+    redis: '6379',
+    elasticsearch: '9200'
   }
   return map[localForm.value.type] || ''
 })
