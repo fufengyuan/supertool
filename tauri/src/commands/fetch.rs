@@ -257,6 +257,22 @@ const EXTRACT_JS: &str = r#"(function(){
         el.querySelectorAll('ne-tr').forEach(function(tr){ renameTag(tr, 'tr'); });
         el.querySelectorAll('ne-table').forEach(function(tbl){
             var table = renameTag(tbl, 'table');
+            // 单元格内容保持单行（GFM 表格单元格不能跨行）：
+            // td/th 内块级（div/p）降级为 span、br 删除、文本空白折叠为单空格
+            table.querySelectorAll('td, th').forEach(function(cell){
+                cell.querySelectorAll('div, p').forEach(function(d){ renameTag(d, 'span'); });
+                cell.querySelectorAll('br').forEach(function(b){ b.remove(); });
+                (function foldText(node){
+                    for (var i = 0; i < node.childNodes.length; i++) {
+                        var n = node.childNodes[i];
+                        if (n.nodeType === 3 && n.nodeValue) {
+                            n.nodeValue = n.nodeValue.replace(/\s+/g, ' ').trim();
+                        } else if (n.nodeType === 1) {
+                            foldText(n);
+                        }
+                    }
+                })(cell);
+            });
             var firstRow = table.querySelector('tr');
             if (firstRow) {
                 firstRow.querySelectorAll('td').forEach(function(td){ renameTag(td, 'th'); });
@@ -295,7 +311,7 @@ const EXTRACT_JS: &str = r#"(function(){
                     if (part) frag.appendChild(document.createTextNode(part));
                 });
                 node.parentNode.replaceChild(frag, node);
-            } else if (node.nodeType === 1 && node.nodeName !== 'PRE') {
+            } else if (node.nodeType === 1 && node.nodeName !== 'PRE' && node.nodeName !== 'TABLE') {
                 preserveNewlines(node);
             }
         }
