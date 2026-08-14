@@ -171,7 +171,7 @@ const SAMPLE_JS: &str = r#"(function(){
     var docEl = document.documentElement;
     var scrollH = Math.max(docEl.scrollHeight || 0, document.body ? document.body.scrollHeight : 0);
     window.scrollTo(0, window.__spaScrollToggle ? scrollH : 0);
-    var sels = ['main','article','[role="main"]','.markdown-body','.markdown','#content','#article-content','.article-content','.doc-content','.doc-content-wrapper','.markdown-content','[class*="detail-content"]','[class*="doc-detail"]'];
+    var sels = ['main','article','[role="main"]','.markdown-body','.markdown','.prose','#content','#article-content','.article-content','.doc-content','.doc-content-wrapper','.markdown-content','[class*="detail-content"]','[class*="doc-detail"]','[class*="content"]','[class*="prose"]','[class*="article"]','[class*="markdown"]','[class*="body"]'];
     var best = 0;
     for (var i = 0; i < sels.length; i++) {
         var el = document.querySelector(sels[i]);
@@ -198,8 +198,8 @@ const EXTRACT_JS: &str = r#"(function(){
     window.scrollTo(0, document.documentElement.scrollHeight || document.body.scrollHeight);
     window.scrollTo(0, 0);
 
-    // 2. 选正文容器（文本最多者）
-    var sels = ['main','article','[role="main"]','.markdown-body','.markdown','#content','#article-content','.article-content','.doc-content','.doc-content-wrapper','.markdown-content','[class*="detail-content"]','[class*="doc-detail"]'];
+    // 2. 选正文容器（文本最多者；选择器含通配，适配不同文档站 wrapper class 差异）
+    var sels = ['main','article','[role="main"]','.markdown-body','.markdown','.prose','#content','#article-content','.article-content','.doc-content','.doc-content-wrapper','.markdown-content','[class*="detail-content"]','[class*="doc-detail"]','[class*="content"]','[class*="prose"]','[class*="article"]','[class*="markdown"]','[class*="body"]'];
     var best = null, bestLen = 0;
     for (var i = 0; i < sels.length; i++) {
         var el = document.querySelector(sels[i]);
@@ -207,9 +207,10 @@ const EXTRACT_JS: &str = r#"(function(){
         var l = el.innerText ? el.innerText.trim().length : 0;
         if (l > bestLen) { bestLen = l; best = el; }
     }
-    var root = best || document.body;
-    var clone = root.cloneNode(true);
-    clone.querySelectorAll('script,style,nav,header,footer,aside,iframe,form,button,input,select,textarea,svg,.ad,.ads,.advertisement').forEach(function(el){el.remove()});
+
+    // 剥离选择器：脚本/导航/表单等；噪音选择器：body 回退时清理侧边栏/目录/推荐等区域
+    var STRIP = 'script,style,nav,header,footer,aside,iframe,form,button,input,select,textarea,svg,.ad,.ads,.advertisement';
+    var NOISE = '[class*="sidebar"],[class*="toc"],[class*="menu"],[class*="breadcrumb"],[class*="search"],[class*="recommend"],[class*="related"],[class*="question"],[class*="feedback"],[class*="pagination"],[class*="copyright"],[class*="navbar"],[class*="footer"],[class*="header"],[class*="nav"]';
 
     // 3. ne-doc 标签规范化：ne-text → 文本/strong；ne-p → p；ne-uli → li（相邻包 ul）；
     //    ne-card → img；ne-viewer-b-filler 删除；ne-table → 标准 table（首行 td → th）。
@@ -275,17 +276,31 @@ const EXTRACT_JS: &str = r#"(function(){
             }
         });
     }
-
-    // 4. 是否在 pre 内（pre/code 的换行必须保留原样，不转 br）
+    // 是否在 pre 内（pre/code 的换行必须保留原样，不转 br）
     function insidePre(node) {
         var p = node.parentNode;
         while (p) { if (p.nodeName === 'PRE') return true; p = p.parentNode; }
         return false;
     }
-    // 5. ne-doc 标签规范化（ne-p/ne-text/ne-uli/ne-table/ne-card → 标准标签）
-    normalizeNeTags(clone);
-
-    // 6. 代码块统一转标准 pre/code（.ne-code/.ne-codeblock/.CodeMirror 用 innerText 取代码；
+    // 文本节点内的 \n → <br>（pre-line 渲染的换行在 HTML 层只是文本换行符；pre 内自动跳过）
+    function preserveNewlines(el) {
+        if (!el.childNodes) return;
+        for (var i = 0; i < el.childNodes.length; i++) {
+            var node = el.childNodes[i];
+            if (node.nodeType === 3) {
+                if (insidePre(node) || !node.nodeValue || node.nodeValue.indexOf('\n') === -1) continue;
+                var frag = document.createDocumentFragment();
+                node.nodeValue.split('\n').forEach(function(part, j){
+                    if (j > 0) frag.appendChild(document.createElement('br'));
+                    if (part) frag.appendChild(document.createTextNode(part));
+                });
+                node.parentNode.replaceChild(frag, node);
+            } else if (node.nodeType === 1 && node.nodeName !== 'PRE') {
+                preserveNewlines(node);
+            }
+        }
+    }
+    // 代码块统一转标准 pre/code（.ne-code/.ne-codeblock/.CodeMirror 用 innerText 取代码；
     //    行号 gutter 不在 .CodeMirror-code .CodeMirror-line 内；ne-code 内容含行间 \n。
     //    必须在 preserveNewlines 之前执行——否则代码内的 \n 会被转成 <br>，innerText 提取丢换行）
     function convertCodeBlocks(scope) {
@@ -306,37 +321,35 @@ const EXTRACT_JS: &str = r#"(function(){
             blk.parentNode.replaceChild(pre, blk);
         }
     }
-    convertCodeBlocks(clone);
+    // 完整处理链：剥离 → ne-doc 规范化 → 代码块转换 → 换行保留 → 列表包裹
+    function processClone(c) {
+        c.querySelectorAll(STRIP).forEach(function(el){ el.remove(); });
+        c.querySelectorAll(NOISE).forEach(function(el){ el.remove(); });
+        normalizeNeTags(c);
+        convertCodeBlocks(c);
+        preserveNewlines(c);
+        wrapAdjacentLists(c);
+        return c;
+    }
 
-    // 7. 文本节点内的 \n → <br>（pre-line 渲染的换行在 HTML 层只是文本换行符；pre 内自动跳过）
-    (function preserveNewlines(el){
-        if (!el.childNodes) return;
-        for (var i = 0; i < el.childNodes.length; i++) {
-            var node = el.childNodes[i];
-            if (node.nodeType === 3) {
-                if (insidePre(node) || !node.nodeValue || node.nodeValue.indexOf('\n') === -1) continue;
-                var frag = document.createDocumentFragment();
-                node.nodeValue.split('\n').forEach(function(part, j){
-                    if (j > 0) frag.appendChild(document.createElement('br'));
-                    if (part) frag.appendChild(document.createTextNode(part));
-                });
-                node.parentNode.replaceChild(frag, node);
-            } else if (node.nodeType === 1 && node.nodeName !== 'PRE') {
-                preserveNewlines(node);
-            }
-        }
-    })(clone);
+    // 4. 处理正文容器（回退 body）
+    var clone = (best || document.body).cloneNode(true);
+    processClone(clone);
+    var html = clone.innerHTML;
 
-    // 8. 相邻 li 包成 ul
-    wrapAdjacentLists(clone);
+    // 5. 正文容器内容过少（<300 可见文本）→ 正文容器选择失败，回退 body 提取
+    if (best && html.replace(/<[^>]+>/g, ' ').replace(/&[a-zA-Z]+;/g, ' ').trim().length < 300) {
+        var bodyClone = document.body.cloneNode(true);
+        processClone(bodyClone);
+        html = bodyClone.innerHTML;
+    }
 
-    // 9. 转换 document 级代码块，再收集容器外的 pre（代码块在独立容器时防丢失）
+    // 6. 转换 document 级代码块，再收集容器外的 pre（代码块在独立容器时防丢失）
     convertCodeBlocks(document.body);
     var outside = [];
     document.querySelectorAll('pre').forEach(function(p){
         if (!best || !best.contains(p)) outside.push(p.cloneNode(true));
     });
-    var html = clone.innerHTML;
     if (outside.length) {
         html += '\n' + outside.map(function(p){ return '<div class="extracted-code">' + p.outerHTML + '</div>' }).join('');
     }
