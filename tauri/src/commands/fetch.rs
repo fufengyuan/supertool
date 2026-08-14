@@ -158,18 +158,26 @@ pub async fn fetch_page_content_js(app: AppHandle, url: String) -> Result<String
 /// SPA 文档站结构差异大，固定顺序取第一个可能命中侧边栏/目录等窄容器，
 /// 故按「文本最多」选取。
 
-/// 采样 JS：先展开折叠的代码块（ne-doc/CodeMirror 懒渲染），再返回候选容器与代码容器文本的最大长度
+/// 采样 JS：先展开折叠的代码块（ne-doc/CodeMirror 懒渲染）并交替滚动触发 IntersectionObserver 懒加载，
+/// 再返回候选容器与代码容器文本的最大长度。
+/// 支付宝文档页面用 IntersectionObserver 懒加载（元素进入视口才渲染代码块），
+/// 隐藏 WebView 不滚动则代码块永不在视口 → 必须模拟滚动（700ms 轮询间隔天然分帧）
 const SAMPLE_JS: &str = r#"(function(){
     // ne-doc 代码块默认可能折叠（ne-codeblock-collapsed-button），点击后 CodeMirror 才渲染代码
     var btns = document.querySelectorAll('.ne-codeblock-collapsed-button, .codeblock-collapsed-button, [class*="collapsed-button"]');
     for (var b = 0; b < btns.length; b++) { try { btns[b].click(); } catch (e) {} }
+    // 交替滚动到底/顶：触发 IntersectionObserver 懒加载（每次采样间隔 700ms，天然分帧）
+    window.__spaScrollToggle = !window.__spaScrollToggle;
+    var docEl = document.documentElement;
+    var scrollH = Math.max(docEl.scrollHeight || 0, document.body ? document.body.scrollHeight : 0);
+    window.scrollTo(0, window.__spaScrollToggle ? scrollH : 0);
     var sels = ['main','article','[role="main"]','.markdown-body','.markdown','#content','#article-content','.article-content','.doc-content','.doc-content-wrapper','.markdown-content','[class*="detail-content"]','[class*="doc-detail"]'];
     var best = 0;
     for (var i = 0; i < sels.length; i++) {
         var el = document.querySelector(sels[i]);
         if (el) { var l = el.innerText ? el.innerText.trim().length : 0; if (l > best) best = l; }
     }
-    // 代码块（ne-code/ne-codeblock/CodeMirror）文本并入渲染判定（代码块可能在容器外/刚展开）
+    // 代码块（ne-code/ne-codeblock/CodeMirror）文本并入渲染判定（代码块可能在容器外/刚展开/刚懒加载）
     var codeBest = 0;
     var blocks = document.querySelectorAll('.ne-code, .ne-codeblock, .CodeMirror');
     for (var k = 0; k < blocks.length; k++) {
@@ -186,6 +194,9 @@ const EXTRACT_JS: &str = r#"(function(){
     // 1. 展开折叠的代码块（ne-doc 的代码块可能默认折叠，CodeMirror 懒渲染，折叠时 DOM 无代码）
     var btns = document.querySelectorAll('.ne-codeblock-collapsed-button, .codeblock-collapsed-button, [class*="collapsed-button"]');
     for (var b = 0; b < btns.length; b++) { try { btns[b].click(); } catch (e) {} }
+    // 滚动触发 IntersectionObserver 懒加载（提取前滚到底再回顶，保证最后一批代码块已渲染）
+    window.scrollTo(0, document.documentElement.scrollHeight || document.body.scrollHeight);
+    window.scrollTo(0, 0);
 
     // 2. 选正文容器（文本最多者）
     var sels = ['main','article','[role="main"]','.markdown-body','.markdown','#content','#article-content','.article-content','.doc-content','.doc-content-wrapper','.markdown-content','[class*="detail-content"]','[class*="doc-detail"]'];
