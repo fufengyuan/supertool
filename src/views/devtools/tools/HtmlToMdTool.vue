@@ -147,6 +147,12 @@ function createConverter(): TurndownService {
   })
   // GFM 表格支持
   td.use(gfm)
+  // 含合并单元格（rowspan/colspan）的表格：GFM 无法表达合并单元格，转换会列数错乱
+  // 渲染异常——保留原始 HTML（Markdown 预览可正常渲染）
+  td.addRule('tableMergedCells', {
+    filter: node => node.nodeName === 'TABLE' && !!node.querySelector('td[rowspan], td[colspan], th[rowspan], th[colspan]'),
+    replacement: (_content, node) => `\n\n${node.outerHTML}\n\n`,
+  })
   // turndown 默认不处理这些标签——显式剥离页面骨架/脚本/交互元素。
   // 用 nodeName 判断，规避 svg 不在 HTMLElementTagNameMap 的类型限制。
   // 注意：不剥 form 容器本身（部分站点正文在 form 内，如搜索页），只剥控件
