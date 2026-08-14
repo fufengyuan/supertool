@@ -158,10 +158,10 @@ pub async fn fetch_page_content_js(app: AppHandle, url: String) -> Result<String
 /// SPA 文档站结构差异大，固定顺序取第一个可能命中侧边栏/目录等窄容器，
 /// 故按「文本最多」选取。
 
-/// 采样 JS：先展开折叠的代码块（CodeMirror 懒渲染），再返回候选容器与 CodeMirror 文本的最大长度
+/// 采样 JS：先展开折叠的代码块（ne-doc/CodeMirror 懒渲染），再返回候选容器与代码容器文本的最大长度
 const SAMPLE_JS: &str = r#"(function(){
-    // 支付宝文档代码块默认可能折叠（ne-codeblock-collapsed-button），点击后 CodeMirror 才渲染代码
-    var btns = document.querySelectorAll('.ne-codeblock-collapsed-button');
+    // ne-doc 代码块默认可能折叠（ne-codeblock-collapsed-button），点击后 CodeMirror 才渲染代码
+    var btns = document.querySelectorAll('.ne-codeblock-collapsed-button, .codeblock-collapsed-button, [class*="collapsed-button"]');
     for (var b = 0; b < btns.length; b++) { try { btns[b].click(); } catch (e) {} }
     var sels = ['main','article','[role="main"]','.markdown-body','.markdown','#content','#article-content','.article-content','.doc-content','.doc-content-wrapper','.markdown-content','[class*="detail-content"]','[class*="doc-detail"]'];
     var best = 0;
@@ -169,24 +169,25 @@ const SAMPLE_JS: &str = r#"(function(){
         var el = document.querySelector(sels[i]);
         if (el) { var l = el.innerText ? el.innerText.trim().length : 0; if (l > best) best = l; }
     }
-    // 代码块（CodeMirror）文本并入渲染判定（代码块可能在容器外/刚展开）
-    var cmBest = 0;
-    var cms = document.querySelectorAll('.CodeMirror');
-    for (var k = 0; k < cms.length; k++) {
-        var t = cms[k].innerText ? cms[k].innerText.trim().length : 0;
-        if (t > cmBest) cmBest = t;
+    // 代码块（ne-code/ne-codeblock/CodeMirror）文本并入渲染判定（代码块可能在容器外/刚展开）
+    var codeBest = 0;
+    var blocks = document.querySelectorAll('.ne-code, .ne-codeblock, .CodeMirror');
+    for (var k = 0; k < blocks.length; k++) {
+        var t = blocks[k].innerText ? blocks[k].innerText.trim().length : 0;
+        if (t > codeBest) codeBest = t;
     }
-    return Math.max(best, cmBest);
+    return Math.max(best, codeBest);
 })()"#;
 
-/// 提取 JS：取文本最多的候选容器（回退 body），剥离导航/脚本/交互元素，
-/// 展开折叠代码块、把 CodeMirror 结构转成标准 pre/code（CodeMirror 每行是一个 pre.CodeMirror-line，
-/// turndown 无法识别成完整代码块）、保留文本节点换行（white-space:pre-line 页面的换行只在文本 \n 里），
-/// 并附加容器外的代码块（正文容器可能不含 pre，代码块在独立容器）
+/// 提取 JS：适配 ne-doc（飞书/Lark 文档引擎）与 CodeMirror 代码块。
+/// ne-doc 用自定义标签（ne-p/ne-text/ne-uli/ne-table/ne-card）渲染正文，turndown 无法识别，
+/// 需先规范化为标准 HTML；代码块（.ne-code/.ne-codeblock/.CodeMirror）统一转标准 pre/code。
 const EXTRACT_JS: &str = r#"(function(){
-    // 先展开折叠的代码块（CodeMirror 懒渲染，折叠时 DOM 无代码内容）
-    var btns = document.querySelectorAll('.ne-codeblock-collapsed-button');
+    // 1. 展开折叠的代码块（ne-doc 的代码块可能默认折叠，CodeMirror 懒渲染，折叠时 DOM 无代码）
+    var btns = document.querySelectorAll('.ne-codeblock-collapsed-button, .codeblock-collapsed-button, [class*="collapsed-button"]');
     for (var b = 0; b < btns.length; b++) { try { btns[b].click(); } catch (e) {} }
+
+    // 2. 选正文容器（文本最多者）
     var sels = ['main','article','[role="main"]','.markdown-body','.markdown','#content','#article-content','.article-content','.doc-content','.doc-content-wrapper','.markdown-content','[class*="detail-content"]','[class*="doc-detail"]'];
     var best = null, bestLen = 0;
     for (var i = 0; i < sels.length; i++) {
@@ -199,32 +200,104 @@ const EXTRACT_JS: &str = r#"(function(){
     var clone = root.cloneNode(true);
     clone.querySelectorAll('script,style,nav,header,footer,aside,iframe,form,button,input,select,textarea,svg,.ad,.ads,.advertisement').forEach(function(el){el.remove()});
 
-    // CodeMirror 结构 → 标准 <pre><code>（按行拼接，行号 gutter 不在 .CodeMirror-code .CodeMirror-line 内）
-    function convertCodeMirror(scope) {
-        var cms = scope.querySelectorAll ? scope.querySelectorAll('.CodeMirror') : [];
-        for (var m = 0; m < cms.length; m++) {
-            var cm = cms[m];
-            var lines = cm.querySelectorAll('.CodeMirror-code .CodeMirror-line');
-            var parts = [];
-            for (var k = 0; k < lines.length; k++) {
-                parts.push(lines[k].innerText || lines[k].textContent || '');
-            }
-            if (!parts.length) continue;
-            var pre = document.createElement('pre');
-            var codeEl = document.createElement('code');
-            codeEl.textContent = parts.join('\n');
-            pre.appendChild(codeEl);
-            if (cm.parentNode) cm.parentNode.replaceChild(pre, cm);
+    // 3. ne-doc 标签规范化：ne-text → 文本/strong；ne-p → p；ne-uli → li（相邻包 ul）；
+    //    ne-card → img；ne-viewer-b-filler 删除；ne-table → 标准 table（首行 td → th）。
+    //    用 renameTag（移动子节点）而非 innerHTML 复制，避免自定义标签序列化丢失内容
+    function renameTag(node, tagName) {
+        var nn = document.createElement(tagName);
+        while (node.firstChild) { nn.appendChild(node.firstChild); }
+        // 仅复制非事件属性（跳过 on*，防远程页面 onerror 等属性进入回传 HTML；下游有 DOMPurify 兜底）
+        for (var a = 0; a < node.attributes.length; a++) {
+            var attrName = node.attributes[a].name;
+            if (attrName.toLowerCase().indexOf('on') === 0) { continue; }
+            nn.setAttribute(attrName, node.attributes[a].value);
         }
+        node.parentNode.replaceChild(nn, node);
+        return nn;
+    }
+    function normalizeNeTags(el) {
+        el.querySelectorAll('.ne-viewer-b-filler').forEach(function(f){ f.remove(); });
+        el.querySelectorAll('ne-text').forEach(function(t){
+            var bold = t.getAttribute('ne-bold') === 'true';
+            if (bold) { var s = document.createElement('strong'); s.textContent = t.textContent || ''; t.parentNode.replaceChild(s, t); }
+            else { var tn = document.createTextNode(t.textContent || ''); t.parentNode.replaceChild(tn, t); }
+        });
+        el.querySelectorAll('ne-strong').forEach(function(s){ renameTag(s, 'strong'); });
+        el.querySelectorAll('ne-em').forEach(function(s){ renameTag(s, 'em'); });
+        el.querySelectorAll('ne-p').forEach(function(p){ renameTag(p, 'p'); });
+        // 列表：删符号列 ne-uli-i，内容列 ne-uli-c → span，ne-uli → li
+        el.querySelectorAll('ne-uli-i').forEach(function(i){ i.remove(); });
+        el.querySelectorAll('ne-uli-c').forEach(function(c){ renameTag(c, 'span'); });
+        el.querySelectorAll('ne-uli').forEach(function(uli){ renameTag(uli, 'li'); });
+        el.querySelectorAll('ne-card').forEach(function(card){
+            var img = card.querySelector('img');
+            if (img) {
+                // 只保留 src/alt，丢弃 onerror 等事件属性
+                var ni = document.createElement('img');
+                if (img.getAttribute('src')) { ni.setAttribute('src', img.getAttribute('src')); }
+                if (img.getAttribute('alt')) { ni.setAttribute('alt', img.getAttribute('alt')); }
+                card.parentNode.replaceChild(ni, card);
+            }
+            else { card.remove(); }
+        });
+        // 表格：先 td/tr，最后 table（首行 td → th）
+        el.querySelectorAll('ne-td').forEach(function(td){ renameTag(td, 'td'); });
+        el.querySelectorAll('ne-tr').forEach(function(tr){ renameTag(tr, 'tr'); });
+        el.querySelectorAll('ne-table').forEach(function(tbl){
+            var table = renameTag(tbl, 'table');
+            var firstRow = table.querySelector('tr');
+            if (firstRow) {
+                firstRow.querySelectorAll('td').forEach(function(td){ renameTag(td, 'th'); });
+            }
+        });
+    }
+    // 相邻 li 包成 ul（ne-doc 的 ne-uli 平铺，无外层 ul；br/文本不断组，仅块级元素分隔）
+    function wrapAdjacentLists(el) {
+        Array.prototype.slice.call(el.children).forEach(function(child){ wrapAdjacentLists(child); });
+        var group = null;
+        Array.prototype.slice.call(el.childNodes).forEach(function(node){
+            if (node.nodeType === 1 && node.nodeName === 'LI') {
+                if (!group) { group = document.createElement('ul'); el.insertBefore(group, node); }
+                group.appendChild(node);
+            } else if (node.nodeType === 1 && node.nodeName !== 'BR') {
+                group = null;
+            }
+        });
     }
 
-    // 是否在 pre 内（pre/code 的换行必须保留原样，不转 br）
+    // 4. 是否在 pre 内（pre/code 的换行必须保留原样，不转 br）
     function insidePre(node) {
         var p = node.parentNode;
         while (p) { if (p.nodeName === 'PRE') return true; p = p.parentNode; }
         return false;
     }
-    // 文本节点内的 \n → <br>（浏览器 pre-line 渲染的换行在 HTML 层只是文本换行符）
+    // 5. ne-doc 标签规范化（ne-p/ne-text/ne-uli/ne-table/ne-card → 标准标签）
+    normalizeNeTags(clone);
+
+    // 6. 代码块统一转标准 pre/code（.ne-code/.ne-codeblock/.CodeMirror 用 innerText 取代码；
+    //    行号 gutter 不在 .CodeMirror-code .CodeMirror-line 内；ne-code 内容含行间 \n。
+    //    必须在 preserveNewlines 之前执行——否则代码内的 \n 会被转成 <br>，innerText 提取丢换行）
+    function convertCodeBlocks(scope) {
+        var blocks = scope.querySelectorAll('.ne-code, .ne-codeblock, .CodeMirror');
+        for (var i = 0; i < blocks.length; i++) {
+            var blk = blocks[i];
+            // 跳过含子代码块的容器（从最外层容器取 innerText 已包含全部代码行）
+            if (blk.querySelector('.ne-code, .ne-codeblock, .CodeMirror')) continue;
+            // 排除 header/工具栏（语言标签、按钮等），只保留代码内容
+            var tmp = blk.cloneNode(true);
+            tmp.querySelectorAll('.ne-codeblock-header, .codeblock-header, [class*="codeblock-header"], [class*="toolbar"], button, select').forEach(function(h){ h.remove(); });
+            var text = tmp.innerText || tmp.textContent || '';
+            if (!text.trim()) continue;
+            var pre = document.createElement('pre');
+            var codeEl = document.createElement('code');
+            codeEl.textContent = text.trim();
+            pre.appendChild(codeEl);
+            blk.parentNode.replaceChild(pre, blk);
+        }
+    }
+    convertCodeBlocks(clone);
+
+    // 7. 文本节点内的 \n → <br>（pre-line 渲染的换行在 HTML 层只是文本换行符；pre 内自动跳过）
     (function preserveNewlines(el){
         if (!el.childNodes) return;
         for (var i = 0; i < el.childNodes.length; i++) {
@@ -243,10 +316,11 @@ const EXTRACT_JS: &str = r#"(function(){
         }
     })(clone);
 
-    // 转换容器内 CodeMirror（在换行处理之后执行，pre 内换行天然保留）
-    convertCodeMirror(clone);
-    // 转换 document 级 CodeMirror，再收集容器外的 pre（代码块在独立容器时防丢失）
-    convertCodeMirror(document.body);
+    // 8. 相邻 li 包成 ul
+    wrapAdjacentLists(clone);
+
+    // 9. 转换 document 级代码块，再收集容器外的 pre（代码块在独立容器时防丢失）
+    convertCodeBlocks(document.body);
     var outside = [];
     document.querySelectorAll('pre').forEach(function(p){
         if (!best || !best.contains(p)) outside.push(p.cloneNode(true));
