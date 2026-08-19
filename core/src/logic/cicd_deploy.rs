@@ -894,8 +894,58 @@ fn get_repo_name(url: &str) -> String {
 
 // =================== Dependencies ===================
 
+/// git_clone 模式依赖更新检测：比较顶层 lock 文件与 node_modules 内安装状态副本的 mtime。
+/// - npm:  `package-lock.json`      vs `node_modules/.package-lock.json`
+/// - pnpm: `pnpm-lock.yaml`         vs `node_modules/.pnpm/lock.yaml`
+/// - yarn: `yarn.lock`              vs `node_modules/.yarn-integrity`
+/// 顶层 lock 比安装副本新 → 仓库依赖定义已更新（git pull 刚拉下），node_modules 还是旧依赖
+/// → 需要重装（否则打包报错）。install 会更新安装副本 mtime，之后自然跳过。
+/// 无 lock 文件时退回 package.json 与 node_modules 的 mtime 比较；仍拿不到则保守视为需要安装。
+fn deps_need_update(install_path: &Path) -> bool {
+    let node_modules = install_path.join("node_modules");
+    let pairs: [(&str, &str); 3] = [
+        ("package-lock.json", ".package-lock.json"),
+        ("pnpm-lock.yaml", ".pnpm/lock.yaml"),
+        ("yarn.lock", ".yarn-integrity"),
+    ];
+    for (lock_name, state_rel) in pairs {
+        let lock = install_path.join(lock_name);
+        if !lock.exists() {
+            continue;
+        }
+        let state = node_modules.join(state_rel);
+        if !state.exists() {
+            // 安装副本不存在（如 yarn berry 不生成 .yarn-integrity），退回与 node_modules 目录 mtime 比较
+            let lock_m = lock.metadata().ok().and_then(|m| m.modified().ok());
+            let nm_m = node_modules.metadata().ok().and_then(|m| m.modified().ok());
+            match (lock_m, nm_m) {
+                (Some(l), Some(n)) => return l > n,
+                _ => return true,
+            }
+        }
+        // 低精度文件系统下 lock 与安装副本同秒时 l > s 为 false 会漏装一次，概率极低且下轮自愈
+        let lock_m = lock.metadata().ok().and_then(|m| m.modified().ok());
+        let state_m = state.metadata().ok().and_then(|m| m.modified().ok());
+        match (lock_m, state_m) {
+            (Some(l), Some(s)) => return l > s,
+            _ => return true,
+        }
+    }
+    // 无 lock 文件：package.json 比 node_modules 新 → 需要装
+    let pkg = install_path.join("package.json");
+    if pkg.exists() {
+        let pkg_m = pkg.metadata().ok().and_then(|m| m.modified().ok());
+        let nm_m = node_modules.metadata().ok().and_then(|m| m.modified().ok());
+        match (pkg_m, nm_m) {
+            (Some(p), Some(n)) => return p > n,
+            _ => return true,
+        }
+    }
+    false
+}
+
 /// Install dependencies for git_clone mode (npm/pnpm/yarn install)
-/// Only runs when node_modules is missing or empty
+/// 仅在 node_modules 缺失/空，或依赖定义有更新（lock 文件变化）时执行
 async fn install_dependencies(
     config: &DeployConfig,
     project_path: &PathBuf,
@@ -954,11 +1004,17 @@ async fn install_dependencies(
     for install_path in &install_paths {
         // Check if node_modules exists and is non-empty
         let node_modules = install_path.join("node_modules");
-        let needs_install = if node_modules.exists() {
+        let node_modules_nonempty = if node_modules.exists() {
             match fs::read_dir(&node_modules) {
-                Ok(entries) => entries.count() == 0,
-                Err(_) => true,
+                Ok(entries) => entries.count() > 0,
+                Err(_) => false,
             }
+        } else {
+            false
+        };
+        // node_modules 已存在且非空时，检测依赖是否有更新（lock 文件变化），有才重装
+        let needs_install = if node_modules_nonempty {
+            deps_need_update(install_path)
         } else {
             true
         };
@@ -975,7 +1031,7 @@ async fn install_dependencies(
             emit(
                 "deps",
                 "skipped",
-                &format!("{} node_modules 已存在，跳过安装", path_name),
+                &format!("{} 依赖无更新，跳过安装", path_name),
             );
             continue;
         }
