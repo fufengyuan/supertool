@@ -12,13 +12,16 @@
             :key="groupEntry.presetGroup"
             class="mb-1"
           >
-            <div class="flex items-center gap-1.5 px-2 py-1 cursor-pointer select-none rounded transition-colors duration-200 hover:bg-primary/10" @click="togglePresetGroup(groupEntry.presetGroup)">
-              <span class="text-[10px] text-base-content/60 min-w-[10px] inline-flex items-center">
+            <div class="flex items-center gap-1.5 px-2 py-1.5 cursor-pointer select-none rounded-lg transition-all duration-200"
+              :class="groupStyle(groupEntry.presetGroup).bg"
+              @click="togglePresetGroup(groupEntry.presetGroup)">
+              <span :class="['w-1 h-4 rounded-full shrink-0', groupStyle(groupEntry.presetGroup).dot]"></span>
+              <span class="text-[10px] text-base-content/50 min-w-[10px] inline-flex items-center">
                 <SvgIcon v-if="collapsedPresetGroups.has(groupEntry.presetGroup)" name="chevronRight" size="10" />
                 <SvgIcon v-else name="chevronDown" size="10" />
               </span>
-              <span class="font-semibold text-xs text-base-content/60 flex-1">{{ groupEntry.presetGroup }}</span>
-              <span class="text-[11px] text-base-content/60 opacity-60">{{ groupEntry.presets.length }}</span>
+              <span class="font-bold text-sm text-base-content flex-1 truncate">{{ groupEntry.presetGroup }}</span>
+              <span class="text-[10px] font-semibold text-base-content/70 bg-base-content/10 rounded-full px-1.5 py-0.5 tabular-nums">{{ groupEntry.presets.length }}</span>
             </div>
             <div v-show="!collapsedPresetGroups.has(groupEntry.presetGroup)" class="pl-1 flex flex-col gap-0.5">
               <div
@@ -1914,6 +1917,19 @@ const groupedPresets = computed(() => {
   })
   return sorted.map(([presetGroup, items]) => ({ presetGroup, presets: items }))
 })
+
+// 分组显眼样式：按环境语义给色标（显式完整类名，避免 Tailwind 动态拼接不生成）
+const GROUP_STYLES: Record<string, { bg: string; dot: string }> = {
+  '生产': { bg: 'bg-error/10 hover:bg-error/15', dot: 'bg-error' },
+  '测试': { bg: 'bg-success/10 hover:bg-success/15', dot: 'bg-success' },
+  '预发': { bg: 'bg-warning/10 hover:bg-warning/15', dot: 'bg-warning' },
+  '开发': { bg: 'bg-info/10 hover:bg-info/15', dot: 'bg-info' },
+}
+const DEFAULT_GROUP_STYLE = { bg: 'bg-base-200/70 hover:bg-base-200', dot: 'bg-base-content/30' }
+function groupStyle(g: string): { bg: string; dot: string } {
+  const key = ['生产', '测试', '预发', '开发'].find(k => g.includes(k))
+  return key ? (GROUP_STYLES[key] || DEFAULT_GROUP_STYLE) : DEFAULT_GROUP_STYLE
+}
 
 // 构建命令
 function buildCommand(preset: any): string {
