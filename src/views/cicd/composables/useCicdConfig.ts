@@ -459,13 +459,14 @@ export function useCicdConfig() {
 
     if (pathsResult && typeof pathsResult === 'object') {
       defaultPaths.value = pathsResult as typeof defaultPaths.value;
-      // 填充默认路径
-      config.value.mavenHome = defaultPaths.value.mavenHome || '';
-      config.value.javaHome = defaultPaths.value.javaHome || '';
-      config.value.npmHome = defaultPaths.value.npmHome || '';
-      config.value.pnpmHome = defaultPaths.value.pnpmHome || '';
-      config.value.yarnHome = defaultPaths.value.yarnHome || '';
-      config.value.nodeHome = defaultPaths.value.nodeHome || '';
+      // 只在用户未配置时回填默认路径（避免覆盖已有/复制来的正确配置，如 sdkman javaHome）
+      // 与下方 SDK 段、loadConfig 的空才回填语义保持一致
+      if (!config.value.mavenHome && defaultPaths.value.mavenHome) { config.value.mavenHome = defaultPaths.value.mavenHome; }
+      if (!config.value.javaHome && defaultPaths.value.javaHome) { config.value.javaHome = defaultPaths.value.javaHome; }
+      if (!config.value.npmHome && defaultPaths.value.npmHome) { config.value.npmHome = defaultPaths.value.npmHome; }
+      if (!config.value.pnpmHome && defaultPaths.value.pnpmHome) { config.value.pnpmHome = defaultPaths.value.pnpmHome; }
+      if (!config.value.yarnHome && defaultPaths.value.yarnHome) { config.value.yarnHome = defaultPaths.value.yarnHome; }
+      if (!config.value.nodeHome && defaultPaths.value.nodeHome) { config.value.nodeHome = defaultPaths.value.nodeHome; }
     }
 
     if (sdkResult && typeof sdkResult === 'object') {

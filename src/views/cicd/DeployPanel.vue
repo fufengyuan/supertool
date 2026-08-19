@@ -381,6 +381,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast';
 import { useErrorHandler } from '../../composables/useErrorHandler';
@@ -930,7 +931,7 @@ async function startDeploy() {
 
   const preflightOk = await runPreflight();
   if (!preflightOk) {
-    const proceed = confirm('预检未通过，是否继续部署？');
+    const proceed = await confirm('预检未通过，是否继续部署？');
     if (!proceed) {return;}
   }
 
@@ -987,7 +988,7 @@ async function cancelDeploy() {
   const state = deployStates.value.get(selectedConfigId.value);
   if (!state?.deploying || !state.deployLogId) {return;}
 
-  const confirmed = confirm('确定要取消当前部署吗？');
+  const confirmed = await confirm('确定要取消当前部署吗？');
   if (!confirmed) {return;}
 
   try {
@@ -1012,7 +1013,7 @@ async function cancelRunningDeploy(log: DeployLog) {
   const deployLogId = state?.deployLogId || log.id;
   if (!deployLogId) {return;}
 
-  const confirmed = confirm('确定要取消此部署吗？');
+  const confirmed = await confirm('确定要取消此部署吗？');
   if (!confirmed) {return;}
 
   try {
@@ -1037,7 +1038,7 @@ async function cancelRunningDeploy(log: DeployLog) {
 async function rollbackDeploy(log: DeployLog) {
   // Check if config requires approval
   if (config.value?.requiresApproval) {
-    const proceed = confirm(
+    const proceed = await confirm(
       `⚠️ 审核确认
 
 配置「${config.value.name || getGitRepoName(config.value.gitRepoId)}」已开启部署审核。
@@ -1046,7 +1047,7 @@ async function rollbackDeploy(log: DeployLog) {
     );
     if (!proceed) {return;}
   } else {
-    const confirmed = confirm(
+    const confirmed = await confirm(
       `确定要回滚到 ${formatDate(log.createdAt)} 的部署版本吗？
 
 此操作将把服务器恢复到该版本。`

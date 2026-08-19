@@ -147,6 +147,8 @@ pub fn get_shell_env_for_command() -> HashMap<String, String> {
 /// 自动加载 NVM、Homebrew、nvm、rvm 等所有 shell 初始化的环境变量
 pub fn user_shell_cmd(program: &str) -> Command {
     let mut cmd = Command::new(program);
+    // 超时/drop 时杀掉子进程，避免残留进程长时间持有 .git/index.lock
+    cmd.kill_on_drop(true);
     let shell_env = get_user_shell_env();
     // 注入用户 shell 的完整环境变量
     for (key, value) in shell_env {
@@ -164,6 +166,39 @@ fn user_shell_cmd_sync(program: &str) -> std::process::Command {
         cmd.env(key, value);
     }
     cmd
+}
+
+/// 阶段超时封装：超时后 Future 被 drop（kill_on_drop 会杀掉子进程释放 git 锁），
+/// 返回可读错误而非无限挂起（根治「部署卡在某阶段」）
+async fn with_timeout<F, T>(fut: F, secs: u64, desc: &str) -> Result<T, String>
+where
+    F: std::future::Future<Output = Result<T, String>>,
+{
+    tokio::time::timeout(std::time::Duration::from_secs(secs), fut)
+        .await
+        .map_err(|_| format!("{} 超时(>{}s)，已终止", desc, secs))?
+}
+
+/// 删除可能残留于共享 clone 目录的 .git/index.lock（前一个超时/中断的 git 进程留下的锁，
+/// git 会死等该锁不超时 → 直接导致后续部署卡住）。只清理明显残留的锁（mtime 超过 60s），
+/// 避免误删正在进行的 git 操作持有的活跃锁。
+fn clean_git_index_lock(dir: &Path) {
+    let lock = dir.join(".git").join("index.lock");
+    if !lock.exists() {
+        return;
+    }
+    if let Ok(meta) = lock.metadata() {
+        if let Ok(modified) = meta.modified() {
+            if let Ok(age) = modified.elapsed() {
+                if age.as_secs() < 60 {
+                    return; // 活跃锁，不删
+                }
+            }
+        }
+    }
+    if let Err(e) = fs::remove_file(&lock) {
+        log::warn!("[cicd] 清理 {} 失败: {}", lock.display(), e);
+    }
 }
 
 // =================== Types ===================
@@ -354,7 +389,7 @@ pub async fn execute_deploy(
     );
 
     // Step 1: Git sync or use local path
-    let project_path = match do_git_sync(config, &emit).await {
+    let project_path = match with_timeout(do_git_sync(config, &emit), 300, "Git 同步").await {
         Ok(p) => p,
         Err(e) => {
             emit("deploy", "failed", &e);
@@ -386,7 +421,7 @@ pub async fn execute_deploy(
 
     // Step 1.5: Install dependencies (git_clone mode only)
     if config.build_mode == "git_clone" {
-        if let Err(e) = install_dependencies(config, &project_path, &emit).await {
+        if let Err(e) = with_timeout(install_dependencies(config, &project_path, &emit), 600, "依赖安装").await {
             emit("deps", "failed", &e);
             return Ok(DeployResult {
                 deploy_id: deploy_id.to_string(),
@@ -400,7 +435,7 @@ pub async fn execute_deploy(
     }
 
     // Step 2: Build
-    if let Err(e) = do_build(config, &project_path, &emit).await {
+    if let Err(e) = with_timeout(do_build(config, &project_path, &emit), 900, "构建").await {
         emit("build", "failed", &e);
         return Ok(DeployResult {
             deploy_id: deploy_id.to_string(),
@@ -507,7 +542,7 @@ pub async fn execute_deploy(
 
     let mut deploy_results = Vec::new();
     for srv in &config.servers {
-        match deploy_to_server(srv, &artifacts, config, &emit).await {
+        match with_timeout(deploy_to_server(srv, &artifacts, config, &emit), 600, "SSH 部署").await {
             Ok(_) => {
                 let label = srv.label.as_deref().unwrap_or("服务器");
                 emit(
@@ -551,7 +586,7 @@ pub async fn execute_deploy(
     if let Some(ref script) = config.restart_script.as_ref().filter(|s| !s.is_empty()) {
         if !is_frontend {
             for srv in &config.servers {
-                if let Err(e) = execute_restart(srv, script, &config.deploy_dir, &emit).await {
+                if let Err(e) = with_timeout(execute_restart(srv, script, &config.deploy_dir, &emit), 120, "远程重启").await {
                     emit("restart", "failed", &e);
                     // Non-fatal: restart might fail but deploy succeeded
                 }
@@ -738,6 +773,9 @@ async fn do_git_sync(
     if target.exists() {
         emit("git", "pulling", "拉取最新代码...");
 
+        // 清理共享工作目录的残留 git 锁，避免后续命令死等 index.lock
+        clean_git_index_lock(&target);
+
         // 剥离 origin/ 前缀，避免 git pull origin origin/xxx 双重前缀
         let raw_branch = if config.branch.is_empty() {
             "main"
@@ -829,6 +867,7 @@ async fn do_git_sync(
         let output = Command::new(crate::logic::git::find_git())
             .args(["clone", "-b", &config.branch, repo_url])
             .current_dir(&workspace)
+            .kill_on_drop(true)
             .output()
             .await
             .map_err(|e| format!("git clone 失败: {}", e))?;
