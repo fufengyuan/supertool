@@ -970,8 +970,13 @@ export function useCicdConfig() {
       }
     }).catch(err => handleError(err, { context: '加载CI/CD配置' }));
 
-    // ⚠️ 关键优化：完全不调用 detect_build_tools/detect_tool_paths/detect_sdk_versions
-    // 这些检测会阻塞 IPC 通道（运行7个shell命令），只在用户点击新建配置时才触发
+    // ⚠️ 首次打开页面自动检测一次工具（构建工具可用性 + 工具路径 + SDK 版本）
+    // 延迟执行：不阻塞首屏渲染与 IPC 通道；runToolDetection 已改为"空才回填"，
+    // 不会覆盖用户已配置/复制来的路径。detectedTools/defaultPaths 就绪后，
+    // 上方 loadConfig（延迟 100ms）回填时能用到检测结果。
+    window.setTimeout(() => {
+      runToolDetection().catch((e) => handleError(e, { context: '工具检测' }));
+    }, 50);
   });
 
   onBeforeUnmount(() => {
