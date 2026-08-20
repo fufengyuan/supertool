@@ -118,33 +118,16 @@
             <input v-if="draft.npmScript === 'custom'" v-model="draft.npmCustomScript" class="input input-bordered w-full bg-base-200 text-sm mt-2" placeholder="脚本名称" />
           </div>
 
-          <!-- 部署模式选择 + 多模块识别区（仅多模块项目显示） -->
+          <!-- 部署模式：共享组件（单体/多模块）+ Jar/Lib 分离开关；仅多模块项目显示 -->
           <div v-if="isMultiModule" class="flex flex-col gap-3">
-            <div>
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署模式</label>
-              <div class="grid grid-cols-2 gap-2">
-                <label
-                  v-for="(m, key) in deployModeMeta" :key="key"
-                  class="flex flex-col border-2 rounded-xl px-3 py-2.5 cursor-pointer transition-all duration-150 relative hover:border-primary"
-                  :class="deployMode === key ? 'border-primary bg-primary/10' : 'border-base-content/10'"
-                >
-                  <div class="flex items-center gap-2">
-                    <input type="radio" :value="key" v-model="deployMode" class="radio radio-primary radio-sm" />
-                    <span class="text-sm font-semibold text-base-content">{{ m.name }}</span>
-                  </div>
-                  <span class="mt-1 text-[11px] leading-snug text-base-content/50 pl-6">{{ m.desc }}</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Jar 与 Lib 分离：两种部署模式下的公共能力开关 -->
-            <div class="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
-              <input v-model="libSeparate" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
-              <span>启用 Jar 与 Lib 分离：业务 jar 与依赖 lib 分别上传到 {{ draft.deployPath || '部署目录' }} 及其 <code class="bg-base-200 px-1 rounded">lib/</code> 子目录</span>
-            </div>
+            <DeployModeSelector
+              v-model="monolithMode"
+              v-model:libSeparate="libSeparate"
+              :deploy-path="draft.deployPath"
+            />
 
             <!-- 多模块部署：模块勾选区 -->
-            <div v-if="deployMode === 'multi'" class="border border-primary/20 rounded-xl overflow-hidden">
+            <div v-if="!monolithMode" class="border border-primary/20 rounded-xl overflow-hidden">
               <div class="flex items-center gap-2 px-4 py-3 bg-primary/5 border-b border-primary/10">
                 <SvgIcon name="layers" :size="15" class="text-primary flex-shrink-0" />
                 <span class="text-sm font-semibold text-base-content">部署模块</span>
@@ -236,6 +219,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import GroupedServerSelector from '../server/GroupedServerSelector.vue'
+import DeployModeSelector from './DeployModeSelector.vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import type { Server } from '../../types'
 
@@ -285,17 +269,10 @@ const draft = reactive({
   localPath: '',
 })
 
-// 部署模式：'monolith' 单体部署（打包单jar）/ 'multi' 多模块部署（逐模块独立构建）
-type DeployMode = 'monolith' | 'multi'
-const deployMode = ref<DeployMode>('monolith')
+// 部署模式（共享组件 v-model）：单体部署（parentBuildMode=true，打包单jar）/ 多模块部署（false，逐模块独立构建）
+const monolithMode = ref(true)
 // 是否启用 jar 与 lib 分离（两种部署模式均可选，是模式下的能力项不是独立模式）
 const libSeparate = ref(true)
-
-// 部署模式描述，供确认页与提示展示
-const deployModeMeta: Record<DeployMode, { name: string; desc: string }> = {
-  monolith: { name: '单体部署', desc: '整体打包成单个 jar 部署' },
-  multi: { name: '多模块部署', desc: '每个模块独立构建并部署到独立远程目录' },
-}
 
 // 多模块：扫描识别出 moduleNames 后生成的勾选列表；无多模块则为空数组
 const modules = ref<ModuleItem[]>([])
@@ -424,9 +401,9 @@ const summaryRows = computed(() => {
     { label: '部署路径', value: draft.deployPath },
   ];
   if (isMultiModule.value) {
-    rows.push({ label: '部署模式', value: deployModeMeta[deployMode.value].name });
+    rows.push({ label: '部署模式', value: monolithMode.value ? '单体部署' : '多模块部署' });
     rows.push({ label: 'Jar/Lib 分离', value: libSeparate.value ? '是' : '否' });
-    if (deployMode.value === 'multi') {
+    if (!monolithMode.value) {
       rows.push({ label: '部署模块', value: moduleSummary.value || '—' });
     }
   }
@@ -446,10 +423,10 @@ async function finish() {
       const s = props.servers.find(srv => srv.id === id)
       return { serverId: id, label: s?.name || '', deployDir: '' }
     })
-    // 单体部署（monolith）：父模块统一构建，模块勾选列表不落库（产物为单个 jar）
-    // 多模块部署（multi）：逐模块独立构建，各自部署独立目录
+    // 单体部署（monolithMode）：父模块统一构建，模块勾选列表不落库（产物为单个 jar）
+    // 多模块部署：逐模块独立构建，各自部署独立目录
     // parentBuildPath 交由父组件决定（取 git 仓库根目录，指向父 POM）
-    const monolith = deployMode.value === 'monolith'
+    const monolith = monolithMode.value
     emit('complete', {
       ...draft,
       servers: serverEntries,
