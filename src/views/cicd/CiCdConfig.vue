@@ -93,7 +93,7 @@
         </div>
       </aside>
 
-      <!-- Right Main Area: Config Editor -->
+      <!-- Right Main Area -->
       <main class="flex-1 overflow-y-auto flex flex-col">
         <!-- No config selected -->
         <div v-if="!selectedConfigId && !isNewConfig" class="flex-1 flex flex-col items-center justify-center gap-4 text-base-content/60">
@@ -105,10 +105,23 @@
           <button @click="createNewConfig" class="btn btn-primary btn-lg">＋ 新建部署配置</button>
         </div>
 
-        <!-- Config Editor -->
+        <!-- New config: 4-step wizard -->
+        <div v-else-if="isNewConfig && wizardMode" class="flex-1 flex flex-col">
+          <CicdConfigWizard
+            :git-repos="gitRepos"
+            :groups="groups"
+            :servers="servers"
+            :server-groups="serverGroups"
+            :build-tools="availableBuildTools"
+            @complete="createConfigFromWizard"
+            @cancel="cancelWizard"
+          />
+        </div>
+
+        <!-- Config Editor: grouped collapsible sections -->
         <div v-else class="flex-1 flex flex-col">
           <!-- Editor Header -->
-          <div class="px-6 pt-5 pb-0 border-b border-base-content/10 bg-base-100">
+          <div class="px-6 pt-5 pb-0 border-b border-base-content/10 bg-base-100 flex-shrink-0">
             <div class="flex items-center justify-between mb-4">
               <h3 class="m-0 text-lg font-bold text-base-content">{{ isNewConfig ? '新建部署配置' : '编辑部署配置' }}</h3>
               <div class="flex gap-2">
@@ -149,509 +162,565 @@
             </div>
           </div>
 
-          <!-- Editor Body: Three Column Grid -->
-          <div class="grid grid-cols-[1fr_1fr_1.3fr] gap-4 px-6 py-5 flex-1">
-            <!-- Column 1: Project & Git -->
-            <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
-              <div class="flex items-center gap-2 mb-4 text-sm font-semibold text-base-content pb-3 border-b border-base-content/10">
-                <SvgIcon name="folder" :size="18" />
-                <span class="truncate">项目与仓库</span>
-              </div>
+          <!-- Editor Body: collapsible grouped sections -->
+          <div class="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
 
-              <div class="mb-3.5">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">配置名称 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(自定义名称，便于区分多个配置)</span></label>
-                <input v-model="config.name" class="input input-bordered w-full bg-base-200 text-sm" placeholder="例如：前端部署、后端API、定时任务..." />
+            <!-- Section: 基本信息 -->
+            <section class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-2.5 px-5 py-3.5 cursor-pointer select-none hover:bg-base-200/50 transition-colors" @click="expandedSections.basic = !expandedSections.basic">
+                <SvgIcon name="chevronDown" :size="16" class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ '-rotate-90': !expandedSections.basic }" />
+                <SvgIcon name="folder" :size="16" class="text-primary flex-shrink-0" />
+                <span class="text-sm font-semibold text-base-content">基本信息</span>
+                <span v-if="!expandedSections.basic" class="text-xs text-base-content/50 ml-2 truncate flex-1 min-w-0">{{ config.name || '未命名' }} · {{ getGitRepoName(config.gitRepoId) || '未选仓库' }} · {{ config.deployBranch || 'main' }}</span>
               </div>
-
-              <div class="mb-3.5">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Git 仓库 <span class="text-error normal-case tracking-normal">*</span></label>
-                <select v-model="config.gitRepoId" @change="onGitRepoChange" class="select select-bordered w-full bg-base-200 text-sm">
-                  <option value="">选择 Git 仓库...</option>
-                  <option v-for="repo in gitRepos" :key="repo.id" :value="repo.id">
-                    {{ repo.name }} — {{ repo.path }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="mb-3.5">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">分组</label>
-                <div class="flex gap-1.5 items-center">
-                  <select v-model="config.groupName" class="select select-bordered w-full bg-base-200 text-sm flex-1">
-                    <option v-for="g in groups" :key="g" :value="g">{{ g }}</option>
-                  </select>
-                  <button @click="addGroup" class="btn btn-ghost btn-sm" title="新建分组">
-                    <SvgIcon name="plus" size="14" stroke-width="2.5" />
-                  </button>
-                </div>
-              </div>
-
-              <!-- 打包模式 -->
-              <div class="mb-3.5">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">打包模式</label>
-                <div class="flex gap-2">
-                  <button
-                    class="flex-1 px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all duration-150 flex items-center gap-2"
-                    :class="config.buildMode === 'local'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-base-content/10 text-base-content/60 hover:border-base-content/30'"
-                    @click="config.buildMode = 'local'"
-                  >
-                    <SvgIcon name="folder" size="16" />
-                    <div class="text-left">
-                      <div class="font-semibold">本地目录</div>
-                      <div class="text-[10px] opacity-70 font-normal">在项目目录直接构建</div>
+              <div v-show="expandedSections.basic" class="px-5 pb-5 pt-4 border-t border-base-content/10">
+                <div class="grid grid-cols-3 gap-4">
+                  <div>
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">配置名称</label>
+                    <input v-model="config.name" class="input input-bordered w-full bg-base-200 text-sm" placeholder="例如：前端部署、后端API..." />
+                  </div>
+                  <div>
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">分组</label>
+                    <div class="flex gap-1.5 items-center">
+                      <select v-model="config.groupName" class="select select-bordered w-full bg-base-200 text-sm flex-1">
+                        <option v-for="g in groups" :key="g" :value="g">{{ g }}</option>
+                      </select>
+                      <button @click="addGroup" class="btn btn-ghost btn-sm" title="新建分组">
+                        <SvgIcon name="plus" size="14" stroke-width="2.5" />
+                      </button>
                     </div>
-                  </button>
-                  <button
-                    class="flex-1 px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all duration-150 flex items-center gap-2"
-                    :class="config.buildMode === 'git_clone'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-base-content/10 text-base-content/60 hover:border-base-content/30'"
-                    @click="switchToGitCloneMode"
-                  >
-                    <SvgIcon name="gitBranch" size="16" />
-                    <div class="text-left">
-                      <div class="font-semibold">Git 克隆</div>
-                      <div class="text-[10px] opacity-70 font-normal">克隆到隔离工作空间</div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div class="mb-3.5">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">
-                  {{ config.buildMode === 'git_clone' ? '远程仓库地址' : '本地项目目录' }}
-                </label>
-                <!-- Git 克隆模式：显示可编辑的远程仓库地址 -->
-                <template v-if="config.buildMode === 'git_clone'">
-                  <div class="flex gap-1.5">
-                    <input
-                      v-model="config.repoUrl"
-                      class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0 font-mono"
-                      placeholder="git@git.example.com:user/repo.git 或 https://..."
-                    />
-                    <button
-                      @click="fetchGitRemoteUrl"
-                      class="btn btn-ghost btn-sm gap-1 text-xs px-2.5 py-1.5 flex-shrink-0 whitespace-nowrap"
-                      :disabled="!selectedGitRepo?.path"
-                      title="从本地仓库获取远程地址"
-                    >
-                      <SvgIcon name="gitBranch" size="14" />
-                      <span>获取</span>
-                    </button>
                   </div>
-                  <div v-if="!config.repoUrl && selectedGitRepo?.path" class="flex items-center gap-1.5 mt-1.5 px-2.5 py-1 text-xs text-base-content/60">
-                    <SvgIcon name="lightbulb" size="14" />
-                    <span>点击"获取"按钮自动填充远程仓库地址</span>
-                  </div>
-                </template>
-                <!-- 本地目录模式：显示本地路径 -->
-                <template v-else>
-                  <div v-if="selectedGitRepo" class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl border border-base-content/10 text-sm font-mono text-base-content">
-                    <SvgIcon name="folder" size="14" class="shrink-0 text-base-content/60" />
-                    <span class="flex-1 truncate">{{ selectedGitRepo.path }}</span>
-                    <button @click="openInFileManager(selectedGitRepo.path)" class="btn btn-ghost btn-xs px-1.5" title="打开文件夹"><SvgIcon name="externalLink" size="14" /></button>
-                  </div>
-                  <div v-else class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl text-xs text-base-content/60">
-                    <SvgIcon name="folder" size="14" class="shrink-0 opacity-50" />
-                    <span class="flex-1 truncate">尚未选择项目目录</span>
-                    <button @click="selectLocalDir" class="btn btn-ghost btn-xs" title="选择本地目录并自动识别构建工具"><SvgIcon name="externalLink" size="12" /></button>
-                  </div>
-                </template>
-              </div>
-
-              <div class="mb-3.5">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署分支</label>
-                <div class="relative flex items-center gap-1.5">
-                  <SvgIcon name="gitBranch" size="14" class="absolute left-2.5 text-base-content/60 pointer-events-none z-[1]" />
-                  <select v-model="config.deployBranch" class="select select-bordered w-full bg-base-200 text-sm pl-8 pr-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-1" :disabled="!selectedGitRepo">
-                    <option value="main">main</option>
-                    <option value="master">master</option>
-                    <option v-for="branch in availableBranches" :key="branch" :value="branch">{{ branch }}</option>
-                  </select>
-                  <button
-                    @click="loadBranches"
-                    class="btn btn-ghost btn-sm p-1.5 min-w-[32px] h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                    :disabled="!selectedGitRepo"
-                    title="刷新分支列表"
-                  >
-                    <SvgIcon name="refresh" size="14" :class="{ 'animate-spin': loadingBranches }" />
-                  </button>
-                </div>
-                <div v-if="selectedGitRepo && availableBranches.length === 0 && !loadingBranches" class="flex items-center gap-1.5 mt-1.5 px-2.5 py-1 text-xs text-base-content/60">
-                  <SvgIcon name="lightbulb" size="14" />
-                  <span>点击右侧刷新按钮加载分支列表</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Column 2: Servers -->
-            <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
-              <div class="flex items-center gap-2 mb-4 text-sm font-semibold text-base-content pb-3 border-b border-base-content/10">
-                <SvgIcon name="serverRack" size="18" />
-                <span class="truncate">目标服务器</span>
-                <span class="ml-auto text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">{{ deployServers.length }}</span>
-              </div>
-
-              <!-- Server list -->
-              <div class="flex flex-col gap-2 max-h-[calc(100vh-400px)] overflow-y-auto pr-1">
-                <div
-                  v-for="(srv, idx) in deployServers"
-                  :key="idx"
-                  class="border border-base-content/10 rounded-xl bg-base-200 cursor-pointer transition-all duration-200 hover:border-primary group"
-                  :class="{ 'border-primary bg-base-100 shadow-[0_2px_8px_rgba(46,171,124,0.08)]': activeServerIdx === idx }"
-                  @click="activeServerIdx = idx"
-                >
-                  <div class="flex items-center justify-between px-3 py-2.5">
-                    <span class="flex items-center gap-2 flex-1 min-w-0">
-                      <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-xs font-bold flex-shrink-0">{{ idx + 1 }}</span>
-                      <span v-if="getServerName(srv.serverId)" class="font-semibold text-sm text-base-content truncate">
-                        {{ getServerName(srv.serverId) }}
-                      </span>
-                      <input
-                        v-else
-                        v-model="srv.label"
-                        class="border-none bg-transparent text-sm font-semibold text-base-content w-full min-w-0 outline-none placeholder:text-base-content/60 placeholder:font-normal"
-                        placeholder="自定义节点名称"
-                        @click.stop
-                      />
-                    </span>
-                    <button
-                      v-if="deployServers.length > 1"
-                      @click.stop="removeServer(idx)"
-                      class="bg-transparent border-none cursor-pointer p-1 rounded-md text-base-content/60 opacity-0 group-hover:opacity-60 transition-all duration-150 hover:!opacity-100 hover:text-error hover:bg-error/10 flex-shrink-0"
-                      title="移除"
-                    >
-                      <SvgIcon name="trash" size="14" />
-                    </button>
-                  </div>
-
-                  <div class="px-3 pb-3" v-show="activeServerIdx === idx">
-                    <!-- Server selector -->
-                    <div class="mb-3.5">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">从已有服务器选择</label>
-                      <GroupedServerSelector
-                        :servers="servers"
-                        :groups="serverGroups"
-                        v-model="srv.serverId"
-                        mode="single"
-                      />
-                    </div>
-
-                    <div class="mb-3.5">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署路径</label>
-                      <input v-model="srv.deployDir" class="input input-bordered w-full bg-base-200 text-sm" placeholder="如 /opt/app 或留空使用默认路径" @click.stop />
-                    </div>
-
-                    <!-- Test button -->
-                    <button
-                      v-if="srv.serverId"
-                      @click.stop="testServerById(srv)"
-                      class="btn btn-ghost btn-sm w-full"
-                    >
-                      <SvgIcon name="link" size="14" class="inline-block align-text-bottom" /> 测试连接
-                    </button>
-                    <div v-if="srv.testResult" class="mt-2 px-2.5 py-1.5 rounded-md text-xs font-medium" :class="srv.testResult.success ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'">
-                      <template v-if="srv.testResult.success"><SvgIcon name="check" size="14" class="inline-block align-text-bottom" /> 连接成功</template><template v-else><SvgIcon name="x" size="14" class="inline-block align-text-bottom" /> {{ srv.testResult.error }}</template>
+                  <div>
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署分支</label>
+                    <div class="flex gap-1.5">
+                      <select v-model="config.deployBranch" class="select select-bordered w-full bg-base-200 text-sm cursor-pointer flex-1" :disabled="!selectedGitRepo">
+                        <option value="main">main</option>
+                        <option value="master">master</option>
+                        <option v-for="branch in availableBranches" :key="branch" :value="branch">{{ branch }}</option>
+                      </select>
+                      <button @click="loadBranches" class="btn btn-ghost btn-sm p-1.5 min-w-[32px] h-8" :disabled="!selectedGitRepo" title="刷新分支列表">
+                        <SvgIcon name="refresh" size="14" :class="{ 'animate-spin': loadingBranches }" />
+                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <button @click="addServer" class="btn btn-ghost btn-sm w-full mt-2 border border-dashed border-base-content/10 text-base-content/60 hover:border-primary hover:text-primary hover:bg-primary/10">
-                <SvgIcon name="plus" size="14" stroke-width="2.5" />
-                添加服务器节点
-              </button>
-
-              <!-- Global test result -->
-              <div v-if="testResult" class="flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-sm mt-3" :class="testResult.success ? 'bg-green-500/10 text-success border border-green-500/20' : 'bg-red-500/10 text-error border border-red-500/20'">
-                <span v-if="testResult.success"><SvgIcon name="check" size="14" class="inline-block align-text-bottom" /></span><span v-else><SvgIcon name="x" size="14" class="inline-block align-text-bottom" /></span>
-                <span>{{ testResult.success ? '连接成功' : testResult.error }}</span>
-              </div>
-            </div>
-
-            <!-- Column 3: Build & Deploy -->
-            <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
-              <div class="flex items-center gap-2 mb-4 text-sm font-semibold text-base-content pb-3 border-b border-base-content/10">
-                <SvgIcon name="tool" size="18" />
-                <span class="truncate">构建与部署</span>
-              </div>
-
-              <!-- Build tool cards -->
-              <div class="grid grid-cols-[1fr_1fr_1.3fr] gap-2 mb-4">
-                <div
-                  v-for="tool in availableBuildTools"
-                  :key="tool.key"
-                  class="flex flex-col items-center px-2 py-3 border-2 border-base-content/10 rounded-xl cursor-pointer transition-all duration-150 relative hover:border-primary group"
-                  :class="{
-                    'border-primary bg-primary/10': config.buildTool === tool.key,
-                    'opacity-40': !tool.available && tool.key !== 'cargo'
-                  }"
-                  :title="tool.path ? `${tool.name} → ${tool.path}` : tool.available ? tool.name : `${tool.name}（未安装）`"
-                  @click="config.buildTool = tool.key"
-                >
-                  <span class="text-2xl mb-1">{{ tool.icon }}</span>
-                  <span class="text-xs font-semibold text-base-content">{{ tool.name }}</span>
-                  <span v-if="tool.version" class="text-[10px] text-base-content/60 mt-0.5">{{ tool.version.split(' ')[0] }}</span>
-                  <span v-else-if="!tool.available && tool.key !== 'cargo'" class="text-[10px] text-base-content/40 mt-0.5">未安装</span>
-                </div>
-              </div>
-
-              <!-- Maven options -->
-              <template v-if="config.buildTool === 'maven'">
-                <div class="mb-3.5 mt-2 text-[11px] font-semibold text-base-content/60 uppercase tracking-wider opacity-70 flex items-center gap-2.5">
-                  <span>构建工具</span>
-                  <span class="flex-1 h-px bg-base-content/10"></span>
-                </div>
-                <div class="mb-3.5">
-                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Maven 路径</label>
-                  <div class="flex gap-1.5">
-                    <input v-model="config.mavenHome" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': config.mavenHome === defaultPaths.mavenHome && defaultPaths.mavenHome }" :placeholder="defaultPaths.mavenHome ? `已检测: ${defaultPaths.mavenHome}` : '自动检测 / 如 /opt/homebrew/opt/maven'" />
-                    <button @click="reDetectToolPaths" class="btn btn-ghost btn-sm gap-1 text-xs px-2.5 py-1.5 flex-shrink-0 whitespace-nowrap" :disabled="detectingPaths" title="重新检测">
-                      <SvgIcon name="search" size="14" :class="{ 'animate-spin': detectingPaths }" />
-                      <span>检测</span>
-                    </button>
-                  </div>
-                </div>
-                <div class="mb-3.5">
-                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">JDK 路径</label>
-                  <div class="flex gap-1.5">
-                    <input v-model="config.javaHome" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': config.javaHome === defaultPaths.javaHome && defaultPaths.javaHome }" :placeholder="defaultPaths.javaHome ? `已检测: ${defaultPaths.javaHome}` : '自动检测 / 如 /opt/homebrew/opt/openjdk'" />
-                    <select
-                      v-if="sdkVersions.sdkman.java.length > 0"
-                      v-model="selectedJavaVersion"
-                      @change="onJavaVersionSelected"
-                      class="select select-bordered bg-base-200 text-xs w-[200px] min-w-[120px] cursor-pointer truncate"
-                      :title="selectedJavaVersion ? `${sdkVersions.sdkman.java.find(v => v.path === selectedJavaVersion)?.name || ''} → ${selectedJavaVersion}` : 'SDKMAN 版本'"
-                    >
-                      <option value="">版本…</option>
-                      <option v-for="v in sdkVersions.sdkman.java" :key="v.path" :value="v.path" :title="`${v.name} → ${v.path}`">
-                        {{ v.name }}{{ v.isCurrent ? ' ★' : '' }} → {{ v.path }}
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Git 仓库 <span class="text-error normal-case tracking-normal">*</span></label>
+                    <select v-model="config.gitRepoId" @change="onGitRepoChange" class="select select-bordered w-full bg-base-200 text-sm">
+                      <option value="">选择 Git 仓库...</option>
+                      <option v-for="repo in gitRepos" :key="repo.id" :value="repo.id">
+                        {{ repo.name }} — {{ repo.path }}
                       </option>
                     </select>
-                    <!-- SDKMAN 安装指引 -->
-                    <div v-if="sdkmanInstallGuide.show && config.buildTool === 'maven'" class="mt-2 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
-                      <div class="flex items-start gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                        <div class="text-xs text-base-content/80 leading-relaxed">
-                          <p class="m-0 mb-1 font-semibold text-amber-600">未检测到 SDKMAN</p>
-                          <p class="m-0 mb-1.5">SDKMAN 可方便地管理 JDK 版本，推荐安装：</p>
-                          <code class="block font-mono text-[11px] bg-base-200 p-2 rounded-lg leading-relaxed whitespace-pre-wrap">
-                            <template v-for="(step, i) in sdkmanInstallGuide.steps" :key="i">
-                              $ {{ step }}<br v-if="i < sdkmanInstallGuide.steps.length - 1" />
-                            </template>
-                          </code>
-                          <button @click="reDetectToolPaths" class="mt-2 text-xs btn btn-ghost btn-xs gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                            检测后刷新
-                          </button>
+                  </div>
+                  <div>
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">打包模式</label>
+                    <div class="flex gap-2">
+                      <button
+                        class="flex-1 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all duration-150 flex items-center gap-2"
+                        :class="config.buildMode === 'local'
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-base-content/10 text-base-content/60 hover:border-base-content/30'"
+                        @click="config.buildMode = 'local'"
+                      >
+                        <SvgIcon name="folder" size="16" />
+                        <div class="text-left">
+                          <div class="font-semibold">本地目录</div>
+                          <div class="text-[10px] opacity-70 font-normal">在项目目录直接构建</div>
                         </div>
-                      </div>
+                      </button>
+                      <button
+                        class="flex-1 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all duration-150 flex items-center gap-2"
+                        :class="config.buildMode === 'git_clone'
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-base-content/10 text-base-content/60 hover:border-base-content/30'"
+                        @click="switchToGitCloneMode"
+                      >
+                        <SvgIcon name="gitBranch" size="16" />
+                        <div class="text-left">
+                          <div class="font-semibold">Git 克隆</div>
+                          <div class="text-[10px] opacity-70 font-normal">克隆到隔离工作空间</div>
+                        </div>
+                      </button>
                     </div>
                   </div>
                 </div>
-                <!-- 父子模块构建时，Profile/settings.xml 很重要 — 直接展示 -->
-                <template v-if="config.parentBuildMode">
-                  <div class="mb-3.5 mt-2 text-[11px] font-semibold text-base-content/60 uppercase tracking-wider opacity-70 flex items-center gap-2.5">
-                    <span>构建参数 <span class="text-[11px] font-normal text-primary ml-2 normal-case tracking-normal">（父模块统一构建，影响所有子模块）</span></span>
-                    <span class="flex-1 h-px bg-base-content/10"></span>
-                  </div>
-                  <div class="flex gap-3">
-                    <div class="mb-3.5 flex-1">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Profile</label>
-                      <input v-model="config.mavenProfile" class="input input-bordered w-full bg-base-200 text-sm" placeholder="prod" />
+
+                <div class="mt-4">
+                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">
+                    {{ config.buildMode === 'git_clone' ? '远程仓库地址' : '本地项目目录' }}
+                  </label>
+                  <template v-if="config.buildMode === 'git_clone'">
+                    <div class="flex gap-1.5">
+                      <input v-model="config.repoUrl" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0 font-mono" placeholder="git@git.example.com:user/repo.git 或 https://..." />
+                      <button @click="fetchGitRemoteUrl" class="btn btn-ghost btn-sm gap-1 text-xs px-2.5 py-1.5 flex-shrink-0 whitespace-nowrap" :disabled="!selectedGitRepo?.path" title="从本地仓库获取远程地址">
+                        <SvgIcon name="gitBranch" size="14" />
+                        <span>获取</span>
+                      </button>
                     </div>
-                    <div class="mb-3.5 flex-1">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">settings.xml</label>
-                      <input v-model="config.mavenSettings" class="input input-bordered w-full bg-base-200 text-sm" placeholder="~/.m2/settings.xml" />
+                  </template>
+                  <template v-else>
+                    <div v-if="selectedGitRepo" class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl border border-base-content/10 text-sm font-mono text-base-content">
+                      <SvgIcon name="folder" size="14" class="shrink-0 text-base-content/60" />
+                      <span class="flex-1 truncate">{{ selectedGitRepo.path }}</span>
+                      <button @click="openInFileManager(selectedGitRepo.path)" class="btn btn-ghost btn-xs px-1.5" title="打开文件夹"><SvgIcon name="externalLink" size="14" /></button>
+                    </div>
+                    <div v-else class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl text-xs text-base-content/60">
+                      <SvgIcon name="folder" size="14" class="shrink-0 opacity-50" />
+                      <span class="flex-1 truncate">尚未选择项目目录</span>
+                      <button @click="selectLocalDir" class="btn btn-ghost btn-xs" title="选择本地目录并自动识别构建工具"><SvgIcon name="externalLink" size="12" /></button>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </section>
+
+            <!-- Section: 构建配置 -->
+            <section class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-2.5 px-5 py-3.5 cursor-pointer select-none hover:bg-base-200/50 transition-colors" @click="expandedSections.build = !expandedSections.build">
+                <SvgIcon name="chevronDown" :size="16" class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ '-rotate-90': !expandedSections.build }" />
+                <SvgIcon name="tool" :size="16" class="text-primary flex-shrink-0" />
+                <span class="text-sm font-semibold text-base-content">构建配置</span>
+                <span v-if="!expandedSections.build" class="text-xs text-base-content/50 ml-2 truncate flex-1 min-w-0">{{ getBuildToolName(config.buildTool) || '未选择构建工具' }}</span>
+              </div>
+              <div v-show="expandedSections.build" class="px-5 pb-5 pt-4 border-t border-base-content/10">
+                <!-- Build tool cards -->
+                <div class="grid grid-cols-6 gap-2 mb-4">
+                  <div
+                    v-for="tool in availableBuildTools"
+                    :key="tool.key"
+                    class="flex flex-col items-center px-2 py-3 border-2 border-base-content/10 rounded-xl cursor-pointer transition-all duration-150 relative hover:border-primary"
+                    :class="{
+                      'border-primary bg-primary/10': config.buildTool === tool.key,
+                      'opacity-40': !tool.available && tool.key !== 'cargo'
+                    }"
+                    :title="tool.path ? `${tool.name} → ${tool.path}` : tool.available ? tool.name : `${tool.name}（未安装）`"
+                    @click="config.buildTool = tool.key"
+                  >
+                    <span class="text-2xl mb-1">{{ tool.icon }}</span>
+                    <span class="text-xs font-semibold text-base-content">{{ tool.name }}</span>
+                    <span v-if="tool.version" class="text-[10px] text-base-content/60 mt-0.5">{{ tool.version.split(' ')[0] }}</span>
+                    <span v-else-if="!tool.available && tool.key !== 'cargo'" class="text-[10px] text-base-content/40 mt-0.5">未安装</span>
+                  </div>
+                </div>
+
+                <!-- Maven options -->
+                <template v-if="config.buildTool === 'maven'">
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Maven 路径</label>
+                      <div class="flex gap-1.5">
+                        <input v-model="config.mavenHome" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': config.mavenHome === defaultPaths.mavenHome && defaultPaths.mavenHome }" :placeholder="defaultPaths.mavenHome ? `已检测: ${defaultPaths.mavenHome}` : '自动检测 / 如 /opt/homebrew/opt/maven'" />
+                        <button @click="reDetectToolPaths" class="btn btn-ghost btn-sm gap-1 text-xs px-2.5 py-1.5 flex-shrink-0 whitespace-nowrap" :disabled="detectingPaths" title="重新检测">
+                          <SvgIcon name="search" size="14" :class="{ 'animate-spin': detectingPaths }" />
+                          <span>检测</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">JDK 路径</label>
+                      <div class="flex gap-1.5">
+                        <input v-model="config.javaHome" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': config.javaHome === defaultPaths.javaHome && defaultPaths.javaHome }" :placeholder="defaultPaths.javaHome ? `已检测: ${defaultPaths.javaHome}` : '自动检测 / 如 /opt/homebrew/opt/openjdk'" />
+                        <select
+                          v-if="sdkVersions.sdkman.java.length > 0"
+                          v-model="selectedJavaVersion"
+                          @change="onJavaVersionSelected"
+                          class="select select-bordered bg-base-200 text-xs w-[200px] min-w-[120px] cursor-pointer truncate"
+                          :title="selectedJavaVersion ? `${sdkVersions.sdkman.java.find(v => v.path === selectedJavaVersion)?.name || ''} → ${selectedJavaVersion}` : 'SDKMAN 版本'"
+                        >
+                          <option value="">版本…</option>
+                          <option v-for="v in sdkVersions.sdkman.java" :key="v.path" :value="v.path" :title="`${v.name} → ${v.path}`">
+                            {{ v.name }}{{ v.isCurrent ? ' ★' : '' }} → {{ v.path }}
+                          </option>
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </template>
-                <!-- 非父子模块时，折叠为高级选项 -->
-                <template v-else>
-                  <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="showAdvancedTools = !showAdvancedTools">
-                    <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': showAdvancedTools }" />
-                    <span>高级选项</span>
+                  <!-- SDKMAN 安装指引 -->
+                  <div v-if="sdkmanInstallGuide.show && config.buildTool === 'maven'" class="mt-3 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                    <div class="flex items-start gap-2">
+                      <SvgIcon name="alertCircle" :size="16" class="shrink-0 mt-0.5 text-amber-600" />
+                      <div class="text-xs text-base-content/80 leading-relaxed">
+                        <p class="m-0 mb-1 font-semibold text-amber-600">未检测到 SDKMAN</p>
+                        <p class="m-0 mb-1.5">SDKMAN 可方便地管理 JDK 版本，推荐安装：</p>
+                        <code class="block font-mono text-[11px] bg-base-200 p-2 rounded-lg leading-relaxed whitespace-pre-wrap">
+                          <template v-for="(step, i) in sdkmanInstallGuide.steps" :key="i">
+                            $ {{ step }}<br v-if="i < sdkmanInstallGuide.steps.length - 1" />
+                          </template>
+                        </code>
+                        <button @click="reDetectToolPaths" class="mt-2 text-xs btn btn-ghost btn-xs gap-1">
+                          <SvgIcon name="refresh" :size="12" />
+                          检测后刷新
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div v-show="showAdvancedTools" class="overflow-hidden animate-[slideDown_0.2s_ease]">
-                    <div class="flex gap-3">
-                      <div class="mb-3.5 flex-1">
-                        <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Profile</label>
+                  <!-- Profile / settings.xml：父子模块直接展示，否则折叠 -->
+                  <template v-if="config.parentBuildMode">
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Profile <span class="text-xs font-normal text-primary ml-1 normal-case tracking-normal">（父模块统一构建，影响所有子模块）</span></label>
                         <input v-model="config.mavenProfile" class="input input-bordered w-full bg-base-200 text-sm" placeholder="prod" />
                       </div>
-                      <div class="mb-3.5 flex-1">
+                      <div>
                         <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">settings.xml</label>
                         <input v-model="config.mavenSettings" class="input input-bordered w-full bg-base-200 text-sm" placeholder="~/.m2/settings.xml" />
                       </div>
                     </div>
+                  </template>
+                  <template v-else>
+                    <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="showAdvancedTools = !showAdvancedTools">
+                      <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': showAdvancedTools }" />
+                      <span>高级选项</span>
+                    </div>
+                    <div v-show="showAdvancedTools" class="grid grid-cols-2 gap-4">
+                      <div>
+                        <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Profile</label>
+                        <input v-model="config.mavenProfile" class="input input-bordered w-full bg-base-200 text-sm" placeholder="prod" />
+                      </div>
+                      <div>
+                        <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">settings.xml</label>
+                        <input v-model="config.mavenSettings" class="input input-bordered w-full bg-base-200 text-sm" placeholder="~/.m2/settings.xml" />
+                      </div>
+                    </div>
+                  </template>
+                </template>
+
+                <!-- NPM options -->
+                <template v-if="['npm', 'pnpm', 'yarn'].includes(config.buildTool)">
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">{{ config.buildTool }} 路径</label>
+                      <div class="flex gap-1.5">
+                        <input v-model="currentHomePath" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': currentHomePath === getDefaultPathFor(config.buildTool) && getDefaultPathFor(config.buildTool) }" :placeholder="getDefaultPathFor(config.buildTool) ? `已检测: ${getDefaultPathFor(config.buildTool)}` : `自动检测 / 如 /usr/local/bin/${config.buildTool}`" />
+                        <button @click="reDetectToolPaths" class="btn btn-ghost btn-sm gap-1 text-xs px-2.5 py-1.5 flex-shrink-0 whitespace-nowrap" :disabled="detectingPaths" title="重新检测">
+                          <SvgIcon name="search" size="14" :class="{ 'animate-spin': detectingPaths }" />
+                          <span>检测</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Node.js 路径</label>
+                      <div class="flex gap-1.5">
+                        <input v-model="config.nodeHome" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': config.nodeHome === defaultPaths.nodeHome && defaultPaths.nodeHome }" :placeholder="defaultPaths.nodeHome ? `已检测: ${defaultPaths.nodeHome}` : '自动检测 / 如 ~/.nvm/versions/node/v20.x'" />
+                        <select
+                          v-if="sdkVersions.nvm.node.length > 0"
+                          v-model="selectedNodeVersion"
+                          @change="onNodeVersionSelected"
+                          class="select select-bordered bg-base-200 text-xs w-[200px] min-w-[120px] cursor-pointer truncate"
+                          :title="selectedNodeVersion ? `${sdkVersions.nvm.node.find(v => v.path === selectedNodeVersion)?.name || ''} → ${selectedNodeVersion}` : 'NVM 版本'"
+                        >
+                          <option value="">版本…</option>
+                          <option v-for="v in sdkVersions.nvm.node" :key="v.path" :value="v.path" :title="`${v.name} → ${v.path}`">
+                            {{ v.name }}{{ v.isCurrent ? ' ★' : '' }} → {{ v.path }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- NVM 安装指引 -->
+                  <div v-if="nvmInstallGuide.show && ['npm','pnpm','yarn'].includes(config.buildTool)" class="mt-3 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                    <div class="flex items-start gap-2">
+                      <SvgIcon name="alertCircle" :size="16" class="shrink-0 mt-0.5 text-amber-600" />
+                      <div class="text-xs text-base-content/80 leading-relaxed">
+                        <p class="m-0 mb-1 font-semibold text-amber-600">未检测到 NVM</p>
+                        <p class="m-0 mb-1.5">NVM 可方便地管理 Node.js 版本，推荐安装：</p>
+                        <code class="block font-mono text-[11px] bg-base-200 p-2 rounded-lg leading-relaxed whitespace-pre-wrap">
+                          <template v-for="(step, i) in nvmInstallGuide.steps" :key="i">
+                            $ {{ step }}<br v-if="i < nvmInstallGuide.steps.length - 1" />
+                          </template>
+                        </code>
+                        <button @click="reDetectToolPaths" class="mt-2 text-xs btn btn-ghost btn-xs gap-1">
+                          <SvgIcon name="refresh" :size="12" />
+                          检测后刷新
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- 构建脚本折叠 -->
+                  <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="showAdvancedBuild = !showAdvancedBuild">
+                    <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': showAdvancedBuild }" />
+                    <span>高级选项</span>
+                  </div>
+                  <div v-show="showAdvancedBuild">
+                    <div class="w-1/2">
+                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建脚本</label>
+                      <select v-model="config.npmScript" class="select select-bordered w-full bg-base-200 text-sm">
+                        <option value="build">build</option>
+                        <option value="build:prod">build:prod</option>
+                        <option value="custom">自定义...</option>
+                      </select>
+                      <input v-if="config.npmScript === 'custom'" v-model="config.npmCustomScript" class="input input-bordered w-full bg-base-200 text-sm mt-2" placeholder="脚本名称" />
+                    </div>
                   </div>
                 </template>
-              </template>
 
-              <!-- NPM options -->
-              <template v-if="['npm', 'pnpm', 'yarn'].includes(config.buildTool)">
-                <div class="flex items-center gap-2.5 mb-3.5 mt-2 text-[11px] font-semibold text-base-content/60 uppercase tracking-wider opacity-70">
-                  <span>构建工具</span>
-                  <span class="flex-1 h-px bg-base-content/10"></span>
-                </div>
-                <div class="mb-3.5">
-                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">{{ config.buildTool }} 路径</label>
-                  <div class="flex gap-1.5">
-                    <input v-model="currentHomePath" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': currentHomePath === getDefaultPathFor(config.buildTool) && getDefaultPathFor(config.buildTool) }" :placeholder="getDefaultPathFor(config.buildTool) ? `已检测: ${getDefaultPathFor(config.buildTool)}` : `自动检测 / 如 /usr/local/bin/${config.buildTool}`" />
-                    <button @click="reDetectToolPaths" class="btn btn-ghost btn-sm gap-1 text-xs px-2.5 py-1.5 flex-shrink-0 whitespace-nowrap" :disabled="detectingPaths" title="重新检测">
-                      <SvgIcon name="search" size="14" :class="{ 'animate-spin': detectingPaths }" />
-                      <span>检测</span>
-                    </button>
+                <!-- Cargo options -->
+                <template v-if="config.buildTool === 'cargo'">
+                  <div class="mb-4">
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建命令</label>
+                    <div class="flex gap-2">
+                      <button
+                        class="flex-1 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all"
+                        :class="config.buildCommand === 'release' || !config.buildCommand
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-base-content/10 text-base-content/60'"
+                        @click="config.buildCommand = 'release'"
+                      >
+                        cargo build --release
+                      </button>
+                      <button
+                        class="flex-1 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all"
+                        :class="config.buildCommand === 'debug'
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-base-content/10 text-base-content/60'"
+                        @click="config.buildCommand = 'debug'"
+                      >
+                        cargo build
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div class="mb-3.5">
-                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Node.js 路径</label>
-                  <div class="flex gap-1.5">
-                    <input v-model="config.nodeHome" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': config.nodeHome === defaultPaths.nodeHome && defaultPaths.nodeHome }" :placeholder="defaultPaths.nodeHome ? `已检测: ${defaultPaths.nodeHome}` : '自动检测 / 如 ~/.nvm/versions/node/v20.x'" />
-                    <select
-                      v-if="sdkVersions.nvm.node.length > 0"
-                      v-model="selectedNodeVersion"
-                      @change="onNodeVersionSelected"
-                      class="select select-bordered bg-base-200 text-xs w-[200px] min-w-[120px] cursor-pointer truncate"
-                      :title="selectedNodeVersion ? `${sdkVersions.nvm.node.find(v => v.path === selectedNodeVersion)?.name || ''} → ${selectedNodeVersion}` : 'NVM 版本'"
-                    >
-                      <option value="">版本…</option>
-                      <option v-for="v in sdkVersions.nvm.node" :key="v.path" :value="v.path" :title="`${v.name} → ${v.path}`">
-                        {{ v.name }}{{ v.isCurrent ? ' ★' : '' }} → {{ v.path }}
-                      </option>
-                    </select>
-                    <!-- NVM 安装指引 -->
-                    <div v-if="nvmInstallGuide.show && ['npm','pnpm','yarn'].includes(config.buildTool)" class="mt-2 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
-                      <div class="flex items-start gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                        <div class="text-xs text-base-content/80 leading-relaxed">
-                          <p class="m-0 mb-1 font-semibold text-amber-600">未检测到 NVM</p>
-                          <p class="m-0 mb-1.5">NVM 可方便地管理 Node.js 版本，推荐安装：</p>
-                          <code class="block font-mono text-[11px] bg-base-200 p-2 rounded-lg leading-relaxed whitespace-pre-wrap">
-                            <template v-for="(step, i) in nvmInstallGuide.steps" :key="i">
-                              $ {{ step }}<br v-if="i < nvmInstallGuide.steps.length - 1" />
-                            </template>
-                          </code>
-                          <button @click="reDetectToolPaths" class="mt-2 text-xs btn btn-ghost btn-xs gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                            检测后刷新
-                          </button>
-                        </div>
+                  <div class="w-1/2">
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">自定义构建命令</label>
+                    <input v-model="config.buildCommand" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="cargo build --release --features xxx" />
+                    <span class="block text-xs text-base-content/60 mt-1">留空使用上方选择的命令，填写后优先使用自定义命令</span>
+                  </div>
+                  <div class="mt-4 px-3 py-2.5 rounded-xl bg-base-200 border border-base-content/10 text-xs text-base-content/60 w-fit">
+                    <span class="flex items-center gap-1.5">
+                      <SvgIcon name="lightbulb" size="14" />
+                      Cargo 构建产物默认在 <code class="bg-base-100 px-1 rounded">target/release/</code> 目录
+                    </span>
+                  </div>
+                </template>
+              </div>
+            </section>
+
+            <!-- Section: 部署目标 -->
+            <section class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-2.5 px-5 py-3.5 cursor-pointer select-none hover:bg-base-200/50 transition-colors" @click="expandedSections.deploy = !expandedSections.deploy">
+                <SvgIcon name="chevronDown" :size="16" class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ '-rotate-90': !expandedSections.deploy }" />
+                <SvgIcon name="serverRack" :size="16" class="text-primary flex-shrink-0" />
+                <span class="text-sm font-semibold text-base-content">部署目标</span>
+                <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold flex-shrink-0">{{ deployServers.filter(s => s.serverId).length }} 台</span>
+                <span v-if="!expandedSections.deploy" class="text-xs text-base-content/50 ml-2 truncate flex-1 min-w-0">{{ deployServers.map(s => getServerName(s.serverId)).filter(Boolean).join('、') || '未配置服务器' }} → {{ config.deployPath || '未设置路径' }}</span>
+              </div>
+              <div v-show="expandedSections.deploy" class="px-5 pb-5 pt-4 border-t border-base-content/10">
+                <div class="flex flex-col gap-2">
+                  <div
+                    v-for="(srv, idx) in deployServers"
+                    :key="idx"
+                    class="border border-base-content/10 rounded-xl bg-base-200 cursor-pointer transition-all duration-200 hover:border-primary group"
+                    :class="{ 'border-primary bg-base-100 shadow-[0_2px_8px_rgba(46,171,124,0.08)]': activeServerIdx === idx }"
+                    @click="activeServerIdx = idx"
+                  >
+                    <div class="flex items-center justify-between px-3 py-2.5">
+                      <span class="flex items-center gap-2 flex-1 min-w-0">
+                        <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-xs font-bold flex-shrink-0">{{ idx + 1 }}</span>
+                        <span v-if="getServerName(srv.serverId)" class="font-semibold text-sm text-base-content truncate">
+                          {{ getServerName(srv.serverId) }}
+                        </span>
+                        <input
+                          v-else
+                          v-model="srv.label"
+                          class="border-none bg-transparent text-sm font-semibold text-base-content w-full min-w-0 outline-none placeholder:text-base-content/60 placeholder:font-normal"
+                          placeholder="自定义节点名称"
+                          @click.stop
+                        />
+                      </span>
+                      <button
+                        v-if="deployServers.length > 1"
+                        @click.stop="removeServer(idx)"
+                        class="bg-transparent border-none cursor-pointer p-1 rounded-md text-base-content/60 opacity-0 group-hover:opacity-60 transition-all duration-150 hover:!opacity-100 hover:text-error hover:bg-error/10 flex-shrink-0"
+                        title="移除"
+                      >
+                        <SvgIcon name="trash" size="14" />
+                      </button>
+                    </div>
+
+                    <div class="px-3 pb-3" v-show="activeServerIdx === idx">
+                      <div class="mb-3.5">
+                        <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">从已有服务器选择</label>
+                        <GroupedServerSelector
+                          :servers="servers"
+                          :groups="serverGroups"
+                          v-model="srv.serverId"
+                          mode="single"
+                        />
+                      </div>
+
+                      <div class="mb-3.5">
+                        <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署路径</label>
+                        <input v-model="srv.deployDir" class="input input-bordered w-full bg-base-200 text-sm" placeholder="如 /opt/app 或留空使用默认路径" @click.stop />
+                      </div>
+
+                      <button v-if="srv.serverId" @click.stop="testServerById(srv)" class="btn btn-ghost btn-sm w-full">
+                        <SvgIcon name="link" size="14" class="inline-block align-text-bottom" /> 测试连接
+                      </button>
+                      <div v-if="srv.testResult" class="mt-2 px-2.5 py-1.5 rounded-md text-xs font-medium" :class="srv.testResult.success ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'">
+                        <template v-if="srv.testResult.success"><SvgIcon name="check" size="14" class="inline-block align-text-bottom" /> 连接成功</template><template v-else><SvgIcon name="x" size="14" class="inline-block align-text-bottom" /> {{ srv.testResult.error }}</template>
                       </div>
                     </div>
                   </div>
                 </div>
-                <!-- 高级选项折叠 -->
-                <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="showAdvancedBuild = !showAdvancedBuild">
-                  <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': showAdvancedBuild }" />
-                  <span>高级选项</span>
+
+                <button @click="addServer" class="btn btn-ghost btn-sm w-full mt-2 border border-dashed border-base-content/10 text-base-content/60 hover:border-primary hover:text-primary hover:bg-primary/10">
+                  <SvgIcon name="plus" size="14" stroke-width="2.5" />
+                  添加服务器节点
+                </button>
+
+                <div v-if="testResult" class="flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-sm mt-3" :class="testResult.success ? 'bg-green-500/10 text-success border border-green-500/20' : 'bg-red-500/10 text-error border border-red-500/20'">
+                  <span v-if="testResult.success"><SvgIcon name="check" size="14" class="inline-block align-text-bottom" /></span><span v-else><SvgIcon name="x" size="14" class="inline-block align-text-bottom" /></span>
+                  <span>{{ testResult.success ? '连接成功' : testResult.error }}</span>
                 </div>
-                <div v-show="showAdvancedBuild" class="overflow-hidden animate-[slideDown_0.2s_ease]">
-                  <div class="mb-3.5">
-                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建脚本</label>
-                    <select v-model="config.npmScript" class="select select-bordered w-full bg-base-200 text-sm">
-                      <option value="build">build</option>
-                      <option value="build:prod">build:prod</option>
-                      <option value="custom">自定义...</option>
-                    </select>
-                    <input
-                      v-if="config.npmScript === 'custom'"
-                      v-model="config.npmCustomScript"
-                      class="input input-bordered w-full bg-base-200 text-sm mt-2"
-                      placeholder="脚本名称"
-                    />
+
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">全局部署路径 <span class="text-error normal-case tracking-normal">*</span></label>
+                    <input v-model="config.deployPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" :placeholder="`/opt/${projectShortName}`" />
+                  </div>
+                  <div v-if="config.buildTool === 'maven'">
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">重启脚本</label>
+                    <input v-model="config.restartScript" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="./restart.sh" />
                   </div>
                 </div>
-              </template>
-
-              <!-- Cargo options -->
-              <template v-if="config.buildTool === 'cargo'">
-                <div class="mb-3.5 mt-2 text-[11px] font-semibold text-base-content/60 uppercase tracking-wider opacity-70 flex items-center gap-2.5">
-                  <span>构建工具</span>
-                  <span class="flex-1 h-px bg-base-content/10"></span>
-                </div>
-                <div class="mb-3.5">
-                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建命令</label>
-                  <div class="flex gap-2">
-                    <button
-                      class="flex-1 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all"
-                      :class="config.buildCommand === 'release' || !config.buildCommand
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-base-content/10 text-base-content/60'"
-                      @click="config.buildCommand = 'release'"
-                    >
-                      cargo build --release
-                    </button>
-                    <button
-                      class="flex-1 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all"
-                      :class="config.buildCommand === 'debug'
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-base-content/10 text-base-content/60'"
-                      @click="config.buildCommand = 'debug'"
-                    >
-                      cargo build
-                    </button>
-                  </div>
-                </div>
-                <div class="mb-3.5">
-                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">自定义构建命令</label>
-                  <input v-model="config.buildCommand" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="cargo build --release --features xxx" />
-                  <span class="block text-xs text-base-content/60 mt-1">留空使用上方选择的命令，填写后优先使用自定义命令</span>
-                </div>
-                <div class="px-3 py-2.5 rounded-xl bg-base-200 border border-base-content/10 text-xs text-base-content/60">
-                  <span class="flex items-center gap-1.5">
-                    <SvgIcon name="lightbulb" size="14" />
-                    Cargo 构建产物默认在 <code class="bg-base-100 px-1 rounded">target/release/</code> 目录
-                  </span>
-                </div>
-              </template>
-
-              <!-- Deploy settings -->
-              <div class="pt-3.5 border-t border-base-content/10">
-                <div class="flex items-center gap-2.5 mb-3.5 text-[11px] font-semibold text-base-content/60 uppercase tracking-wider opacity-70">
-                  <span>部署</span>
-                  <span class="flex-1 h-px bg-base-content/10"></span>
-                </div>
-                <div class="mb-3.5">
-                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署路径</label>
-                  <input v-model="config.deployPath" class="input input-bordered w-full bg-base-200 text-sm" :placeholder="`/opt/${projectShortName}`" />
-                </div>
-
-                <!-- 重启脚本：仅 Maven 后端项目需要 -->
-                <div class="mb-3.5" v-if="config.buildTool === 'maven'">
-                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">重启脚本</label>
-                  <input v-model="config.restartScript" class="input input-bordered w-full bg-base-200 text-sm" placeholder="./restart.sh" />
-                </div>
-
-                <!-- 依赖库分离：仅 Maven 后端项目需要 -->
-                <label class="flex items-center gap-2 text-sm text-base-content cursor-pointer mt-2" v-if="config.buildTool === 'maven'">
+                <label v-if="config.buildTool === 'maven'" class="flex items-center gap-2 text-sm text-base-content cursor-pointer mt-3">
                   <input v-model="config.libSeparate" type="checkbox" class="checkbox checkbox-primary" />
-                  依赖库分离部署
+                  依赖库分离部署（JAR 与 lib 目录分开放置，增量上传时只传变更依赖）
+                </label>
+              </div>
+            </section>
+
+            <!-- Section: 多环境部署 -->
+            <section class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-2.5 px-5 py-3.5 cursor-pointer select-none hover:bg-base-200/50 transition-colors" @click="expandedSections.envs = !expandedSections.envs">
+                <SvgIcon name="chevronDown" :size="16" class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ '-rotate-90': !expandedSections.envs }" />
+                <SvgIcon name="layers" :size="16" class="text-primary flex-shrink-0" />
+                <span class="text-sm font-semibold text-base-content">多环境部署</span>
+                <span class="ml-2 text-xs px-2 py-0.5 rounded-full font-bold flex-shrink-0" :class="config.environments.length ? 'bg-primary/10 text-primary' : 'bg-base-200 text-base-content/50'">{{ config.environments.length ? `${config.environments.length} 个环境` : '未配置' }}</span>
+                <span v-if="!expandedSections.envs && config.environments.length" class="text-xs text-base-content/50 ml-2 truncate flex-1 min-w-0">{{ config.environments.map(e => e.name).join(' / ') }}</span>
+              </div>
+              <div v-show="expandedSections.envs" class="px-5 pb-5 pt-4 border-t border-base-content/10">
+                <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-base-200/60 text-xs text-base-content/60 mb-4">
+                  <SvgIcon name="lightbulb" :size="14" class="shrink-0 mt-0.5" />
+                  <span>为同一份构建产物配置多套部署目标（如 测试 / 预发 / 生产）。部署时选择环境，环境可覆盖部署路径、服务器、环境变量与健康检查；留空的项沿用「部署目标」中的全局配置</span>
+                </div>
+
+                <div v-if="config.environments.length === 0" class="flex flex-col items-center py-6 gap-3 text-base-content/50">
+                  <SvgIcon name="layers" :size="32" :stroke-width="1.5" class="opacity-40" />
+                  <p class="m-0 text-sm">单一环境无需配置，点击下方按钮添加多环境</p>
+                  <button @click="addEnvironment" class="btn btn-primary btn-sm"><SvgIcon name="plus" :size="14" stroke-width="2.5" /> 添加环境</button>
+                </div>
+
+                <template v-else>
+                  <div role="tablist" class="tabs tabs-bordered mb-4 flex-wrap">
+                    <button
+                      v-for="(env, i) in config.environments"
+                      :key="i"
+                      role="tab"
+                      class="tab gap-1.5"
+                      :class="{ 'tab-active': activeEnvIdx === i }"
+                      @click="activeEnvIdx = i"
+                    >
+                      {{ env.name || `环境 ${i + 1}` }}
+                      <span
+                        class="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] leading-none hover:bg-error/20 hover:text-error transition-colors"
+                        title="删除环境"
+                        @click.stop="removeEnvironment(i)"
+                      >
+                        <SvgIcon name="x" :size="11" />
+                      </span>
+                    </button>
+                    <button role="tab" class="tab" @click="addEnvironment" title="添加环境"><SvgIcon name="plus" :size="14" stroke-width="2.5" /></button>
+                  </div>
+
+                  <div v-if="config.environments[activeEnvIdx]" class="flex flex-col gap-4">
+                    <div class="grid grid-cols-3 gap-4">
+                      <div>
+                        <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">环境名称 <span class="text-error normal-case tracking-normal">*</span></label>
+                        <input v-model="config.environments[activeEnvIdx].name" class="input input-bordered w-full bg-base-200 text-sm" placeholder="如：测试环境" />
+                      </div>
+                      <div>
+                        <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署路径</label>
+                        <input v-model="config.environments[activeEnvIdx].deployPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" :placeholder="config.deployPath ? `沿用全局: ${config.deployPath}` : '/opt/app-test'" />
+                      </div>
+                      <div>
+                        <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">健康检查 URL</label>
+                        <input v-model="config.environments[activeEnvIdx].healthCheckUrl" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="http://test.example.com/health" />
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                      <div>
+                        <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">健康检查超时（秒）</label>
+                        <input v-model.number="config.environments[activeEnvIdx].healthCheckTimeout" type="number" min="1" class="input input-bordered w-full bg-base-200 text-sm" placeholder="30" />
+                      </div>
+                      <div>
+                        <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">健康检查重试次数</label>
+                        <input v-model.number="config.environments[activeEnvIdx].healthCheckRetries" type="number" min="1" class="input input-bordered w-full bg-base-200 text-sm" placeholder="3" />
+                      </div>
+                    </div>
+                    <div>
+                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">环境变量 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(每行一个 KEY=VALUE，构建时注入)</span></label>
+                      <textarea v-model="config.environments[activeEnvIdx].envVars" class="textarea textarea-bordered w-full bg-base-200 text-xs font-mono resize-y leading-relaxed" rows="3" placeholder="NODE_ENV=production&#10;VITE_API_BASE=https://api.example.com" />
+                    </div>
+                    <div>
+                      <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs font-medium text-base-content/60 uppercase tracking-wider">环境服务器 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(留空沿用全局服务器)</span></label>
+                        <button @click="addEnvServer" class="btn btn-ghost btn-xs gap-1"><SvgIcon name="plus" :size="12" stroke-width="2.5" /> 添加</button>
+                      </div>
+                      <div v-for="(srv, i) in config.environments[activeEnvIdx].servers" :key="i" class="grid grid-cols-[1fr_1fr_auto] gap-2 mb-2">
+                        <GroupedServerSelector :servers="servers" :groups="serverGroups" v-model="srv.serverId" mode="single" />
+                        <input v-model="srv.deployDir" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="部署路径（留空用环境路径）" />
+                        <button @click="removeEnvServer(i)" class="btn btn-ghost btn-sm btn-square text-error hover:bg-error/10" title="移除"><SvgIcon name="x" :size="14" /></button>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </section>
+
+            <!-- Section: 部署保障 -->
+            <section class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-2.5 px-5 py-3.5 cursor-pointer select-none hover:bg-base-200/50 transition-colors" @click="expandedSections.safety = !expandedSections.safety">
+                <SvgIcon name="chevronDown" :size="16" class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ '-rotate-90': !expandedSections.safety }" />
+                <SvgIcon name="shield" :size="16" class="text-primary flex-shrink-0" />
+                <span class="text-sm font-semibold text-base-content">部署保障</span>
+                <span v-if="!expandedSections.safety" class="text-xs text-base-content/50 ml-2 truncate flex-1 min-w-0">
+                  {{ [
+                    config.incrementalUpload ? '增量上传' : '全量上传',
+                    config.healthCheckUrl ? '健康检查' : '无健康检查',
+                    config.requiresApproval ? '需审核' : '免审核',
+                  ].join(' · ') }}
+                </span>
+              </div>
+              <div v-show="expandedSections.safety" class="px-5 pb-5 pt-4 border-t border-base-content/10 flex flex-col gap-4">
+                <label class="flex items-center gap-2.5 px-3.5 py-3 bg-base-200/60 rounded-xl border border-base-content/10 cursor-pointer select-none hover:border-primary/40 transition-colors">
+                  <input v-model="config.incrementalUpload" type="checkbox" class="toggle toggle-primary" />
+                  <span class="flex flex-col gap-0.5">
+                    <span class="flex items-center gap-1.5 text-sm font-medium text-base-content"><SvgIcon name="zap" :size="14" /> 增量上传</span>
+                    <span class="text-xs text-base-content/60">对比远端文件 hash 只传输变更文件，大项目部署提速明显；关闭后每次全量上传</span>
+                  </span>
                 </label>
 
-                <!-- 高级选项折叠 -->
-                <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="showAdvancedDeploy = !showAdvancedDeploy">
-                  <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': showAdvancedDeploy }" />
-                  <span>高级选项</span>
-                </div>
-                <div v-show="showAdvancedDeploy" class="overflow-hidden animate-[slideDown_0.2s_ease]">
-                  <div class="mb-3.5">
-                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">健康检查 URL</label>
-                    <input v-model="config.healthCheckUrl" class="input input-bordered w-full bg-base-200 text-sm" placeholder="http://localhost:8080/health" />
+                <div>
+                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">健康检查 URL <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(配置后部署完成自动探活，失败自动回滚到上一版本)</span></label>
+                  <div class="grid grid-cols-[1fr_140px_140px] gap-3">
+                    <input v-model="config.healthCheckUrl" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="http://localhost:8080/health（留空跳过健康检查）" />
+                    <input v-model.number="config.healthCheckTimeout" type="number" min="1" class="input input-bordered w-full bg-base-200 text-sm" title="单次探测超时（秒）" placeholder="超时(秒)" />
+                    <input v-model.number="config.healthCheckRetries" type="number" min="1" class="input input-bordered w-full bg-base-200 text-sm" title="失败重试次数" placeholder="重试次数" />
                   </div>
-
-                  <div class="my-3 border-t border-base-content/10"></div>
-
-                  <label class="flex items-center gap-2 text-sm text-base-content cursor-pointer mt-2 px-2.5 py-2 bg-amber-500/10 rounded-md border border-amber-500/20">
-                    <input v-model="config.requiresApproval" type="checkbox" class="checkbox checkbox-primary" />
-                    <span class="flex flex-col gap-0.5">
-                      <span class="flex items-center gap-1"><SvgIcon name="lock" size="14" /> 部署审核</span>
-                      <span class="text-xs text-base-content/60">开启后部署前需要人工确认，防止误操作</span>
-                    </span>
-                  </label>
                 </div>
+
+                <label class="flex items-center gap-2.5 px-3.5 py-3 bg-amber-500/10 rounded-xl border border-amber-500/20 cursor-pointer select-none hover:border-amber-500/40 transition-colors">
+                  <input v-model="config.requiresApproval" type="checkbox" class="toggle toggle-warning" />
+                  <span class="flex flex-col gap-0.5">
+                    <span class="flex items-center gap-1.5 text-sm font-medium text-base-content"><SvgIcon name="lock" :size="14" /> 部署审核</span>
+                    <span class="text-xs text-base-content/60">开启后部署前需要人工确认，防止误操作</span>
+                  </span>
+                </label>
               </div>
-            </div>
+            </section>
           </div>
 
           <!-- Deploy Modules Section -->
@@ -861,7 +930,8 @@ defineOptions({ name: 'CiCdConfig' })
 import { useCicdConfig } from './composables/useCicdConfig';
 import ModuleTreeNode from './ModuleTreeNode.vue';
 import GroupedServerSelector from '../server/GroupedServerSelector.vue';
-import { computed, defineAsyncComponent, onBeforeUnmount, ref } from 'vue'
+import CicdConfigWizard from './CicdConfigWizard.vue';
+import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 const DeployPanel = defineAsyncComponent(() => import('./DeployPanel.vue'));
@@ -886,25 +956,85 @@ const cicd = useCicdConfig();
 // 保存/测试连接防重复点击
 const saving = ref(false);
 const testingConn = ref(false);
-// 两处「高级选项」独立展开（避免互相联动）
+// 构建配置内两处「高级选项」独立展开（避免互相联动）
 const showAdvancedTools = ref(false);
 const showAdvancedBuild = ref(false);
-const showAdvancedDeploy = ref(false);
+
+// 分组折叠状态：编辑表单按「基本信息/构建配置/部署目标/多环境/部署保障」分组折叠
+const expandedSections = ref<Record<string, boolean>>({
+  basic: false,
+  build: false,
+  deploy: true,
+  envs: false,
+  safety: false,
+});
+
+// ─── 新建配置向导 ───
+const wizardMode = ref(false);
+// 新建配置 → 向导模式；选中已有配置 → 退出向导
+watch(() => cicd.isNewConfig.value, (v) => { if (v) { wizardMode.value = true; } });
+
+function cancelWizard() {
+  wizardMode.value = false;
+  cicd.isNewConfig.value = false;
+  cicd.selectedConfigId.value = '';
+}
+
+async function createConfigFromWizard(payload: Record<string, unknown>) {
+  const p = payload as {
+    name?: string; gitRepoId?: string; groupName?: string; deployBranch?: string;
+    buildTool?: string; mavenProfile?: string; npmScript?: string; npmCustomScript?: string;
+    restartScript?: string; deployPath?: string;
+    servers?: { serverId: string; label?: string; deployDir?: string }[];
+  };
+  Object.assign(cicd.config.value, {
+    name: p.name || '',
+    gitRepoId: p.gitRepoId || '',
+    groupName: p.groupName || '未分组',
+    deployBranch: p.deployBranch || 'main',
+    buildTool: p.buildTool || '',
+    mavenProfile: p.mavenProfile || 'prod',
+    npmScript: p.npmScript || 'build',
+    npmCustomScript: p.npmCustomScript || '',
+    restartScript: p.restartScript || './restart.sh',
+    deployPath: p.deployPath || '',
+  });
+  cicd.deployServers.value = (p.servers || []).map(s => ({
+    serverId: s.serverId, label: s.label || '', deployDir: s.deployDir || '',
+  }));
+  await handleSave();
+  // 保存成功（saveConfig 内部已把 isNewConfig 置 false）后退出向导
+  if (!cicd.isNewConfig.value) {
+    wizardMode.value = false;
+    expandedSections.value = { basic: true, build: true, deploy: true, envs: false, safety: false };
+  }
+}
+
 const handleSave = async () => {
   if (saving.value) { return; }
   saving.value = true;
-  try { await saveConfig(); } finally { saving.value = false; }
+  try { await cicd.saveConfig(); } finally { saving.value = false; }
 };
 const handleTestConnection = async () => {
   if (testingConn.value) { return; }
   testingConn.value = true;
-  try { await testConnection(); } finally { testingConn.value = false; }
+  try { await cicd.testConnection(); } finally { testingConn.value = false; }
 };
+
+// ─── 多环境：环境内服务器管理 ───
+function addEnvServer() {
+  const env = cicd.config.value.environments[cicd.activeEnvIdx.value];
+  if (env) { env.servers.push({ serverId: '', deployDir: '' }); }
+}
+function removeEnvServer(i: number) {
+  const env = cicd.config.value.environments[cicd.activeEnvIdx.value];
+  if (env) { env.servers.splice(i, 1); }
+}
 
 // 删除模块前确认（已保存模块会删库）
 function confirmDeleteModule(module: { id: string | null; moduleName: string }) {
   if (module.id && !confirm(`确定删除模块「${module.moduleName || '未命名'}」吗？此操作会从数据库中删除。`)) { return; }
-  deleteModule(module.id);
+  cicd.deleteModule(module.id);
 }
 
 // Git 仓库名称查找函数（供模板使用）
@@ -949,6 +1079,7 @@ const {
   addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
   saveConfig, deleteConfig, copyConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
   switchToGitCloneMode, fetchGitRemoteUrl,
+  activeEnvIdx, addEnvironment, removeEnvironment,
   defaultConfig, pageLoading,
 } = cicd;
 

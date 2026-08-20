@@ -23,6 +23,53 @@ fn is_deploy_cancelled(deploy_id: &str) -> bool {
         .unwrap_or(false)
 }
 
+// 部署队列：同一配置同时只允许一个部署执行，后续请求排队等待（防止并发部署互相覆盖）
+static DEPLOY_QUEUES: LazyLock<Mutex<HashMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn get_config_deploy_lock(config_id: &str) -> std::sync::Arc<tokio::sync::Mutex<()>> {
+    let mut map = DEPLOY_QUEUES.lock().unwrap();
+    map.entry(config_id.to_string()).or_default().clone()
+}
+
+// =================== 多环境配置类型（cicd_configs.environments JSON） ===================
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct EnvServerRef {
+    pub server_id: String,
+    #[serde(default)]
+    pub deploy_dir: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct EnvEntry {
+    pub name: String,
+    /// 环境部署路径（空则沿用配置级 deployPath）
+    #[serde(default)]
+    pub deploy_path: String,
+    /// 环境专属服务器列表（空则沿用配置级服务器）
+    #[serde(default)]
+    pub servers: Vec<EnvServerRef>,
+    /// 构建时注入的环境变量（如 NODE_ENV=production）
+    #[serde(default)]
+    pub env_vars: HashMap<String, String>,
+    #[serde(default)]
+    pub health_check_url: Option<String>,
+    #[serde(default)]
+    pub health_check_timeout: Option<u64>,
+    #[serde(default)]
+    pub health_check_retries: Option<u32>,
+}
+
+/// 解析配置的多环境列表
+pub fn parse_environments(environments: Option<&str>) -> Vec<EnvEntry> {
+    environments
+        .and_then(|s| serde_json::from_str::<Vec<EnvEntry>>(s).ok())
+        .unwrap_or_default()
+}
+
 // =================== Types ===================
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -354,6 +401,7 @@ pub async fn deploy(
     config_id: String,
     confirmed: Option<bool>,
     branch: Option<String>,
+    environment: Option<String>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] deploy() called");
     // Get config from DB
@@ -385,6 +433,61 @@ pub async fn deploy(
         }
     }
 
+    // 多环境覆盖：按环境名应用专属的部署路径 / 服务器 / 环境变量 / 健康检查配置
+    if let Some(ref env_name) = environment.clone().filter(|s| !s.is_empty()) {
+        let envs = parse_environments(cicd_config.environments.as_deref());
+        let env = envs
+            .into_iter()
+            .find(|e| &e.name == env_name)
+            .ok_or_else(|| format!("环境「{}」不存在，请检查配置", env_name))?;
+        let lib_separate =
+            cicd_config.lib_separate && cicd_config.build_tool.as_deref() == Some("maven");
+
+        if !env.servers.is_empty() {
+            let fallback_dir = if env.deploy_path.is_empty() {
+                cicd_config.deploy_path.clone()
+            } else {
+                env.deploy_path.clone()
+            };
+            let refs: Vec<(String, String)> = env
+                .servers
+                .iter()
+                .map(|r| (r.server_id.clone(), r.deploy_dir.clone()))
+                .collect();
+            deploy_config.servers = resolve_deploy_servers(&core, &refs, &fallback_dir, lib_separate)?;
+        } else if !env.deploy_path.is_empty() {
+            // 沿用配置级服务器：未单独指定部署目录的节点切换到环境路径
+            let old_dir = cicd_config.deploy_path.clone();
+            let new_dir = env.deploy_path.clone();
+            for srv in deploy_config.servers.iter_mut() {
+                if srv.deploy_dir == old_dir {
+                    srv.deploy_dir = new_dir.clone();
+                    if let Some(ref mut ld) = srv.lib_dir {
+                        *ld = format!("{}/lib", new_dir);
+                    }
+                }
+            }
+        }
+        if !env.deploy_path.is_empty() {
+            deploy_config.deploy_dir = env.deploy_path.clone();
+            if lib_separate {
+                deploy_config.lib_dir = Some(format!("{}/lib", env.deploy_path));
+            }
+        }
+        deploy_config.env_vars = env.env_vars;
+        if let Some(ref u) = env.health_check_url.filter(|u| !u.is_empty()) {
+            deploy_config.health_check_url = Some(u.clone());
+        }
+        if let Some(t) = env.health_check_timeout {
+            deploy_config.health_check_timeout = t;
+        }
+        if let Some(r) = env.health_check_retries {
+            deploy_config.health_check_retries = r;
+        }
+        deploy_config.environment_name = Some(env.name.clone());
+        log::info!("[deploy] environment override applied: {}", env.name);
+    }
+
     // Create deploy log
     let deploy_id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
@@ -400,6 +503,7 @@ pub async fn deploy(
         created_at: now.clone(),
         log_file_path: None,
         artifact_paths: None,
+        environment: environment.clone().filter(|s| !s.is_empty()),
     };
 
     // Save deploy log
@@ -438,6 +542,38 @@ pub async fn deploy(
     // Spawn background task for deploy
     tokio::spawn(async move {
         let did_for_cancel = deploy_id_arc.clone();
+
+        // 部署队列：同配置并发部署排队执行，防止产物互相覆盖
+        let queue_lock = get_config_deploy_lock(&config_id_arc);
+        let _guard = match queue_lock.try_lock() {
+            Ok(guard) => guard,
+            Err(_) => {
+                let _ = app_for_closure.emit(
+                    "deploy-progress",
+                    serde_json::json!({
+                        "deployLogId": *did_for_closure,
+                        "configId": *cid_for_closure,
+                        "stage": "queue",
+                        "status": "waiting",
+                        "message": "当前配置有部署正在进行，本任务排队等待中...",
+                        "progress": None::<i64>,
+                    }),
+                );
+                let guard = queue_lock.lock().await;
+                let _ = app_for_closure.emit(
+                    "deploy-progress",
+                    serde_json::json!({
+                        "deployLogId": *did_for_closure,
+                        "configId": *cid_for_closure,
+                        "stage": "queue",
+                        "status": "acquired",
+                        "message": "排队结束，开始部署",
+                        "progress": None::<i64>,
+                    }),
+                );
+                guard
+            }
+        };
 
         let deploy_result = cicd_deploy::execute_deploy(
             &deploy_config,
@@ -501,6 +637,7 @@ pub async fn deploy(
             created_at: now.clone(),
             log_file_path: final_log_path,
             artifact_paths: final_artifact_paths,
+            environment: environment.clone().filter(|s| !s.is_empty()),
         };
         let _ = core_clone.db_write(|conn| cicd_update_deploy_log(conn, &new_log));
 
@@ -1196,12 +1333,60 @@ fn cicd_add_deploy_history(
 
 // =================== Helper Functions ===================
 
+/// 解析服务器引用列表为完整部署服务器配置（查 servers 表 + 解密密码）
+fn resolve_deploy_servers(
+    core: &supertool_core::logic::CoreService,
+    refs: &[(String, String)], // (serverId, deployDir)
+    fallback_dir: &str,
+    lib_separate: bool,
+) -> Result<Vec<DeployServerConfig>, String> {
+    refs.iter()
+        .map(|(server_id, deploy_dir)| {
+            // 直接查 servers 表 + 解密密码
+            let server = core.db_read(|conn| {
+                conn.query_row(
+                    "SELECT * FROM servers WHERE id = ?1",
+                    rusqlite::params![server_id],
+                    supertool_core::db::servers::row_to_server,
+                )
+                .map_err(|e| e.to_string())
+            })??;
+            // 密码已在 row_to_server 中解密 (servers.rs 的 get_server_by_id 调用 decrypt_password)
+            // 但 row_to_server 不解密，需要手动解密
+            let password = server
+                .password
+                .map(|pw| supertool_core::encryption::try_decrypt_password(&pw));
+            let base_deploy_dir = if deploy_dir.is_empty() {
+                fallback_dir.to_string()
+            } else {
+                deploy_dir.clone()
+            };
+            Ok(DeployServerConfig {
+                host: server.host,
+                port: server.port as u16,
+                username: server.username,
+                password,
+                private_key: server.ssh_key_path,
+                deploy_dir: base_deploy_dir.clone(),
+                lib_dir: if lib_separate {
+                    Some(format!("{}/lib", base_deploy_dir))
+                } else {
+                    None
+                },
+                label: Some(server.name),
+            })
+        })
+        .collect()
+}
+
 fn build_deploy_config(
     core: &supertool_core::logic::CoreService,
     cicd_config: &CicdConfig,
     modules: &[DeployModule],
 ) -> Result<DeployConfig, String> {
     // 解析服务器引用（DB 存的是 [{serverId, deployDir}]，需查 servers 表补全）
+    let lib_separate =
+        cicd_config.lib_separate && cicd_config.build_tool.as_deref() == Some("maven");
     let servers: Vec<DeployServerConfig> = if let Some(ref servers_str) = cicd_config.servers {
         #[derive(Deserialize)]
         struct ServerRef {
@@ -1212,44 +1397,11 @@ fn build_deploy_config(
         }
         let refs: Vec<ServerRef> =
             serde_json::from_str(servers_str).map_err(|e| format!("解析服务器引用失败: {}", e))?;
-
-        refs.into_iter()
-            .map(|r| {
-                // 直接查 servers 表 + 解密密码
-                let server = core.db_read(|conn| {
-                    conn.query_row(
-                        "SELECT * FROM servers WHERE id = ?1",
-                        rusqlite::params![r.server_id],
-                        supertool_core::db::servers::row_to_server,
-                    )
-                    .map_err(|e| e.to_string())
-                })??;
-                // 密码已在 row_to_server 中解密 (servers.rs 的 get_server_by_id 调用 decrypt_password)
-                // 但 row_to_server 不解密，需要手动解密
-                let password = server
-                    .password
-                    .map(|pw| supertool_core::encryption::try_decrypt_password(&pw));
-                let base_deploy_dir = if r.deploy_dir.is_empty() {
-                    cicd_config.deploy_path.clone()
-                } else {
-                    r.deploy_dir
-                };
-                Ok(DeployServerConfig {
-                    host: server.host,
-                    port: server.port as u16,
-                    username: server.username,
-                    password,
-                    private_key: server.ssh_key_path,
-                    deploy_dir: base_deploy_dir.clone(),
-                    lib_dir: if cicd_config.lib_separate {
-                        Some(format!("{}/lib", base_deploy_dir))
-                    } else {
-                        None
-                    },
-                    label: Some(server.name),
-                })
-            })
-            .collect::<Result<Vec<_>, String>>()?
+        let pairs: Vec<(String, String)> = refs
+            .into_iter()
+            .map(|r| (r.server_id, r.deploy_dir))
+            .collect();
+        resolve_deploy_servers(core, &pairs, &cicd_config.deploy_path, lib_separate)?
     } else {
         vec![]
     };
@@ -1333,6 +1485,15 @@ fn build_deploy_config(
         lib_separate: cicd_config.lib_separate
             && cicd_config.build_tool.as_deref() == Some("maven"),
         build_mode: cicd_config.build_mode.clone(),
+        env_vars: HashMap::new(),
+        health_check_url: cicd_config
+            .health_check_url
+            .clone()
+            .filter(|u| !u.is_empty()),
+        health_check_timeout: cicd_config.health_check_timeout.max(1) as u64,
+        health_check_retries: cicd_config.health_check_retries.max(1) as u32,
+        incremental_upload: cicd_config.incremental_upload,
+        environment_name: None,
     })
 }
 

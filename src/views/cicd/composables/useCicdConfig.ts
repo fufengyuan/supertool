@@ -65,6 +65,18 @@ export interface ScannedModule {
   children?: ScannedModule[];
 }
 
+/** 多环境配置项（配置内多环境：一套构建 + 多套部署目标） */
+export interface EnvironmentEntry {
+  name: string;
+  deployPath: string;
+  servers: { serverId: string; label?: string; deployDir: string }[];
+  /** 环境变量，每行一个 KEY=VALUE（构建时注入） */
+  envVars: string;
+  healthCheckUrl: string;
+  healthCheckTimeout: number;
+  healthCheckRetries: number;
+}
+
 export interface ConfigForm {
   id: string | null;
   name: string;
@@ -88,6 +100,7 @@ export interface ConfigForm {
   restartScript: string;
   healthCheckUrl: string;
   healthCheckTimeout: number;
+  healthCheckRetries: number;
   groupName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -97,6 +110,29 @@ export interface ConfigForm {
   showAdvanced: boolean;
   buildMode: string;
   buildCommand: string;
+  /** 多环境列表（保存时序列化为 JSON 存 DB） */
+  environments: EnvironmentEntry[];
+  /** 增量上传：对比产物 hash 只传变更文件 */
+  incrementalUpload: boolean;
+}
+
+/** "KEY=VALUE" 多行文本 → 对象 */
+export function parseEnvVarsText(text: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const line of (text || '').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {continue;}
+    const eq = trimmed.indexOf('=');
+    if (eq > 0) {
+      result[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim();
+    }
+  }
+  return result;
+}
+
+/** 对象 → "KEY=VALUE" 多行文本 */
+export function envVarsToText(vars: Record<string, string>): string {
+  return Object.entries(vars || {}).map(([k, v]) => `${k}=${v}`).join('\n');
 }
 
 export function useCicdConfig() {
@@ -209,8 +245,9 @@ export function useCicdConfig() {
       id: null, name: '', localPath: '', gitRepoId: '', repoUrl: '', deployBranch: 'main',
       buildTool: '', npmScript: 'build', npmCustomScript: '', mavenSettings: '', mavenProfile: 'prod',
       mavenHome: '', javaHome: '', npmHome: '', pnpmHome: '', yarnHome: '', nodeHome: '', deployPath: '', libSeparate: true,
-      restartScript: './restart.sh', healthCheckUrl: '', healthCheckTimeout: 30, groupName: '未分组',
+      restartScript: './restart.sh', healthCheckUrl: '', healthCheckTimeout: 30, healthCheckRetries: 3, groupName: '未分组',
       parentBuildMode: false, parentBuildPath: '', requiresApproval: false, showAdvanced: false, buildMode: 'local', buildCommand: '',
+      environments: [], incrementalUpload: true,
     };
   }
 
@@ -727,12 +764,69 @@ export function useCicdConfig() {
     expandedModules.value = expandedModules.value.map(i => i > modules.value.length - 1 ? -1 : i).filter(i => i >= 0).sort((a, b) => a - b);
   }
 
+  // ─── 多环境管理 ───
+  const activeEnvIdx = ref(0);
+
+  function addEnvironment() {
+    const names = ['测试环境', '预发布环境', '生产环境'];
+    const used = new Set(config.value.environments.map(e => e.name));
+    const name = names.find(n => !used.has(n)) || `环境 ${config.value.environments.length + 1}`;
+    config.value.environments.push({
+      name, deployPath: '', servers: [], envVars: '',
+      healthCheckUrl: '', healthCheckTimeout: 30, healthCheckRetries: 3,
+    });
+    activeEnvIdx.value = config.value.environments.length - 1;
+  }
+
+  function removeEnvironment(idx: number) {
+    config.value.environments.splice(idx, 1);
+    if (activeEnvIdx.value >= config.value.environments.length) {
+      activeEnvIdx.value = Math.max(0, config.value.environments.length - 1);
+    }
+  }
+
+  /** 环境环境变量文本 → 存储 JSON 字符串（saveConfig 用） */
+  function serializeEnvironments(): string | null {
+    if (!config.value.environments.length) {return null;}
+    return JSON.stringify(config.value.environments.map(e => ({
+      name: e.name,
+      deployPath: e.deployPath,
+      servers: e.servers.map(s => ({ serverId: s.serverId, deployDir: s.deployDir })),
+      envVars: parseEnvVarsText(e.envVars),
+      healthCheckUrl: e.healthCheckUrl,
+      healthCheckTimeout: e.healthCheckTimeout || 30,
+      healthCheckRetries: e.healthCheckRetries || 3,
+    })));
+  }
+
+  /** 存储 JSON 字符串 → 表单环境数组（loadConfig 用） */
+  function deserializeEnvironments(json: unknown): EnvironmentEntry[] {
+    if (!json || typeof json !== 'string') {return [];}
+    try {
+      const parsed = JSON.parse(json) as Array<{
+        name?: string; deployPath?: string; servers?: Array<{ serverId?: string; deployDir?: string }>;
+        envVars?: Record<string, string>; healthCheckUrl?: string; healthCheckTimeout?: number; healthCheckRetries?: number;
+      }>;
+      return (parsed || []).map(e => ({
+        name: e.name || '', deployPath: e.deployPath || '',
+        servers: (e.servers || []).map(s => ({ serverId: s.serverId || '', deployDir: s.deployDir || '' })),
+        envVars: envVarsToText(e.envVars || {}),
+        healthCheckUrl: e.healthCheckUrl || '',
+        healthCheckTimeout: e.healthCheckTimeout || 30,
+        healthCheckRetries: e.healthCheckRetries || 3,
+      }));
+    } catch { return []; }
+  }
+
   async function saveConfig() {
     try {
       if (!deployServers.value.some(s => s.serverId)) { toast.error('请选择服务器'); return; }
       const now = new Date().toISOString();
       const serversJson = deployServers.value.length > 0 ? JSON.stringify(deployServers.value.map(s => ({ serverId: s.serverId, label: s.label, deployDir: s.deployDir }))) : null;
       const plainConfig = { ...JSON.parse(JSON.stringify(config.value)), servers: serversJson };
+      // 多环境/增量上传：表单结构 → DB 存储结构
+      (plainConfig as Record<string, unknown>).environments = serializeEnvironments();
+      (plainConfig as Record<string, unknown>).incrementalUpload = config.value.incrementalUpload;
       if (!config.value.id) {
         config.value.id = Date.now().toString(); config.value.createdAt = now; config.value.updatedAt = now;
         plainConfig.id = config.value.id; plainConfig.createdAt = now; plainConfig.updatedAt = now;
@@ -841,6 +935,12 @@ export function useCicdConfig() {
         // Normalize old saved /bin/java → JAVA_HOME, /bin/node → NVM_HOME
         config.value.javaHome = normalizeHomeDir(config.value.javaHome);
         config.value.nodeHome = normalizeHomeDir(config.value.nodeHome);
+        // 多环境/增量上传：DB 存储结构 → 表单结构
+        config.value.environments = deserializeEnvironments((existing as Record<string, unknown>).environments);
+        activeEnvIdx.value = 0;
+        if (typeof (existing as Record<string, unknown>).incrementalUpload !== 'boolean') {
+          config.value.incrementalUpload = true; // 老数据默认开启
+        }
         // Derive package manager paths from nodeHome (use detected paths from SDK versions if available)
         const matchedNode = sdkVersions.value.nvm.node.find(
           (v: { name: string; path: string }) => v.path === config.value.nodeHome
@@ -1069,6 +1169,7 @@ export function useCicdConfig() {
     addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
     saveConfig, deleteConfig, copyConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
     switchToGitCloneMode, fetchGitRemoteUrl,
+    activeEnvIdx, addEnvironment, removeEnvironment, serializeEnvironments, deserializeEnvironments,
     defaultConfig,
     pageLoading,
   };

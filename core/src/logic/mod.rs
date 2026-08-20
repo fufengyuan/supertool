@@ -764,6 +764,15 @@ impl CoreService {
             lib_separate: cicd_config.lib_separate
                 && cicd_config.build_tool.as_deref() == Some("maven"),
             build_mode: cicd_config.build_mode.clone(),
+            env_vars: HashMap::new(),
+            health_check_url: cicd_config
+                .health_check_url
+                .clone()
+                .filter(|u| !u.is_empty()),
+            health_check_timeout: cicd_config.health_check_timeout.max(1) as u64,
+            health_check_retries: cicd_config.health_check_retries.max(1) as u32,
+            incremental_upload: cicd_config.incremental_upload,
+            environment_name: None,
         };
 
         // 覆盖分支：CLI --branch / GUI 临时选分支，非空才覆盖
@@ -790,6 +799,7 @@ impl CoreService {
             created_at: now.clone(),
             log_file_path: None,
             artifact_paths: None,
+            environment: None,
         };
 
         // Save deploy log
@@ -875,6 +885,7 @@ impl CoreService {
             created_at: now.clone(),
             log_file_path: final_log_path.clone(),
             artifact_paths: final_artifact_paths,
+            environment: None,
         };
         let _ = self.db_write(|conn| crate::db::cicd::update_deploy_log(conn, &updated_log));
 
@@ -930,6 +941,7 @@ impl CoreService {
             created_at: deploy_log.created_at.clone(),
             log_file_path: deploy_log.log_file_path,
             artifact_paths: deploy_log.artifact_paths,
+            environment: deploy_log.environment.clone(),
         };
 
         self.db_write(|conn| {
@@ -1246,6 +1258,9 @@ impl CoreService {
             yarn_home: None,
             build_mode: "maven".to_string(),
             git_repo_id: None,
+            environments: None,
+            incremental_upload: true,
+            health_check_retries: 3,
         };
         self.db_write(move |conn| crate::db::cicd::add_cicd_config(conn, &config))?;
         Ok(ApiResponse::ok(()))

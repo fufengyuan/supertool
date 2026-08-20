@@ -295,6 +295,36 @@ pub struct DeployConfig {
     pub lib_separate: bool,
     #[serde(rename = "buildMode")]
     pub build_mode: String,
+    /// 环境变量（多环境部署时注入构建进程，如 NODE_ENV=production）
+    #[serde(rename = "envVars", default)]
+    pub env_vars: HashMap<String, String>,
+    /// 健康检查 URL（部署+重启后探活，失败自动回滚）
+    #[serde(rename = "healthCheckUrl", default)]
+    pub health_check_url: Option<String>,
+    /// 健康检查单次超时（秒）
+    #[serde(rename = "healthCheckTimeout", default = "default_health_check_timeout")]
+    pub health_check_timeout: u64,
+    /// 健康检查重试次数
+    #[serde(rename = "healthCheckRetries", default = "default_health_check_retries")]
+    pub health_check_retries: u32,
+    /// 增量上传：对比产物 hash 只传变更文件
+    #[serde(rename = "incrementalUpload", default = "default_true_fn")]
+    pub incremental_upload: bool,
+    /// 本次部署的环境名（日志展示用）
+    #[serde(rename = "environmentName", default)]
+    pub environment_name: Option<String>,
+}
+
+fn default_health_check_timeout() -> u64 {
+    30
+}
+
+fn default_health_check_retries() -> u32 {
+    3
+}
+
+fn default_true_fn() -> bool {
+    true
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -598,6 +628,55 @@ pub async fn execute_deploy(
                 "前端项目无需重启脚本，静态文件已直接替换",
             );
         }
+    }
+
+    // Step 6: 健康检查 + 失败自动回滚（配置了 healthCheckUrl 才启用）
+    if let Some(ref url) = config.health_check_url.as_ref().filter(|u| !u.is_empty()) {
+        let env_label = config
+            .environment_name
+            .as_deref()
+            .unwrap_or("")
+            .to_string();
+        emit(
+            "health",
+            "checking",
+            &format!(
+                "健康检查{}: {}",
+                if env_label.is_empty() {
+                    String::new()
+                } else {
+                    format!("（{}）", env_label)
+                },
+                url
+            ),
+        );
+        if let Err(e) = health_check(url, config.health_check_timeout, config.health_check_retries, &emit).await {
+            emit("health", "failed", &format!("健康检查未通过: {}，开始自动回滚...", e));
+            let mut rollback_errors: Vec<String> = vec![];
+            for srv in &config.servers {
+                if let Err(re) = rollback_server(srv, config, &emit).await {
+                    rollback_errors.push(format!("{}: {}", srv.host, re));
+                }
+            }
+            let err = if rollback_errors.is_empty() {
+                "健康检查失败，已自动回滚到上一版本".to_string()
+            } else {
+                format!(
+                    "健康检查失败，回滚部分失败（需人工处理）: {}",
+                    rollback_errors.join("; ")
+                )
+            };
+            emit("deploy", "failed", &err);
+            return Ok(DeployResult {
+                deploy_id: deploy_id.to_string(),
+                success: false,
+                log_file_path: log_file.to_string_lossy().to_string(),
+                artifact_paths,
+                error: Some(err),
+                cancelled: None,
+            });
+        }
+        emit("health", "success", "健康检查通过");
     }
 
     emit("deploy", "complete", "部署成功完成");
@@ -1076,6 +1155,7 @@ async fn install_dependencies(
             cmd.env("NODE_HOME", node_home);
         }
         extend_path_npm(&mut cmd, &config.node_home, &config.npm_home);
+        apply_env_vars(&mut cmd, config);
 
         let mut child = cmd
             .spawn()
@@ -1319,13 +1399,21 @@ async fn build_single_module(
     }
 }
 
+/// 将环境变量注入构建命令（多环境部署时生效，如 NODE_ENV / VITE_API_BASE）
+fn apply_env_vars(cmd: &mut Command, config: &DeployConfig) {
+    for (key, value) in &config.env_vars {
+        if !key.is_empty() {
+            cmd.env(key, value);
+        }
+    }
+}
+
 async fn run_maven_build(
     build_path: &Path,
     config: &DeployConfig,
     emit: &impl Fn(&str, &str, &str),
 ) -> Result<(), String> {
     emit("maven", "starting", "开始 Maven 构建");
-
     let mvn = resolve_mvn_bin(&config.maven_home);
 
     let mut args = vec!["clean", "package"];
@@ -1351,6 +1439,7 @@ async fn run_maven_build(
         cmd.env("JAVA_HOME", java_home);
     }
     extend_path(&mut cmd, &config.java_home, &config.maven_home);
+    apply_env_vars(&mut cmd, config);
 
     let mut child = cmd
         .spawn()
@@ -1431,6 +1520,7 @@ async fn run_npm_build(
         cmd.env("NODE_HOME", node_home);
     }
     extend_path_npm(&mut cmd, &config.node_home, &config.npm_home);
+    apply_env_vars(&mut cmd, config);
 
     let mut child = cmd
         .spawn()
@@ -2154,6 +2244,97 @@ fn create_zip(
 
 // =================== SSH Deploy ===================
 
+/// 计算文件 SHA-256（增量上传对比用）
+fn sha256_file(path: &Path) -> Result<String, String> {
+    use sha2::{Digest, Sha256};
+    let mut file = fs::File::open(path).map_err(|e| format!("打开文件失败: {}", e))?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 128 * 1024];
+    loop {
+        let n = file.read(&mut buf).map_err(|e| format!("读取文件失败: {}", e))?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(hex::encode(hasher.finalize()))
+}
+
+/// 远端部署清单：{ 远端绝对路径: sha256 }，存于 ${deploy_dir}/.deploy_manifest.json
+/// 文件不存在（首次部署）返回空 map
+fn read_remote_manifest(
+    sftp: &mut ssh2::Sftp,
+    manifest_path: &str,
+) -> Result<HashMap<String, String>, String> {
+    use std::io::Read as _;
+    let mut file = match sftp.open(Path::new(manifest_path)) {
+        Ok(f) => f,
+        Err(_) => return Ok(HashMap::new()), // 首次部署，无清单
+    };
+    let mut content = String::new();
+    if let Err(e) = file.read_to_string(&mut content) {
+        return Err(format!("读取部署清单失败: {}", e));
+    }
+    if content.trim().is_empty() {
+        return Ok(HashMap::new());
+    }
+    serde_json::from_str(&content).map_err(|e| format!("解析部署清单失败: {}", e))
+}
+
+fn write_remote_manifest(
+    sftp: &mut ssh2::Sftp,
+    manifest_path: &str,
+    manifest: &HashMap<String, String>,
+) -> Result<(), String> {
+    use std::io::Write as _;
+    let content = serde_json::to_string(manifest).map_err(|e| e.to_string())?;
+    let mut file = sftp
+        .create(Path::new(manifest_path))
+        .map_err(|e| format!("写入部署清单失败: {}", e))?;
+    file.write_all(content.as_bytes())
+        .map_err(|e| format!("写入部署清单失败: {}", e))?;
+    Ok(())
+}
+
+/// 备份远端即将被覆盖的文件（仅备份已存在的文件，tar -P 绝对路径打包，供健康检查失败时恢复）
+fn backup_remote_files(
+    sess: &ssh2::Session,
+    deploy_dir_resolved: &str,
+    files: &[String],
+) -> Result<(), String> {
+    if files.is_empty() {
+        return Ok(());
+    }
+    let base = deploy_dir_resolved.trim_end_matches('/');
+    let backup_file = format!("{}/.deploy_backup.tar.gz", base);
+    let list_file = format!("{}/.deploy_backup_list", base);
+    ssh_exec(sess, &format!("rm -f {}", shell_escape(&backup_file)))?;
+
+    // 生成本次会被覆盖且远端已存在的文件清单（分批避免命令过长）
+    ssh_exec(sess, &format!(": > {}", shell_escape(&list_file)))?;
+    for chunk in files.chunks(100) {
+        let mut cmd = String::new();
+        for f in chunk {
+            let esc = shell_escape(f);
+            cmd.push_str(&format!(
+                "if [ -f {esc} ]; then echo {esc} >> {list}; fi; ",
+                esc = esc,
+                list = shell_escape(&list_file)
+            ));
+        }
+        ssh_exec(sess, cmd.trim_end_matches("; ").trim())?;
+    }
+
+    // 清单非空才打包（-P 保留绝对路径，恢复时原路覆盖）
+    let tar_cmd = format!(
+        "if [ -s {list} ]; then tar -czf {bak} -P -T {list}; fi; rm -f {list}; true",
+        list = shell_escape(&list_file),
+        bak = shell_escape(&backup_file)
+    );
+    ssh_exec(sess, &tar_cmd)?;
+    Ok(())
+}
+
 async fn deploy_to_server(
     srv: &DeployServerConfig,
     artifacts: &[Artifact],
@@ -2235,34 +2416,113 @@ async fn deploy_to_server(
     }
 
     // Upload via SFTP
-    emit(
-        "ssh",
-        "uploading",
-        &format!("上传 {} 个产物", artifacts.len()),
-    );
-
     let mut sftp = sess.sftp().map_err(|e| format!("SFTP 初始化失败: {}", e))?;
 
-    for artifact in artifacts {
-        let target_path = if let Some(ref dp) = artifact.deploy_path {
-            let resolved = expand_path(dp);
-            if artifact.is_lib {
-                format!("{}/lib", resolved)
+    // 预计算每个产物的远端目标路径
+    let plans: Vec<(usize, String, String)> = artifacts
+        .iter()
+        .enumerate()
+        .map(|(i, artifact)| {
+            let target_path = if let Some(ref dp) = artifact.deploy_path {
+                let resolved = expand_path(dp);
+                if artifact.is_lib {
+                    format!("{}/lib", resolved)
+                } else {
+                    resolved
+                }
+            } else if artifact.is_lib && config.lib_separate {
+                config
+                    .lib_dir
+                    .as_ref()
+                    .map(|ld| expand_path(ld))
+                    .unwrap_or_else(|| deploy_dir_resolved.clone())
             } else {
-                resolved
+                deploy_dir_resolved.clone()
+            };
+            let remote_file =
+                format!("{}/{}", target_path.trim_end_matches('/'), artifact.name);
+            (i, remote_file, target_path)
+        })
+        .collect();
+
+    // 增量上传：读取远端清单，对比 hash 确定变更文件
+    let manifest_path = format!(
+        "{}/.deploy_manifest.json",
+        deploy_dir_resolved.trim_end_matches('/')
+    );
+    let mut remote_manifest = if config.incremental_upload {
+        match read_remote_manifest(&mut sftp, &manifest_path) {
+            Ok(m) => m,
+            Err(e) => {
+                emit(
+                    "ssh",
+                    "warning",
+                    &format!("读取部署清单失败，本次全量上传: {}", e),
+                );
+                HashMap::new()
             }
-        } else if artifact.is_lib && config.lib_separate {
-            config
-                .lib_dir
-                .as_ref()
-                .map(|ld| expand_path(ld))
-                .unwrap_or_else(|| deploy_dir_resolved.clone())
+        }
+    } else {
+        HashMap::new()
+    };
+
+    let mut changed: Vec<(usize, String, String, Option<String>)> = Vec::new(); // (idx, remote_file, target_path, hash)
+    let mut skipped = 0usize;
+    for (i, remote_file, target_path) in &plans {
+        let hash = if config.incremental_upload {
+            match sha256_file(Path::new(&artifacts[*i].local_path)) {
+                Ok(h) => Some(h),
+                Err(e) => {
+                    emit("ssh", "warning", &format!("计算 {} hash 失败: {}", artifacts[*i].name, e));
+                    None
+                }
+            }
         } else {
-            deploy_dir_resolved.clone()
+            None
         };
+        let is_changed = match (&hash, remote_manifest.get(remote_file)) {
+            (Some(h), Some(rh)) => h != rh,
+            _ => true, // 未启用增量 / 无记录 / hash 计算失败 → 上传
+        };
+        if is_changed {
+            changed.push((*i, remote_file.clone(), target_path.clone(), hash));
+        } else {
+            skipped += 1;
+        }
+    }
+    if skipped > 0 {
+        emit(
+            "ssh",
+            "info",
+            &format!(
+                "增量上传：{} 个文件未变更跳过，{} 个待上传",
+                skipped,
+                changed.len()
+            ),
+        );
+    } else {
+        emit("ssh", "uploading", &format!("上传 {} 个产物", artifacts.len()));
+    }
 
-        let remote_file = format!("{}/{}", target_path.trim_end_matches('/'), artifact.name);
+    // 配置了健康检查时，先备份即将被覆盖的远端文件（失败可自动回滚）
+    if config
+        .health_check_url
+        .as_deref()
+        .is_some_and(|u| !u.is_empty())
+    {
+        let overwrite_files: Vec<String> =
+            changed.iter().map(|(_, rf, _, _)| rf.clone()).collect();
+        if let Err(e) = backup_remote_files(&sess, &deploy_dir_resolved, &overwrite_files) {
+            emit(
+                "ssh",
+                "warning",
+                &format!("备份远端文件失败（部署继续，但健康检查失败时无法自动回滚）: {}", e),
+            );
+        }
+    }
 
+    for (i, remote_file, target_path, _) in &changed {
+        let artifact = &artifacts[*i];
         emit(
             "ssh",
             "uploading",
@@ -2273,7 +2533,7 @@ async fn deploy_to_server(
             ),
         );
 
-        upload_file(&mut sftp, &artifact.local_path, &remote_file)
+        upload_file(&mut sftp, &artifact.local_path, remote_file)
             .map_err(|e| format!("上传 {} 失败: {}", artifact.name, e))?;
 
         emit(
@@ -2291,7 +2551,7 @@ async fn deploy_to_server(
             );
             let extract_cmd = format!(
                 "cd {} && unzip -o {} && rm -f {}",
-                shell_escape(&target_path),
+                shell_escape(target_path),
                 shell_escape(&artifact.name),
                 shell_escape(&artifact.name)
             );
@@ -2300,6 +2560,22 @@ async fn deploy_to_server(
                 "ssh",
                 "success",
                 &format!("✅ {} 解压完成 → {}", artifact.name, target_path),
+            );
+        }
+    }
+
+    // 写回部署清单（记录本次上传文件的新 hash）
+    if config.incremental_upload {
+        for (_, remote_file, _, hash) in &changed {
+            if let Some(h) = hash {
+                remote_manifest.insert(remote_file.clone(), h.clone());
+            }
+        }
+        if let Err(e) = write_remote_manifest(&mut sftp, &manifest_path, &remote_manifest) {
+            emit(
+                "ssh",
+                "warning",
+                &format!("写入部署清单失败（下次部署将全量上传）: {}", e),
             );
         }
     }
@@ -2361,6 +2637,174 @@ fn ssh_exec(sess: &ssh2::Session, cmd: &str) -> Result<String, String> {
 }
 
 // =================== Restart ===================
+
+/// 健康检查：curl 探活目标 URL，2xx/304 视为健康，失败重试
+async fn health_check(
+    url: &str,
+    timeout_secs: u64,
+    retries: u32,
+    emit: &impl Fn(&str, &str, &str),
+) -> Result<(), String> {
+    let retries = retries.max(1);
+    for attempt in 1..=retries {
+        let output = user_shell_cmd("curl")
+            .args([
+                "-s",
+                "-o",
+                "/dev/null",
+                "-w",
+                "%{http_code}",
+                "--max-time",
+                &timeout_secs.max(1).to_string(),
+                url,
+            ])
+            .output()
+            .await;
+
+        match output {
+            Ok(out) if out.status.success() => {
+                let code = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if code.starts_with('2') || code == "304" {
+                    return Ok(());
+                }
+                if attempt < retries {
+                    emit(
+                        "health",
+                        "retrying",
+                        &format!(
+                            "健康检查返回 {}，等待后重试（{}/{}）",
+                            code, attempt, retries
+                        ),
+                    );
+                }
+            }
+            _ => {
+                if attempt < retries {
+                    emit(
+                        "health",
+                        "retrying",
+                        &format!("健康检查请求失败，等待后重试（{}/{}）", attempt, retries),
+                    );
+                }
+            }
+        }
+        if attempt < retries {
+            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        }
+    }
+    Err(format!("连续 {} 次探测未通过", retries))
+}
+
+/// 自动回滚：恢复远端 .deploy_backup.tar.gz 备份并重新执行重启脚本
+async fn rollback_server(
+    srv: &DeployServerConfig,
+    config: &DeployConfig,
+    emit: &impl Fn(&str, &str, &str),
+) -> Result<(), String> {
+    use ssh2::Session;
+    use std::net::TcpStream;
+
+    let label = srv.label.as_deref().unwrap_or("服务器");
+    emit(
+        "rollback",
+        "starting",
+        &format!("回滚 {} ({}) ...", label, srv.host),
+    );
+
+    let tcp = tokio::task::spawn_blocking({
+        let host = srv.host.clone();
+        let port = srv.port;
+        move || TcpStream::connect(format!("{}:{}", host, port))
+    })
+    .await
+    .map_err(|e| format!("任务失败: {}", e))?
+    .map_err(|e| format!("连接 {} 失败: {}", srv.host, e))?;
+
+    let mut sess = Session::new().map_err(|e| format!("SSH session 失败: {}", e))?;
+    sess.set_tcp_stream(tcp);
+    sess.handshake().map_err(|e| format!("SSH 握手失败: {}", e))?;
+
+    if let Some(ref key) = srv.private_key.as_ref().filter(|k| !k.is_empty()) {
+        sess.userauth_pubkey_file(&srv.username, None, Path::new(key), srv.password.as_deref())
+            .map_err(|e| format!("认证失败: {}", e))?;
+    } else if let Some(ref pw) = srv.password.as_ref().filter(|p| !p.is_empty()) {
+        sess.userauth_password(&srv.username, pw)
+            .map_err(|e| format!("认证失败: {}", e))?;
+    } else {
+        return Err("缺少认证信息".to_string());
+    }
+
+    // 展开 ~ 取远端部署目录
+    let remote_home = ssh_exec(&sess, "echo $HOME")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let deploy_dir = if srv.deploy_dir.is_empty() {
+        &config.deploy_dir
+    } else {
+        &srv.deploy_dir
+    };
+    let deploy_dir_resolved = if deploy_dir.starts_with("~/") && !remote_home.is_empty() {
+        format!(
+            "{}/{}",
+            remote_home.trim_end_matches('/'),
+            &deploy_dir[2..]
+        )
+    } else if deploy_dir == "~" && !remote_home.is_empty() {
+        remote_home.clone()
+    } else {
+        deploy_dir.to_string()
+    };
+
+    // 恢复备份（备份不存在说明首次部署前无旧文件，跳过恢复）
+    let backup_file = format!(
+        "{}/.deploy_backup.tar.gz",
+        deploy_dir_resolved.trim_end_matches('/')
+    );
+    let check = ssh_exec(
+        &sess,
+        &format!("[ -f {} ] && echo yes || echo no", shell_escape(&backup_file)),
+    )?;
+    if check.trim() == "yes" {
+        ssh_exec(
+            &sess,
+            &format!(
+                "tar -xzf {} -P && rm -f {}",
+                shell_escape(&backup_file),
+                shell_escape(&backup_file)
+            ),
+        )?;
+        // 清理部署清单：manifest 记录的是回滚前（新版本）的 hash，
+        // 不清理会导致下次增量部署误判"未变更"而跳过上传
+        let manifest_file = format!(
+            "{}/.deploy_manifest.json",
+            deploy_dir_resolved.trim_end_matches('/')
+        );
+        let _ = ssh_exec(
+            &sess,
+            &format!("rm -f {}", shell_escape(&manifest_file)),
+        );
+        emit("rollback", "success", &format!("✅ {} ({}) 文件已恢复", label, srv.host));
+    } else {
+        emit(
+            "rollback",
+            "warning",
+            &format!("{} ({}) 无备份可恢复（首次部署前无旧文件）", label, srv.host),
+        );
+    }
+
+    // 恢复后重新执行重启脚本，让旧版本生效
+    if let Some(ref script) = config.restart_script.as_ref().filter(|s| !s.is_empty()) {
+        let build_tool = config.build_tool.as_deref().unwrap_or("maven");
+        if !["npm", "pnpm", "yarn"].contains(&build_tool) {
+            let _ = ssh_exec(&sess, &format!("bash -l -c {}", shell_escape(script)));
+            emit("rollback", "info", "已重新执行重启脚本");
+        }
+    }
+
+    sess.disconnect(None, "", None).ok();
+    Ok(())
+}
 
 async fn execute_restart(
     srv: &DeployServerConfig,

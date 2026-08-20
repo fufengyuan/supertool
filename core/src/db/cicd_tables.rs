@@ -125,6 +125,14 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
         "ALTER TABLE cicd_configs ADD COLUMN pnpmHome TEXT DEFAULT ''",
         "ALTER TABLE cicd_configs ADD COLUMN yarnHome TEXT DEFAULT ''",
         "ALTER TABLE cicd_configs ADD COLUMN buildMode TEXT DEFAULT 'local'",
+        // 多环境支持：JSON 数组 [{name, deployPath, servers, envVars, healthCheckUrl, ...}]
+        "ALTER TABLE cicd_configs ADD COLUMN environments TEXT",
+        // 增量上传开关（默认开启）
+        "ALTER TABLE cicd_configs ADD COLUMN incrementalUpload INTEGER NOT NULL DEFAULT 1",
+        // 配置级健康检查重试次数（默认 3）
+        "ALTER TABLE cicd_configs ADD COLUMN healthCheckRetries INTEGER NOT NULL DEFAULT 3",
+        // 部署日志记录环境名
+        "ALTER TABLE deploy_logs ADD COLUMN environment TEXT",
     ];
     for sql in migrations {
         let _ = conn.execute(sql, []); // ignore "duplicate column" errors
@@ -164,7 +172,11 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
             requiresApproval INTEGER NOT NULL DEFAULT 0,
             pnpmHome TEXT,
             yarnHome TEXT,
-            buildMode TEXT NOT NULL DEFAULT 'local'
+            buildMode TEXT NOT NULL DEFAULT 'local',
+            gitRepoId TEXT DEFAULT '',
+            environments TEXT,
+            incrementalUpload INTEGER NOT NULL DEFAULT 1,
+            healthCheckRetries INTEGER NOT NULL DEFAULT 3
         );
 
         CREATE TABLE IF NOT EXISTS deploy_modules (
@@ -197,7 +209,8 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
             triggeredBy TEXT DEFAULT 'manual',
             createdAt TEXT NOT NULL,
             logFilePath TEXT,
-            artifactPaths TEXT
+            artifactPaths TEXT,
+            environment TEXT
         );
 
         CREATE TABLE IF NOT EXISTS deploy_step_logs (
