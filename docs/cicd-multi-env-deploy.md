@@ -69,6 +69,8 @@
 - 多模块项目（`isMultiModule && moduleNames`）自动生成模块勾选列表（默认全选），在步骤 2 构建配置下方展示
 - 步骤 4 确认页摘要含「部署模块」行
 
+**代码目录定位（重点）**：`scanProject` 传入的是 `gitRepos[].path`（仓库根目录）。但**代码常不在仓库根目录**（如预付卡项目在 `src/xxx` 子模块），此时根目录扫描结果为空 → 模块区不显示。向导在步骤 1 提供「选择目录」按钮（`pickLocalDir` → `showOpenDialogForDirs`），将实际代码目录存入 `draft.localPath` 后重新扫描；createConfigFromWizard 会把 localPath 一并写入 `config.localPath`，保证后续构建正确。
+
 完成回调 `CiCdConfig.vue::createConfigFromWizard`：写入 config 基础字段、deployServers、`modules` 数组（自动开启 `parentBuildMode`，`parentBuildPath` 取 git 仓库本地路径），随后统一走 `saveConfig` 落库。
 
 ### 编辑表单（src/views/cicd/CiCdConfig.vue，重构）
