@@ -85,7 +85,10 @@ Jar 与 Lib 分离：勾选时 `config.libSeparate=true`（模块级 `libFilterR
 
 ### 编辑表单（src/views/cicd/CiCdConfig.vue，重构）
 
-分组折叠 5 区：基本信息 / 构建配置 / 部署目标 / 多环境部署（tab 切换环境，每环境独立路径、服务器、环境变量、健康检查）/ 部署安全（增量上传开关、健康检查 URL、超时、重试次数）。
+###### 编辑与新建一致：点击已有配置进入与新建完全相同的水晶向导
+`CiCdConfig.vue` 通过 `openEditWizard(id)` → `wizardMode=true` + `:initial="editWizardInitial"`（config+modules+servers 合成 prefill）让编辑复用同一个 `CicdConfigWizard` 组件，保证「编辑页=新建页」彻底一致。向导完成回调统一走 `applyWizardPayload`（含 id 即更新，反之为新建），模块列表编辑时复用原 `src` 元数据仅调 `enabled`，避免单体模式下误删已有模块。向导内「高级设置」按钮切回分组表单改多环境/健康检查等高级字段；分组表单顶部「返回向导」切回。**坑**：编辑 prefill 会触发 `gitRepoId` watcher → `scanProject`，扫描结果会覆盖已回填的模块列表（丢失元数据与勾选态），已加守卫——编辑模式若已有模块则保留不覆盖，仅首次进入 fallback 扫描兜底。
+
+分组折叠 5 区：基本信息 / 构建配置 / 部署目标 / 多环境部署（tab 切换环境，每环境独立路径、服务器、环境变量、健康检查）/ 部署安全（增量上传开关、健康检查 URL、超时、重试次数）；编辑模式默认隐藏，作为「高级设置」入口。
 
 ### 部署面板（src/views/cicd/DeployPanel.vue）
 
