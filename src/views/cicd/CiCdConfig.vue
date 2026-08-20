@@ -918,6 +918,14 @@ const advancedModeFromWizard = ref(false);
 // 新建配置 → 向导模式；选中已有配置 → 也进入向导
 watch(() => cicd.isNewConfig.value, (v) => { if (v) { wizardMode.value = true; advancedModeFromWizard.value = false; } });
 
+// 兜底：配置被选中（含首屏自动选中第一个）时确保走向导，而不是旧分组表单
+// 但保留用户在「高级设置」里的切换选择（advancedModeFromWizard=true 时不强转）
+watch(() => cicd.selectedConfigId.value, (id) => {
+  if (id && !cicd.isNewConfig.value && !advancedModeFromWizard.value) {
+    wizardMode.value = true;
+  }
+});
+
 // 编辑模式预填数据：config + modules（合成向导 initial）
 const editWizardInitial = computed<Record<string, unknown> | null>(() => {
   if (cicd.isNewConfig.value || !selectedConfigId.value) {return null;}
@@ -956,8 +964,12 @@ async function applyWizardPayload(payload: Record<string, unknown>) {
   const p = payload as {
     id?: string | null; name?: string; gitRepoId?: string; groupName?: string; deployBranch?: string;
     buildTool?: string; mavenProfile?: string; npmScript?: string; npmCustomScript?: string;
-    restartScript?: string; deployPath?: string; localPath?: string;
+    restartScript?: string; deployPath?: string; localPath?: string; repoUrl?: string;
+    mavenHome?: string; javaHome?: string; nodeHome?: string; mavenSettings?: string; buildCommand?: string;
     parentBuildMode?: boolean; parentBuildPath?: string; libSeparate?: boolean;
+    incrementalUpload?: boolean; requiresApproval?: boolean;
+    healthCheckUrl?: string; healthCheckTimeout?: number; healthCheckRetries?: number;
+    environments?: Record<string, unknown>[];
     servers?: { serverId: string; label?: string; deployDir?: string }[];
     modules?: (DeployModule | { moduleName: string; modulePath: string; enabled: boolean })[];
   };
@@ -972,10 +984,22 @@ async function applyWizardPayload(payload: Record<string, unknown>) {
     npmCustomScript: p.npmCustomScript || '',
     restartScript: p.restartScript || './restart.sh',
     deployPath: p.deployPath || '',
+    repoUrl: p.repoUrl || '',
+    mavenHome: p.mavenHome || '',
+    javaHome: p.javaHome || '',
+    nodeHome: p.nodeHome || '',
+    mavenSettings: p.mavenSettings || '',
+    buildCommand: p.buildCommand || '',
+    incrementalUpload: p.incrementalUpload ?? cicd.config.value.incrementalUpload ?? true,
+    requiresApproval: p.requiresApproval ?? cicd.config.value.requiresApproval ?? false,
+    healthCheckUrl: p.healthCheckUrl || cicd.config.value.healthCheckUrl || '',
+    healthCheckTimeout: p.healthCheckTimeout ?? cicd.config.value.healthCheckTimeout ?? 30,
+    healthCheckRetries: p.healthCheckRetries ?? cicd.config.value.healthCheckRetries ?? 2,
     // 部署模式：向导显式传入，覆盖默认（避免多模块一律强制成父模块单 jar）
     parentBuildMode: p.parentBuildMode ?? cicd.config.value.parentBuildMode,
     parentBuildPath: p.parentBuildPath ?? cicd.config.value.parentBuildPath,
     libSeparate: p.libSeparate ?? cicd.config.value.libSeparate,
+    environments: p.environments && p.environments.length ? p.environments : cicd.config.value.environments || [],
   });
   // 代码实际目录（可能不在 git 仓库根目录，如 src/xxx）
   if (p.localPath) { cicd.config.value.localPath = p.localPath; }
@@ -1017,7 +1041,8 @@ async function applyWizardPayload(payload: Record<string, unknown>) {
 }
 
 function charmAfterSave() {
-  wizardMode.value = false;
+  // 保存后停在被编辑/新建配置的向导态（编辑模式），保持「编辑=新建」一致，不跳回旧分组表单
+  wizardMode.value = true;
   advancedModeFromWizard.value = false;
 }
 
