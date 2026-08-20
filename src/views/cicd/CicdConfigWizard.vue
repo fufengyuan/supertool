@@ -118,27 +118,55 @@
             <input v-if="draft.npmScript === 'custom'" v-model="draft.npmCustomScript" class="input input-bordered w-full bg-base-200 text-sm mt-2" placeholder="脚本名称" />
           </div>
 
-          <!-- 多模块识别区（仅多模块项目显示） -->
-          <div v-if="isMultiModule" class="border border-primary/20 rounded-xl overflow-hidden">
-            <div class="flex items-center gap-2 px-4 py-3 bg-primary/5 border-b border-primary/10">
-              <SvgIcon name="layers" :size="15" class="text-primary flex-shrink-0" />
-              <span class="text-sm font-semibold text-base-content">部署模块</span>
-              <span v-if="scanningProj" class="ml-1 loading loading-spinner loading-xs text-primary" />
-              <span v-else class="ml-1 text-xs text-base-content/60">识别到 {{ modules.length }} 个模块{{ selectedModules.length ? `，已勾选 ${selectedModules.length} 个` : '' }}</span>
-              <span class="ml-auto text-[10px] text-base-content/50">父 POM 统一构建，每个模块部署到独立远程目录</span>
-            </div>
-            <div class="p-2 max-h-56 overflow-y-auto flex flex-col">
-              <label
-                v-for="m in modules" :key="m.moduleName"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer select-none hover:bg-base-200/60 transition-colors"
-              >
-                <input v-model="m.checked" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
-                <span class="text-sm font-medium text-base-content">{{ m.moduleName }}</span>
-                <span class="ml-auto text-xs text-base-content/40 font-mono">{{ m.modulePath }}</span>
-              </label>
-              <div v-if="!selectedModules.length" class="px-3 py-2 text-xs text-amber-600">
-                未勾选任何模块，将不部署子模块
+          <!-- 部署模式选择 + 多模块识别区（仅多模块项目显示） -->
+          <div v-if="isMultiModule" class="flex flex-col gap-3">
+            <div>
+              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署模式</label>
+              <div class="grid grid-cols-3 gap-2">
+                <label
+                  v-for="(m, key) in deployModeMeta" :key="key"
+                  class="flex flex-col border-2 rounded-xl px-3 py-2.5 cursor-pointer transition-all duration-150 relative hover:border-primary"
+                  :class="deployMode === key ? 'border-primary bg-primary/10' : 'border-base-content/10'"
+                >
+                  <div class="flex items-center gap-2">
+                    <input type="radio" :value="key" v-model="deployMode" class="radio radio-primary radio-sm" />
+                    <span class="text-sm font-semibold text-base-content">{{ m.name }}</span>
+                  </div>
+                  <span class="mt-1 text-[11px] leading-snug text-base-content/50 pl-6">{{ m.desc }}</span>
+                </label>
               </div>
+            </div>
+
+            <div v-if="deployMode !== 'single-jar'" class="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
+              <input v-model="libSeparate" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
+              <span>启用 Jar 与 Lib 分离：业务 jar 与依赖 lib 分别上传到 {{ draft.deployPath || '部署目录' }} 及其 <code class="bg-base-200 px-1 rounded">lib/</code> 子目录</span>
+            </div>
+
+            <div v-if="deployMode !== 'single-jar'" class="border border-primary/20 rounded-xl overflow-hidden">
+              <div class="flex items-center gap-2 px-4 py-3 bg-primary/5 border-b border-primary/10">
+                <SvgIcon name="layers" :size="15" class="text-primary flex-shrink-0" />
+                <span class="text-sm font-semibold text-base-content">部署模块</span>
+                <span v-if="scanningProj" class="ml-1 loading loading-spinner loading-xs text-primary" />
+                <span v-else class="ml-1 text-xs text-base-content/60">识别到 {{ modules.length }} 个模块{{ selectedModules.length ? `，已勾选 ${selectedModules.length} 个` : '' }}</span>
+                <span class="ml-auto text-[10px] text-base-content/50">每个模块独立构建并部署到独立远程目录</span>
+              </div>
+              <div class="p-2 max-h-48 overflow-y-auto flex flex-col">
+                <label
+                  v-for="m in modules" :key="m.moduleName"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer select-none hover:bg-base-200/60 transition-colors"
+                >
+                  <input v-model="m.checked" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
+                  <span class="text-sm font-medium text-base-content">{{ m.moduleName }}</span>
+                  <span class="ml-auto text-xs text-base-content/40 font-mono">{{ m.modulePath }}</span>
+                </label>
+                <div v-if="!selectedModules.length" class="px-3 py-2 text-xs text-amber-600">
+                  未勾选任何模块，将不部署子模块
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="px-3 py-2.5 rounded-lg bg-base-200/60 text-xs text-base-content/60">
+              单 jar 模式：父 POM 一次构建，产物为单个 jar，复用下方部署路径与重启脚本
             </div>
           </div>
           <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
@@ -254,6 +282,19 @@ const draft = reactive({
   // 实际代码目录（可能不在 git 仓库根目录，如 src/xxx 子模块），用于扫描识别构建工具与模块
   localPath: '',
 })
+
+// 多模块部署模式：'single-jar' 打包单jar / 'multi-module' 逐模块独立构建 / 'jar-lib' jar与lib分离
+type DeployMode = 'single-jar' | 'multi-module' | 'jar-lib'
+const deployMode = ref<DeployMode>('single-jar')
+// 是否勾选了 jar 与 lib 分离（仅 multi-module/jar-lib 模式相关）
+const libSeparate = ref(true)
+
+// 部署模式描述，供确认页与提示展示
+const deployModeMeta: Record<DeployMode, { name: string; desc: string }> = {
+  'single-jar': { name: '打包单 Jar', desc: '父 POM 一次构建，产出单个 jar 部署' },
+  'multi-module': { name: '逐模块独立部署', desc: '每个模块独立构建并部署到独立远程目录' },
+  'jar-lib': { name: 'Jar 与 Lib 分离', desc: '业务 jar 与依赖 lib 分离上传' },
+}
 
 // 多模块：扫描识别出 moduleNames 后生成的勾选列表；无多模块则为空数组
 const modules = ref<ModuleItem[]>([])
@@ -382,7 +423,11 @@ const summaryRows = computed(() => {
     { label: '部署路径', value: draft.deployPath },
   ];
   if (isMultiModule.value) {
-    rows.push({ label: '部署模块', value: moduleSummary.value || '—' });
+    rows.push({ label: '部署模式', value: deployModeMeta[deployMode.value].name });
+    if (deployMode.value !== 'single-jar') {
+      rows.push({ label: 'Jar/Lib 分离', value: libSeparate.value ? '是' : '否' });
+      rows.push({ label: '部署模块', value: moduleSummary.value || '—' });
+    }
   }
   return rows;
 })
@@ -400,10 +445,15 @@ async function finish() {
       const s = props.servers.find(srv => srv.id === id)
       return { serverId: id, label: s?.name || '', deployDir: '' }
     })
+    // 单 jar 模式：父模块统一构建，模块勾选列表不落库（构建产物为单个 jar）
+    const singleJar = deployMode.value === 'single-jar'
     emit('complete', {
       ...draft,
       servers: serverEntries,
-      modules: selectedModules.value.map(m => ({
+      parentBuildMode: singleJar,
+      parentBuildPath: singleJar ? draft.localPath : '',
+      libSeparate: deployMode.value !== 'single-jar' ? libSeparate.value : false,
+      modules: singleJar ? [] : selectedModules.value.map(m => ({
         moduleName: m.moduleName, modulePath: m.modulePath, artifactName: '',
       })),
     })

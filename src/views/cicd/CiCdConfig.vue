@@ -985,6 +985,7 @@ async function createConfigFromWizard(payload: Record<string, unknown>) {
     name?: string; gitRepoId?: string; groupName?: string; deployBranch?: string;
     buildTool?: string; mavenProfile?: string; npmScript?: string; npmCustomScript?: string;
     restartScript?: string; deployPath?: string; localPath?: string;
+    parentBuildMode?: boolean; parentBuildPath?: string; libSeparate?: boolean;
     servers?: { serverId: string; label?: string; deployDir?: string }[];
     modules?: { moduleName: string; modulePath: string; artifactName?: string }[];
   };
@@ -999,26 +1000,27 @@ async function createConfigFromWizard(payload: Record<string, unknown>) {
     npmCustomScript: p.npmCustomScript || '',
     restartScript: p.restartScript || './restart.sh',
     deployPath: p.deployPath || '',
+    // 部署模式：向导显式传入，覆盖默认（避免多模块一律强制成父模块单 jar）
+    parentBuildMode: p.parentBuildMode ?? cicd.config.value.parentBuildMode,
+    parentBuildPath: p.parentBuildPath ?? cicd.config.value.parentBuildPath,
+    libSeparate: p.libSeparate ?? cicd.config.value.libSeparate,
   });
   // 代码实际目录（可能不在 git 仓库根目录，如 src/xxx）
   if (p.localPath) { cicd.config.value.localPath = p.localPath; }
   cicd.deployServers.value = (p.servers || []).map(s => ({
     serverId: s.serverId, label: s.label || '', deployDir: s.deployDir || '',
   }));
-  // 多模块：向导勾选的模块传入 composable，随配置一并保存
-  if (p.modules && p.modules.length) {
-    cicd.modules.value = p.modules.map(m => ({
-      id: null, configId: null,
-      moduleName: m.moduleName, modulePath: m.modulePath || m.moduleName,
-      artifactName: m.artifactName || '', deployOrder: 0, enabled: true,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    }));
-    // 多模块需开启父模块统一构建模式；构建根目录取 git 仓库本地路径
-    if (!cicd.config.value.parentBuildMode) { cicd.config.value.parentBuildMode = true; }
-    if (!cicd.config.value.parentBuildPath) {
-      const repo = gitRepos.value.find((r: any) => r.id === p.gitRepoId);
-      cicd.config.value.parentBuildPath = repo?.path || cicd.config.value.localPath || '';
-    }
+  // 多模块：向导传入的模块勾选随配置一并保存
+  cicd.modules.value = (p.modules || []).map(m => ({
+    id: null, configId: null,
+    moduleName: m.moduleName, modulePath: m.modulePath || m.moduleName,
+    artifactName: m.artifactName || '', deployOrder: 0, enabled: true,
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+  }));
+  // 单 jar 模式（parentBuildMode=true）：补充父构建目录，取 git 仓库本地路径
+  if (cicd.config.value.parentBuildMode && !cicd.config.value.parentBuildPath) {
+    const repo = gitRepos.value.find((r: any) => r.id === p.gitRepoId);
+    cicd.config.value.parentBuildPath = repo?.path || cicd.config.value.localPath || '';
   }
   await handleSave();
   // 保存成功（saveConfig 内部已把 isNewConfig 置 false）后退出向导
