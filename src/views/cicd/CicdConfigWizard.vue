@@ -122,7 +122,7 @@
           <div v-if="isMultiModule" class="flex flex-col gap-3">
             <div>
               <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署模式</label>
-              <div class="grid grid-cols-3 gap-2">
+              <div class="grid grid-cols-2 gap-2">
                 <label
                   v-for="(m, key) in deployModeMeta" :key="key"
                   class="flex flex-col border-2 rounded-xl px-3 py-2.5 cursor-pointer transition-all duration-150 relative hover:border-primary"
@@ -137,12 +137,14 @@
               </div>
             </div>
 
-            <div v-if="deployMode !== 'single-jar'" class="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
+            <!-- Jar 与 Lib 分离：两种部署模式下的公共能力开关 -->
+            <div class="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
               <input v-model="libSeparate" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
               <span>启用 Jar 与 Lib 分离：业务 jar 与依赖 lib 分别上传到 {{ draft.deployPath || '部署目录' }} 及其 <code class="bg-base-200 px-1 rounded">lib/</code> 子目录</span>
             </div>
 
-            <div v-if="deployMode !== 'single-jar'" class="border border-primary/20 rounded-xl overflow-hidden">
+            <!-- 多模块部署：模块勾选区 -->
+            <div v-if="deployMode === 'multi'" class="border border-primary/20 rounded-xl overflow-hidden">
               <div class="flex items-center gap-2 px-4 py-3 bg-primary/5 border-b border-primary/10">
                 <SvgIcon name="layers" :size="15" class="text-primary flex-shrink-0" />
                 <span class="text-sm font-semibold text-base-content">部署模块</span>
@@ -164,9 +166,9 @@
                 </div>
               </div>
             </div>
-
+            <!-- 单体部署：单产物提示 -->
             <div v-else class="px-3 py-2.5 rounded-lg bg-base-200/60 text-xs text-base-content/60">
-              单 jar 模式：父 POM 一次构建，产物为单个 jar，复用下方部署路径与重启脚本
+              单体部署：整体构建产出单个 jar，复用下方部署路径与重启脚本
             </div>
           </div>
           <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
@@ -283,17 +285,16 @@ const draft = reactive({
   localPath: '',
 })
 
-// 多模块部署模式：'single-jar' 打包单jar / 'multi-module' 逐模块独立构建 / 'jar-lib' jar与lib分离
-type DeployMode = 'single-jar' | 'multi-module' | 'jar-lib'
-const deployMode = ref<DeployMode>('single-jar')
-// 是否勾选了 jar 与 lib 分离（仅 multi-module/jar-lib 模式相关）
+// 部署模式：'monolith' 单体部署（打包单jar）/ 'multi' 多模块部署（逐模块独立构建）
+type DeployMode = 'monolith' | 'multi'
+const deployMode = ref<DeployMode>('monolith')
+// 是否启用 jar 与 lib 分离（两种部署模式均可选，是模式下的能力项不是独立模式）
 const libSeparate = ref(true)
 
 // 部署模式描述，供确认页与提示展示
 const deployModeMeta: Record<DeployMode, { name: string; desc: string }> = {
-  'single-jar': { name: '打包单 Jar', desc: '父 POM 一次构建，产出单个 jar 部署' },
-  'multi-module': { name: '逐模块独立部署', desc: '每个模块独立构建并部署到独立远程目录' },
-  'jar-lib': { name: 'Jar 与 Lib 分离', desc: '业务 jar 与依赖 lib 分离上传' },
+  monolith: { name: '单体部署', desc: '整体打包成单个 jar 部署' },
+  multi: { name: '多模块部署', desc: '每个模块独立构建并部署到独立远程目录' },
 }
 
 // 多模块：扫描识别出 moduleNames 后生成的勾选列表；无多模块则为空数组
@@ -424,8 +425,8 @@ const summaryRows = computed(() => {
   ];
   if (isMultiModule.value) {
     rows.push({ label: '部署模式', value: deployModeMeta[deployMode.value].name });
-    if (deployMode.value !== 'single-jar') {
-      rows.push({ label: 'Jar/Lib 分离', value: libSeparate.value ? '是' : '否' });
+    rows.push({ label: 'Jar/Lib 分离', value: libSeparate.value ? '是' : '否' });
+    if (deployMode.value === 'multi') {
       rows.push({ label: '部署模块', value: moduleSummary.value || '—' });
     }
   }
@@ -445,16 +446,18 @@ async function finish() {
       const s = props.servers.find(srv => srv.id === id)
       return { serverId: id, label: s?.name || '', deployDir: '' }
     })
-    // 单 jar 模式：父模块统一构建，模块勾选列表不落库（构建产物为单个 jar）
+    // 单体部署（monolith）：父模块统一构建，模块勾选列表不落库（产物为单个 jar）
+    // 多模块部署（multi）：逐模块独立构建，各自部署独立目录
     // parentBuildPath 交由父组件决定（取 git 仓库根目录，指向父 POM）
-    const singleJar = deployMode.value === 'single-jar'
+    const monolith = deployMode.value === 'monolith'
     emit('complete', {
       ...draft,
       servers: serverEntries,
-      parentBuildMode: singleJar,
+      parentBuildMode: monolith,
       parentBuildPath: '',
-      libSeparate: deployMode.value !== 'single-jar' ? libSeparate.value : false,
-      modules: singleJar ? [] : selectedModules.value.map(m => ({
+      // 非多模块项目不可见该开关，fallback 为 false（避免误开启分离上传）
+      libSeparate: isMultiModule.value && libSeparate.value,
+      modules: monolith ? [] : selectedModules.value.map(m => ({
         moduleName: m.moduleName, modulePath: m.modulePath, artifactName: '',
       })),
     })
