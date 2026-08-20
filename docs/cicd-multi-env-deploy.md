@@ -77,6 +77,8 @@
 
 Jar 与 Lib 分离：勾选时 `config.libSeparate=true`（模块级 `libFilterRules` 控制过滤），单体/多模块均可开启；非多模块项目该开关不可见，fallback 传 `false` 避免误开启。
 
+**共享组件**：部署模式单选 + Jar/Lib 开关抽成 `src/views/cicd/DeployModeSelector.vue`（v-model=`parentBuildMode` 布尔，true=单体/false=多模块；`v-model:libSeparate` 控制开关；`deployPath` 展示部署路径），新增向导与编辑表单共用，保证交互一致。编辑页不再用旧的「父子模块构建」toggle。
+
 **坑**：createConfigFromWizard 曾把多模块一律强制 `parentBuildMode=true`（单 jar），导致逐模块部署的项目被错误打包；现改为用户显式选择部署模式，向导 finish 传入 `parentBuildMode/parentBuildPath/libSeparate/modules` 由父组件落库。
 
 完成回调 `CiCdConfig.vue::createConfigFromWizard`：写入 config 基础字段、deployServers、modules 数组及部署模式字段，随后统一走 `saveConfig` 落库。
