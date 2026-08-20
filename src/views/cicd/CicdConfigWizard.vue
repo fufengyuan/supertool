@@ -103,23 +103,51 @@
               </div>
             </div>
           </div>
-          <div v-if="draft.buildTool === 'maven'" class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Maven Profile</label>
-              <input v-model="draft.mavenProfile" class="input input-bordered w-full bg-base-200 text-sm" placeholder="prod" />
+          <template v-if="draft.buildTool === 'maven'">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Maven 路径</label>
+                <input v-model="draft.mavenHome" class="input input-bordered w-full bg-base-200 text-sm" placeholder="自动检测 / 如 /opt/homebrew/opt/maven" />
+              </div>
+              <div>
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">JDK 路径</label>
+                <input v-model="draft.javaHome" class="input input-bordered w-full bg-base-200 text-sm" placeholder="自动检测 / 如 /opt/homebrew/opt/openjdk" />
+              </div>
+              <div>
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">settings.xml</label>
+                <input v-model="draft.mavenSettings" class="input input-bordered w-full bg-base-200 text-sm" placeholder="~/.m2/settings.xml（可留空）" />
+              </div>
+              <div>
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">重启脚本</label>
+                <input v-model="draft.restartScript" class="input input-bordered w-full bg-base-200 text-sm" placeholder="./restart.sh" />
+              </div>
+              <div>
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Maven Profile</label>
+                <input v-model="draft.mavenProfile" class="input input-bordered w-full bg-base-200 text-sm" placeholder="prod" />
+              </div>
             </div>
+          </template>
+          <div v-else-if="draft.buildTool === 'cargo'" class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">重启脚本</label>
-              <input v-model="draft.restartScript" class="input input-bordered w-full bg-base-200 text-sm" placeholder="./restart.sh" />
+              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建命令</label>
+              <input v-model="draft.buildCommand" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="cargo build --release --features xxx" />
             </div>
           </div>
           <div v-else-if="['npm', 'pnpm', 'yarn'].includes(draft.buildTool)">
-            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建脚本</label>
-            <select v-model="draft.npmScript" class="select select-bordered w-full bg-base-200 text-sm">
-              <option value="build">build</option>
-              <option value="build:prod">build:prod</option>
-              <option value="custom">自定义...</option>
-            </select>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">{{ draft.buildTool }} 路径</label>
+                <input v-model="draft.nodeHome" class="input input-bordered w-full bg-base-200 text-sm" placeholder="自动检测 / 如 ~/.nvm/versions/node/v20.x" />
+              </div>
+              <div>
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建脚本</label>
+                <select v-model="draft.npmScript" class="select select-bordered w-full bg-base-200 text-sm">
+                  <option value="build">build</option>
+                  <option value="build:prod">build:prod</option>
+                  <option value="custom">自定义...</option>
+                </select>
+              </div>
+            </div>
             <input v-if="draft.npmScript === 'custom'" v-model="draft.npmCustomScript" class="input input-bordered w-full bg-base-200 text-sm mt-2" placeholder="脚本名称" />
           </div>
 
@@ -154,9 +182,15 @@
                 </div>
               </div>
             </div>
-            <!-- 单体部署：单产物提示 -->
-            <div v-else class="px-3 py-2.5 rounded-lg bg-base-200/60 text-xs text-base-content/60">
-              单体部署：整体构建产出单个 jar，复用下方部署路径与重启脚本
+            <!-- 单体部署：单产物提示 + 父构建目录 -->
+            <div v-else class="flex flex-col gap-3 rounded-xl border border-primary/20 overflow-hidden">
+              <div class="px-3 py-2.5 bg-base-200/60 text-xs text-base-content/60">
+                单体部署：整体构建产出单个 jar，复用下方部署路径与重启脚本
+              </div>
+              <div class="px-3 pb-3">
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">父构建目录</label>
+                <input v-model="draft.parentBuildPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="留空使用项目根目录，或填写如 ./mall-framework" />
+              </div>
             </div>
           </div>
           <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
@@ -196,6 +230,85 @@
           </div>
           <div v-if="missingKeys.length" class="px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600">
             <span class="font-semibold">以下必填项缺失：</span>{{ missingKeys.join('、') }}
+          </div>
+
+          <!-- 高级设置：多环境 / 部署保障（涵盖旧分组表单字段） -->
+          <div class="border border-base-content/10 rounded-xl overflow-hidden">
+            <div class="flex items-center gap-2 px-4 py-3 cursor-pointer select-none hover:bg-base-200/50 transition-colors" @click="showAdvanced = !showAdvanced">
+              <SvgIcon name="chevronDown" :size="15" class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ '-rotate-90': !showAdvanced }" />
+              <SvgIcon name="sliders" :size="15" class="text-primary flex-shrink-0" />
+              <span class="text-sm font-semibold text-base-content">高级设置</span>
+              <span class="ml-auto text-[10px] text-base-content/50" v-if="!showAdvanced">{{ draft.environments.length }} 个多环境{{ draft.healthCheckUrl ? ' · 健康检查' : '' }} {{ draft.incrementalUpload ? ' · 增量上传' : '' }}</span>
+            </div>
+
+            <div v-show="showAdvanced" class="border-t border-base-content/10 px-4 py-4 flex flex-col gap-5">
+              <!-- 多环境部署 -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-semibold text-base-content/70 uppercase tracking-wider">多环境部署</span>
+                  <button class="btn btn-ghost btn-xs" @click="addEnv"><SvgIcon name="plus" :size="12" /> 添加环境</button>
+                </div>
+                <p class="m-0 mb-2 text-xs text-base-content/50">一套构建 + 多套部署目标（路径 / 环境变量 / 健康检查），不配置则仅使用全局部署路径。</p>
+                <div v-for="(env, i) in draft.environments" :key="i" class="border border-base-content/10 rounded-xl overflow-hidden mb-2">
+                  <div class="flex items-center gap-2 px-3 py-2.5 bg-base-200/50 border-b border-base-content/5">
+                    <input v-model="env.name" class="input input-bordered bg-base-100 text-sm flex-1 min-w-0" placeholder="环境名，如 测试环境" />
+                    <button @click="removeEnv(i)" class="btn btn-ghost btn-sm btn-square text-error hover:bg-error/10" title="删除环境"><SvgIcon name="x" :size="13" /></button>
+                  </div>
+                  <div class="grid grid-cols-2 gap-3 px-3 py-3">
+                    <div>
+                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署路径</label>
+                      <input v-model="env.deployPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="/opt/app-test" />
+                    </div>
+                    <div>
+                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">健康检查 URL</label>
+                      <input v-model="env.healthCheckUrl" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="http://test.example.com/health（可留空）" />
+                    </div>
+                    <div>
+                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">健康检查超时（秒）</label>
+                      <input v-model.number="env.healthCheckTimeout" type="number" min="1" class="input input-bordered w-full bg-base-200 text-sm" />
+                    </div>
+                    <div>
+                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">失败重试次数</label>
+                      <input v-model.number="env.healthCheckRetries" type="number" min="1" class="input input-bordered w-full bg-base-200 text-sm" />
+                    </div>
+                  </div>
+                  <div class="px-3 pb-3">
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">环境变量（每行 KEY=VALUE）</label>
+                    <textarea v-model="env.envVars" class="textarea textarea-bordered w-full bg-base-200 text-xs font-mono resize-y leading-relaxed" rows="2" placeholder="NODE_ENV=production&#10;VITE_API_BASE=https://api.example.com" />
+                  </div>
+                </div>
+                <div v-if="draft.environments.length" class="px-3 py-2 rounded-lg bg-base-200/60 text-xs text-base-content/50">多环境会覆盖全局部署路径；服务器沿用上一步所选的目标服务器，可在创建后于「多环境部署」分组调整为每环境独立服务器。</div>
+              </div>
+
+              <!-- 部署保障 -->
+              <div class="border-t border-base-content/10 pt-4">
+                <div class="text-xs font-semibold text-base-content/70 uppercase tracking-wider mb-2">部署保障</div>
+                <div class="flex flex-wrap gap-4">
+                  <label class="flex items-center gap-2 select-none cursor-pointer text-sm">
+                    <input v-model="draft.incrementalUpload" type="checkbox" class="toggle toggle-primary toggle-sm" />
+                    <span>增量上传</span>
+                  </label>
+                  <label class="flex items-center gap-2 select-none cursor-pointer text-sm">
+                    <input v-model="draft.requiresApproval" type="checkbox" class="toggle toggle-warning toggle-sm" />
+                    <span>部署需审核</span>
+                  </label>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mt-3">
+                  <div class="col-span-1">
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">健康检查 URL（全局）</label>
+                    <input v-model="draft.healthCheckUrl" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="留空跳过健康检查" />
+                  </div>
+                  <div>
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">超时（秒）</label>
+                    <input v-model.number="draft.healthCheckTimeout" type="number" min="1" class="input input-bordered w-full bg-base-200 text-sm" title="单次探测超时（秒）" />
+                  </div>
+                  <div>
+                    <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">重试次数</label>
+                    <input v-model.number="draft.healthCheckRetries" type="number" min="1" class="input input-bordered w-full bg-base-200 text-sm" title="失败重试次数" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -279,7 +392,41 @@ const draft = reactive({
   deployPath: '',
   // 实际代码目录（可能不在 git 仓库根目录，如 src/xxx 子模块），用于扫描识别构建工具与模块
   localPath: '',
+  // ── 高级配置（涵盖旧分组表单全部字段）──
+  repoUrl: '',
+  mavenHome: '',
+  javaHome: '',
+  nodeHome: '',
+  mavenSettings: '',
+  parentBuildPath: '',
+  buildCommand: '',
+  incrementalUpload: true,
+  requiresApproval: false,
+  healthCheckUrl: '',
+  healthCheckTimeout: 30,
+  healthCheckRetries: 2,
+  // 多环境部署：一套构建 + 多套部署目标
+  environments: [] as {
+    name: string; deployPath: string; servers: { serverId: string; label?: string; deployDir: string }[];
+    envVars: string; healthCheckUrl: string; healthCheckTimeout: number; healthCheckRetries: number;
+  }[],
 })
+// 高级设置折叠面板是否展开
+const showAdvanced = ref(false)
+
+// 多环境：添加 / 删除一个环境（服务器沿用全局勾选，回落为空以继承部署目标）
+function addEnv() {
+  draft.environments.push({
+    name: `环境 ${draft.environments.length + 1}`,
+    deployPath: '',
+    servers: [],
+    envVars: '',
+    healthCheckUrl: '',
+    healthCheckTimeout: 30,
+    healthCheckRetries: 2,
+  })
+}
+function removeEnv(i: number) { draft.environments.splice(i, 1); }
 
 // 部署模式（共享组件 v-model）：单体部署（parentBuildMode=true，打包单jar）/ 多模块部署（false，逐模块独立构建）
 const monolithMode = ref(true)
@@ -304,6 +451,26 @@ function prefillFromInitial() {
   draft.restartScript = (c.restartScript as string) || './restart.sh'
   draft.deployPath = (c.deployPath as string) || ''
   draft.localPath = (c.localPath as string) || ''
+  // ── 高级配置回填（涵盖旧分组表单全部字段）──
+  draft.repoUrl = (c.repoUrl as string) || ''
+  draft.mavenHome = (c.mavenHome as string) || ''
+  draft.javaHome = (c.javaHome as string) || ''
+  draft.nodeHome = (c.nodeHome as string) || ''
+  draft.mavenSettings = (c.mavenSettings as string) || ''
+  draft.parentBuildPath = (c.parentBuildPath as string) || ''
+  draft.buildCommand = (c.buildCommand as string) || ''
+  draft.incrementalUpload = (c.incrementalUpload as boolean) ?? true
+  draft.requiresApproval = !!c.requiresApproval
+  draft.healthCheckUrl = (c.healthCheckUrl as string) || ''
+  draft.healthCheckTimeout = (c.healthCheckTimeout as number) ?? 30
+  draft.healthCheckRetries = (c.healthCheckRetries as number) ?? 2
+  // 多环境：config.environments 为 JSON 字符串或数组
+  const envs = c.environments
+  if (typeof envs === 'string' && envs) {
+    try { draft.environments = JSON.parse(envs); } catch {/* 忽略 */}
+  } else if (Array.isArray(envs)) {
+    draft.environments = envs;
+  }
   // 部署模式：parentBuildMode=true 单体；false 多模块
   monolithMode.value = (c.parentBuildMode as boolean) ?? true
   // Jar/Lib 分离：非多模块项目不可见，保留原值
@@ -505,7 +672,7 @@ async function finish() {
       id: (props.initial as Record<string, unknown> | null)?.id ?? null,
       servers: serverEntries,
       parentBuildMode: monolith,
-      parentBuildPath: '',
+      parentBuildPath: draft.parentBuildPath || '',
       // 非多模块项目不可见该开关，fallback 为 false（避免误开启分离上传）
       libSeparate: isMultiModule.value && libSeparate.value,
       modules: modPayload,
