@@ -71,10 +71,11 @@
 
 **代码目录定位（重点）**：`scanProject` 传入的是 `gitRepos[].path`（仓库根目录）。但**代码常不在仓库根目录**（如预付卡项目在 `src/xxx` 子模块），此时根目录扫描结果为空 → 模块区不显示。向导在步骤 1 提供「选择目录」按钮（`pickLocalDir` → `showOpenDialogForDirs`，对话框默认定位到仓库根目录），将实际代码目录存入 `draft.localPath` 后重新扫描；createConfigFromWizard 会把 localPath 一并写入 `config.localPath`，保证后续构建正确。
 
-**多模块部署模式（重点）**：多模块项目有三种部署模式，向导第 2 步让用户选择，后端已全支持：
-1. `single-jar` 打包单 Jar：`parentBuildMode=true`，父 POM 一次构建单个产物；模块勾选列表不落库；`parentBuildPath` 由父组件取 git 仓库根路径兜底（勿用子目录）
-2. `multi-module` 逐模块独立构建：每模块独立构建并部署到独立远程目录（`parentBuildMode=false`）
-3. `jar-lib` Jar 与 Lib 分离：业务 jar 与依赖 lib 分离上传（`config.libSeparate`，模块级 `libFilterRules` 控制过滤）
+**部署模式（重点）**：多模块项目有**两种部署模式**，向导第 2 步让用户选择，后端已全支持；**Jar/Lib 分离是两种模式下的公共能力开关**，不是独立模式：
+1. `monolith` 单体部署：`parentBuildMode=true`，整体构建产出单个 jar，模块勾选列表不落库；`parentBuildPath` 由父组件取 git 仓库根路径兜底（勿用子目录）
+2. `multi` 多模块部署：`parentBuildMode=false`，每模块独立构建并部署到独立远程目录（显示模块勾选区）
+
+Jar 与 Lib 分离：勾选时 `config.libSeparate=true`（模块级 `libFilterRules` 控制过滤），单体/多模块均可开启；非多模块项目该开关不可见，fallback 传 `false` 避免误开启。
 
 **坑**：createConfigFromWizard 曾把多模块一律强制 `parentBuildMode=true`（单 jar），导致逐模块部署的项目被错误打包；现改为用户显式选择部署模式，向导 finish 传入 `parentBuildMode/parentBuildPath/libSeparate/modules` 由父组件落库。
 
