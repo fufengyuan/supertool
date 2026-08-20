@@ -585,10 +585,6 @@
                     <input v-model="config.restartScript" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="./restart.sh" />
                   </div>
                 </div>
-                <label v-if="config.buildTool === 'maven'" class="flex items-center gap-2 text-sm text-base-content cursor-pointer mt-3">
-                  <input v-model="config.libSeparate" type="checkbox" class="checkbox checkbox-primary" />
-                  依赖库分离部署（JAR 与 lib 目录分开放置，增量上传时只传变更依赖）
-                </label>
               </div>
             </section>
 
@@ -724,30 +720,30 @@
           </div>
 
           <!-- Deploy Modules Section -->
-          <!-- 父子模块构建模式 -->
-          <div class="px-6 pb-3 border-l-[3px] border-transparent transition-[border-color,background] duration-300" :class="{
-            'border-l-primary bg-primary/[0.05] mx-3 p-3 rounded-lg': config.parentBuildMode,
-            'border-l-success bg-success/[0.05]': parentBuildAutoDetected
-          }">
-            <div class="flex items-center gap-2.5 mb-3.5 text-[11px] font-semibold text-base-content/60 uppercase tracking-wider opacity-70">
-              <span class="flex items-center gap-1"><SvgIcon name="gitMerge" size="14" /> 父子模块构建</span>
+          <!-- 部署模式（共享组件）：单体部署 / 多模块部署 + Jar/Lib 分离开关 -->
+          <div class="px-6" :class="{ 'pb-3': false }">
+            <div class="flex items-center gap-2.5 mb-3 text-[11px] font-semibold text-base-content/60 uppercase tracking-wider opacity-70">
+              <span class="flex items-center gap-1"><SvgIcon name="gitMerge" size="14" /> 部署模式</span>
               <span class="flex-1 h-px bg-base-content/10"></span>
             </div>
-            <div class="mb-2">
-              <label class="flex items-center gap-2.5 cursor-pointer select-none">
-                <input type="checkbox" v-model="config.parentBuildMode" class="toggle toggle-primary" />
-                <span class="text-sm font-medium text-base-content">是否为父子模块项目（父 POM 统一构建）</span>
-              </label>
-              <span v-if="parentBuildAutoDetected" class="inline-flex items-center gap-1 text-xs font-semibold text-success bg-green-500/10 border border-green-500/30 px-2 py-0.5 rounded-full ml-2.5 mt-1" title="由模块扫描自动检测"><SvgIcon name="search" size="12" /> 已自动检测</span>
-              <span v-else class="block text-xs text-base-content/60 mt-1 ml-[54px]">开启后，所有子模块统一在父模块目录下执行一次构建，子模块只需设置远程部署路径</span>
-            </div>
-            <div v-if="config.parentBuildMode" class="mb-3.5 mt-2 ml-[54px]">
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">父模块构建目录 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(相对于项目本地路径)</span></label>
-              <div class="flex gap-1.5">
-                <input v-model="config.parentBuildPath" class="input input-bordered w-full bg-base-200 text-sm flex-1" :class="{ '!border-success !bg-green-500/5': config.parentBuildPath === parentBuildDetectedPath && parentBuildDetectedPath }" :placeholder="parentBuildDetectedPath ? `已检测: ${parentBuildDetectedPath}` : '留空使用项目根目录，或填写如 ./yudao-framework'" />
-                <button v-if="scannedModules.length > 0" @click="autoDetectParentBuild" class="btn btn-ghost btn-sm flex-shrink-0 whitespace-nowrap gap-1 text-xs px-2.5 py-1.5" title="重新检测"><SvgIcon name="search" size="12" /></button>
+            <div class="border-l-[3px] border-transparent transition-[border-color,background] duration-300" :class="{
+              'border-l-primary bg-primary/[0.05] mx-3 p-3 rounded-lg': config.parentBuildMode,
+              'border-l-success bg-success/[0.05]': parentBuildAutoDetected
+            }">
+              <DeployModeSelector
+                v-model="config.parentBuildMode"
+                v-model:libSeparate="config.libSeparate"
+                :deploy-path="config.deployPath"
+              />
+              <span v-if="parentBuildAutoDetected" class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-success bg-green-500/10 border border-green-500/30 px-2 py-0.5 rounded-full" title="由模块扫描自动检测"><SvgIcon name="search" size="12" /> 已自动检测</span>
+              <div v-if="config.parentBuildMode" class="mb-3.5 mt-3">
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">父模块构建目录 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(相对于项目本地路径)</span></label>
+                <div class="flex gap-1.5">
+                  <input v-model="config.parentBuildPath" class="input input-bordered w-full bg-base-200 text-sm flex-1" :class="{ '!border-success !bg-green-500/5': config.parentBuildPath === parentBuildDetectedPath && parentBuildDetectedPath }" :placeholder="parentBuildDetectedPath ? `已检测: ${parentBuildDetectedPath}` : '留空使用项目根目录，或填写如 ./yudao-framework'" />
+                  <button v-if="scannedModules.length > 0" @click="autoDetectParentBuild" class="btn btn-ghost btn-sm flex-shrink-0 whitespace-nowrap gap-1 text-xs px-2.5 py-1.5" title="重新检测"><SvgIcon name="search" size="12" /></button>
+                </div>
+                <span class="block text-xs text-base-content/60 mt-1">在该目录下执行 <code class="bg-base-200 px-1 rounded text-xs text-primary break-all">mvn clean package</code> 构建所有子模块</span>
               </div>
-              <span class="block text-xs text-base-content/60 mt-1">在该目录下执行 <code class="bg-base-200 px-1 rounded text-xs text-primary break-all">mvn clean package</code> 构建所有子模块</span>
             </div>
           </div>
 
@@ -929,6 +925,7 @@
 defineOptions({ name: 'CiCdConfig' })
 import { useCicdConfig } from './composables/useCicdConfig';
 import ModuleTreeNode from './ModuleTreeNode.vue';
+import DeployModeSelector from './DeployModeSelector.vue';
 import GroupedServerSelector from '../server/GroupedServerSelector.vue';
 import CicdConfigWizard from './CicdConfigWizard.vue';
 import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
