@@ -68,6 +68,23 @@ pub struct CicdConfig {
     pub git_repo_id: Option<String>,
     #[serde(rename = "buildMode")]
     pub build_mode: String,
+    /// 多环境配置 JSON：[{name, deployPath, servers, envVars, healthCheckUrl, healthCheckTimeout, healthCheckRetries}]
+    #[serde(rename = "environments")]
+    pub environments: Option<String>,
+    /// 增量上传开关（对比文件 hash 只传变更，默认开启）
+    #[serde(rename = "incrementalUpload", default = "default_true")]
+    pub incremental_upload: bool,
+    /// 配置级健康检查重试次数（默认 3）
+    #[serde(rename = "healthCheckRetries", default = "default_retries")]
+    pub health_check_retries: i64,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_retries() -> i64 {
+    3
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -125,6 +142,9 @@ pub struct DeployLog {
     pub log_file_path: Option<String>,
     #[serde(rename = "artifactPaths")]
     pub artifact_paths: Option<String>,
+    /// 本次部署的环境名（多环境配置时记录）
+    #[serde(rename = "environment")]
+    pub environment: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -189,6 +209,18 @@ pub fn row_to_cicd_config(row: &rusqlite::Row) -> rusqlite::Result<CicdConfig> {
         yarn_home: row.get("yarnHome").ok(),
         git_repo_id: row.get("gitRepoId").ok(),
         build_mode: row.get("buildMode").unwrap_or("local".to_string()),
+        environments: row.get("environments").ok().flatten(),
+        incremental_upload: row
+            .get::<_, Option<i64>>("incrementalUpload")
+            .ok()
+            .flatten()
+            .map(|v| v != 0)
+            .unwrap_or(true),
+        health_check_retries: row
+            .get::<_, Option<i64>>("healthCheckRetries")
+            .ok()
+            .flatten()
+            .unwrap_or(3),
     })
 }
 
@@ -226,6 +258,7 @@ pub fn row_to_deploy_log(row: &rusqlite::Row) -> rusqlite::Result<DeployLog> {
         created_at: row.get("createdAt")?,
         log_file_path: row.get("logFilePath")?,
         artifact_paths: row.get("artifactPaths")?,
+        environment: row.get("environment").ok().flatten(),
     })
 }
 
@@ -286,8 +319,8 @@ pub fn add_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<CicdConfig, 
          deployPath, libSeparate, restartScript, healthCheckUrl, healthCheckTimeout, createdAt, \
          updatedAt, buildTool, buildCommand, buildPath, repoUrl, localPath, npmScript, \
          npmCustomScript, mavenHome, npmHome, pnpmHome, yarnHome, javaHome, nodeHome, servers, groupName, \
-         parentBuildMode, parentBuildPath, requiresApproval, gitRepoId, buildMode) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         parentBuildMode, parentBuildPath, requiresApproval, gitRepoId, buildMode, environments, incrementalUpload, healthCheckRetries) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             c.id, &c.name, c.deploy_branch, c.maven_settings, c.maven_profile,
             c.deploy_path, if c.lib_separate { 1 } else { 0 }, c.restart_script, c.health_check_url,
@@ -296,7 +329,8 @@ pub fn add_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<CicdConfig, 
             c.maven_home, c.npm_home, c.pnpm_home, c.yarn_home, c.java_home, c.node_home, c.servers, c.group_name,
             if c.parent_build_mode { 1 } else { 0 }, c.parent_build_path,
             if c.requires_approval { 1 } else { 0 },
-            c.git_repo_id, c.build_mode
+            c.git_repo_id, c.build_mode, c.environments,
+            if c.incremental_upload { 1 } else { 0 }, c.health_check_retries
         ],
     )?;
     get_cicd_config_by_config_id(conn, &c.id).map(|opt| opt.unwrap())
@@ -312,7 +346,7 @@ pub fn update_cicd_config(
          healthCheckTimeout=?, updatedAt=?, buildTool=?, buildCommand=?, buildPath=?, \
          repoUrl=?, localPath=?, npmScript=?, npmCustomScript=?, mavenHome=?, npmHome=?, pnpmHome=?, yarnHome=?, \
          javaHome=?, nodeHome=?, servers=?, groupName=?, parentBuildMode=?, \
-         parentBuildPath=?, requiresApproval=?, gitRepoId=?, buildMode=? WHERE id=?",
+         parentBuildPath=?, requiresApproval=?, gitRepoId=?, buildMode=?, environments=?, incrementalUpload=?, healthCheckRetries=? WHERE id=?",
         params![
             &c.name, c.deploy_branch, c.maven_settings, c.maven_profile,
             c.deploy_path, if c.lib_separate { 1 } else { 0 }, c.restart_script,
@@ -321,7 +355,8 @@ pub fn update_cicd_config(
             c.npm_custom_script, c.maven_home, c.npm_home, c.pnpm_home, c.yarn_home,
             c.java_home, c.node_home, c.servers, c.group_name, if c.parent_build_mode { 1 } else { 0 },
             c.parent_build_path, if c.requires_approval { 1 } else { 0 },
-            c.git_repo_id, c.build_mode, c.id
+            c.git_repo_id, c.build_mode, c.environments,
+            if c.incremental_upload { 1 } else { 0 }, c.health_check_retries, c.id
         ],
     )?;
     get_cicd_config_by_config_id(conn, &c.id)
@@ -434,8 +469,8 @@ fn get_deploy_module_by_id(
 pub fn add_deploy_log(conn: &Connection, log: &DeployLog) -> Result<DeployLog, rusqlite::Error> {
     conn.execute(
         "INSERT INTO deploy_logs (id, configId, status, startTime, endTime, \
-         errorMessage, progress, triggeredBy, createdAt, logFilePath, artifactPaths) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         errorMessage, progress, triggeredBy, createdAt, logFilePath, artifactPaths, environment) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             log.id,
             log.config_id,
@@ -447,7 +482,8 @@ pub fn add_deploy_log(conn: &Connection, log: &DeployLog) -> Result<DeployLog, r
             log.triggered_by,
             log.created_at,
             log.log_file_path,
-            log.artifact_paths
+            log.artifact_paths,
+            log.environment
         ],
     )?;
     get_deploy_log_by_id(conn, &log.id).map(|opt| opt.unwrap())
@@ -459,7 +495,7 @@ pub fn update_deploy_log(
 ) -> Result<Option<DeployLog>, rusqlite::Error> {
     conn.execute(
         "UPDATE deploy_logs SET configId=?, status=?, startTime=?, endTime=?, \
-         errorMessage=?, progress=?, triggeredBy=?, createdAt=?, logFilePath=?, artifactPaths=? \
+         errorMessage=?, progress=?, triggeredBy=?, createdAt=?, logFilePath=?, artifactPaths=?, environment=? \
          WHERE id=?",
         params![
             log.config_id,
@@ -472,6 +508,7 @@ pub fn update_deploy_log(
             log.created_at,
             log.log_file_path,
             log.artifact_paths,
+            log.environment,
             log.id
         ],
     )?;

@@ -1811,7 +1811,7 @@ export interface TauriAPI {
   closeTerminal: (terminalId: string) => Promise<any>
   readTerminal: (terminalId: string) => Promise<any>
   isTerminalActive: (terminalId: string) => Promise<any>
-  deploy: (configId: string, confirmed?: boolean, branch?: string) => Promise<any>
+  deploy: (configId: string, confirmed?: boolean, branch?: string, environment?: string) => Promise<any>
   cancelDeploy: (deployLogId: string) => Promise<any>
   rollback: (configId: string, logId: string) => Promise<any>
   getDeployLogs: (configId: string, limit?: number) => Promise<any>
@@ -2638,7 +2638,7 @@ export function getTauriAPI(): TauriAPI {
     readTerminal: async (terminalId: string) => tauriCall("read_terminal", { terminalId }, true),
     isTerminalActive: async (terminalId: string) => tauriCall("is_terminal_active", { terminalId }),
     // Deploy
-    deploy: async (configId: string, confirmed?: boolean, branch?: string) => tauriCall("deploy", { configId, confirmed, branch }),
+    deploy: async (configId: string, confirmed?: boolean, branch?: string, environment?: string) => tauriCall("deploy", { configId, confirmed, branch, environment: environment || undefined }),
     cancelDeploy: async (deployLogId: string) => tauriCall("cancel_deploy", { deployLogId }),
     rollback: async (configId: string, logId: string) => tauriCall("rollback", { configId, logId }),
     getDeployLogs: async (configId: string, limit?: number) => tauriCall("get_deploy_logs", { configId, limit }),

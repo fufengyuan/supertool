@@ -82,6 +82,14 @@
                   <button v-if="selectedGitRepoObj" @click.stop="loadBranchesForConfig(config!)" class="btn btn-xs btn-ghost px-1" :class="{ 'loading': loadingBranches }" title="刷新分支列表">⟳</button>
                 </div>
               </div>
+              <!-- 部署环境：仅多环境配置显示 -->
+              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="configEnvironments.length > 0">
+                <span class="text-xs font-medium text-base-content/60">部署环境</span>
+                <select v-model="selectedEnvironment" class="select select-bordered select-xs w-36 bg-base-200 text-xs cursor-pointer" title="选择本次部署的环境">
+                  <option value="">默认（全局配置）</option>
+                  <option v-for="env in configEnvironments" :key="env" :value="env">{{ env }}</option>
+                </select>
+              </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
                 <span class="text-xs font-medium text-base-content/60">服务器</span>
                 <span class="text-sm text-base-content font-medium text-right">{{ getServersInfo(config) }}</span>
@@ -132,14 +140,19 @@
 
           <!-- Progress -->
           <div class="bg-base-100 border border-base-content/10 rounded-xl px-4 py-3.5" v-if="deploying || progress > 0">
-            <div class="flex justify-between items-center mb-2">
-              <span class="text-sm text-base-content font-medium">{{ currentStep || '准备部署...' }}</span>
-              <button v-if="deploying" @click="cancelDeploy" class="px-2.5 py-1 bg-error text-white border-0 rounded cursor-pointer text-xs font-medium hover:opacity-85"><SvgIcon name="stopSquare" size="14" class="inline-block align-text-bottom" /> 取消</button>
+            <div class="flex justify-between items-center mb-2 gap-2">
+              <span class="text-sm text-base-content font-medium flex items-center gap-2 min-w-0">
+                <span v-if="queuedWaiting" class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 border border-amber-500/20 whitespace-nowrap shrink-0" title="同配置有部署正在进行，本任务排队等待">
+                  <SvgIcon name="clock" size="11" /> 排队中
+                </span>
+                <span class="truncate">{{ currentStep || '准备部署...' }}</span>
+              </span>
+              <button v-if="deploying" @click="cancelDeploy" class="px-2.5 py-1 bg-error text-white border-0 rounded cursor-pointer text-xs font-medium hover:opacity-85 shrink-0"><SvgIcon name="stopSquare" size="14" class="inline-block align-text-bottom" /> 取消</button>
             </div>
             <div class="h-1.5 bg-base-content/10 rounded-full overflow-hidden">
-              <div class="h-full bg-primary transition-all duration-300" :style="{ width: progress + '%' }" :class="{ 'bg-base-content/60': deployCancelled }"></div>
+              <div class="h-full transition-all duration-300" :class="queuedWaiting ? 'bg-amber-500 animate-pulse' : 'bg-primary'" :style="{ width: (queuedWaiting ? Math.max(progress, 8) : progress) + '%' }"></div>
             </div>
-            <span class="text-sm font-semibold text-primary">{{ Math.round(progress) }}%</span>
+            <span class="text-sm font-semibold" :class="queuedWaiting ? 'text-amber-500' : 'text-primary'">{{ Math.round(progress) }}%</span>
           </div>
         </template>
       </div>
@@ -186,7 +199,9 @@
                 'text-primary': line.stage === 'ssh' || line.stage === 'deploy' || line.stage === 'info' || !line.stage,
                 'text-purple-500': line.stage === 'restart',
                 'text-error': line.stage === 'error',
-                'text-orange-500': line.stage === 'collect'
+                'text-orange-500': line.stage === 'collect',
+                'text-amber-500': line.stage === 'queue',
+                'text-teal-500': line.stage === 'health'
               }">[{{ line.stage || 'info' }}]</span>
               <span class="text-base-content break-all" :class="{ 'text-error': line.stage === 'error' }">{{ line.message }}</span>
             </div>
@@ -237,6 +252,7 @@
                 <span class="text-xs text-base-content/60">{{ formatDate(log.createdAt) }}</span>
                 <span class="text-xs text-base-content/60">触发: {{ log.triggeredBy }}</span>
                 <span class="text-xs text-base-content/60 bg-base-content/10 px-1.5 py-0.5 rounded inline-flex items-center gap-1" v-if="log.deployBranch"><SvgIcon name="gitBranch" size="12" /> {{ log.deployBranch }}</span>
+                <span class="text-xs text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded inline-flex items-center gap-1 font-medium" v-if="log.environment" title="部署环境"><SvgIcon name="layers" size="12" /> {{ log.environment }}</span>
                 <button
                   v-if="log.status === 'success'"
                   @click="rollbackDeploy(log)"
@@ -405,6 +421,7 @@ interface DeployLog {
   logFilePath?: string;
   artifactPaths?: string;
   deployBranch?: string;
+  environment?: string;
   // Enriched fields (not from DB)
   projectName?: string;
   configName?: string;
@@ -432,6 +449,7 @@ const selectedConfigId = ref('');
 const config = ref<CicdConfigEntry | null>(null);
 const loadingConfig = ref(false);
 const selectedBranch = ref('');
+const selectedEnvironment = ref('');
 const branches = ref<string[]>([]);
 const loadingBranches = ref(false);
 const logs = ref<DeployLog[]>([]);
@@ -447,6 +465,10 @@ const expandedDeployGroups = ref<Set<string>>(new Set());
 interface DeployState {
   deploying: boolean;
   deployCancelled: boolean;
+  /** 部署队列：同配置并发部署时本任务正在排队等待 */
+  queued: boolean;
+  /** 本次部署选择的环境（多环境配置） */
+  environment: string;
   progress: number;
   currentStep: string;
   realtimeLogs: { time: string; stage: string; message: string }[];
@@ -472,6 +494,7 @@ const currentDeployState = computed(() => {
 // 便捷访问当前状态的 computed
 const deploying = computed(() => currentDeployState.value?.deploying ?? false);
 const deployCancelled = computed(() => currentDeployState.value?.deployCancelled ?? false);
+const queuedWaiting = computed(() => (currentDeployState.value?.deploying ?? false) && (currentDeployState.value?.queued ?? false));
 const progress = computed(() => currentDeployState.value?.progress ?? 0);
 const currentStep = computed(() => currentDeployState.value?.currentStep ?? '');
 const realtimeLogs = computed(() => currentDeployState.value?.realtimeLogs ?? []);
@@ -494,6 +517,7 @@ const allRunningDeploys = computed(() => {
         progress: state.progress,
         configName: cfg?.name || '',
         configGroupName: cfg?.groupName || '',
+        environment: state.environment || undefined,
       });
     }
   }
@@ -551,6 +575,8 @@ function initDeployState(configId: string): DeployState {
   return {
     deploying: false,
     deployCancelled: false,
+    queued: false,
+    environment: '',
     progress: 0,
     currentStep: '',
     realtimeLogs: [],
@@ -614,6 +640,19 @@ const selectedGitRepoObj = computed(() => {
   return gitRepos.value.find((r: any) => r.id === config.value!.gitRepoId) || null;
 });
 
+/** 解析配置的多环境列表（environments JSON → 环境名数组） */
+const configEnvironments = computed<string[]>(() => {
+  const raw = config.value?.environments;
+  if (!raw || typeof raw !== 'string') {return [];}
+  try {
+    const parsed = JSON.parse(raw) as { name?: string }[];
+    if (!Array.isArray(parsed)) {return [];}
+    return parsed.map(e => String(e?.name || '').trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+});
+
 function getBuildToolName(tool: unknown) {
   const names: Record<string, string> = { maven: 'Maven', npm: 'npm', pnpm: 'pnpm', yarn: 'Yarn', gradle: 'Gradle' };
   return names[String(tool || '')] || '未设置';
@@ -645,6 +684,7 @@ function getServerCount(cfg: CicdConfigEntry | null): number {
 async function selectDeployConfig(cfg: CicdConfigEntry) {
   selectedConfigId.value = cfg.id;
   config.value = null;
+  selectedEnvironment.value = '';
   loadingConfig.value = true;
   // 切换配置时加载分支
   loadBranchesForConfig(cfg);
@@ -745,10 +785,24 @@ const progressHandler = (data: { progress?: number; message?: string; stage?: st
   const state = deployStates.value.get(cfgId);
   if (!state || !state.deploying) {return;} // 只处理正在部署的状态
 
+  // 部署队列事件：waiting → 标记排队中；acquired → 排队结束（不改进度条）
+  if (data.stage === 'queue') {
+    const updates: Partial<DeployState> = { queued: data.status === 'waiting' };
+    if (data.message) {updates.currentStep = data.message;}
+    if (data.deployLogId && !state.deployLogId) {updates.deployLogId = data.deployLogId;}
+    const now = new Date().toLocaleTimeString('zh-CN');
+    const arr = pendingLogLines.get(cfgId) || [];
+    arr.push({ time: now, stage: 'queue', message: data.message || '' });
+    pendingLogLines.set(cfgId, arr);
+    scheduleLogFlush();
+    updateDeployState(cfgId, updates);
+    return;
+  }
+
   const pct = data.progress || 0;
   const isUploadProgress = data.stage === 'ssh' && data.status === 'uploading' && pct > 0;
   const shouldThrottle = isUploadProgress && (pct - state.lastLoggedProgress < 5) && pct < 100;
-  
+
   // 构建更新对象（不直接修改 state，改用 updateDeployState 触发响应式）
   const updates: Partial<DeployState> = { progress: pct };
   if (!shouldThrottle) {
@@ -938,10 +992,13 @@ async function startDeploy() {
   // 初始化当前配置的部署状态（通过 updateDeployState 保证响应式）
   // 新部署替换 realtimeLogs 数组，重置上翻状态让新日志自动跟随到底部
   realtimeUserScrolledUp.value = false;
+  const deployEnv = configEnvironments.value.includes(selectedEnvironment.value) ? selectedEnvironment.value : '';
   updateDeployState(selectedConfigId.value, {
     deploying: true,
-    currentStep: '开始部署...',
-    realtimeLogs: [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '部署任务已启动' }],
+    queued: false,
+    environment: deployEnv,
+    currentStep: deployEnv ? `开始部署（${deployEnv}）...` : '开始部署...',
+    realtimeLogs: [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: deployEnv ? `部署任务已启动（环境：${deployEnv}）` : '部署任务已启动' }],
     startTime: Date.now(),
   });
 
@@ -954,7 +1011,7 @@ async function startDeploy() {
 
   try {
     const confirmed = !!config.value?.requiresApproval;
-    const result = await getTauriAPI().deploy(selectedConfigId.value, confirmed || undefined, selectedBranch.value || undefined);
+    const result = await getTauriAPI().deploy(selectedConfigId.value, confirmed || undefined, selectedBranch.value || undefined, deployEnv || undefined);
     cleanupLogId?.();
 
     if (!result.success) {

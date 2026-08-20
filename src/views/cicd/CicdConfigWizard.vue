@@ -1,0 +1,322 @@
+<template>
+  <div class="flex-1 overflow-y-auto bg-base-200">
+    <div class="max-w-[760px] mx-auto px-6 py-8">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h3 class="m-0 text-xl font-bold text-base-content flex items-center gap-2">
+            <SvgIcon name="rocket" :size="20" /> 新建部署配置
+          </h3>
+          <p class="m-0 mt-1 text-sm text-base-content/60">按步骤快速创建，高级能力（多环境/模块/健康检查）可在创建后继续配置</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" @click="emit('cancel')">取消</button>
+      </div>
+
+      <!-- Steps indicator -->
+      <div class="flex items-center gap-0 mb-6 bg-base-100 border border-base-content/10 rounded-xl p-4">
+        <template v-for="(s, i) in steps" :key="s.key">
+          <div class="flex items-center gap-2 cursor-pointer select-none" :class="i <= step ? 'opacity-100' : 'opacity-40 hover:opacity-70'" @click="goStep(i)">
+            <span class="flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold border-2 transition-all"
+              :class="i < step ? 'bg-primary border-primary text-white' : i === step ? 'border-primary text-primary' : 'border-base-content/20 text-base-content/50'">
+              <SvgIcon v-if="i < step" name="check" :size="14" />
+              <template v-else>{{ i + 1 }}</template>
+            </span>
+            <span class="text-sm font-medium" :class="i === step ? 'text-primary' : ''">{{ s.title }}</span>
+          </div>
+          <div v-if="i < steps.length - 1" class="flex-1 h-px mx-3 transition-colors duration-300" :class="i < step ? 'bg-primary' : 'bg-base-content/10'" />
+        </template>
+      </div>
+
+      <!-- Step panels -->
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-6 min-h-[320px]">
+
+        <!-- Step 1: 项目与分支 -->
+        <div v-if="step === 0" class="flex flex-col gap-4">
+          <div>
+            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Git 仓库 <span class="text-error normal-case tracking-normal">*</span></label>
+            <select v-model="draft.gitRepoId" class="select select-bordered w-full bg-base-200 text-sm" @change="onRepoChange">
+              <option value="">选择 Git 仓库...</option>
+              <option v-for="repo in gitRepos" :key="repo.id" :value="repo.id">{{ repo.name }} — {{ repo.path }}</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">配置名称 <span class="text-error normal-case tracking-normal">*</span></label>
+              <input v-model="draft.name" class="input input-bordered w-full bg-base-200 text-sm" placeholder="例如：用户中心后端" />
+            </div>
+            <div>
+              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">分组</label>
+              <select v-model="draft.groupName" class="select select-bordered w-full bg-base-200 text-sm">
+                <option v-for="g in groups" :key="g" :value="g">{{ g }}</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署分支</label>
+            <div class="flex gap-1.5">
+              <select v-model="draft.deployBranch" class="select select-bordered w-full bg-base-200 text-sm flex-1">
+                <option value="main">main</option>
+                <option value="master">master</option>
+                <option v-for="b in branches" :key="b" :value="b">{{ b }}</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" :disabled="!draft.gitRepoId || loadingBranches" @click="loadBranches" title="刷新分支列表">
+                <SvgIcon name="refresh" :size="14" :class="{ 'animate-spin': loadingBranches }" />
+              </button>
+            </div>
+          </div>
+          <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
+            <SvgIcon name="lightbulb" :size="14" class="shrink-0 mt-0.5" />
+            <span>选择仓库后将自动扫描项目识别构建工具、推荐部署路径；未识别的部分可在后续步骤手动调整</span>
+          </div>
+        </div>
+
+        <!-- Step 2: 构建配置 -->
+        <div v-else-if="step === 1" class="flex flex-col gap-4">
+          <div>
+            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建工具 <span class="text-error normal-case tracking-normal">*</span></label>
+            <div class="grid grid-cols-6 gap-2">
+              <div v-for="tool in buildTools" :key="tool.key"
+                class="flex flex-col items-center px-2 py-3 border-2 rounded-xl cursor-pointer transition-all duration-150 relative hover:border-primary"
+                :class="{ 'border-primary bg-primary/10': draft.buildTool === tool.key, 'opacity-40': !tool.available && tool.key !== 'cargo' }"
+                :title="tool.available ? tool.name : `${tool.name}（未安装）`"
+                @click="draft.buildTool = tool.key">
+                <span class="text-2xl mb-1">{{ tool.icon }}</span>
+                <span class="text-xs font-semibold text-base-content">{{ tool.name }}</span>
+                <span v-if="tool.version" class="text-[10px] text-base-content/60 mt-0.5">{{ tool.version.split(' ')[0] }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-if="draft.buildTool === 'maven'" class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Maven Profile</label>
+              <input v-model="draft.mavenProfile" class="input input-bordered w-full bg-base-200 text-sm" placeholder="prod" />
+            </div>
+            <div>
+              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">重启脚本</label>
+              <input v-model="draft.restartScript" class="input input-bordered w-full bg-base-200 text-sm" placeholder="./restart.sh" />
+            </div>
+          </div>
+          <div v-else-if="['npm', 'pnpm', 'yarn'].includes(draft.buildTool)">
+            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建脚本</label>
+            <select v-model="draft.npmScript" class="select select-bordered w-full bg-base-200 text-sm">
+              <option value="build">build</option>
+              <option value="build:prod">build:prod</option>
+              <option value="custom">自定义...</option>
+            </select>
+            <input v-if="draft.npmScript === 'custom'" v-model="draft.npmCustomScript" class="input input-bordered w-full bg-base-200 text-sm mt-2" placeholder="脚本名称" />
+          </div>
+          <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
+            <SvgIcon name="lightbulb" :size="14" class="shrink-0 mt-0.5" />
+            <span>构建工具路径（Maven/JDK/Node 等）会自动检测填充，创建后在「构建配置」分组中可查看和修改</span>
+          </div>
+        </div>
+
+        <!-- Step 3: 部署目标 -->
+        <div v-else-if="step === 2" class="flex flex-col gap-4">
+          <div>
+            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">目标服务器 <span class="text-error normal-case tracking-normal">*</span></label>
+            <GroupedServerSelector :servers="servers" :groups="serverGroups" v-model="selectedServerIds" mode="multi" />
+            <span class="block text-xs text-base-content/60 mt-1.5">已选 {{ selectedServerIds.length }} 台，部署时按顺序逐台上传</span>
+          </div>
+          <div>
+            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署路径 <span class="text-error normal-case tracking-normal">*</span></label>
+            <input v-model="draft.deployPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" :placeholder="suggestedDeployPath" />
+            <span class="block text-xs text-base-content/60 mt-1">服务器上的目标目录{{ draft.buildTool === 'maven' ? '，如 /opt/apphome' : '，如 /home/nginxWebUI/ui' }}</span>
+          </div>
+          <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
+            <SvgIcon name="lightbulb" :size="14" class="shrink-0 mt-0.5" />
+            <span>增量上传默认开启：只传输变更文件；健康检查与失败自动回滚可在创建后于「部署保障」分组配置</span>
+          </div>
+        </div>
+
+        <!-- Step 4: 确认创建 -->
+        <div v-else class="flex flex-col gap-4">
+          <div class="text-sm font-semibold text-base-content mb-1">确认配置摘要</div>
+          <div class="border border-base-content/10 rounded-xl overflow-hidden text-sm">
+            <div class="grid grid-cols-[110px_1fr]">
+              <template v-for="row in summaryRows" :key="row.label">
+                <div class="px-4 py-2.5 bg-base-200 text-base-content/60 border-b border-base-content/5">{{ row.label }}</div>
+                <div class="px-4 py-2.5 text-base-content border-b border-base-content/5 break-all">{{ row.value || '—' }}</div>
+              </template>
+            </div>
+          </div>
+          <div v-if="missingKeys.length" class="px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600">
+            <span class="font-semibold">以下必填项缺失：</span>{{ missingKeys.join('、') }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer buttons -->
+      <div class="flex items-center justify-between mt-5">
+        <button class="btn btn-ghost" :disabled="step === 0" @click="step--">
+          <SvgIcon name="chevronLeft" :size="14" /> 上一步
+        </button>
+        <div class="flex gap-2">
+          <button v-if="step < steps.length - 1" class="btn btn-primary" :disabled="!stepValid" @click="step++">
+            下一步 <SvgIcon name="chevronRight" :size="14" />
+          </button>
+          <button v-else class="btn btn-primary" :disabled="!allValid || creating" @click="finish">
+            <span v-if="creating" class="loading loading-spinner loading-xs" />
+            <SvgIcon v-else name="check" :size="14" />
+            {{ creating ? '创建中...' : '创建配置' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, computed, watch } from 'vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
+import GroupedServerSelector from '../server/GroupedServerSelector.vue'
+import { getTauriAPI } from '../../utils/tauri-api'
+import type { Server } from '../../types'
+
+interface GitRepoEntry { id: string; name: string; path?: string; branch?: string }
+interface ServerGroupEntry { id: string; name: string; color: string; parentId: string | null }
+interface BuildToolOption { key: string; name: string; icon: string; version?: string; available: boolean }
+
+const props = defineProps<{
+  gitRepos: GitRepoEntry[]
+  groups: string[]
+  servers: Server[]
+  serverGroups: ServerGroupEntry[]
+  buildTools: BuildToolOption[]
+}>()
+
+const emit = defineEmits<{
+  complete: [payload: Record<string, unknown>]
+  cancel: []
+}>()
+
+const steps = [
+  { key: 'project', title: '项目与分支' },
+  { key: 'build', title: '构建配置' },
+  { key: 'deploy', title: '部署目标' },
+  { key: 'confirm', title: '确认创建' },
+]
+
+const step = ref(0)
+const creating = ref(false)
+const branches = ref<string[]>([])
+const loadingBranches = ref(false)
+const selectedServerIds = ref<string[]>([])
+
+const draft = reactive({
+  name: '',
+  gitRepoId: '',
+  groupName: '未分组',
+  deployBranch: 'main',
+  buildTool: '',
+  mavenProfile: 'prod',
+  npmScript: 'build',
+  npmCustomScript: '',
+  restartScript: './restart.sh',
+  deployPath: '',
+})
+
+// 默认选中第一个可用构建工具
+watch(() => props.buildTools, (tools) => {
+  if (!draft.buildTool) {
+    const first = tools.find(t => t.available)
+    if (first) { draft.buildTool = first.key }
+  }
+}, { immediate: true })
+
+// 选中仓库后自动填充名称/分支并加载分支列表
+watch(() => draft.gitRepoId, (id) => { if (id) { onRepoChange() } })
+
+async function onRepoChange() {
+  const repo = props.gitRepos.find(r => r.id === draft.gitRepoId)
+  if (!repo) {return;}
+  if (!draft.name) {draft.name = repo.name;}
+  if (repo.branch) {draft.deployBranch = repo.branch;}
+  loadBranches();
+  scanProject(repo.path || '');
+}
+
+async function loadBranches() {
+  const repo = props.gitRepos.find(r => r.id === draft.gitRepoId)
+  if (!repo?.path) {return;}
+  loadingBranches.value = true;
+  try {
+    const result = await getTauriAPI().getGitBranches(repo.path);
+    branches.value = (result?.branches || result || []).map((b: unknown) => typeof b === 'string' ? b : (b as { name: string }).name);
+  } catch { branches.value = []; }
+  finally { loadingBranches.value = false; }
+}
+
+// 扫描项目自动识别构建工具与推荐部署路径
+const scanned = ref<Record<string, unknown>>({})
+async function scanProject(path: string) {
+  if (!path) {return;}
+  try {
+    const result = await getTauriAPI().scanProject(path);
+    if (result && typeof result === 'object') {
+      scanned.value = result as Record<string, unknown>;
+      if (result.buildTool) {draft.buildTool = result.buildTool;}
+      if (result.currentBranch && !branches.value.length) {draft.deployBranch = result.currentBranch;}
+      if (result.recommendedScript) {draft.npmScript = result.recommendedScript;}
+    }
+  } catch { /* 静默失败，用户可手动选择 */ }
+}
+
+const suggestedDeployPath = computed(() =>
+  (scanned.value.suggestedDeployPath as string) || (draft.buildTool === 'maven' ? '/opt/apphome' : '/home/nginxWebUI/ui'))
+
+// 扫描出推荐部署路径后自动填入（仅当用户未修改时）
+watch(suggestedDeployPath, (p) => { if (p && !draft.deployPath) {draft.deployPath = p;} }, { immediate: true })
+
+const stepValid = computed(() => {
+  if (step.value === 0) {return !!draft.gitRepoId && !!draft.name.trim();}
+  if (step.value === 1) {return !!draft.buildTool;}
+  if (step.value === 2) {return selectedServerIds.value.length > 0 && !!draft.deployPath.trim();}
+  return true;
+})
+
+const missingKeys = computed(() => {
+  const missing: string[] = [];
+  if (!draft.gitRepoId) {missing.push('Git 仓库');}
+  if (!draft.name.trim()) {missing.push('配置名称');}
+  if (!draft.buildTool) {missing.push('构建工具');}
+  if (!selectedServerIds.value.length) {missing.push('目标服务器');}
+  if (!draft.deployPath.trim()) {missing.push('部署路径');}
+  return missing;
+})
+
+const allValid = computed(() => missingKeys.value.length === 0)
+
+const repoName = computed(() => props.gitRepos.find(r => r.id === draft.gitRepoId)?.name || '')
+const serverNames = computed(() =>
+  selectedServerIds.value.map(id => props.servers.find(s => s.id === id)?.name).filter(Boolean).join('、'))
+
+const summaryRows = computed(() => [
+  { label: '配置名称', value: draft.name },
+  { label: 'Git 仓库', value: repoName.value },
+  { label: '部署分支', value: draft.deployBranch },
+  { label: '分组', value: draft.groupName },
+  { label: '构建工具', value: props.buildTools.find(t => t.key === draft.buildTool)?.name || draft.buildTool },
+  { label: '目标服务器', value: serverNames.value },
+  { label: '部署路径', value: draft.deployPath },
+])
+
+function goStep(i: number) {
+  // 只允许回退或前进一步（前进需当前步校验通过）
+  if (i <= step.value || (i === step.value + 1 && stepValid.value)) {step.value = i;}
+}
+
+async function finish() {
+  if (!allValid.value || creating.value) {return;}
+  creating.value = true;
+  try {
+    const serverEntries = selectedServerIds.value.map(id => {
+      const s = props.servers.find(srv => srv.id === id)
+      return { serverId: id, label: s?.name || '', deployDir: '' }
+    })
+    emit('complete', { ...draft, servers: serverEntries })
+  } finally {
+    creating.value = false;
+  }
+}
+</script>
