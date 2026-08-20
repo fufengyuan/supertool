@@ -446,12 +446,13 @@ async function finish() {
       return { serverId: id, label: s?.name || '', deployDir: '' }
     })
     // 单 jar 模式：父模块统一构建，模块勾选列表不落库（构建产物为单个 jar）
+    // parentBuildPath 交由父组件决定（取 git 仓库根目录，指向父 POM）
     const singleJar = deployMode.value === 'single-jar'
     emit('complete', {
       ...draft,
       servers: serverEntries,
       parentBuildMode: singleJar,
-      parentBuildPath: singleJar ? draft.localPath : '',
+      parentBuildPath: '',
       libSeparate: deployMode.value !== 'single-jar' ? libSeparate.value : false,
       modules: singleJar ? [] : selectedModules.value.map(m => ({
         moduleName: m.moduleName, modulePath: m.modulePath, artifactName: '',
