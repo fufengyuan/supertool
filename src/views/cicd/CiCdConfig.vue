@@ -984,7 +984,7 @@ async function createConfigFromWizard(payload: Record<string, unknown>) {
   const p = payload as {
     name?: string; gitRepoId?: string; groupName?: string; deployBranch?: string;
     buildTool?: string; mavenProfile?: string; npmScript?: string; npmCustomScript?: string;
-    restartScript?: string; deployPath?: string;
+    restartScript?: string; deployPath?: string; localPath?: string;
     servers?: { serverId: string; label?: string; deployDir?: string }[];
     modules?: { moduleName: string; modulePath: string; artifactName?: string }[];
   };
@@ -1000,6 +1000,8 @@ async function createConfigFromWizard(payload: Record<string, unknown>) {
     restartScript: p.restartScript || './restart.sh',
     deployPath: p.deployPath || '',
   });
+  // 代码实际目录（可能不在 git 仓库根目录，如 src/xxx）
+  if (p.localPath) { cicd.config.value.localPath = p.localPath; }
   cicd.deployServers.value = (p.servers || []).map(s => ({
     serverId: s.serverId, label: s.label || '', deployDir: s.deployDir || '',
   }));
