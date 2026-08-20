@@ -69,9 +69,16 @@
 - 多模块项目（`isMultiModule && moduleNames`）自动生成模块勾选列表（默认全选），在步骤 2 构建配置下方展示
 - 步骤 4 确认页摘要含「部署模块」行
 
-**代码目录定位（重点）**：`scanProject` 传入的是 `gitRepos[].path`（仓库根目录）。但**代码常不在仓库根目录**（如商城项目在 `src/xxx` 子模块），此时根目录扫描结果为空 → 模块区不显示。向导在步骤 1 提供「选择目录」按钮（`pickLocalDir` → `showOpenDialogForDirs`），将实际代码目录存入 `draft.localPath` 后重新扫描；createConfigFromWizard 会把 localPath 一并写入 `config.localPath`，保证后续构建正确。
+**代码目录定位（重点）**：`scanProject` 传入的是 `gitRepos[].path`（仓库根目录）。但**代码常不在仓库根目录**（如商城项目在 `src/xxx` 子模块），此时根目录扫描结果为空 → 模块区不显示。向导在步骤 1 提供「选择目录」按钮（`pickLocalDir` → `showOpenDialogForDirs`，对话框默认定位到仓库根目录），将实际代码目录存入 `draft.localPath` 后重新扫描；createConfigFromWizard 会把 localPath 一并写入 `config.localPath`，保证后续构建正确。
 
-完成回调 `CiCdConfig.vue::createConfigFromWizard`：写入 config 基础字段、deployServers、`modules` 数组（自动开启 `parentBuildMode`，`parentBuildPath` 取 git 仓库本地路径），随后统一走 `saveConfig` 落库。
+**多模块部署模式（重点）**：多模块项目有三种部署模式，向导第 2 步让用户选择，后端已全支持：
+1. `single-jar` 打包单 Jar：`parentBuildMode=true`，父 POM 一次构建单个产物；模块勾选列表不落库；`parentBuildPath` 由父组件取 git 仓库根路径兜底（勿用子目录）
+2. `multi-module` 逐模块独立构建：每模块独立构建并部署到独立远程目录（`parentBuildMode=false`）
+3. `jar-lib` Jar 与 Lib 分离：业务 jar 与依赖 lib 分离上传（`config.libSeparate`，模块级 `libFilterRules` 控制过滤）
+
+**坑**：createConfigFromWizard 曾把多模块一律强制 `parentBuildMode=true`（单 jar），导致逐模块部署的项目被错误打包；现改为用户显式选择部署模式，向导 finish 传入 `parentBuildMode/parentBuildPath/libSeparate/modules` 由父组件落库。
+
+完成回调 `CiCdConfig.vue::createConfigFromWizard`：写入 config 基础字段、deployServers、modules 数组及部署模式字段，随后统一走 `saveConfig` 落库。
 
 ### 编辑表单（src/views/cicd/CiCdConfig.vue，重构）
 
