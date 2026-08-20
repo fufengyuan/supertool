@@ -656,6 +656,47 @@ fn shell_quote_path(p: &str) -> String {
     }
 }
 
+/// 生成历史轮转日志的 find -name 匹配条件（按文件名中的日期后缀对齐，而非 mtime）。
+///
+/// 背景：gzip 轮转日志的文件名后缀等于「数据日期」，而 mtime 是「压缩/轮转时间」（多为次日），
+/// 旧实现用 `-newermt` 按 mtime 匹配会有一天的数据偏移（搜 08-19 命中 08-18 数据）。
+/// 这里改为匹配文件名后缀，常见两种命名：`app.log.2026-08-06(.gz)` 与 `app.log-20260806(.gz)`；
+/// 当日日期同时出现在未轮转（无日期后缀）的活动日志中，故当天额外纳入 `$BASE`。
+fn date_name_filters(date: Option<&str>, days: Option<u64>) -> String {
+    let today = chrono::Local::now().date_naive();
+    let today_iso = today.format("%Y-%m-%d").to_string();
+    let mut dates: Vec<chrono::NaiveDate> = Vec::new();
+    if let Some(d) = date {
+        if let Ok(parsed) = chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d") {
+            dates.push(parsed);
+        }
+    } else {
+        let n = days.unwrap_or(1).max(1).min(30) as i64;
+        for i in 0..n {
+            dates.push(today - chrono::Duration::days(i));
+        }
+    }
+    let mut filters: Vec<String> = Vec::new();
+    for d in &dates {
+        let iso = d.format("%Y-%m-%d").to_string();
+        let compact = d.format("%Y%m%d").to_string();
+        filters.push(format!("-name \"*{}*\"", iso));
+        if compact != iso {
+            filters.push(format!("-name \"*{}*\"", compact));
+        }
+        if iso == today_iso {
+            filters.push("-name \"$BASE\"".to_string());
+        }
+    }
+    if filters.is_empty() {
+        String::new()
+    } else if filters.len() == 1 {
+        filters[0].clone()
+    } else {
+        format!("\\( {} \\)", filters.join(" -o "))
+    }
+}
+
 fn build_grep_command(
     preset: &Value,
     keyword: &str,
@@ -675,8 +716,20 @@ fn build_grep_command(
     // 避免 grep 把关键字当作 BRE 正则（如 traceId 含 `.`/`-` 等元字符时
     // 用完整 traceId 搜不到，而后缀纯数字能搜到——正是正则解析差异导致）
     let grep = format!("grep{} -i -F -n '{}'", grep_ctx, escaped_kw);
-    // 历史轮转日志多为 gzip，zgrep 自动解压匹配（对非 gz 文件也可透传）；仅历史分支使用
-    let zgrep = format!("zgrep{} -i -F -n '{}'", grep_ctx, escaped_kw);
+    // 历史轮转日志多为 gzip，按扩展名分支解压：
+    //   *.gz  → gzip -cd | grep（管道自动解压，不依赖 `zgrep`——部分服务器 zgrep
+    //            对非 gzip 文件静默不出结果，与 gzip 版本相关）
+    //   其余  → grep 直读。仅历史分支使用。
+    // 参数布局（sh -c 'SCRIPT' sh <KW> <FILE>，find --exec \; 每次传一个文件）：
+    //   $1 = 关键字；$2 = 当前文件名。用 $2 定位文件，避免 `$@` 把 $1 关键字也带进循环，
+    //   导致对不存在的"名为关键字的路径"多做一次无效 grep。
+    let gz_grep_script = format!(
+        "case \"$2\" in *.gz) gzip -cd -- \"$2\" 2>/dev/null | grep{} -i -F -n -- \"$1\" ;; *) grep{} -i -F -n -- \"$1\" \"$2\" 2>/dev/null ;; esac",
+        grep_ctx, grep_ctx,
+    );
+    // 关键字以位置参数 "$1" 传入（脚本内除 "$1"/"$2" 外不含任何 shell 元字符引用，规避嵌套引号）
+    // 用 `\;`（每文件一次 sh）而非 `+`（批量）：busybox find/sh 对 `-exec ... +` 支持不完整
+    let gz_exec = format!("-exec sh -c '{}' sh '{}' {{}} \\;", gz_grep_script, escaped_kw);
     // journalctl --grep 走 ERE 正则，需把关键字转义为字面量后再加 shell 单引号转义
     let journal_kw = regex::escape(keyword).replace('\'', "'\\''");
 
@@ -737,26 +790,24 @@ fn build_grep_command(
                 return "echo 'No log paths configured'".to_string();
             }
             let q = |p: &str| shell_quote_path(p);
-            // 历史日志：按日期/mtime 匹配日志目录下的轮转文件（任意命名：app.log.1 / app.log-20260806 / app.log.2026-08-06）
+            // 历史日志：按文件名中的日期后缀对齐（app.log.2026-08-06 / app.log-20260806），
+            // 取代按 mtime（-newermt）匹配，避免 gz 轮转日志 mtime=压缩次日导致的日期偏移。
+            // 解压分支（gz_exec）自解压 *.gz，其余经 sh -c 透传 grep 直读，
+            //  2>/dev/null 抑制 gzip 的 "not in gzip format" 噪音
             if date.is_some() || days.is_some() {
-                let boundary = if let Some(d) = date {
-                    format!("-newermt '{} 00:00:00' ! -newermt '{} 23:59:59'", d, d)
-                } else {
-                    format!("-newermt '{} days ago'", days.unwrap_or(1).max(1))
-                };
-                let cmds: Vec<String> = paths
-                    .iter()
-                    .map(|p| {
-                        // 支持 gzip 轮转日志：find 不再排除 *.gz，改用 zgrep 自动解压匹配
-                        // （mtime 即轮转/压缩时间，按日期窗口命中 .gz 历史文件；非 gz 也能透传，
-                        //  2>/dev/null 抑制 gzip 的 "not in gzip format" 噪音）
-                        format!(
-                            "DIR=$(dirname {}); BASE=$(basename {}); find \"$DIR\" -maxdepth 1 -type f \\( -name \"$BASE\" -o -name \"$BASE.*\" -o -name \"$BASE-*\" \\) {} -exec {} {{}} + 2>/dev/null",
-                            q(p), q(p), boundary, zgrep,
-                        )
-                    })
-                    .collect();
-                return cmds.join(" ; ");
+                let date_filter = date_name_filters(date, days);
+                if !date_filter.is_empty() {
+                    let cmds: Vec<String> = paths
+                        .iter()
+                        .map(|p| {
+                            format!(
+                                "DIR=$(dirname {}); BASE=$(basename {}); find \"$DIR\" -maxdepth 1 -type f \\( -name \"$BASE\" -o -name \"$BASE.*\" -o -name \"$BASE-*\" \\) -a {} -a {} 2>/dev/null",
+                                q(p), q(p), date_filter, gz_exec,
+                            )
+                        })
+                        .collect();
+                    return cmds.join(" ; ");
+                }
             }
             format!(
                 "{} {} 2>/dev/null",
@@ -961,5 +1012,54 @@ mod tests {
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0]["lineNum"], "5");
         assert_eq!(lines[0]["isMatch"], true);
+    }
+
+    #[test]
+    fn date_name_filters_matches_iso_and_compact_suffix() {
+        // 指定某一天：应同时生成 ISO(-) 与紧凑(纯数字) 两种 -name 后缀条件
+        let f = date_name_filters(Some("2026-08-19"), None);
+        assert!(f.contains("2026-08-19"), "应包含 ISO 日期后缀: {}", f);
+        assert!(f.contains("20260819"), "应包含紧凑日期后缀: {}", f);
+        // 非当天，不应纳入无日期后缀的活动日志 BASE
+        assert!(!f.contains("$BASE"), "非当天不应匹配活动日志: {}", f);
+    }
+
+    #[test]
+    fn date_name_filters_today_includes_active_log() {
+        // 当天（date 未指定、days=1 即今天）：除日期后缀外应额外纳入 $BASE
+        // 以保证搜索当天时能命中尚未轮转（无日期后缀）的活动日志
+        let f = date_name_filters(None, Some(1));
+        assert!(f.contains("$BASE"), "当天应匹配活动日志 BASE: {}", f);
+    }
+
+    #[test]
+    fn date_name_filters_days_builds_backward_range() {
+        // days=3 应覆盖今天 + 前 2 天，且彼此用 -o 连接
+        let today = chrono::Local::now().date_naive();
+        let y1 = (today - chrono::Duration::days(1)).format("%Y%m%d").to_string();
+        let y2 = (today - chrono::Duration::days(2)).format("%Y%m%d").to_string();
+        let f = date_name_filters(None, Some(3));
+        assert!(f.contains(&y1), "应包含前一天紧凑后缀: {}", f);
+        assert!(f.contains(&y2), "应包含前两天紧凑后缀: {}", f);
+        assert!(f.contains("$BASE"), "今天应含活动日志 BASE: {}", f);
+        assert!(f.contains(" -o "), "多日期应 OR 连接: {}", f);
+    }
+
+    #[test]
+    fn build_grep_file_historical_uses_date_filter_and_gz_branch() {
+        // file 类型 + 指定 date：命令应包含按文件名后缀的日期过滤与 gz 解压分支
+        // （不含 mtime 的 -newermt，说明已按文件名后缀对齐日期的实现生效）
+        let preset = serde_json::json!({
+            "logType": "file",
+            "logPath": "/opt/logs/mall-server.log",
+        });
+        let cmd = build_grep_command(&preset, "支付下单", 0, Some("2026-08-18"), None);
+        assert!(!cmd.contains("newermt"), "不应再按 mtime 匹配: {}", cmd);
+        assert!(cmd.contains("gzip -cd"), "应含 gz 解压分支: {}", cmd);
+        assert!(cmd.contains("-name \"*2026-08-18*\"") || cmd.contains("-name \"*20260818*\""),
+            "应按文件名后缀日期过滤: {}", cmd);
+        // 关键字以位置参数 "$1" 传入（历史分支脚本内不直接内嵌关键字）
+        assert!(cmd.contains("sh -c ") && cmd.contains("'支付下单'"),
+            "应使用 sh -c 分支且关键字以位置参数传入: {}", cmd);
     }
 }
