@@ -7,7 +7,7 @@
           <h3 class="m-0 text-xl font-bold text-base-content flex items-center gap-2">
             <SvgIcon name="rocket" :size="20" /> 新建部署配置
           </h3>
-          <p class="m-0 mt-1 text-sm text-base-content/60">按步骤快速创建，高级能力（多环境/模块/健康检查）可在创建后继续配置</p>
+          <p class="m-0 mt-1 text-sm text-base-content/60">按步骤快速创建；多环境、健康检查等高级能力可在创建后继续配置</p>
         </div>
         <button class="btn btn-ghost btn-sm" @click="emit('cancel')">取消</button>
       </div>
@@ -105,6 +105,30 @@
             </select>
             <input v-if="draft.npmScript === 'custom'" v-model="draft.npmCustomScript" class="input input-bordered w-full bg-base-200 text-sm mt-2" placeholder="脚本名称" />
           </div>
+
+          <!-- 多模块识别区（仅多模块项目显示） -->
+          <div v-if="isMultiModule" class="border border-primary/20 rounded-xl overflow-hidden">
+            <div class="flex items-center gap-2 px-4 py-3 bg-primary/5 border-b border-primary/10">
+              <SvgIcon name="layers" :size="15" class="text-primary flex-shrink-0" />
+              <span class="text-sm font-semibold text-base-content">部署模块</span>
+              <span v-if="scanningProj" class="ml-1 loading loading-spinner loading-xs text-primary" />
+              <span v-else class="ml-1 text-xs text-base-content/60">识别到 {{ modules.length }} 个模块{{ selectedModules.length ? `，已勾选 ${selectedModules.length} 个` : '' }}</span>
+              <span class="ml-auto text-[10px] text-base-content/50">父 POM 统一构建，每个模块部署到独立远程目录</span>
+            </div>
+            <div class="p-2 max-h-56 overflow-y-auto flex flex-col">
+              <label
+                v-for="m in modules" :key="m.moduleName"
+                class="flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer select-none hover:bg-base-200/60 transition-colors"
+              >
+                <input v-model="m.checked" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
+                <span class="text-sm font-medium text-base-content">{{ m.moduleName }}</span>
+                <span class="ml-auto text-xs text-base-content/40 font-mono">{{ m.modulePath }}</span>
+              </label>
+              <div v-if="!selectedModules.length" class="px-3 py-2 text-xs text-amber-600">
+                未勾选任何模块，将不部署子模块
+              </div>
+            </div>
+          </div>
           <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
             <SvgIcon name="lightbulb" :size="14" class="shrink-0 mt-0.5" />
             <span>构建工具路径（Maven/JDK/Node 等）会自动检测填充，创建后在「构建配置」分组中可查看和修改</span>
@@ -176,6 +200,7 @@ import type { Server } from '../../types'
 interface GitRepoEntry { id: string; name: string; path?: string; branch?: string }
 interface ServerGroupEntry { id: string; name: string; color: string; parentId: string | null }
 interface BuildToolOption { key: string; name: string; icon: string; version?: string; available: boolean }
+interface ModuleItem { moduleName: string; modulePath: string; checked: boolean }
 
 const props = defineProps<{
   gitRepos: GitRepoEntry[]
@@ -216,6 +241,9 @@ const draft = reactive({
   deployPath: '',
 })
 
+// 多模块：扫描识别出 moduleNames 后生成的勾选列表；无多模块则为空数组
+const modules = ref<ModuleItem[]>([])
+
 // 默认选中第一个可用构建工具
 watch(() => props.buildTools, (tools) => {
   if (!draft.buildTool) {
@@ -247,19 +275,30 @@ async function loadBranches() {
   finally { loadingBranches.value = false; }
 }
 
-// 扫描项目自动识别构建工具与推荐部署路径
+// 扫描项目自动识别构建工具与推荐部署路径；多模块项目同时识别子模块
 const scanned = ref<Record<string, unknown>>({})
+const scanningProj = ref(false)
 async function scanProject(path: string) {
   if (!path) {return;}
+  scanningProj.value = true;
   try {
     const result = await getTauriAPI().scanProject(path);
     if (result && typeof result === 'object') {
-      scanned.value = result as Record<string, unknown>;
-      if (result.buildTool) {draft.buildTool = result.buildTool;}
-      if (result.currentBranch && !branches.value.length) {draft.deployBranch = result.currentBranch;}
-      if (result.recommendedScript) {draft.npmScript = result.recommendedScript;}
+      const r = result as Record<string, unknown>;
+      scanned.value = r;
+      if (r.buildTool) {draft.buildTool = r.buildTool as string;}
+      if (r.currentBranch && !branches.value.length) {draft.deployBranch = r.currentBranch as string;}
+      if (r.recommendedScript) {draft.npmScript = r.recommendedScript as string;}
+      // 多模块识别：填充勾选列表（默认全选，父 POM 统一构建）
+      if (r.isMultiModule && Array.isArray(r.moduleNames)) {
+        const names = (r.moduleNames as string[]).filter(Boolean);
+        if (names.length) {
+          modules.value = names.map(n => ({ moduleName: n, modulePath: n, checked: true }));
+          scanned.value.isMultiModule = true;
+        }
+      }
     }
-  } catch { /* 静默失败，用户可手动选择 */ }
+  } finally { scanningProj.value = false; }
 }
 
 const suggestedDeployPath = computed(() =>
@@ -290,16 +329,26 @@ const allValid = computed(() => missingKeys.value.length === 0)
 const repoName = computed(() => props.gitRepos.find(r => r.id === draft.gitRepoId)?.name || '')
 const serverNames = computed(() =>
   selectedServerIds.value.map(id => props.servers.find(s => s.id === id)?.name).filter(Boolean).join('、'))
+// 已勾选要部署的模块
+const selectedModules = computed(() => modules.value.filter(m => m.checked))
+const isMultiModule = computed(() => modules.value.length > 0)
+const moduleSummary = computed(() => selectedModules.value.map(m => m.moduleName).join('、'))
 
-const summaryRows = computed(() => [
-  { label: '配置名称', value: draft.name },
-  { label: 'Git 仓库', value: repoName.value },
-  { label: '部署分支', value: draft.deployBranch },
-  { label: '分组', value: draft.groupName },
-  { label: '构建工具', value: props.buildTools.find(t => t.key === draft.buildTool)?.name || draft.buildTool },
-  { label: '目标服务器', value: serverNames.value },
-  { label: '部署路径', value: draft.deployPath },
-])
+const summaryRows = computed(() => {
+  const rows: { label: string; value: string }[] = [
+    { label: '配置名称', value: draft.name },
+    { label: 'Git 仓库', value: repoName.value },
+    { label: '部署分支', value: draft.deployBranch },
+    { label: '分组', value: draft.groupName },
+    { label: '构建工具', value: props.buildTools.find(t => t.key === draft.buildTool)?.name || draft.buildTool },
+    { label: '目标服务器', value: serverNames.value },
+    { label: '部署路径', value: draft.deployPath },
+  ];
+  if (isMultiModule.value) {
+    rows.push({ label: '部署模块', value: moduleSummary.value || '—' });
+  }
+  return rows;
+})
 
 function goStep(i: number) {
   // 只允许回退或前进一步（前进需当前步校验通过）
@@ -314,7 +363,13 @@ async function finish() {
       const s = props.servers.find(srv => srv.id === id)
       return { serverId: id, label: s?.name || '', deployDir: '' }
     })
-    emit('complete', { ...draft, servers: serverEntries })
+    emit('complete', {
+      ...draft,
+      servers: serverEntries,
+      modules: selectedModules.value.map(m => ({
+        moduleName: m.moduleName, modulePath: m.modulePath, artifactName: '',
+      })),
+    })
   } finally {
     creating.value = false;
   }
