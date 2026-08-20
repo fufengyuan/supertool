@@ -675,6 +675,8 @@ fn build_grep_command(
     // 避免 grep 把关键字当作 BRE 正则（如 traceId 含 `.`/`-` 等元字符时
     // 用完整 traceId 搜不到，而后缀纯数字能搜到——正是正则解析差异导致）
     let grep = format!("grep{} -i -F -n '{}'", grep_ctx, escaped_kw);
+    // 历史轮转日志多为 gzip，zgrep 自动解压匹配（对非 gz 文件也可透传）；仅历史分支使用
+    let zgrep = format!("zgrep{} -i -F -n '{}'", grep_ctx, escaped_kw);
     // journalctl --grep 走 ERE 正则，需把关键字转义为字面量后再加 shell 单引号转义
     let journal_kw = regex::escape(keyword).replace('\'', "'\\''");
 
@@ -745,9 +747,12 @@ fn build_grep_command(
                 let cmds: Vec<String> = paths
                     .iter()
                     .map(|p| {
+                        // 支持 gzip 轮转日志：find 不再排除 *.gz，改用 zgrep 自动解压匹配
+                        // （mtime 即轮转/压缩时间，按日期窗口命中 .gz 历史文件；非 gz 也能透传，
+                        //  2>/dev/null 抑制 gzip 的 "not in gzip format" 噪音）
                         format!(
-                            "DIR=$(dirname {}); BASE=$(basename {}); find \"$DIR\" -maxdepth 1 -type f \\( -name \"$BASE\" -o -name \"$BASE.*\" -o -name \"$BASE-*\" \\) ! -name '*.gz' {} -exec {} {{}} + 2>/dev/null",
-                            q(p), q(p), boundary, grep,
+                            "DIR=$(dirname {}); BASE=$(basename {}); find \"$DIR\" -maxdepth 1 -type f \\( -name \"$BASE\" -o -name \"$BASE.*\" -o -name \"$BASE-*\" \\) {} -exec {} {{}} + 2>/dev/null",
+                            q(p), q(p), boundary, zgrep,
                         )
                     })
                     .collect();
