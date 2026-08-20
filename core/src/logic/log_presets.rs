@@ -671,7 +671,12 @@ fn build_grep_command(
     } else {
         String::new()
     };
-    let grep = format!("grep{} -i -n '{}'", grep_ctx, escaped_kw);
+    // 用 -F 固定字符串匹配：traceId / 完整关键字原样按字面子串匹配，
+    // 避免 grep 把关键字当作 BRE 正则（如 traceId 含 `.`/`-` 等元字符时
+    // 用完整 traceId 搜不到，而后缀纯数字能搜到——正是正则解析差异导致）
+    let grep = format!("grep{} -i -F -n '{}'", grep_ctx, escaped_kw);
+    // journalctl --grep 走 ERE 正则，需把关键字转义为字面量后再加 shell 单引号转义
+    let journal_kw = regex::escape(keyword).replace('\'', "'\\''");
 
     // 历史查询目前仅支持 file 类型（docker/journalctl 的历史时间范围语法差异大）
     if (date.is_some() || days.is_some()) && (log_type == "docker" || log_type == "journalctl") {
@@ -694,7 +699,7 @@ fn build_grep_command(
                     format!(
                         "docker logs '{}' 2>&1 | {} 2>/dev/null",
                         c,
-                        format!("grep{} -i -n '{}'", grep_ctx, escaped_kw)
+                        format!("grep{} -i -F -n '{}'", grep_ctx, escaped_kw)
                     )
                 })
                 .collect::<Vec<_>>()
@@ -707,7 +712,7 @@ fn build_grep_command(
                 .map(|u| u.trim().to_string())
                 .collect();
             if units.is_empty() {
-                format!("journalctl --grep='{}' --no-pager 2>/dev/null", escaped_kw)
+                format!("journalctl --grep='{}' --no-pager 2>/dev/null", journal_kw)
             } else {
                 let unit_args: Vec<String> = units
                     .iter()
@@ -716,7 +721,7 @@ fn build_grep_command(
                 format!(
                     "journalctl {} --grep='{}' --no-pager 2>/dev/null",
                     unit_args.join(" "),
-                    escaped_kw
+                    journal_kw
                 )
             }
         }
