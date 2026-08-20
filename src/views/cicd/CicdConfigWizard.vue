@@ -64,9 +64,21 @@
               </button>
             </div>
           </div>
+          <div>
+            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">本地代码目录</label>
+            <div class="flex gap-1.5">
+              <input :value="draft.localPath" readonly class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="用于扫描构建工具与模块（默认取 Git 仓库根目录）" />
+              <button class="btn btn-ghost btn-sm whitespace-nowrap" @click="pickLocalDir" title="选择实际代码目录（如 src/xxx，不在仓库根目录时）">
+                <SvgIcon name="folderOpen" :size="14" /> 选择目录
+              </button>
+              <button v-if="draft.localPath" class="btn btn-ghost btn-sm" @click="scanProject(draft.localPath)" title="重新扫描" :disabled="scanningProj">
+                <SvgIcon name="refresh" :size="14" :class="{ 'animate-spin': scanningProj }" />
+              </button>
+            </div>
+          </div>
           <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
             <SvgIcon name="lightbulb" :size="14" class="shrink-0 mt-0.5" />
-            <span>选择仓库后将自动扫描项目识别构建工具、推荐部署路径；未识别的部分可在后续步骤手动调整</span>
+            <span>默认按 Git 仓库根目录扫描；若代码在子目录（如 <code class="bg-base-200 px-1 rounded">src/xxx</code>），请用「选择目录」定位实际代码位置，以正确识别构建工具与多模块{{ scanningProj ? '，正在扫描...' : '' }}</span>
           </div>
         </div>
 
@@ -239,6 +251,8 @@ const draft = reactive({
   npmCustomScript: '',
   restartScript: './restart.sh',
   deployPath: '',
+  // 实际代码目录（可能不在 git 仓库根目录，如 src/xxx 子模块），用于扫描识别构建工具与模块
+  localPath: '',
 })
 
 // 多模块：扫描识别出 moduleNames 后生成的勾选列表；无多模块则为空数组
@@ -260,8 +274,27 @@ async function onRepoChange() {
   if (!repo) {return;}
   if (!draft.name) {draft.name = repo.name;}
   if (repo.branch) {draft.deployBranch = repo.branch;}
+  if (!draft.localPath) {draft.localPath = repo.path || '';}
   loadBranches();
-  scanProject(repo.path || '');
+  scanProject(draft.localPath);
+}
+
+// 手动选择实际代码目录（模块可能不在 git 仓库根目录，如 src/xxx），并重新扫描
+async function pickLocalDir() {
+  const { getTauriAPI } = await import('../../utils/tauri-api')
+  try {
+    const result = await getTauriAPI().showOpenDialogForDirs()
+    const dir = result?.filePaths?.[0]
+    if (dir) {
+      draft.localPath = dir
+      scanProject(dir)
+      // 未命名时用选中目录名兜底
+      if (!draft.name) {
+        const name = dir.split(/[\\/]/).filter(Boolean).pop() || ''
+        draft.name = name
+      }
+    }
+  } catch { /* 静默 */ }
 }
 
 async function loadBranches() {
