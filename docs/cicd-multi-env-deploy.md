@@ -87,8 +87,11 @@ Jar 与 Lib 分离：勾选时 `config.libSeparate=true`（模块级 `libFilterR
 
 ###### 编辑与新建一致：点击已有配置进入与新建完全相同的水晶向导
 `CiCdConfig.vue` 通过 `openEditWizard(id)` → `wizardMode=true` + `:initial="editWizardInitial"`（config+modules+servers 合成 prefill）让编辑复用同一个 `CicdConfigWizard` 组件，保证「编辑页=新建页」彻底一致。向导完成回调统一走 `applyWizardPayload`（含 id 即更新，反之为新建），模块列表编辑时复用原 `src` 元数据仅调 `enabled`，避免单体模式下误删已有模块。向导内「高级设置」按钮切回分组表单改多环境/健康检查等高级字段；分组表单顶部「返回向导」切回。**坑**：编辑 prefill 会触发 `gitRepoId` watcher → `scanProject`，扫描结果会覆盖已回填的模块列表（丢失元数据与勾选态），已加守卫——编辑模式若已有模块则保留不覆盖，仅首次进入 fallback 扫描兜底。
+**坑（首屏）**：主区「向导 or 旧分组表单」的切换用 `showWizard` **计算属性**（`isNewConfig`→向导；`!selectedConfigId`→空态；否则取 `!advancedModeFromWizard`），不要用「boolean+watcher」驱动——`useCicdConfig::onMounted` 自动选中第一个配置只置 `selectedConfigId`，用 watcher 时首屏存在时序竞态会把布尔值留在 false，误渲染旧分组表单（表现为「刚进页面是旧表单，切换一下配置才变向导」）。且计算属性里判断 `selectedConfigId` 必须用 `cicd.selectedConfigId.value`，直接 `!selectedConfigId` 判断的是 ref 对象本身永远为真。
 
 分组折叠 5 区：基本信息 / 构建配置 / 部署目标 / 多环境部署（tab 切换环境，每环境独立路径、服务器、环境变量、健康检查）/ 部署安全（增量上传开关、健康检查 URL、超时、重试次数）；编辑模式默认隐藏，作为「高级设置」入口。
+
+**向导配置项全覆盖**：向导已把旧分组表单字段全部搬入——步骤2 加 Maven/JDK/Node 路径、settings.xml、cargo 构建命令、单体模式的父构建目录；确认步骤「高级设置」折叠区含 多环境（addEnv/removeEnv：路径/健康检查/环境变量，服务器沿全局勾选）+ 部署保障（增量上传、需审核、健康检查 URL/超时/重试）。`draft`、prefillFromInitial、finish payload、applyWizardPayload 四处保持字段一致（repoUrl/mavenHome/javaHome/nodeHome/mavenSettings/parentBuildPath/buildCommand/incrementalUpload/requiresApproval/healthCheckUrl/healthCheckTimeout/healthCheckRetries/environments）。
 
 ### 部署面板（src/views/cicd/DeployPanel.vue）
 
