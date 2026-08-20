@@ -5,11 +5,16 @@
       <div class="flex items-center justify-between mb-6">
         <div>
           <h3 class="m-0 text-xl font-bold text-base-content flex items-center gap-2">
-            <SvgIcon name="rocket" :size="20" /> 新建部署配置
+            <SvgIcon name="rocket" :size="20" /> {{ editing ? '编辑部署配置' : '新建部署配置' }}
           </h3>
-          <p class="m-0 mt-1 text-sm text-base-content/60">按步骤快速创建；多环境、健康检查等高级能力可在创建后继续配置</p>
+          <p class="m-0 mt-1 text-sm text-base-content/60">{{ editing ? '按步骤修改；多环境、健康检查等高级能力在底部「高级设置」中可继续配置' : '按步骤快速创建；多环境、健康检查等高级能力可在创建后继续配置' }}</p>
         </div>
-        <button class="btn btn-ghost btn-sm" @click="emit('cancel')">取消</button>
+        <div class="flex items-center gap-2">
+          <button v-if="editing" class="btn btn-ghost btn-sm" @click="emit('openAdvanced')" title="切换到分组表单编辑高级字段（多环境/健康检查/工具路径等）">
+            <SvgIcon name="sliders" :size="14" /> 高级设置
+          </button>
+          <button class="btn btn-ghost btn-sm" @click="emit('cancel')">取消</button>
+        </div>
       </div>
 
       <!-- Steps indicator -->
@@ -207,7 +212,7 @@
           <button v-else class="btn btn-primary" :disabled="!allValid || creating" @click="finish">
             <span v-if="creating" class="loading loading-spinner loading-xs" />
             <SvgIcon v-else name="check" :size="14" />
-            {{ creating ? '创建中...' : '创建配置' }}
+            {{ creating ? (editing ? '保存中...' : '创建中...') : (editing ? '保存修改' : '创建配置') }}
           </button>
         </div>
       </div>
@@ -226,7 +231,7 @@ import type { Server } from '../../types'
 interface GitRepoEntry { id: string; name: string; path?: string; branch?: string }
 interface ServerGroupEntry { id: string; name: string; color: string; parentId: string | null }
 interface BuildToolOption { key: string; name: string; icon: string; version?: string; available: boolean }
-interface ModuleItem { moduleName: string; modulePath: string; checked: boolean }
+interface ModuleItem { moduleName: string; modulePath: string; checked: boolean; src?: Record<string, unknown> }
 
 const props = defineProps<{
   gitRepos: GitRepoEntry[]
@@ -234,12 +239,19 @@ const props = defineProps<{
   servers: Server[]
   serverGroups: ServerGroupEntry[]
   buildTools: BuildToolOption[]
+  /** 编辑模式：传入已存在配置预填，complete 时 payload 携带 id 走更新逻辑 */
+  initial?: Record<string, unknown> | null
 }>()
 
 const emit = defineEmits<{
   complete: [payload: Record<string, unknown>]
   cancel: []
+  /** 编辑模式下跳转原「高级设置」分组表单（改高级字段） */
+  openAdvanced: []
 }>()
+
+// 是否编辑模式（存在 id 即编辑）
+const editing = computed(() => !!props.initial?.id)
 
 const steps = [
   { key: 'project', title: '项目与分支' },
@@ -276,6 +288,48 @@ const libSeparate = ref(true)
 
 // 多模块：扫描识别出 moduleNames 后生成的勾选列表；无多模块则为空数组
 const modules = ref<ModuleItem[]>([])
+
+// ── 编辑模式：从已有配置预填向导 ──
+function prefillFromInitial() {
+  const c = props.initial
+  if (!c) {return;}
+  draft.name = (c.name as string) || ''
+  draft.gitRepoId = (c.gitRepoId as string) || ''
+  draft.groupName = (c.groupName as string) || '未分组'
+  draft.deployBranch = (c.deployBranch as string) || 'main'
+  draft.buildTool = (c.buildTool as string) || ''
+  draft.mavenProfile = (c.mavenProfile as string) || 'prod'
+  draft.npmScript = (c.npmScript as string) || 'build'
+  draft.npmCustomScript = (c.npmCustomScript as string) || ''
+  draft.restartScript = (c.restartScript as string) || './restart.sh'
+  draft.deployPath = (c.deployPath as string) || ''
+  draft.localPath = (c.localPath as string) || ''
+  // 部署模式：parentBuildMode=true 单体；false 多模块
+  monolithMode.value = (c.parentBuildMode as boolean) ?? true
+  // Jar/Lib 分离：非多模块项目不可见，保留原值
+  libSeparate.value = (c.libSeparate as boolean) ?? true
+  // 服务器：servers 为 JSON 字符串
+  if (typeof c.servers === 'string' && c.servers) {
+    try {
+      const parsed = JSON.parse(c.servers)
+      if (Array.isArray(parsed)) { selectedServerIds.value = parsed.map((s: { serverId?: string }) => s.serverId).filter((v: string | undefined): v is string => !!v); }
+    } catch {/* 忽略 */}
+  } else if (Array.isArray(c.servers)) {
+    selectedServerIds.value = (c.servers as { serverId?: string }[]).map(s => s.serverId).filter((v: string | undefined): v is string => !!v);
+  }
+  // 模块：已有模块作为勾选列表（默认按 enabled 勾选）
+  const initialMods = Array.isArray(c.modules) ? (c.modules as { moduleName?: string; modulePath?: string; enabled?: boolean }[]) : []
+  if (initialMods.length) {
+    modules.value = initialMods.map(m => ({
+      moduleName: m.moduleName || '',
+      modulePath: m.modulePath || m.moduleName || '',
+      checked: m.enabled !== false,
+      src: { ...m },
+    }))
+  }
+}
+// 编辑模式进入时预填
+watch(() => props.initial, (v) => { if (v?.id) { prefillFromInitial(); } }, { immediate: true })
 
 // 默认选中第一个可用构建工具
 watch(() => props.buildTools, (tools) => {
@@ -349,8 +403,13 @@ async function scanProject(path: string) {
       if (r.isMultiModule && Array.isArray(r.moduleNames)) {
         const names = (r.moduleNames as string[]).filter(Boolean);
         if (names.length) {
-          modules.value = names.map(n => ({ moduleName: n, modulePath: n, checked: true }));
-          scanned.value.isMultiModule = true;
+          // 编辑模式且已回填已有模块时：保留已保存模块（含 src 元数据与勾选态），避免扫描覆盖
+          if (editing.value && modules.value.length) {
+            scanned.value.isMultiModule = true;
+          } else {
+            modules.value = names.map(n => ({ moduleName: n, modulePath: n, checked: true }));
+            scanned.value.isMultiModule = true;
+          }
         }
       }
     }
@@ -427,16 +486,29 @@ async function finish() {
     // 多模块部署：逐模块独立构建，各自部署独立目录
     // parentBuildPath 交由父组件决定（取 git 仓库根目录，指向父 POM）
     const monolith = monolithMode.value
+    // 编辑模式：始终复用已有模块（含 src 原字段，仅调 enabled），避免单体模式下误删已有模块
+    // 新建模式：单体部署不落模块列表；多模块仅落勾选出的模块
+    const modPayload = editing
+      ? modules.value.map(m => ({
+          ...(m.src as Record<string, unknown>),
+          moduleName: m.moduleName,
+          modulePath: m.modulePath,
+          enabled: m.checked,
+        }))
+      : (monolith ? [] : selectedModules.value.map(m => ({
+          moduleName: m.moduleName,
+          modulePath: m.modulePath,
+          enabled: m.checked,
+        })))
     emit('complete', {
       ...draft,
+      id: (props.initial as Record<string, unknown> | null)?.id ?? null,
       servers: serverEntries,
       parentBuildMode: monolith,
       parentBuildPath: '',
       // 非多模块项目不可见该开关，fallback 为 false（避免误开启分离上传）
       libSeparate: isMultiModule.value && libSeparate.value,
-      modules: monolith ? [] : selectedModules.value.map(m => ({
-        moduleName: m.moduleName, modulePath: m.modulePath, artifactName: '',
-      })),
+      modules: modPayload,
     })
   } finally {
     creating.value = false;

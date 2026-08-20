@@ -64,7 +64,7 @@
                   :key="cfg.id"
                   class="px-4 py-3.5 rounded-xl cursor-pointer mb-1.5 border border-transparent transition-all duration-150 hover:bg-base-200 hover:border-base-content/10 group"
                   :class="{ 'bg-primary/10 border-primary': selectedConfigId === cfg.id }"
-                  @click="selectConfig(cfg.id)"
+                  @click="openEditWizard(cfg.id)"
                 >
                   <div class="flex items-center gap-1.5 mb-1.5">
                     <span class="text-sm font-semibold text-base-content flex-1 min-w-0" :title="cfg.name || getGitRepoName(cfg.gitRepoId)">{{ cfg.name || getGitRepoName(cfg.gitRepoId) }}</span>
@@ -105,26 +105,31 @@
           <button @click="createNewConfig" class="btn btn-primary btn-lg">＋ 新建部署配置</button>
         </div>
 
-        <!-- New config: 4-step wizard -->
-        <div v-else-if="isNewConfig && wizardMode" class="flex-1 flex flex-col">
+        <!-- Config Wizard: 新建 + 编辑共用 -->
+        <div v-else-if="wizardMode" class="flex-1 flex flex-col">
           <CicdConfigWizard
             :git-repos="gitRepos"
             :groups="groups"
             :servers="servers"
             :server-groups="serverGroups"
             :build-tools="availableBuildTools"
-            @complete="createConfigFromWizard"
+            :initial="editWizardInitial"
+            @complete="applyWizardPayload"
             @cancel="cancelWizard"
+            @open-advanced="openAdvancedFromWizard"
           />
         </div>
 
-        <!-- Config Editor: grouped collapsible sections -->
+        <!-- Config Editor: grouped collapsible sections（编辑模式默认隐藏，作为「高级设置」入口） -->
         <div v-else class="flex-1 flex flex-col">
           <!-- Editor Header -->
           <div class="px-6 pt-5 pb-0 border-b border-base-content/10 bg-base-100 flex-shrink-0">
             <div class="flex items-center justify-between mb-4">
               <h3 class="m-0 text-lg font-bold text-base-content">{{ isNewConfig ? '新建部署配置' : '编辑部署配置' }}</h3>
               <div class="flex gap-2">
+                <button v-if="advancedModeFromWizard" @click="editView" class="btn btn-ghost btn-sm" title="返回向导编辑核心字段">
+                  <SvgIcon name="chevronLeft" :size="14" class="inline-block align-text-bottom" /> 返回向导
+                </button>
                 <button @click="handleTestConnection" class="btn btn-ghost btn-sm" :disabled="!deployServers.some(s => s.serverId) || testingConn">
                   <SvgIcon v-if="!testingConn" name="link" :size="14" class="inline-block align-text-bottom" />
                   <span v-else class="loading loading-spinner loading-xs" />
@@ -802,96 +807,36 @@
               </div>
             </div>
 
-            <div v-if="modules.length > 0" class="flex flex-col gap-2">
-              <div v-for="(module, idx) in modules" :key="module.id || idx" class="border border-base-content/10 rounded-xl overflow-hidden bg-base-100 transition-all duration-150 hover:border-primary group">
-                <div class="cursor-pointer px-3.5 py-2.5 transition-colors duration-150 hover:bg-base-200" @click="toggleModuleExpand(idx)">
-                  <div class="flex items-center gap-2.5">
-                    <SvgIcon name="chevronDown" size="16" class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ 'rotate-180': expandedModules.includes(idx) }" />
-                    <span class="text-xs font-semibold text-base-content/60 flex-shrink-0">#{{ idx + 1 }}</span>
-                    <input v-model="module.moduleName" class="flex-1 px-2.5 py-1.5 border border-base-content/10 rounded-md bg-base-200 text-base-content text-sm font-medium min-w-0 focus:border-primary focus:outline-none focus:shadow-[0_0_0_2px_rgba(64,158,255,0.1)]" placeholder="模块名称" @click.stop />
-                    <label class="toggle" @click.stop>
-                      <input type="checkbox" v-model="module.enabled" />
-                    </label>
-                    <button @click.stop="confirmDeleteModule(module)" class="btn btn-ghost btn-sm btn-square text-error hover:bg-error/10" title="删除">
-                      <SvgIcon name="x" size="14" />
-                    </button>
-                  </div>
+            <div v-if="modules.length > 0" class="border border-primary/20 rounded-xl overflow-hidden mt-1">
+              <div class="flex items-center gap-2 px-4 py-3 bg-primary/5 border-b border-primary/10">
+                <SvgIcon name="layers" :size="15" class="text-primary flex-shrink-0" />
+                <span class="text-sm font-semibold text-base-content">部署模块</span>
+                <span class="ml-1 text-xs text-base-content/60">已配置 {{ modules.length }} 个模块，勾选启用</span>
+                <span class="ml-auto text-[10px] text-base-content/50">{{ modules.filter(m => m.enabled).length }} 个启用</span>
+                <div class="flex gap-1">
+                  <button @click="scanModules" class="btn btn-ghost btn-xs" :disabled="scanningModules || !config.localPath" :title="!config.localPath ? '请先选择有本地路径的项目' : ''">
+                    <template v-if="scanningModules"><SvgIcon name="search" size="12" class="animate-spin" />扫描中...</template>
+                    <template v-else><SvgIcon name="search" size="12" class="inline-block align-text-bottom" />自动识别</template>
+                  </button>
+                  <button @click="addModule" class="btn btn-ghost btn-xs" title="手动添加一个模块">
+                    <SvgIcon name="plus" size="12" class="inline-block align-text-bottom" />手动添加
+                  </button>
                 </div>
-
-                <div v-if="expandedModules.includes(idx)" class="px-3.5 pb-3.5 border-t border-base-content/10 bg-base-200">
-                  <div class="grid grid-cols-2 gap-3 py-3">
-                    <div class="mb-3.5">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">模块路径</label>
-                      <input v-model="module.modulePath" class="input input-bordered w-full bg-base-200 text-sm" placeholder="./sub-module 或留空使用项目根目录" />
-                      <span class="block text-xs text-base-content/60 mt-1">{{ config.parentBuildMode ? '用于定位该模块的产物目录（如 yudao-server/target/），构建在父模块目录统一执行' : '用于定位该模块的产物目录（如 yudao-server/target/）' }}</span>
-                    </div>
-                    <div v-if="!config.parentBuildMode" class="mb-3.5">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建路径</label>
-                      <input v-model="module.buildPath" class="input input-bordered w-full bg-base-200 text-sm" placeholder="子目录路径，如 frontend/admin" />
-                      <span class="block text-xs text-base-content/60 mt-1">在该目录下执行构建命令</span>
-                    </div>
-                    <div v-if="config.parentBuildMode" class="mb-3.5">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">产物路径</label>
-                      <input v-model="module.outputPath" class="input input-bordered w-full bg-base-200 text-sm" placeholder="target/ (默认)" />
-                      <span class="block text-xs text-base-content/60 mt-1">相对于模块路径的构建产物目录</span>
-                    </div>
-                  </div>
-
-                  <div v-if="!config.parentBuildMode" class="grid grid-cols-2 gap-3 py-3">
-                    <div class="mb-3.5">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建工具</label>
-                      <select v-model="module.buildTool" class="select select-bordered w-full bg-base-200 text-sm">
-                        <option value="">继承全局</option>
-                        <option value="maven">Maven</option>
-                        <option value="npm">npm</option>
-                        <option value="pnpm">pnpm</option>
-                        <option value="yarn">Yarn</option>
-                        <option value="gradle">Gradle</option>
-                        <option value="custom">自定义命令</option>
-                      </select>
-                    </div>
-                    <div class="mb-3.5">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建命令</label>
-                      <input v-model="module.buildCommand" class="input input-bordered w-full bg-base-200 text-sm" placeholder="留空使用默认: mvn clean package / npm run build" />
-                      <span class="block text-xs text-base-content/60 mt-1">为空时自动使用全局构建工具</span>
-                    </div>
-                  </div>
-
-                  <div class="grid grid-cols-2 gap-3 py-3 last:pb-1">
-                    <div v-if="!config.parentBuildMode" class="mb-3.5">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">产物路径</label>
-                      <input v-model="module.outputPath" class="input input-bordered w-full bg-base-200 text-sm" placeholder="target/ 或 dist/ 或 build/" />
-                      <span class="block text-xs text-base-content/60 mt-1">构建完成后产物所在的目录</span>
-                    </div>
-                    <div class="mb-3.5">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">远程部署路径 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(留空使用全局部署路径)</span></label>
-                      <input v-model="module.deployPath" class="input input-bordered w-full bg-base-200 text-sm" placeholder="/opt/app-gateway 或留空使用全局" />
-                      <span class="block text-xs text-base-content/60 mt-1">设置后，该模块产物将上传到指定远程目录，而非全局部署路径。父模块统一构建模式下，每个模块可独立设置</span>
-                    </div>
-                    <div class="mb-3.5">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">产物类型</label>
-                      <select v-model="module.artifactType" class="select select-bordered w-full bg-base-200 text-sm">
-                        <option value="">自动检测</option>
-                        <option value="jar">单个 JAR 包</option>
-                        <option value="jar-plus-lib">JAR + lib 目录（薄包部署）</option>
-                        <option value="dist">前端构建产物目录</option>
-                      </select>
-                      <span class="block text-xs text-base-content/60 mt-1">薄包部署时选择「JAR + lib 目录」，将同时上传 JAR 和依赖库</span>
-                    </div>
-                    <div class="mb-3.5" v-if="module.artifactType === 'jar' || module.artifactType === 'jar-plus-lib'">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">JAR 文件名 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(留空自动检测)</span></label>
-                      <input v-model="module.artifactName" class="input input-bordered w-full bg-base-200 text-sm" placeholder="app.jar 或留空自动检测" />
-                    </div>
-                    <div class="mb-3.5" v-if="module.artifactType === 'jar-plus-lib'">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Lib 过滤规则 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(可选，一行一个，支持 * 通配符)</span></label>
-                      <textarea v-model="module.libFilterRules" class="textarea textarea-bordered w-full bg-base-200 text-xs font-mono resize-y leading-relaxed" rows="4" placeholder="yudao-*&#10;my-service-*&#10;留空表示全量上传" />
-                      <span class="block text-xs text-base-content/60 mt-1">只上传匹配规则的 lib 文件，不配置则上传全部</span>
-                    </div>
-                    <div class="mb-3.5">
-                      <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署顺序</label>
-                      <input v-model.number="module.deployOrder" type="number" class="input input-bordered w-full bg-base-200 text-sm" placeholder="0" />
-                    </div>
-                  </div>
+              </div>
+              <div class="p-2 max-h-60 overflow-y-auto flex flex-col">
+                <label
+                  v-for="(module, idx) in modules" :key="module.id || idx"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer select-none hover:bg-base-200/60 transition-colors"
+                >
+                  <input v-model="module.enabled" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
+                  <span class="text-sm font-medium text-base-content">{{ module.moduleName }}</span>
+                  <span class="ml-auto text-xs text-base-content/40 font-mono">{{ module.modulePath }}</span>
+                  <button @click.stop="confirmDeleteModule(module)" class="btn btn-ghost btn-square btn-xs text-error hover:bg-error/10" title="删除">
+                    <SvgIcon name="x" size="13" />
+                  </button>
+                </label>
+                <div v-if="!modules.some(m => m.enabled)" class="px-3 py-2 text-xs text-amber-600">
+                  未勾选任何模块，将不部署子模块
                 </div>
               </div>
             </div>
@@ -966,25 +911,55 @@ const expandedSections = ref<Record<string, boolean>>({
   safety: false,
 });
 
-// ─── 新建配置向导 ───
+// ─── 配置向导（新建 + 编辑共用）───
 const wizardMode = ref(false);
-// 新建配置 → 向导模式；选中已有配置 → 退出向导
-watch(() => cicd.isNewConfig.value, (v) => { if (v) { wizardMode.value = true; } });
+// 编辑模式下：当前是否该显示向导（true=向导，false=高级设置分组表单）
+const advancedModeFromWizard = ref(false);
+// 新建配置 → 向导模式；选中已有配置 → 也进入向导
+watch(() => cicd.isNewConfig.value, (v) => { if (v) { wizardMode.value = true; advancedModeFromWizard.value = false; } });
+
+// 编辑模式预填数据：config + modules（合成向导 initial）
+const editWizardInitial = computed<Record<string, unknown> | null>(() => {
+  if (cicd.isNewConfig.value || !selectedConfigId.value) {return null;}
+  return { ...cicd.config.value, modules: cicd.modules.value, servers: cicd.deployServers.value };
+});
+
+// 点击已有配置：加载后进入编辑向导
+async function openEditWizard(id: string) {
+  cicd.isNewConfig.value = false;
+  cicd.selectedConfigId.value = id;
+  try { await cicd.loadConfig(id); } catch {/* 忽略 */}
+  wizardMode.value = true;
+  advancedModeFromWizard.value = false;
+}
+
+function openAdvancedFromWizard() {
+  wizardMode.value = false;
+  advancedModeFromWizard.value = true;
+  expandedSections.value = { basic: true, build: true, deploy: true, envs: false, safety: false };
+}
+
+function editView() {
+  wizardMode.value = true;
+  advancedModeFromWizard.value = false;
+}
 
 function cancelWizard() {
   wizardMode.value = false;
+  advancedModeFromWizard.value = false;
   cicd.isNewConfig.value = false;
   cicd.selectedConfigId.value = '';
 }
 
-async function createConfigFromWizard(payload: Record<string, unknown>) {
+// 向导完成：新建 or 更新（payload 携带 id 即为编辑）
+async function applyWizardPayload(payload: Record<string, unknown>) {
   const p = payload as {
-    name?: string; gitRepoId?: string; groupName?: string; deployBranch?: string;
+    id?: string | null; name?: string; gitRepoId?: string; groupName?: string; deployBranch?: string;
     buildTool?: string; mavenProfile?: string; npmScript?: string; npmCustomScript?: string;
     restartScript?: string; deployPath?: string; localPath?: string;
     parentBuildMode?: boolean; parentBuildPath?: string; libSeparate?: boolean;
     servers?: { serverId: string; label?: string; deployDir?: string }[];
-    modules?: { moduleName: string; modulePath: string; artifactName?: string }[];
+    modules?: (DeployModule | { moduleName: string; modulePath: string; enabled: boolean })[];
   };
   Object.assign(cicd.config.value, {
     name: p.name || '',
@@ -1004,27 +979,46 @@ async function createConfigFromWizard(payload: Record<string, unknown>) {
   });
   // 代码实际目录（可能不在 git 仓库根目录，如 src/xxx）
   if (p.localPath) { cicd.config.value.localPath = p.localPath; }
-  cicd.deployServers.value = (p.servers || []).map(s => ({
-    serverId: s.serverId, label: s.label || '', deployDir: s.deployDir || '',
-  }));
-  // 多模块：向导传入的模块勾选随配置一并保存
-  cicd.modules.value = (p.modules || []).map(m => ({
-    id: null, configId: null,
-    moduleName: m.moduleName, modulePath: m.modulePath || m.moduleName,
-    artifactName: m.artifactName || '', deployOrder: 0, enabled: true,
-    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-  }));
+  cicd.deployServers.value = (p.servers || []).map(s => {
+    // 编辑时保留已有 deployDir（向导不涉及该字段）
+    const existing = cicd.deployServers.value.find(d => d.serverId === s.serverId);
+    return { serverId: s.serverId, label: s.label || '', deployDir: s.deployDir || existing?.deployDir || '' };
+  });
+  // 多模块：编辑时保留已有模块 id（复用 src 原字段仅调 enabled）；新建时重建
+  cicd.modules.value = (p.modules || []).map(m => {
+    const src = (m as DeployModule);
+    const isExisting = src.id != null;
+    return {
+      id: isExisting ? src.id : null,
+      configId: isExisting ? (cicd.config.value.id == null ? null : cicd.config.value.id) : null,
+      moduleName: (m as { moduleName: string }).moduleName,
+      modulePath: (m as { modulePath: string }).modulePath || (m as { moduleName: string }).moduleName,
+      artifactName: src.artifactName || '',
+      artifactType: src.artifactType || '',
+      buildCommand: src.buildCommand || '',
+      buildPath: src.buildPath || '',
+      outputPath: src.outputPath || '',
+      buildTool: src.buildTool || '',
+      deployPath: src.deployPath || '',
+      enabled: (m as { enabled: boolean }).enabled !== false,
+      deployOrder: src.deployOrder ?? 0,
+      createdAt: src.createdAt || new Date().toISOString(),
+      updatedAt: src.updatedAt || new Date().toISOString(),
+    } as DeployModule;
+  });
   // 单 jar 模式（parentBuildMode=true）：补充父构建目录，取 git 仓库本地路径
   if (cicd.config.value.parentBuildMode && !cicd.config.value.parentBuildPath) {
     const repo = gitRepos.value.find((r: any) => r.id === p.gitRepoId);
     cicd.config.value.parentBuildPath = repo?.path || cicd.config.value.localPath || '';
   }
   await handleSave();
-  // 保存成功（saveConfig 内部已把 isNewConfig 置 false）后退出向导
-  if (!cicd.isNewConfig.value) {
-    wizardMode.value = false;
-    expandedSections.value = { basic: true, build: true, deploy: true, envs: false, safety: false };
-  }
+  // 保存成功（saveConfig 内部已把 isNewConfig 置 false）后退出向导，停在被编辑配置的列表选中态
+  charmAfterSave();
+}
+
+function charmAfterSave() {
+  wizardMode.value = false;
+  advancedModeFromWizard.value = false;
 }
 
 const handleSave = async () => {
@@ -1079,7 +1073,7 @@ const {
   showGroupDialog, groupNameInput, groupDialogMode, groupDialogOldName,
   showGroupEditor, newGroupName,
   config, modules, testResult, detectedTools, availableBranches, loadingBranches,
-  expandedModules, scannedModules, scanningModules, showModuleTree, expandedTreeNodes,
+  scannedModules, scanningModules, showModuleTree, expandedTreeNodes,
   defaultPaths, sdkVersions, selectedJavaVersion, selectedNodeVersion, detectingPaths,
   sdkmanInstallGuide, nvmInstallGuide,
   filteredConfigs, groupedConfigs, hasAnyGitSource, gitSources,
@@ -1092,7 +1086,7 @@ const {
   toggleGroup, renameGroup, addGroup, getServerLabel,
   loadConfigs, createNewConfig, selectConfig, onProjectChange, onGitRepoChange, selectLocalDir,
   selectServer, copyGitUrl, loadBranches, testConnection,
-  addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
+  addModule, scanModules, toggleTreeNode, isModuleAlreadyAdded,
   addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
   saveConfig, deleteConfig, copyConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
   switchToGitCloneMode, fetchGitRemoteUrl,
