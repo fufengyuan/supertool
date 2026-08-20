@@ -106,7 +106,7 @@
         </div>
 
         <!-- Config Wizard: 新建 + 编辑共用 -->
-        <div v-else-if="wizardMode" class="flex-1 flex flex-col">
+        <div v-else-if="showWizard" class="flex-1 flex flex-col">
           <CicdConfigWizard
             :git-repos="gitRepos"
             :groups="groups"
@@ -873,7 +873,7 @@ import ModuleTreeNode from './ModuleTreeNode.vue';
 import DeployModeSelector from './DeployModeSelector.vue';
 import GroupedServerSelector from '../server/GroupedServerSelector.vue';
 import CicdConfigWizard from './CicdConfigWizard.vue';
-import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, ref } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 const DeployPanel = defineAsyncComponent(() => import('./DeployPanel.vue'));
@@ -912,18 +912,14 @@ const expandedSections = ref<Record<string, boolean>>({
 });
 
 // ─── 配置向导（新建 + 编辑共用）───
-const wizardMode = ref(false);
 // 编辑模式下：当前是否该显示向导（true=向导，false=高级设置分组表单）
 const advancedModeFromWizard = ref(false);
-// 新建配置 → 向导模式；选中已有配置 → 也进入向导
-watch(() => cicd.isNewConfig.value, (v) => { if (v) { wizardMode.value = true; advancedModeFromWizard.value = false; } });
-
-// 兜底：配置被选中（含首屏自动选中第一个）时确保走向导，而不是旧分组表单
-// 但保留用户在「高级设置」里的切换选择（advancedModeFromWizard=true 时不强转）
-watch(() => cicd.selectedConfigId.value, (id) => {
-  if (id && !cicd.isNewConfig.value && !advancedModeFromWizard.value) {
-    wizardMode.value = true;
-  }
+// 主编辑区显示向导 or 高级设置分组表单
+// 用计算属性而非「boolean + watcher」：消除首屏自动选中 / 加载时序竞态导致的误渲染旧分组表单
+const showWizard = computed(() => {
+  if (cicd.isNewConfig.value) { return true; }        // 新建始终向导
+  if (!cicd.selectedConfigId.value) { return false; } // 未选中：交给上方空态分支
+  return !advancedModeFromWizard.value;               // 编辑默认向导；用户点「高级设置」才切分组表单
 });
 
 // 编辑模式预填数据：config + modules（合成向导 initial）
@@ -937,23 +933,19 @@ async function openEditWizard(id: string) {
   cicd.isNewConfig.value = false;
   cicd.selectedConfigId.value = id;
   try { await cicd.loadConfig(id); } catch {/* 忽略 */}
-  wizardMode.value = true;
   advancedModeFromWizard.value = false;
 }
 
 function openAdvancedFromWizard() {
-  wizardMode.value = false;
   advancedModeFromWizard.value = true;
   expandedSections.value = { basic: true, build: true, deploy: true, envs: false, safety: false };
 }
 
 function editView() {
-  wizardMode.value = true;
   advancedModeFromWizard.value = false;
 }
 
 function cancelWizard() {
-  wizardMode.value = false;
   advancedModeFromWizard.value = false;
   cicd.isNewConfig.value = false;
   cicd.selectedConfigId.value = '';
@@ -1042,7 +1034,6 @@ async function applyWizardPayload(payload: Record<string, unknown>) {
 
 function charmAfterSave() {
   // 保存后停在被编辑/新建配置的向导态（编辑模式），保持「编辑=新建」一致，不跳回旧分组表单
-  wizardMode.value = true;
   advancedModeFromWizard.value = false;
 }
 
