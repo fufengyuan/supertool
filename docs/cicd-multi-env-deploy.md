@@ -64,7 +64,12 @@
 
 ### 新建向导（src/views/cicd/CicdConfigWizard.vue，新增）
 
-4 步：项目与分支（选 git 仓库自动加载分支）→ 构建配置（自动扫描识别构建工具）→ 部署目标（多选服务器）→ 确认。完成回调 `CiCdConfig.vue::createConfigFromWizard` 合并进 composable 后走统一 `saveConfig`。
+步骤 1 选 git 仓库后自动扫描项目（`scanProject`）：
+- 识别构建工具、推荐脚本、部署分支、部署路径
+- 多模块项目（`isMultiModule && moduleNames`）自动生成模块勾选列表（默认全选），在步骤 2 构建配置下方展示
+- 步骤 4 确认页摘要含「部署模块」行
+
+完成回调 `CiCdConfig.vue::createConfigFromWizard`：写入 config 基础字段、deployServers、`modules` 数组（自动开启 `parentBuildMode`，`parentBuildPath` 取 git 仓库本地路径），随后统一走 `saveConfig` 落库。
 
 ### 编辑表单（src/views/cicd/CiCdConfig.vue，重构）
 

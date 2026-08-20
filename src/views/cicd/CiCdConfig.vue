@@ -986,6 +986,7 @@ async function createConfigFromWizard(payload: Record<string, unknown>) {
     buildTool?: string; mavenProfile?: string; npmScript?: string; npmCustomScript?: string;
     restartScript?: string; deployPath?: string;
     servers?: { serverId: string; label?: string; deployDir?: string }[];
+    modules?: { moduleName: string; modulePath: string; artifactName?: string }[];
   };
   Object.assign(cicd.config.value, {
     name: p.name || '',
@@ -1002,6 +1003,21 @@ async function createConfigFromWizard(payload: Record<string, unknown>) {
   cicd.deployServers.value = (p.servers || []).map(s => ({
     serverId: s.serverId, label: s.label || '', deployDir: s.deployDir || '',
   }));
+  // 多模块：向导勾选的模块传入 composable，随配置一并保存
+  if (p.modules && p.modules.length) {
+    cicd.modules.value = p.modules.map(m => ({
+      id: null, configId: null,
+      moduleName: m.moduleName, modulePath: m.modulePath || m.moduleName,
+      artifactName: m.artifactName || '', deployOrder: 0, enabled: true,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    }));
+    // 多模块需开启父模块统一构建模式；构建根目录取 git 仓库本地路径
+    if (!cicd.config.value.parentBuildMode) { cicd.config.value.parentBuildMode = true; }
+    if (!cicd.config.value.parentBuildPath) {
+      const repo = gitRepos.value.find((r: any) => r.id === p.gitRepoId);
+      cicd.config.value.parentBuildPath = repo?.path || cicd.config.value.localPath || '';
+    }
+  }
   await handleSave();
   // 保存成功（saveConfig 内部已把 isNewConfig 置 false）后退出向导
   if (!cicd.isNewConfig.value) {
