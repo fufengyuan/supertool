@@ -1668,7 +1668,7 @@ export interface TauriAPI {
   updateGitRepo: (id: number | string, repo: Record<string, unknown>) => Promise<any>
   deleteGitRepo: (id: number | string) => Promise<any>
   validateGitRepoPath: (path: string) => Promise<any>
-  showOpenDialogForDirs: () => Promise<any>
+  showOpenDialogForDirs: (options?: { defaultPath?: string }) => Promise<any>
   showOpenDialog: (options?: Record<string, unknown>) => Promise<any>
   getGitCommits: (path: string, since?: string) => Promise<any>,
   scanLocalGitRepos: (directories?: string[]) => Promise<any>
@@ -2404,8 +2404,8 @@ export function getTauriAPI(): TauriAPI {
     updateGitRepo: async (id: number | string, repo: Record<string, unknown>): Promise<any> => { return tauriInvoke('update_git_repo', { id, data: repo }); },
     deleteGitRepo: async (id: number | string): Promise<any> => { return tauriInvoke('delete_git_repo', { id }); },
     validateGitRepoPath: async (path: string): Promise<any> => { return tauriCall('validate_repo_path', { path }); },
-    showOpenDialogForDirs: async (): Promise<{ filePaths?: string[] }> => { 
-      const selected = await open({ directory: true, multiple: false })
+    showOpenDialogForDirs: async (options?: { defaultPath?: string }): Promise<{ filePaths?: string[] }> => { 
+      const selected = await open({ directory: true, multiple: false, defaultPath: options?.defaultPath })
       return { filePaths: selected ? [selected] : [] }
     },
     showOpenDialog: async (options?: Record<string, unknown>): Promise<any> => {

@@ -283,7 +283,11 @@ async function onRepoChange() {
 async function pickLocalDir() {
   const { getTauriAPI } = await import('../../utils/tauri-api')
   try {
-    const result = await getTauriAPI().showOpenDialogForDirs()
+    // 对话框直接定位到当前仓库目录，避免从头翻目录
+    const repo = props.gitRepos.find(r => r.id === draft.gitRepoId)
+    const result = await getTauriAPI().showOpenDialogForDirs({
+      defaultPath: draft.localPath || repo?.path || '',
+    })
     const dir = result?.filePaths?.[0]
     if (dir) {
       draft.localPath = dir
