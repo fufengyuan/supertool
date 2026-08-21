@@ -1217,6 +1217,21 @@ async fn install_dependencies(
 
 // =================== Build ===================
 
+/// 单体/单产物部署：解析实际构建与产物收集的根目录。
+/// 优先级：parentBuildPath（单体部署选定的主模块目录，主模块常在子目录）
+///         → buildPath → 项目根目录。
+/// 旧实现只用 build_path（默认空 → 根目录），导致主模块在子目录时构建/收集都在根目录，
+/// 拿不到 jar。此处把两种路径统一到同一解析规则，保证「在哪构建、就在哪收集」。
+fn single_deploy_root(config: &DeployConfig, project_path: &Path) -> PathBuf {
+    if let Some(pbp) = config.parent_build_path.as_deref().filter(|s| !s.is_empty()) {
+        project_path.join(pbp)
+    } else if let Some(bp) = config.build_path.as_deref().filter(|s| !s.is_empty()) {
+        project_path.join(bp)
+    } else {
+        project_path.to_path_buf()
+    }
+}
+
 async fn do_build(
     config: &DeployConfig,
     project_path: &PathBuf,
@@ -1260,12 +1275,8 @@ async fn do_build(
             }
         }
     } else {
-        // Single project build
-        let build_path = if let Some(ref bp) = config.build_path {
-            project_path.join(bp)
-        } else {
-            project_path.clone()
-        };
+        // Single project build（单体部署：主模块目录为准，次选 buildPath）
+        let build_path = single_deploy_root(config, project_path);
 
         let build_tool = config.build_tool.as_deref().unwrap_or_else(|| {
             if config.maven_home.is_some() {
@@ -1867,21 +1878,13 @@ fn collect_artifacts(
     let mut artifacts = Vec::new();
 
     if config.modules.is_empty() {
-        // Single project
+        // Single project（单体部署：主模块目录为准，次选 buildPath）
         let is_cargo = config.build_tool.as_deref() == Some("cargo");
 
-        let output_dir = if let Some(ref bp) = config.build_path {
-            if is_cargo {
-                project_path.join(bp).join("target/release")
-            } else {
-                project_path.join(bp).join("target")
-            }
+        let output_dir = if is_cargo {
+            single_deploy_root(config, project_path).join("target/release")
         } else {
-            if is_cargo {
-                project_path.join("target/release")
-            } else {
-                project_path.join("target")
-            }
+            single_deploy_root(config, project_path).join("target")
         };
 
         if output_dir.exists() {

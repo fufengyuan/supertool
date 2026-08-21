@@ -72,8 +72,10 @@
 **代码目录定位（重点）**：`scanProject` 传入的是 `gitRepos[].path`（仓库根目录）。但**代码常不在仓库根目录**（如商城项目在 `src/xxx` 子模块），此时根目录扫描结果为空 → 模块区不显示。向导在步骤 1 提供「选择目录」按钮（`pickLocalDir` → `showOpenDialogForDirs`，对话框默认定位到仓库根目录），将实际代码目录存入 `draft.localPath` 后重新扫描；createConfigFromWizard 会把 localPath 一并写入 `config.localPath`，保证后续构建正确。
 
 **部署模式（重点）**：多模块项目有**两种部署模式**，向导第 2 步让用户选择，后端已全支持；**Jar/Lib 分离是两种模式下的公共能力开关**，不是独立模式：
-1. `monolith` 单体部署：`parentBuildMode=true`，整体构建产出单个 jar，模块勾选列表不落库；`parentBuildPath` 由父组件取 git 仓库根路径兜底（勿用子目录）
+1. `monolith` 单体部署：`parentBuildMode=true`，整体构建产出单个 jar，模块勾选列表不落库；`parentBuildPath` 即**主模块目录**（产物 jar 所在目录）。**主模块常在子目录**（如商城 `SRC/mall/seller-api`），此时必须指向子目录；若填根目录会拿不到 jar
 2. `multi` 多模块部署：`parentBuildMode=false`，每模块独立构建并部署到独立远程目录（显示模块勾选区）
+
+**产物路径解析（后端坑）**：单体/单产物部署时，后端 `do_build` 与 `collect_artifacts` 统一走 `single_deploy_root()`，路径优先级为 `parentBuildPath → buildPath → 项目根目录`，保证「在哪构建、就在哪收集」。旧实现只认 `buildPath`（默认空 → 根目录），主模块在子目录时既不在子目录构建，也从根目录 `target/` 找不到 jar，导致部署"成功"但实际无产物上传。改后单体部署必须把 `parentBuildPath` 设为主模块目录。
 
 Jar 与 Lib 分离：勾选时 `config.libSeparate=true`（模块级 `libFilterRules` 控制过滤），单体/多模块均可开启；非多模块项目该开关不可见，fallback 传 `false` 避免误开启。
 

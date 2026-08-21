@@ -182,14 +182,19 @@
                 </div>
               </div>
             </div>
-            <!-- 单体部署：单产物提示 + 父构建目录 -->
+            <!-- 单体部署：选择主模块（产物 jar 所在模块）+ 构建目录 -->
             <div v-else class="flex flex-col gap-3 rounded-xl border border-primary/20 overflow-hidden">
               <div class="px-3 py-2.5 bg-base-200/60 text-xs text-base-content/60">
-                单体部署：整体构建产出单个 jar，复用下方部署路径与重启脚本
+                单体部署：整体构建产出单个 jar。主模块常在子目录（如商城 <code class="bg-base-100 px-1 rounded">SRC/mall/seller-api</code>），选错目录将拿不到 jar 产物，请务必选择产物所在模块
               </div>
-              <div class="px-3 pb-3">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">父构建目录</label>
-                <input v-model="draft.parentBuildPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="留空使用项目根目录，或填写如 ./mall-framework" />
+              <div class="px-3 pb-3 flex flex-col gap-2.5">
+                <label class="block mb-0.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">主模块 <span class="text-error normal-case tracking-normal">*</span></label>
+                <select v-model="draft.parentBuildPath" class="select select-bordered w-full bg-base-200 text-sm">
+                  <option value="">项目根目录（主模块在根目录时）</option>
+                  <option v-for="m in modules" :key="m.modulePath" :value="m.modulePath">{{ m.moduleName }} — {{ m.modulePath }}</option>
+                </select>
+                <span class="text-xs text-base-content/40">或在下方手动填写主模块相对路径（收集其 target 下的 jar 产物）</span>
+                <input v-model="draft.parentBuildPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="如 ./SRC/mall/seller-api" />
               </div>
             </div>
           </div>
