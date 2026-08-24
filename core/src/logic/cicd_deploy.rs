@@ -1376,7 +1376,9 @@ async fn do_build(
 
         match build_tool {
             "maven" => run_maven_build(&build_path, config, emit).await?,
-            "npm" | "pnpm" | "yarn" => run_npm_build(&build_path, config, build_tool, emit).await?,
+            "npm" | "pnpm" | "yarn" => {
+                run_npm_build(&build_path, config, build_tool, emit).await?
+            }
             "gradle" => run_gradle_build(&build_path, emit).await?,
             "cargo" => run_cargo_build(&build_path, config, emit).await?,
             _ => return Err(format!("不支持的构建工具: {}", build_tool)),
@@ -1601,9 +1603,41 @@ async fn run_npm_build(
     tool: &str,
     emit: &impl Fn(&str, &str, &str),
 ) -> Result<(), String> {
-    let script = config
-        .npm_custom_script
+    // 命令归一：单体部署的构建命令统一走 npmScript/npmCustomScript（配置级）。
+    // 存量配置的脚本曾存在首个启用模块行的 buildCommand 里（如 "npm run build:h5:staging"），
+    // 此处兼容读取并回填到配置级字段，模块行命令不再是权威来源。
+    let mut custom = config.npm_custom_script.clone();
+    if custom.as_deref().map(|s| s.trim().is_empty()).unwrap_or(true) {
+        if let Some(m) = config.modules.iter().find(|m| m.enabled) {
+            if let Some(cmd) = m.build_command.as_deref() {
+                let cmd = cmd.trim();
+                // 模块行存的是完整命令（"npm run xxx" / "pnpm xxx --mode test"），
+                // 剥掉包管理器前缀并截掉尾部参数，取脚本名
+                let script = cmd
+                    .strip_prefix("npm run ")
+                    .or_else(|| cmd.strip_prefix("npx "))
+                    .or_else(|| cmd.strip_prefix("pnpm run "))
+                    .or_else(|| cmd.strip_prefix("pnpm "))
+                    .or_else(|| cmd.strip_prefix("yarn "))
+                    .or_else(|| cmd.strip_prefix("npm "))
+                    .unwrap_or(cmd)
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("");
+                if !script.is_empty() && script != "build" {
+                    emit(
+                        "npm",
+                        "info",
+                        &format!("构建脚本继承自模块行: {} → {}", cmd, script),
+                    );
+                    custom = Some(script.to_string());
+                }
+            }
+        }
+    }
+    let script = custom
         .as_deref()
+        .filter(|s| !s.is_empty())
         .or(config.npm_script.as_deref())
         .unwrap_or("build");
 
