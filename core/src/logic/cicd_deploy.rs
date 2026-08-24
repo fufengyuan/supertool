@@ -1641,7 +1641,66 @@ async fn run_npm_build(
         .or(config.npm_script.as_deref())
         .unwrap_or("build");
 
-    emit("npm", "starting", &format!("开始 {} {} 构建", tool, script));
+    // 构建前置校验：package.json 缺脚本时直接报可操作错误，而不是等 npm 报
+    // "Missing script" 后 exit 1（用户只能看到无上下文的原始输出）
+    let pkg_path = build_path.join("package.json");
+    let mut available_scripts: Vec<String> = Vec::new();
+    if pkg_path.exists() {
+        if let Ok(content) = fs::read_to_string(&pkg_path) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(scripts) = v.get("scripts").and_then(|s| s.as_object()) {
+                    available_scripts = scripts.keys().cloned().collect();
+                    if !available_scripts.iter().any(|s| s == script) {
+                        // 只提示 build 类候选，避免列表过长
+                        let mut candidates: Vec<&String> =
+                            available_scripts.iter().filter(|s| s.starts_with("build")).collect();
+                        if candidates.is_empty() {
+                            candidates = available_scripts.iter().collect();
+                        }
+                        let hint = candidates
+                            .iter()
+                            .map(|s| s.as_str())
+                            .collect::<Vec<_>>()
+                            .join("、");
+                        return Err(format!(
+                            "{} 脚本 \"{}\" 在 package.json 中不存在（构建目录: {}）。可用脚本: {}；请在部署配置的「构建脚本」中选择正确脚本",
+                            tool, script, build_path.display(), hint
+                        ));
+                    }
+                }
+            }
+        } else {
+            emit(
+                "npm",
+                "warning",
+                &format!("无法读取 {}，跳过脚本预检", pkg_path.display()),
+            );
+        }
+    } else {
+        return Err(format!(
+            "构建目录 {} 下没有 package.json，请检查部署配置的「代码目录/主模块」设置",
+            build_path.display()
+        ));
+    }
+
+    emit(
+        "npm",
+        "starting",
+        &format!(
+            "开始 {} {} 构建（目录: {}{}）",
+            tool,
+            script,
+            build_path.display(),
+            if available_scripts.is_empty() {
+                String::new()
+            } else {
+                format!(
+                    ", 共 {} 个 scripts",
+                    available_scripts.len()
+                )
+            }
+        ),
+    );
 
     let npm_cmd = resolve_npm_cmd(config, tool);
 

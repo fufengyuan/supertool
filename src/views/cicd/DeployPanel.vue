@@ -203,7 +203,7 @@
                 'text-amber-500': line.stage === 'queue',
                 'text-teal-500': line.stage === 'health'
               }">[{{ line.stage || 'info' }}]</span>
-              <span class="text-base-content break-all" :class="{ 'text-error': line.stage === 'error' }">{{ line.message }}</span>
+              <span class="text-base-content break-all" :class="{ 'text-error': line.stage === 'error' || isErrorLogLine(line.message) }">{{ line.message }}</span>
             </div>
             <div v-if="deploying" class="flex gap-2 py-0.5">
               <span class="text-base-content/60 shrink-0 min-w-[75px]">{{ currentTime }}</span>
@@ -442,6 +442,17 @@ interface DeployStep {
 const toast = useToast();
 const { handleError } = useErrorHandler();
 const { runAll: runPreflightCheck } = useDeployPreflight();
+
+/** 实时日志错误行识别：包管理器/构建工具的 stderr 错误输出标红展示 */
+function isErrorLogLine(message: string): boolean {
+  if (!message) {return false;}
+  const patterns = [
+    'npm error', 'npm ERR!', 'yarn error', 'pnpm error',
+    'Missing script', 'ENOENT', 'Module not found',
+    'Build failed', '构建失败',
+  ];
+  return patterns.some(p => message.includes(p));
+}
 
 const shared = useSharedCicdData();
 const { configs, servers, serverGroups, gitRepos, getGitRepoName } = shared;
