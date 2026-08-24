@@ -120,6 +120,15 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
         }
     }
 
+    // ── Drop legacy per-config SSH columns（2026-08 清理）──
+    // 多服务器架构（servers JSON 列 + servers 表）落地后，
+    // cicd_configs 上的 sshHost/sshPort/sshUser/sshKeyPath/sshPassword 已无任何读写路径
+    for column in &["sshHost", "sshPort", "sshUser", "sshKeyPath", "sshPassword"] {
+        if let Err(e) = drop_column_if_exists(conn, "cicd_configs", column) {
+            log::warn!("[Schema] Failed to clean up {} from cicd_configs: {}", column, e);
+        }
+    }
+
     // Legacy migrations (safe to re-run)
     let migrations = [
         "ALTER TABLE cicd_configs ADD COLUMN pnpmHome TEXT DEFAULT ''",
