@@ -16,15 +16,18 @@
 
       <!-- Name & path -->
       <span class="font-semibold text-xs text-base-content min-w-[100px] flex-shrink-0" :title="node.name">{{ node.name }}</span>
+      <span v-if="node.type === 'maven-dep'" class="text-[10px] px-1.5 py-0.5 rounded-full bg-base-200 text-base-content/50 flex-shrink-0" title="纯依赖模块：无 SpringBoot 启动类，不作为部署单元">依赖</span>
       <span v-if="node.path && node.path !== '.'" class="font-mono text-[11px] text-base-content/60 flex-1 overflow-hidden text-ellipsis whitespace-nowrap" :title="node.path">{{ node.path }}</span>
 
-      <!-- Add button -->
+      <!-- Add button（纯依赖模块不可添加为部署单元） -->
       <button
-        class="btn btn-ghost btn-xs text-primary flex-shrink-0"
-        :class="{ 'text-success border-success cursor-default': isAlreadyAdded }"
+        class="btn btn-ghost btn-xs flex-shrink-0"
+        :class="node.type === 'maven-dep' ? 'btn-disabled text-base-content/30 cursor-not-allowed' : (isAlreadyAdded ? 'text-success border-success cursor-default' : 'text-primary')"
+        :disabled="node.type === 'maven-dep'"
+        :title="node.type === 'maven-dep' ? '纯依赖模块：无 SpringBoot 启动类，不作为部署单元' : ''"
         @click.stop="$emit('add', node)"
       >
-        {{ isAlreadyAdded ? '✓ 已添加' : '+ 添加' }}
+        {{ isAlreadyAdded ? '✓ 已添加' : node.type === 'maven-dep' ? '依赖模块' : '+ 添加' }}
       </button>
     </div>
 

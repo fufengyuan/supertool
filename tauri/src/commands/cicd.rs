@@ -264,7 +264,18 @@ pub fn scan_project_impl(local_path: &str) -> ProjectScanResult {
                         .collect();
                     if modules.len() > 1 {
                         result.is_multi_module = Some(true);
-                        result.module_names = Some(modules);
+                        // 只保留 Spring Boot 可部署模块（含 @SpringBootApplication 启动类）；
+                        // 纯依赖模块（framework/common 等）不作为部署单元
+                        let deployable: Vec<String> = modules
+                            .iter()
+                            .filter(|m| {
+                                supertool_core::logic::cicd_tools::has_spring_boot_main(
+                                    &Path::new(local_path).join(m),
+                                )
+                            })
+                            .cloned()
+                            .collect();
+                        result.module_names = Some(deployable);
                     }
                 }
             }
