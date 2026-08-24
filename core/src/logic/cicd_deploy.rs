@@ -1394,19 +1394,41 @@ async fn do_build(
     Ok(())
 }
 
+/// 模块目录解析：相对路径 join 项目根后不存在时，尝试剥掉与历史仓库根重叠的前缀
+/// （取路径末段再 join）。用于兼容「localPath 后来从仓库根改为子目录」的存量模块行。
+fn resolve_module_dir(project_path: &Path, rel: Option<&str>) -> PathBuf {
+    let Some(rel) = rel.filter(|s| !s.trim().is_empty()) else {
+        return project_path.to_path_buf();
+    };
+    let joined = project_path.join(rel);
+    if joined.exists() {
+        return joined;
+    }
+    // 末段回退：SRC/b2b2c/base-api → base-api
+    if let Some(last) = Path::new(rel).file_name() {
+        let fallback = project_path.join(last);
+        if fallback.exists() {
+            return fallback;
+        }
+    }
+    joined
+}
+
 async fn build_single_module(
     project_path: &PathBuf,
     module: &DeployModuleConfig,
     config: &DeployConfig,
     emit: &impl Fn(&str, &str, &str),
 ) -> Result<(), String> {
-    let build_path = if let Some(ref bp) = module.build_path {
-        project_path.join(bp)
-    } else if let Some(ref mp) = module.path {
-        project_path.join(mp)
-    } else {
-        project_path.clone()
-    };
+    let raw_rel = module
+        .build_path
+        .clone()
+        .filter(|s| !s.is_empty())
+        .or_else(|| module.path.clone().filter(|s| !s.is_empty()));
+    // 模块行路径是当年 localPath=仓库根时扫出的相对路径（如 "SRC/b2b2c/base-api"）；
+    // 若 localPath 后来改为子目录（如 .../SRC/b2b2c），直接 join 会双重前缀导致目录不存在。
+    // 回退策略：join 不存在 → 只取相对路径末段（"base-api"）再 join。
+    let build_path = resolve_module_dir(project_path, raw_rel.as_deref());
 
     // Custom build command (stream output for real-time logs)
     if let Some(ref cmd) = module.build_command.as_ref().filter(|s| !s.is_empty()) {
@@ -2107,22 +2129,12 @@ fn collect_artifacts(
                 continue;
             }
 
-            let output_dir = if let Some(ref mp) = module.path {
-                let artifact_root = project_path.join(mp);
-                if let Some(ref op) = module.output_path {
-                    artifact_root.join(op)
-                } else {
-                    artifact_root.join("target")
-                }
-            } else if let Some(ref bp) = module.build_path {
-                let bp_path = project_path.join(bp);
-                if let Some(ref op) = module.output_path {
-                    bp_path.join(op)
-                } else {
-                    bp_path.join("target")
-                }
+            // 模块目录解析带存在性回退（与 build_single_module 一致，防双重前缀）
+            let artifact_root = resolve_module_dir(project_path, module.path.as_deref().filter(|s| !s.is_empty()).or(module.build_path.as_deref().filter(|s| !s.is_empty())));
+            let output_dir = if let Some(ref op) = module.output_path {
+                artifact_root.join(op)
             } else {
-                project_path.join(module.output_path.as_deref().unwrap_or("target"))
+                artifact_root.join("target")
             };
 
             if !output_dir.exists() {
@@ -3282,5 +3294,33 @@ mod single_deploy_tests {
 
         c.build_path = None;
         assert_eq!(single_deploy_module_label(&c), None);
+    }
+
+    #[test]
+    fn resolve_module_dir_falls_back_to_last_segment() {
+        let tmp = std::env::temp_dir().join(format!("st-mod-{}", std::process::id()));
+        // 项目根下只有 base-api（localPath 已是子目录 SRC/b2b2c 的场景）
+        fs::create_dir_all(tmp.join("base-api")).unwrap();
+
+        // 存量模块行含仓库前缀：join 双重前缀不存在 → 末段回退命中
+        assert_eq!(
+            resolve_module_dir(&tmp, Some("SRC/b2b2c/base-api")),
+            tmp.join("base-api")
+        );
+        // 正常相对路径直接命中
+        assert_eq!(
+            resolve_module_dir(&tmp, Some("base-api")),
+            tmp.join("base-api")
+        );
+        // 完全不存在的路径返回原 join 结果（由调用方报错）
+        assert_eq!(
+            resolve_module_dir(&tmp, Some("no/such/dir")),
+            tmp.join("no/such/dir")
+        );
+        // 空路径回退项目根本身
+        assert_eq!(resolve_module_dir(&tmp, None), tmp);
+        assert_eq!(resolve_module_dir(&tmp, Some("  ")), tmp);
+
+        fs::remove_dir_all(&tmp).unwrap();
     }
 }
