@@ -23,6 +23,7 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 **向导新建（CicdConfigWizard.vue）**：选仓库后 `scanProject(gitRepo.path)` 识别构建工具/多模块；**代码可能不在仓库根目录**（如 `src/xxx` 子模块），此时需用户「选择目录」`pickLocalDir()` 定位实际代码目录（即 `draft.localPath`）再扫描，localPath 随配置一并保存。
 **编辑页与新建页一致**：点击已有配置也走同一 `CicdConfigWizard`（`:initial` prefill，`openEditWizard` 统一入口），完成回调共享 `applyWizardPayload`（带 id 即更新）；编辑 prefill 会触发 `gitRepoId` watcher→`scanProject`，需守卫避免扫描覆盖已回填的模块列表。向导已内嵌「高级设置」（多环境/部署保障/工具路径）覆盖旧分组表单全部字段。**坑**：主区显示向导 or 旧分组表单用 `showWizard` **计算属性**（`isNewConfig` → 向导；`!selectedConfigId` → 空态；否则取 `!advancedModeFromWizard`），不要用「boolean+watcher」，否则首屏自动选中时 watcher 时序竞态会把 `wizardMode` 留在 false 导致误渲染旧分组表单。
 **单体部署主模块**：`parentBuildPath` 是**主模块目录**（产物 jar 所在目录，常在子目录如预付卡 `SRC/b2b2c/seller-api`），后端 `single_deploy_root()` 按 `parentBuildPath→buildPath→根目录` 解析「构建+收集」路径，保证在哪构建就在哪收集；填根目录会拿不到 jar。
+**单体部署路径铁律**（2026-08-24 修复三层叠加缺陷）：① `DeployConfig.local_path` 优先取 `cicd_config.local_path`（向导「选择目录」的代码实际目录），空才回退 `gitRepo.path`——否则 localPath 指向子目录时部署引擎仍在仓库根构建；② npm 单体模式下**旧模块表不参与构建/收集**（`do_build` 逐模块分支有 `!parent_build_mode` 门禁）——复制配置会把源配置的模块行一并复制进 `deploy_modules`，单体配置带着它会被劫持成逐模块构建；③ 前端 `applyWizardPayload` 的 parentBuildPath 兜底填充仅限 maven 场景（npm 留空=localPath 本身；填绝对仓库根会被 `PathBuf::join` 整体替换导致打包原路径）；④ npm 单体无 target 时走 `find_dist_dir`（dist/dist\/build\/h5/build\/dist/unpackage...候选 + package.json outDir）+ `emit_collect_dist` zip 打包兜底——**zip -r 对已存在档案是追加，压缩前必须先删旧包**。单测在 `cicd_deploy.rs::single_deploy_tests`。
 
 详见 [docs/cicd-multi-env-deploy.md](docs/cicd-multi-env-deploy.md)
 
