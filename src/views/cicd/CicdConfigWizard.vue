@@ -142,8 +142,7 @@
               <div>
                 <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建脚本</label>
                 <select v-model="draft.npmScript" class="select select-bordered w-full bg-base-200 text-sm">
-                  <option value="build">build</option>
-                  <option value="build:prod">build:prod</option>
+                  <option v-for="s in npmScriptOptions" :key="s" :value="s">{{ s }}</option>
                   <option value="custom">自定义...</option>
                 </select>
               </div>
@@ -438,6 +437,13 @@ const monolithMode = ref(true)
 // 是否启用 jar 与 lib 分离（两种部署模式均可选，是模式下的能力项不是独立模式）
 const libSeparate = ref(true)
 
+// npm 构建脚本下拉选项：项目 package.json scripts 中以 build 开头的脚本（build/build:h5/build:prod...）
+const npmScriptOptions = computed<string[]>(() => {
+  const names = (scanned.value.npmScripts as string[] | undefined) || []
+  const builds = names.filter(n => n === 'build' || n.startsWith('build'))
+  return builds.length ? builds : ['build']
+})
+
 // 多模块：扫描识别出 moduleNames 后生成的勾选列表；无多模块则为空数组
 const modules = ref<ModuleItem[]>([])
 
@@ -453,6 +459,20 @@ function prefillFromInitial() {
   draft.mavenProfile = (c.mavenProfile as string) || 'prod'
   draft.npmScript = (c.npmScript as string) || 'build'
   draft.npmCustomScript = (c.npmCustomScript as string) || ''
+  // 存量配置的构建脚本可能存在模块行 buildCommand（"npm run build:h5:staging"），
+  // 配置级为默认值（npmScript='build' 且无自定义脚本）时回填真实脚本，避免编辑保存后命令退化
+  if (draft.npmScript === 'build' && !draft.npmCustomScript) {
+    const mods = Array.isArray(c.modules) ? (c.modules as { buildCommand?: string; enabled?: boolean }[]) : []
+    const modCmd = mods.find(m => m.enabled !== false && m.buildCommand)?.buildCommand?.trim()
+    if (modCmd) {
+      // 剥包管理器前缀并截掉尾部参数（如 "pnpm build --mode test" → "build"）
+      const script = modCmd
+        .replace(/^(npm run|npx|pnpm run|pnpm|yarn|npm)\s+/, '')
+        .split(/\s+/)[0]
+        .trim()
+      if (script && script !== 'build') { draft.npmScript = script }
+    }
+  }
   draft.restartScript = (c.restartScript as string) || './restart.sh'
   draft.deployPath = (c.deployPath as string) || ''
   draft.localPath = (c.localPath as string) || ''
