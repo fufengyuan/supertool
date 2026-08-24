@@ -641,29 +641,8 @@ pub async fn deploy(
         };
         let _ = core_clone.db_write(|conn| cicd_update_deploy_log(conn, &new_log));
 
-        // 写入 deploy_history 记录（供前端部署历史展示使用，成功和失败都记录）
-        let history_status = match &deploy_result {
-            Ok(result) => {
-                if result.cancelled == Some(true) {
-                    "cancelled"
-                } else if result.success {
-                    "success"
-                } else {
-                    "failed"
-                }
-            }
-            Err(_) => "failed",
-        };
-        let history = crate::commands::cicd::DeployHistory {
-            id: (*deploy_id_arc).clone(),
-            config_id: (*config_id_arc).clone(),
-            status: history_status.to_string(),
-            deployed_at: chrono::Utc::now().to_rfc3339(),
-            rolled_back: false,
-            rolled_back_at: None,
-        };
-        let _ = core_clone
-            .db_write(|conn| crate::commands::cicd::cicd_add_deploy_history(conn, &history));
+        // deploy_history 表已废弃（2026-08 清理）：部署终态只写 deploy_logs，
+        // 前端部署历史/回滚记录统一从 deploy_logs 读取
 
         // 清理取消标记
         if let Ok(mut set) = CANCELLED_DEPLOYS.lock() {
@@ -779,7 +758,6 @@ pub async fn rollback(
         .db_read(|conn| cicd_get_config_by_id(conn, &config_id).map_err(|e| e.to_string()))??
         .ok_or("CI/CD 配置不存在")?;
 
-    let rollback_id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
 
     // Parse servers from config JSON
@@ -846,26 +824,42 @@ pub async fn rollback(
         rollback_errors.push("未配置部署服务器".to_string());
     }
 
-    // Record rollback in deploy history
-    let history = DeployHistory {
-        id: rollback_id,
-        config_id: config_id.clone(),
-        status: if rollback_errors.is_empty() {
-            "rollback-success".to_string()
-        } else {
-            "rollback-partial".to_string()
-        },
-        deployed_at: now.clone(),
-        rolled_back: true,
-        rolled_back_at: Some(now.clone()),
-    };
-    let _ = core.db_write(|conn| cicd_add_deploy_history(conn, &history))?;
+    // Record rollback in deploy_logs（deploy_history 表已废弃，2026-08 清理）：
+    // 原终态 status/errorMessage 保留，回滚结果以 "rolled-back:<结果>" 追加到 errorMessage
+    let log_write_err = core
+        .db_write(|conn| -> Result<(), String> {
+            let existing = supertool_core::db::cicd::get_deploy_log_by_id(conn, &log_id)
+                .map_err(|e| e.to_string())?
+                .ok_or("部署记录不存在")?;
+            let mut updated = existing;
+            let rollback_mark = if rollback_errors.is_empty() {
+                format!("rolled-back:success at {}", now)
+            } else {
+                format!(
+                    "rolled-back:partial ({}) at {}",
+                    rollback_errors.join("; "),
+                    now
+                )
+            };
+            updated.error_message = match updated.error_message.take() {
+                Some(prev) if !prev.is_empty() => Some(format!("{} | {}", prev, rollback_mark)),
+                _ => Some(rollback_mark),
+            };
+            cicd_update_deploy_log(conn, &updated)
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        })
+        .err()
+        .or(None);
 
     Ok(serde_json::json!({
-        "success": rollback_errors.is_empty(),
-        "rollbackId": history.id,
+        "success": rollback_errors.is_empty() && log_write_err.is_none(),
+        "rollbackId": log_id,
         "message": if rollback_errors.is_empty() {
-            "回滚成功：已在所有服务器执行重启".to_string()
+            match log_write_err {
+                Some(e) => format!("回滚已执行但记录更新失败: {}", e),
+                None => "回滚成功：已在所有服务器执行重启".to_string(),
+            }
         } else {
             format!("部分成功: {}", rollback_errors.join("; "))
         },
@@ -984,6 +978,39 @@ pub async fn get_deploy_logs(
             .map_err(|e| e.to_string())?;
         let logs: Vec<DeployLog> = rows.filter_map(|r| r.ok()).collect();
         serde_json::to_value(&logs).map_err(|e| e.to_string())
+    })?
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_all_deploy_logs(
+    core: State<'_, CoreService>,
+    limit: Option<i64>,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] get_all_deploy_logs() called");
+    let lim = limit.unwrap_or(50);
+    core.db_read(|conn| {
+        // JOIN cicd_configs 带出配置名（deploy_history.get_all_deploy_history 的替代，
+        // deploy_history 表已废弃）
+        let mut stmt = conn
+            .prepare(
+                "SELECT l.id, l.configId, c.name as configName, l.status, l.createdAt \
+                 FROM deploy_logs l LEFT JOIN cicd_configs c ON l.configId = c.id \
+                 ORDER BY l.createdAt DESC LIMIT ?",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(rusqlite::params![lim], |row| {
+                Ok(serde_json::json!({
+                    "id": row.get::<_, String>("id")?,
+                    "configId": row.get::<_, String>("configId")?,
+                    "configName": row.get::<_, Option<String>>("configName")?,
+                    "status": row.get::<_, String>("status")?,
+                    "createdAt": row.get::<_, String>("createdAt")?,
+                }))
+            })
+            .map_err(|e| e.to_string())?;
+        let items: Vec<serde_json::Value> = rows.filter_map(|r| r.ok()).collect();
+        serde_json::to_value(&items).map_err(|e| e.to_string())
     })?
 }
 
@@ -1251,25 +1278,9 @@ pub fn gunzip_local_file(gz_path: String) -> Result<serde_json::Value, String> {
     }))
 }
 
-#[tauri::command(rename_all = "camelCase")]
-pub async fn get_rollback_history(
-    core: State<'_, CoreService>,
-    config_id: String,
-) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] get_rollback_history() called");
-    core.db_read(|conn| {
-        let mut stmt = conn
-            .prepare(
-                "SELECT * FROM deploy_history WHERE configId = ? AND rolledBack = 1 ORDER BY deployedAt DESC",
-            )
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map([config_id], row_to_deploy_history)
-            .map_err(|e| e.to_string())?;
-        let history: Vec<DeployHistory> = rows.filter_map(|r| r.ok()).collect();
-        serde_json::to_value(&history).map_err(|e| e.to_string())
-    })?
-}
+// deploy_history 表已废弃（2026-08 清理）：get_rollback_history、get_deploy_history、
+// get_all_deploy_history 命令一并移除（前端 UI 均无调用，部署历史统一走 get_deploy_logs）；
+// 回滚状态改写入 deploy_logs（见 rollback 命令）。
 
 // =================== DB function aliases (avoid name collision with commands) ===================
 
@@ -1323,12 +1334,6 @@ fn cicd_get_deploy_log_by_id(conn: &rusqlite::Connection, id: &str) -> Option<De
 }
 fn cicd_touch_deploy(conn: &rusqlite::Connection, id: &str) -> Result<(), String> {
     supertool_core::db::cicd::touch_cicd_config_deploy(conn, id).map_err(|e| e.to_string())
-}
-fn cicd_add_deploy_history(
-    conn: &rusqlite::Connection,
-    h: &DeployHistory,
-) -> Result<DeployHistory, String> {
-    supertool_core::db::cicd::add_deploy_history(conn, h).map_err(|e| e.to_string())
 }
 
 // =================== Helper Functions ===================
@@ -1571,63 +1576,4 @@ pub async fn get_deploy_step_logs(
             .map_err(|e| e.to_string())
     })?;
     serde_json::to_value(&logs).map_err(|e| e.to_string())
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub async fn get_deploy_history(
-    core: State<'_, CoreService>,
-    config_id: String,
-    limit: Option<i64>,
-) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] get_deploy_history() called");
-    let lim = limit.unwrap_or(50);
-    let history = core.db_read(|conn| {
-        let mut stmt = conn
-            .prepare(
-                "SELECT * FROM deploy_history WHERE configId = ? ORDER BY deployedAt DESC LIMIT ?",
-            )
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map(rusqlite::params![config_id, lim], row_to_deploy_history)
-            .map_err(|e| e.to_string())?;
-        let items: Vec<DeployHistory> = rows.filter_map(|r| r.ok()).collect();
-        serde_json::to_value(&items).map_err(|e| e.to_string())
-    })??;
-    Ok(history)
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub async fn get_all_deploy_history(
-    core: State<'_, CoreService>,
-    limit: Option<i64>,
-) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] get_all_deploy_history() called");
-    let lim = limit.unwrap_or(50);
-    let history = core.db_read(|conn| {
-        // JOIN cicd_configs to get config name
-        let mut stmt = conn
-            .prepare(
-                "SELECT h.id, h.configId, c.name as configName, h.status, h.deployedAt, h.rolledBack, h.rolledBackAt \
-                 FROM deploy_history h \
-                 LEFT JOIN cicd_configs c ON h.configId = c.id \
-                 ORDER BY h.deployedAt DESC LIMIT ?"
-            )
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map(rusqlite::params![lim], |row| {
-                Ok(serde_json::json!({
-                    "id": row.get::<_, String>("id")?,
-                    "configId": row.get::<_, String>("configId")?,
-                    "configName": row.get::<_, Option<String>>("configName")?,
-                    "status": row.get::<_, String>("status")?,
-                    "deployedAt": row.get::<_, String>("deployedAt")?,
-                    "rolledBack": row.get::<_, i64>("rolledBack")? != 0,
-                    "rolledBackAt": row.get::<_, Option<String>>("rolledBackAt")?,
-                }))
-            })
-            .map_err(|e| e.to_string())?;
-        let items: Vec<serde_json::Value> = rows.filter_map(|r| r.ok()).collect();
-        serde_json::to_value(&items).map_err(|e| e.to_string())
-    })??;
-    Ok(history)
 }

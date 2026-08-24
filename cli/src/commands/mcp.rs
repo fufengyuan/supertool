@@ -147,7 +147,7 @@ fn list_tools() -> Value {
         ),
         tool(
             "cicd_history",
-            "查看某配置的部署历史",
+            "查看某配置的部署历史（读 deploy_logs；字段 id/configId/status/startTime/errorMessage/triggeredBy 等，被回滚的记录 errorMessage 含 rolled-back: 标记）",
             json!({
                 "config_id": { "type": "string" },
                 "limit": { "type": "integer", "description": "条数，默认 10" },
