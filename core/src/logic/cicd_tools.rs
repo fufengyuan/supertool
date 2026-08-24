@@ -245,6 +245,40 @@ const MAX_MAVEN_MODULE_DEPTH: u8 = 3;
 /// `scan_subdirs_for_maven` 向下搜索 pom.xml 的最大层数。
 const MAX_SUBDIR_SCAN_DEPTH: u8 = 2;
 
+/// 检测 Maven 模块是否为 Spring Boot 可部署模块（src/main/java 下存在
+/// @SpringBootApplication 启动类）。纯依赖模块（framework/common 等）返回 false。
+pub fn has_spring_boot_main(module_path: &Path) -> bool {
+    const MARKER: &str = "@SpringBootApplication";
+    let java_root = module_path.join("src").join("main").join("java");
+    if !java_root.exists() {
+        return false;
+    }
+    // 启动类通常在顶层包目录，限制扫描深度避免遍历整个源码树
+    fn walk(dir: &Path, depth: u8) -> Option<bool> {
+        if depth > 6 {
+            return None;
+        }
+        for entry in std::fs::read_dir(dir).ok()?.flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                if let Some(found) = walk(&p, depth + 1) {
+                    if found {
+                        return Some(true);
+                    }
+                }
+            } else if p.extension().map(|e| e == "java").unwrap_or(false) {
+                if let Ok(content) = std::fs::read_to_string(&p) {
+                    if content.contains(MARKER) {
+                        return Some(true);
+                    }
+                }
+            }
+        }
+        None
+    }
+    matches!(walk(&java_root, 0), Some(true))
+}
+
 /// 扫描项目模块树。返回 `{"success": bool, "modules": [...], "error"?: "..."}`。
 ///
 /// 优先级：
@@ -369,10 +403,13 @@ fn scan_maven_modules_recursive(root_path: &Path, base_path: &Path, depth: u8) -
                 } else { None };
 
                 let children = scan_maven_modules_recursive(root_path, &mod_abs_path, depth + 1);
+                // Spring Boot 启动类判据：有 @SpringBootApplication 才是可部署模块（产出可执行
+                // jar），否则为纯依赖模块（dep）。前端按此过滤勾选与展示。
+                let boot = has_spring_boot_main(&mod_abs_path);
                 modules.push(serde_json::json!({
                     "name": artifact_id.as_ref().unwrap_or(mod_name),
                     "path": mod_rel_path,
-                    "type": "maven",
+                    "type": if boot { "maven" } else { "maven-dep" },
                     "artifactId": artifact_id,
                     "children": children
                 }));

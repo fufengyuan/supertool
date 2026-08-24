@@ -695,8 +695,12 @@ export function useCicdConfig() {
 
   function isModuleAlreadyAdded(modPath: string): boolean { return modules.value.some(m => m.modulePath === modPath || m.buildPath === modPath); }
 
+  // 纯依赖模块（无 SpringBoot 启动类）不作为部署单元
+  function isDeployableModule(mod: ScannedModule): boolean { return mod.type !== 'maven-dep'; }
+
   function addModuleFromScan(mod: ScannedModule) {
     if (isModuleAlreadyAdded(mod.path)) {return;}
+    if (!isDeployableModule(mod)) { toast.info(`${mod.name} 是纯依赖模块，不作为部署单元`); return; }
     const isParentBuild = config.value.parentBuildMode;
     modules.value.push({
       id: null, configId: config.value.id, moduleName: mod.name || mod.path, modulePath: mod.path || '',
@@ -710,7 +714,7 @@ export function useCicdConfig() {
   }
 
   function addAllDetectedModules() {
-    let addedCount = 0; const allModules = flattenModuleTree(scannedModules.value);
+    let addedCount = 0; const allModules = flattenModuleTree(scannedModules.value).filter(isDeployableModule);
     const isParentBuild = config.value.parentBuildMode;
     for (const mod of allModules) {
       if (!isModuleAlreadyAdded(mod.path)) {
