@@ -65,34 +65,6 @@ export interface Project {
   };
 }
 
-export interface CicdConfig {
-  id: string;
-  projectId: string;
-  sshHost: string;
-  deployBranch: string;
-  sshPort?: number;
-  sshUser?: string;
-  sshPassword?: string;
-  sshKeyPath?: string;
-  deployPath?: string;
-  mavenProfile?: string;
-  mavenSettings?: string;
-  libSeparate?: boolean;
-  restartScript?: string;
-  healthCheckUrl?: string;
-  servers?: string;  // JSON string of server IDs
-  modules?: CicdModule[];
-}
-
-export interface CicdModule {
-  id: string;
-  name: string;
-  path: string;
-  artifactName?: string;
-  order: number;
-  enabled: boolean;
-}
-
 export type SortBy = 'priority' | 'dueDate' | 'createdAt' | 'default' | null;
 
 export type Priority = 'high' | 'medium' | 'low' | '';

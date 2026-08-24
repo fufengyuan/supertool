@@ -1778,8 +1778,6 @@ export interface TauriAPI {
   onLogsStreamStopped: (callback: (data: any) => void) => Promise<UnlistenFn>
   onNav: (callback: (view: string) => void) => Promise<UnlistenFn>
   playSound: () => Promise<any>
-  getDeployHistory: (projectId: string, limit?: number) => Promise<any>
-  getRollbackHistory: (configId: string) => Promise<any>
   notificationTest: () => Promise<any>
   lanBroadcastMessage: (message: string) => Promise<void>
   lanBroadcastTaskUpdate: (task: string) => Promise<void>
@@ -2643,8 +2641,6 @@ export function getTauriAPI(): TauriAPI {
     rollback: async (configId: string, logId: string) => tauriCall("rollback", { configId, logId }),
     getDeployLogs: async (configId: string, limit?: number) => tauriCall("get_deploy_logs", { configId, limit }),
     getDeployStepLogs: async (deployLogId: string) => tauriCall("get_deploy_step_logs", { deployLogId }),
-    getDeployHistory: async (projectId: string, limit?: number) => tauriCall("get_deploy_history", { projectId, limit }),
-    getRollbackHistory: async (configId: string) => tauriCall("get_rollback_history", { configId }),
     writeLogFile: async (logId: string, content: string) => tauriCall("write_log_file", { logId, content }),
     writeSystemLog: async (level: string, prefix: string, message: string) => {
       await tauriInvoke("write_system_log", { level, prefix, message }, true)
