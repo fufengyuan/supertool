@@ -1030,8 +1030,6 @@ impl CoreService {
             })??
             .ok_or("CI/CD 配置不存在")?;
 
-        let rollback_id = uuid::Uuid::new_v4().to_string();
-
         // Parse servers from config JSON
         let mut rollback_errors: Vec<String> = Vec::new();
         if let Some(ref servers_str) = cicd_config.servers {
@@ -1092,23 +1090,33 @@ impl CoreService {
             rollback_errors.push("未配置部署服务器".to_string());
         }
 
-        // Record rollback in deploy history
+        // Record rollback in deploy_logs（deploy_history 表已废弃，见 cicd_tables.rs）。
+        // 先读原 log 再改，避免整行 UPDATE 覆盖 startTime/logFilePath 等字段。
+        // 原终态 status/errorMessage 保留（CLI History 按 failed 过滤不丢记录），
+        // 回滚结果以 "rolled-back:<结果>" 前缀追加到 errorMessage，UI 可识别
         let now = chrono::Utc::now().to_rfc3339();
-        let history = crate::db::cicd::DeployHistory {
-            id: rollback_id,
-            config_id: config_id.to_string(),
-            status: if rollback_errors.is_empty() {
-                "rollback-success".to_string()
-            } else {
-                "rollback-partial".to_string()
-            },
-            deployed_at: now.clone(),
-            rolled_back: true,
-            rolled_back_at: Some(now.clone()),
+        let rollback_mark = if rollback_errors.is_empty() {
+            format!("rolled-back:success at {}", now)
+        } else {
+            format!(
+                "rolled-back:partial ({}) at {}",
+                rollback_errors.join("; "),
+                now
+            )
         };
-        self.db_write(|conn| {
-            crate::db::cicd::add_deploy_history(conn, &history).expect("db error");
-        })?;
+        let _ = self.db_write(|conn| -> Result<(), String> {
+            let existing = crate::db::cicd::get_deploy_log_by_id(conn, log_id)
+                .map_err(|e| e.to_string())?
+                .ok_or("部署记录不存在")?;
+            let mut updated = existing;
+            updated.error_message = match updated.error_message.take() {
+                Some(prev) if !prev.is_empty() => Some(format!("{} | {}", prev, rollback_mark)),
+                _ => Some(rollback_mark),
+            };
+            crate::db::cicd::update_deploy_log(conn, &updated)
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        });
 
         Ok(json!({
             "success": rollback_errors.is_empty(),

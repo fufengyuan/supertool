@@ -360,16 +360,16 @@ const loadAlertStats = async () => {
   }
 };
 
-// 最近部署
+// 最近部署（deploy_history 已废弃，改读 deploy_logs）
 const recentDeployments = ref<{ id: string; status: string; configName?: string; createdAt: string }[]>([]);
 const loadRecentDeployments = async () => {
   try {
-    const history = await invoke<{ id: string; status: string; configName?: string; deployedAt: string }[]>('get_all_deploy_history');
-    recentDeployments.value = history.slice(0, 10).map(h => ({
+    const logs = await invoke<{ id: string; status: string; configId: string; configName?: string; createdAt: string }[]>('get_all_deploy_logs', { limit: 10 });
+    recentDeployments.value = logs.map(h => ({
       id: h.id,
       status: h.status,
       configName: h.configName || '未知配置',
-      createdAt: h.deployedAt
+      createdAt: h.createdAt
     }));
   } catch (e) {
     console.error('加载部署历史失败:', e);

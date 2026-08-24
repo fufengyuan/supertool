@@ -28,18 +28,15 @@ impl super::CoreService {
         })
     }
 
+    /// 部署历史（deploy_history 表已废弃，2026-08 起改读 deploy_logs）。
+    /// 返回 DeployLog：id/status 与原 DeployHistory 兼容，
+    /// 时间字段用 start_time（部署开始时间）
     pub fn get_deploy_history_by_config(
         &self,
         config_id: &str,
         limit: i64,
-    ) -> Result<Vec<crate::db::cicd::DeployHistory>, String> {
-        self.db_read(|conn| {
-            let mut stmt = conn.prepare("SELECT * FROM deploy_history WHERE configId = ? ORDER BY deployedAt DESC LIMIT ?")
-                .map_err(|e| e.to_string())?;
-            let rows = stmt.query_map(rusqlite::params![config_id, limit], crate::db::cicd::row_to_deploy_history)
-                .map_err(|e| e.to_string())?;
-            Ok(rows.filter_map(|r| r.ok()).collect())
-        })?
+    ) -> Result<Vec<crate::db::cicd::DeployLog>, String> {
+        self.get_deploy_logs_by_config(config_id, limit)
     }
 
     pub fn get_deploy_logs_by_config(

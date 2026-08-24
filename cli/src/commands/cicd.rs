@@ -3,7 +3,7 @@ use crate::output::*;
 use crate::runtime::CliRuntime;
 use crate::types::*;
 use anyhow::Result;
-use supertool_core::db::cicd::{CicdConfig, DeployHistory};
+use supertool_core::db::cicd::CicdConfig;
 
 pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> {
     check_connection(rt)?;
@@ -188,7 +188,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                             .map_err(|e| anyhow::anyhow!("{}", e))?;
                         if let Some(latest) = history.first() {
                             let status = &latest.status;
-                            let deployed = &latest.deployed_at;
+                            let deployed = &latest.start_time;
                             if human {
                                 println!(
                                     "    [{}] 部署时间: {} | 状态: {}",
@@ -377,7 +377,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
 
             // Filter by status if specified
-            let filtered: Vec<&DeployHistory> = if let Some(s) = status {
+            let filtered: Vec<&supertool_core::db::cicd::DeployLog> = if let Some(s) = status {
                 history.iter().filter(|h| h.status == *s).collect()
             } else {
                 history.iter().collect()
@@ -395,15 +395,29 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                     let icon = match status_val.as_str() {
                         "success" => "✅",
                         "failed" => "❌",
-                        "rolled_back" => "↩️",
                         "cancelled" => "⛔",
                         _ => "⏳",
                     };
-                    let deployed = h.deployed_at.get(..16).unwrap_or("");
-                    let triggered = "manual"; // TODO: get from deploy log if available
+                    // 回滚标记在 errorMessage（"rolled-back:..."），有则加 ↩️
+                    let rolled = h
+                        .error_message
+                        .as_deref()
+                        .map(|m| m.contains("rolled-back:"))
+                        .unwrap_or(false);
+                    let deployed = h.start_time.get(..16).unwrap_or("");
+                    let triggered = if h.triggered_by.is_empty() {
+                        "manual"
+                    } else {
+                        &h.triggered_by
+                    };
                     println!(
-                        "    {} {} {} by {} ({})",
-                        deploy_id, icon, status_val, triggered, deployed
+                        "    {} {}{} {} by {} ({})",
+                        deploy_id,
+                        icon,
+                        if rolled { " ↩️" } else { "" },
+                        status_val,
+                        triggered,
+                        deployed
                     );
                 }
             }
