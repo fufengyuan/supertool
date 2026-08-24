@@ -606,8 +606,10 @@ export function useCicdConfig() {
         config.value.deployPath = scan.suggestedDeployPath;
       }
 
-      // 多模块检测
-      if (scan.isMultiModule && scan.moduleNames) {
+      // 多模块检测：仅新建配置（无 id）时自动设置部署模式；
+      // 编辑已有配置绝不覆盖——否则每次打开编辑都会被悄悄改回单体（parentBuildMode=true）
+      // 并把 parentBuildPath 污染成 localPath 绝对路径
+      if (!config.value.id && scan.isMultiModule && scan.moduleNames) {
         config.value.parentBuildMode = true;
         config.value.parentBuildPath = localPath;
         for (const modName of scan.moduleNames) {
