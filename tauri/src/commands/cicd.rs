@@ -1443,19 +1443,24 @@ fn build_deploy_config(
             .and_then(|r| r.remote.or(Some(r.path)))
             .unwrap_or_default(),
         branch: cicd_config.deploy_branch.clone(),
-        local_path: cicd_config
-            .git_repo_id
-            .as_ref()
-            .and_then(|id| {
-                core.db_read(|conn| {
-                    supertool_core::db::git_repo::get_by_id(conn, id)
-                        .ok()
-                        .flatten()
+        // 代码实际目录优先：localPath 可能指向仓库子目录（如 SRC/front/corp-mobile），
+        // gitRepo.path 只是 git 仓库根；与 core/mod.rs 的 execute_deploy 保持同一规则
+        local_path: match cicd_config.local_path.as_deref() {
+            Some(p) if !p.trim().is_empty() => Some(p.trim().to_string()),
+            _ => cicd_config
+                .git_repo_id
+                .as_ref()
+                .and_then(|id| {
+                    core.db_read(|conn| {
+                        supertool_core::db::git_repo::get_by_id(conn, id)
+                            .ok()
+                            .flatten()
+                    })
+                    .ok()
+                    .flatten()
                 })
-                .ok()
-                .flatten()
-            })
-            .map(|r| r.path),
+                .map(|r| r.path),
+        },
         build_tool: cicd_config.build_tool.clone(),
         build_command: cicd_config.build_command.clone(),
         build_path: cicd_config.build_path.clone(),

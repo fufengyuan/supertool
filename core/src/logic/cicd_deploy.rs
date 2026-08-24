@@ -412,10 +412,16 @@ pub async fn execute_deploy(
         on_progress(event);
     };
 
+    // 日志明确展示代码实际目录（localPath），避免误以为在仓库根构建
+    let deploy_dir_display = config
+        .local_path
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or(&config.repo_url);
     emit(
         "deploy",
         "starting",
-        &format!("开始部署 {}", config.repo_url),
+        &format!("开始部署 {}", deploy_dir_display),
     );
 
     // Step 1: Git sync or use local path
