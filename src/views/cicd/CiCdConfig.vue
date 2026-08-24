@@ -453,6 +453,8 @@
                     <div class="w-1/2">
                       <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建脚本</label>
                       <select v-model="config.npmScript" class="select select-bordered w-full bg-base-200 text-sm">
+                        <!-- 当前值不在候选列表时兜底显示，避免 select 空白 -->
+                        <option v-if="config.npmScript && !['build', 'build:prod', 'custom'].includes(config.npmScript)" :value="config.npmScript">{{ config.npmScript }}（当前配置）</option>
                         <option value="build">build</option>
                         <option value="build:prod">build:prod</option>
                         <option value="custom">自定义...</option>
