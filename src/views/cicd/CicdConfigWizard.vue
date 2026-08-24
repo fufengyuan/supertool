@@ -142,6 +142,8 @@
               <div>
                 <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建脚本</label>
                 <select v-model="draft.npmScript" class="select select-bordered w-full bg-base-200 text-sm">
+                  <!-- 当前值不在候选列表时兜底显示，避免 select 空白 -->
+                  <option v-if="draft.npmScript && !npmScriptOptions.includes(draft.npmScript) && draft.npmScript !== 'custom'" :value="draft.npmScript">{{ draft.npmScript }}（当前配置）</option>
                   <option v-for="s in npmScriptOptions" :key="s" :value="s">{{ s }}</option>
                   <option value="custom">自定义...</option>
                 </select>
