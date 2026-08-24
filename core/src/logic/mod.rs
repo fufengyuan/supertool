@@ -721,13 +721,22 @@ impl CoreService {
                     .ok()
                     .flatten()
             });
+        // 代码实际目录优先：localPath 可能指向仓库子目录（如 SRC/front/corp-mobile），
+        // gitRepo.path 只是 git 仓库根；两者都空时才回退到 repoUrl
+        let deploy_source = match cicd_config.local_path.as_deref() {
+            Some(p) if !p.trim().is_empty() => p.trim().to_string(),
+            _ => git_repo
+                .as_ref()
+                .map(|r| r.path.clone())
+                .unwrap_or_default(),
+        };
         let deploy_config = crate::logic::cicd_deploy::DeployConfig {
             repo_url: git_repo
                 .as_ref()
                 .and_then(|r| r.remote.clone().or(Some(r.path.clone())))
                 .unwrap_or_default(),
             branch: cicd_config.deploy_branch.clone(),
-            local_path: git_repo.as_ref().map(|r| r.path.clone()),
+            local_path: (!deploy_source.is_empty()).then_some(deploy_source),
             build_tool: cicd_config.build_tool.clone(),
             build_command: cicd_config.build_command.clone(),
             build_path: cicd_config.build_path.clone(),

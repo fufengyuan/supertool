@@ -1232,6 +1232,93 @@ fn single_deploy_root(config: &DeployConfig, project_path: &Path) -> PathBuf {
     }
 }
 
+/// 在项目目录下查找前端构建产物目录（dist）。
+/// 候选顺序：显式 dist 目录（dist / dist/build/h5 等 uni-app 布局）→ package.json 的
+/// vite/outDir 配置。找不到返回 None。
+fn find_dist_dir(project_root: &Path) -> Option<PathBuf> {
+    const CANDIDATES: [&str; 5] = [
+        "dist",
+        "dist/build/h5",
+        "build/dist",
+        "unpackage/dist/build/h5",
+        "build",
+    ];
+    for c in CANDIDATES {
+        let p = project_root.join(c);
+        if p.is_dir() {
+            return Some(p);
+        }
+    }
+    // 从 package.json 读 vite outDir
+    let pkg = project_root.join("package.json");
+    if let Ok(content) = fs::read_to_string(&pkg) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(out_dir) = v
+                .get("build")
+                .and_then(|b| b.get("outDir"))
+                .and_then(|o| o.as_str())
+            {
+                let p = project_root.join(out_dir);
+                if p.is_dir() {
+                    return Some(p);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// 收集前端 dist 目录为单个 zip 产物。
+/// zip 内保留相对路径结构；产物名取主模块目录名。
+fn emit_collect_dist(
+    dist_dir: &Path,
+    config: &DeployConfig,
+    artifacts: &mut Vec<Artifact>,
+) -> Result<(), String> {
+    let root_name = dist_dir
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "dist".to_string());
+    let zip_name = format!("{}.zip", root_name);
+    let tmp_base = std::env::temp_dir()
+        .join(format!("supertool-artifacts-{}", std::process::id()));
+    fs::create_dir_all(&tmp_base).map_err(|e| format!("创建临时目录失败: {}", e))?;
+    let zip_path = tmp_base.join(&zip_name);
+
+    // zip -r 对已存在的档案是追加而非重建，必须先删旧包，
+    // 否则同进程二次构建会把上次已删除文件的陈旧条目留在包内
+    match fs::remove_file(&zip_path) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(format!("删除旧产物包失败: {}", e)),
+    }
+
+    create_zip(dist_dir, &zip_path, None, false)
+        .map_err(|e| format!("压缩 dist 目录失败: {}", e))?;
+
+    artifacts.push(Artifact {
+        name: zip_name.clone(),
+        local_path: zip_path.to_string_lossy().to_string(),
+        // module 带上主模块目录全路径标识，避免不同项目同名 dist 产物混淆
+        module: single_deploy_module_label(config),
+        is_lib: false,
+        is_compressed: true,
+        deploy_path: Some(config.deploy_dir.clone()),
+    });
+    Ok(())
+}
+
+/// 单体部署的模块标识：优先 parentBuildPath/buildPath（相对路径），否则项目根目录名。
+/// 用于产物 module 字段区分「同名 dist 目录、不同项目」的场景。
+fn single_deploy_module_label(config: &DeployConfig) -> Option<String> {
+    config
+        .parent_build_path
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .or_else(|| config.build_path.as_deref().filter(|s| !s.is_empty()))
+        .map(|s| s.to_string())
+}
+
 async fn do_build(
     config: &DeployConfig,
     project_path: &PathBuf,
@@ -1260,8 +1347,9 @@ async fn do_build(
             "success",
             &format!("父模块构建成功 ({} 个子模块)", config.modules.len()),
         );
-    } else if has_modules {
-        // Per-module build
+    } else if has_modules && !config.parent_build_mode {
+        // Per-module build（仅多模块部署；单体模式下模块表不参与构建，
+        // 否则复制配置带入的旧模块会把整体构建拆成逐模块错误执行）
         let mut sorted_modules = config.modules.clone();
         sorted_modules.sort_by_key(|m| m.deploy_order);
 
@@ -1877,8 +1965,10 @@ fn collect_artifacts(
 ) -> Result<Vec<Artifact>, String> {
     let mut artifacts = Vec::new();
 
-    if config.modules.is_empty() {
-        // Single project（单体部署：主模块目录为准，次选 buildPath）
+    if config.modules.is_empty() || config.parent_build_mode {
+        // 单产物部署（单体部署，或父统一构建的 maven 多模块）：
+        // 按主模块目录（parentBuildPath → buildPath → 项目根）收集 target 下的 jar 产物。
+        // 注意：npm 前端单体项目通常没有 target 目录，走下方 dist 兜底收集。
         let is_cargo = config.build_tool.as_deref() == Some("cargo");
 
         let output_dir = if is_cargo {
@@ -1899,6 +1989,16 @@ fn collect_artifacts(
                     None,
                     &mut artifacts,
                 )?;
+            }
+        }
+
+        // npm/前端单体项目兜底：主模块目录下没有 target 时，收集其 dist 目录（zip 整目录）
+        // 排除 maven：maven 父统一构建的产物在 target 下，dist 兜底不适用
+        let is_maven = matches!(config.build_tool.as_deref(), Some("maven"));
+        if !is_cargo && !is_maven && !output_dir.exists() {
+            let dist_dir = find_dist_dir(&single_deploy_root(config, project_path));
+            if let Some(dist_dir) = dist_dir {
+                emit_collect_dist(&dist_dir, config, &mut artifacts)?;
             }
         }
     } else {
@@ -2986,4 +3086,102 @@ fn file_size_mb(path: &str) -> f64 {
     fs::metadata(path)
         .map(|m| m.len() as f64 / 1024.0 / 1024.0)
         .unwrap_or(0.0)
+}
+
+#[cfg(test)]
+mod single_deploy_tests {
+    use super::*;
+
+    fn base_config() -> DeployConfig {
+        DeployConfig {
+            repo_url: String::new(),
+            branch: "main".into(),
+            local_path: None,
+            build_tool: Some("npm".into()),
+            build_command: None,
+            build_path: None,
+            npm_script: Some("build:h5".into()),
+            npm_custom_script: None,
+            maven_home: None,
+            java_home: None,
+            npm_home: None,
+            node_home: None,
+            maven_profile: None,
+            maven_settings: None,
+            modules: vec![],
+            skip_tests: true,
+            parent_build_mode: true,
+            parent_build_path: None,
+            servers: vec![],
+            deploy_dir: "/home/nginxWebUI/ui".into(),
+            lib_dir: None,
+            restart_script: None,
+            lib_separate: false,
+            build_mode: "local".into(),
+            env_vars: HashMap::new(),
+            health_check_url: None,
+            health_check_timeout: 30,
+            health_check_retries: 3,
+            incremental_upload: true,
+            environment_name: None,
+        }
+    }
+
+    #[test]
+    fn single_deploy_root_prefers_parent_build_path() {
+        let mut c = base_config();
+        c.parent_build_path = Some("./SRC/front/corp-mobile".into());
+        let root = single_deploy_root(&c, Path::new("/proj"));
+        assert_eq!(root, PathBuf::from("/proj/SRC/front/corp-mobile"));
+
+        // 绝对路径 parentBuildPath（存量脏数据）：PathBuf::join 语义下整体替换
+        c.parent_build_path = Some("/abs/path".into());
+        assert_eq!(single_deploy_root(&c, Path::new("/proj")), PathBuf::from("/abs/path"));
+
+        // 空 parentBuildPath → 回退 buildPath
+        c.parent_build_path = Some(String::new());
+        c.build_path = Some("sub/dir".into());
+        assert_eq!(single_deploy_root(&c, Path::new("/proj")), PathBuf::from("/proj/sub/dir"));
+
+        // 都空 → 项目根
+        c.parent_build_path = Some(String::new());
+        c.build_path = Some(String::new());
+        assert_eq!(single_deploy_root(&c, Path::new("/proj")), PathBuf::from("/proj"));
+    }
+
+    #[test]
+    fn find_dist_dir_candidates_and_pkg_outdir() {
+        let tmp = std::env::temp_dir().join(format!("st-dist-test-{}", std::process::id()));
+        fs::create_dir_all(tmp.join("dist/build/h5")).unwrap();
+        // 候选按顺序匹配：裸 dist 先命中（uni-app 项目 dist 下同时存在 build/h5 等多端产物时，
+        // 取整个 dist 目录打包语义更完整）
+        assert_eq!(find_dist_dir(&tmp), Some(tmp.join("dist")));
+        fs::remove_dir_all(&tmp).unwrap();
+
+        // package.json build.outDir 优先于裸 build 目录猜测：
+        // 自定义 outDir 存在时不应误中其他目录
+        let tmp2 = std::env::temp_dir().join(format!("st-dist-pkg-{}", std::process::id()));
+        fs::create_dir_all(tmp2.join("output/web")).unwrap();
+        fs::write(
+            tmp2.join("package.json"),
+            r#"{"build": {"outDir": "output/web"}}"#,
+        )
+        .unwrap();
+        assert_eq!(find_dist_dir(&tmp2), Some(tmp2.join("output/web")));
+        fs::remove_dir_all(&tmp2).unwrap();
+    }
+
+    #[test]
+    fn module_label_uses_relative_paths_not_project_name() {
+        let mut c = base_config();
+        c.parent_build_path = Some("SRC/front/corp-mobile".into());
+        assert_eq!(single_deploy_module_label(&c), Some("SRC/front/corp-mobile".into()));
+
+        c.parent_build_path = None;
+        c.build_path = Some("web".into());
+        assert_eq!(single_deploy_module_label(&c), Some("web".into()));
+
+        c.build_path = None;
+        assert_eq!(single_deploy_module_label(&c), None);
+    }
 }
