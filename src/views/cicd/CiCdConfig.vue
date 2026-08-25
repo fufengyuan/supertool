@@ -826,17 +826,25 @@
                 </div>
               </div>
               <div class="p-2 max-h-60 overflow-y-auto flex flex-col">
-                <label
-                  v-for="(module, idx) in modules" :key="module.id || idx"
-                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer select-none hover:bg-base-200/60 transition-colors"
-                >
-                  <input v-model="module.enabled" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
-                  <span class="text-sm font-medium text-base-content">{{ module.moduleName }}</span>
-                  <span class="ml-auto text-xs text-base-content/40 font-mono">{{ module.modulePath }}</span>
-                  <button @click.stop="confirmDeleteModule(module)" class="btn btn-ghost btn-square btn-xs text-error hover:bg-error/10" title="删除">
-                    <SvgIcon name="x" size="13" />
-                  </button>
-                </label>
+                <template v-for="(module, idx) in modules" :key="module.id || idx">
+                  <div class="flex flex-col px-3 py-2 rounded-lg hover:bg-base-200/60 transition-colors">
+                    <div class="flex items-center gap-2.5">
+                      <input v-model="module.enabled" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
+                      <span class="text-sm font-medium text-base-content">{{ module.moduleName }}</span>
+                      <span class="text-xs text-base-content/40 font-mono">{{ module.modulePath }}</span>
+                      <button @click="cicd.toggleModuleExpand(idx)" class="ml-auto btn btn-ghost btn-xs text-base-content/50" title="远程路径">
+                        <SvgIcon name="settings" size="12" />
+                      </button>
+                      <button @click.stop="confirmDeleteModule(module)" class="btn btn-ghost btn-square btn-xs text-error hover:bg-error/10" title="删除">
+                        <SvgIcon name="x" size="13" />
+                      </button>
+                    </div>
+                    <div v-show="cicd.expandedModules.value.includes(idx)" class="mt-2 pl-8 pr-2 pb-1">
+                      <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">远程部署路径</label>
+                      <input v-model="module.deployPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" :placeholder="`沿用全局目录: ${config.deployPath || '~/apphome'}`" />
+                    </div>
+                  </div>
+                </template>
                 <div v-if="!modules.some(m => m.enabled)" class="px-3 py-2 text-xs text-amber-600">
                   未勾选任何模块，将不部署子模块
                 </div>
