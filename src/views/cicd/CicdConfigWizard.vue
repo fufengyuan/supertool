@@ -10,9 +10,6 @@
           <p class="m-0 mt-1 text-sm text-base-content/60">{{ editing ? '按步骤修改；多环境、健康检查等高级能力在底部「高级设置」中可继续配置' : '按步骤快速创建；多环境、健康检查等高级能力可在创建后继续配置' }}</p>
         </div>
         <div class="flex items-center gap-2">
-          <button v-if="editing" class="btn btn-ghost btn-sm" @click="emit('openAdvanced')" title="切换到分组表单编辑高级字段（多环境/健康检查/工具路径等）">
-            <SvgIcon name="sliders" :size="14" /> 高级设置
-          </button>
           <button class="btn btn-ghost btn-sm" @click="emit('cancel')">取消</button>
         </div>
       </div>
@@ -170,14 +167,22 @@
                 <span class="ml-auto text-[10px] text-base-content/50">每个模块独立构建并部署到独立远程目录</span>
               </div>
               <div class="p-2 max-h-48 overflow-y-auto flex flex-col">
-                <label
-                  v-for="m in modules" :key="m.moduleName"
-                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer select-none hover:bg-base-200/60 transition-colors"
-                >
-                  <input v-model="m.checked" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
-                  <span class="text-sm font-medium text-base-content">{{ m.moduleName }}</span>
-                  <span class="ml-auto text-xs text-base-content/40 font-mono">{{ m.modulePath }}</span>
-                </label>
+                <template v-for="(m, idx) in modules" :key="m.moduleName">
+                  <div class="flex flex-col px-3 py-2 rounded-lg hover:bg-base-200/60 transition-colors">
+                    <div class="flex items-center gap-2.5">
+                      <input v-model="m.checked" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
+                      <span class="text-sm font-medium text-base-content">{{ m.moduleName }}</span>
+                      <span class="ml-auto text-xs text-base-content/40 font-mono">{{ m.modulePath }}</span>
+                      <button @click="toggleModuleExpand(idx)" class="btn btn-ghost btn-xs text-base-content/50" title="远程路径">
+                        <SvgIcon name="settings" size="12" />
+                      </button>
+                    </div>
+                    <div v-show="expandedModuleIdx === idx" class="mt-2 pl-8 pr-2 pb-1">
+                      <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">远程部署路径</label>
+                      <input v-model="m.deployPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" :placeholder="`沿用全局目录: ${draft.deployPath || '~/apphome'}`" />
+                    </div>
+                  </div>
+                </template>
                 <div v-if="!selectedModules.length" class="px-3 py-2 text-xs text-amber-600">
                   未勾选任何模块，将不部署子模块
                 </div>
@@ -350,7 +355,7 @@ import type { Server } from '../../types'
 interface GitRepoEntry { id: string; name: string; path?: string; branch?: string }
 interface ServerGroupEntry { id: string; name: string; color: string; parentId: string | null }
 interface BuildToolOption { key: string; name: string; icon: string; version?: string; available: boolean }
-interface ModuleItem { moduleName: string; modulePath: string; checked: boolean; src?: Record<string, unknown> }
+interface ModuleItem { moduleName: string; modulePath: string; checked: boolean; deployPath?: string; src?: Record<string, unknown> }
 
 const props = defineProps<{
   gitRepos: GitRepoEntry[]
@@ -448,6 +453,12 @@ const npmScriptOptions = computed<string[]>(() => {
 
 // 多模块：扫描识别出 moduleNames 后生成的勾选列表；无多模块则为空数组
 const modules = ref<ModuleItem[]>([])
+
+// 模块远程路径展开控制
+const expandedModuleIdx = ref<number | null>(null)
+function toggleModuleExpand(idx: number) {
+  expandedModuleIdx.value = expandedModuleIdx.value === idx ? null : idx
+}
 
 // ── 编辑模式：从已有配置预填向导 ──
 function prefillFromInitial() {
