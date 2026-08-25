@@ -32,6 +32,8 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 
 **悬浮待办窗**（floating-todo）：后端命令在 `tauri/src/commands/floating_todo.rs`（open/close/toggle/set_pinned，启动时 ensure_floating_todo 自动创建）；**默认小球形态**（FloatingTodoPanel.vue `collapsed` 初始 true，onMounted 用 `applyWindowSize()` 按形态统一窗口尺寸 球56×56/展开340×500，勿在 onMounted 硬编码展开尺寸否则启动闪大窗）；**关闭入口**在球左上角 × 与展开标题栏 ×（调 closeFloatingTodo 销毁窗口），主窗口侧边栏底部「悬浮待办」toggle 可随时重新打开。
 
+**开源 GitHub 仓库**：remote `github` = `git@github.com:fufengyuan/supertool.git`（SSH 用 `~/.ssh/id_ed25519_github`）；`main` 为开源分支，承载本地 tauri 分支历史（推送 `git push github tauri:main`）。已用 filter-branch 重写历史移除 106MB 沙箱文件 `tauri/.sandbox-home`（本地 tauri 的 commit hash 与腾讯工蜂 origin/tauri 不一致，再推腾讯需 force）；master 分支历史仍含该大文件，勿推 GitHub。
+
 ## 提交规范
 
 - 格式 `type(scope): subject`，scope 用中文业务模块名（如 `持续部署`），subject 中文 ≤30 字
