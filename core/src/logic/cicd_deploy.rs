@@ -1360,6 +1360,10 @@ async fn do_build(
         sorted_modules.sort_by_key(|m| m.deploy_order);
 
         for module in &sorted_modules {
+            // 跳过未启用模块（纯依赖模块如 framework 不在部署列表中，enabled=0）
+            if !module.enabled {
+                continue;
+            }
             if let Err(e) = build_single_module(project_path, module, config, emit).await {
                 return Err(format!(
                     "模块 {} 构建失败: {}",
@@ -1421,13 +1425,14 @@ async fn build_single_module(
     emit: &impl Fn(&str, &str, &str),
 ) -> Result<(), String> {
     let raw_rel = module
-        .build_path
+        .path
         .clone()
         .filter(|s| !s.is_empty())
-        .or_else(|| module.path.clone().filter(|s| !s.is_empty()));
+        .or_else(|| module.build_path.clone().filter(|s| !s.is_empty()));
     // 模块行路径是当年 localPath=仓库根时扫出的相对路径（如 "SRC/mall/base-api"）；
     // 若 localPath 后来改为子目录（如 .../SRC/mall），直接 join 会双重前缀导致目录不存在。
     // 回退策略：join 不存在 → 只取相对路径末段（"base-api"）再 join。
+    // 优先 modulePath（模块目录本身）而非 buildPath（可能是父目录，如 SRC/mall）。
     let build_path = resolve_module_dir(project_path, raw_rel.as_deref());
 
     // Custom build command (stream output for real-time logs)
