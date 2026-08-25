@@ -359,6 +359,17 @@ interface ServerGroupEntry { id: string; name: string; color: string; parentId: 
 interface BuildToolOption { key: string; name: string; icon: string; version?: string; available: boolean }
 interface ModuleItem { moduleName: string; modulePath: string; checked: boolean; deployPath?: string; src?: Record<string, unknown> }
 
+/// 模块远程子目录规范化：若填了完整路径且以全局部署路径开头，剥掉前缀只存子目录名；
+/// 否则原样返回（相对子路径）。避免把全路径存进模块 deployPath。
+function normalizeModuleDeployPath(path: string, globalDeployPath: string): string {
+  const p = (path || '').trim()
+  const g = (globalDeployPath || '').trim()
+  if (!p || !g) { return p }
+  if (p === g) { return '' }
+  if (p.startsWith(g + '/')) { return p.slice(g.length + 1) }
+  return p
+}
+
 const props = defineProps<{
   gitRepos: GitRepoEntry[]
   groups: string[]
@@ -717,13 +728,13 @@ async function finish() {
           moduleName: m.moduleName,
           modulePath: m.modulePath,
           enabled: m.checked,
-          deployPath: m.deployPath || (m.src as Record<string, unknown> | undefined)?.deployPath || '',
+          deployPath: normalizeModuleDeployPath(String(m.deployPath || (m.src as Record<string, unknown> | undefined)?.deployPath || ''), draft.deployPath),
         }))
       : (monolith ? [] : selectedModules.value.map(m => ({
           moduleName: m.moduleName,
           modulePath: m.modulePath,
           enabled: m.checked,
-          deployPath: m.deployPath || '',
+          deployPath: normalizeModuleDeployPath(m.deployPath || '', draft.deployPath),
         })))
     emit('complete', {
       ...draft,
