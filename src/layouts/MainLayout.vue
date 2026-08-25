@@ -79,6 +79,11 @@
 
         <!-- 侧栏底部操作区 -->
         <div class="border-t border-base-300 p-2 flex flex-col gap-1">
+          <!-- 待办悬浮球开关（关闭后可在此重新打开） -->
+          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="toggleFloatingTodo" title="打开/关闭待办悬浮球">
+            <SvgIcon name="checkCircle" :size="20" />
+            <span v-show="!sidebarCollapsed" class="text-sm">悬浮待办</span>
+          </button>
           <!-- 搜索 -->
           <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="openGlobalSearch" :title="'全局搜索 (Ctrl+K)'">
             <SvgIcon name="search" :size="20" />
@@ -358,6 +363,11 @@ async function toggleTheme() {
 
 function openGlobalSearch() {
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))
+}
+
+/** 打开/关闭待办悬浮球（关闭后同样的入口可重新打开） */
+function toggleFloatingTodo() {
+  getTauriAPI().toggleFloatingTodo().catch(() => {})
 }
 
 let unlistenFns: (() => void)[] = []

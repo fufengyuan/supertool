@@ -1,6 +1,6 @@
 <template>
   <div class="floating-todo-panel" :data-theme="theme" :class="{ 'ball-mode': collapsed }">
-    <!-- 小球模式：收起后只占一个球的大小 -->
+    <!-- 小球模式：收起后只占一个球的大小；默认形态 -->
     <div
       v-if="collapsed"
       class="ball"
@@ -9,6 +9,14 @@
     >
       <SvgIcon name="check" size="26" :stroke-width="3" class="ball-icon" />
       <span v-if="pendingCount > 0" class="ball-badge">{{ pendingCount > 99 ? '99+' : pendingCount }}</span>
+      <button
+        class="ball-close"
+        @mousedown.stop
+        @click.stop="closeWindow"
+        title="关闭悬浮待办（可从主窗口侧边栏重新打开）"
+      >
+        <SvgIcon name="x" size="10" />
+      </button>
     </div>
 
     <!-- 展开模式 -->
@@ -30,6 +38,11 @@
           :class="{ 'text-primary': pinned }"
           :title="pinned ? '取消置顶' : '置顶'"
         ><SvgIcon name="mapPin" size="13" /></button>
+        <button
+          @click.stop="closeWindow"
+          class="btn btn-xs btn-ghost px-1 text-base-content/50 hover:text-error"
+          title="关闭悬浮待办（可从主窗口侧边栏重新打开）"
+        ><SvgIcon name="x" size="13" /></button>
       </div>
 
       <div class="content-area p-3 space-y-3">
@@ -140,7 +153,8 @@ const CLICK_THRESHOLD_PX = 5
 const CLICK_THRESHOLD_MS = 300
 
 const theme = ref('dark')
-const collapsed = ref(false)
+// 默认显示悬浮球；点击球展开，标题栏点击折叠回球
+const collapsed = ref(true)
 const pinned = ref(false)
 const newTodoText = ref('')
 const selectedProjectId = ref('')
@@ -305,15 +319,27 @@ function onBallMouseDown(e: MouseEvent) {
 }
 
 // Watch collapsed state and resize window
-watch(collapsed, async (val) => {
-  if (val) {
+watch(collapsed, applyWindowSize)
+
+/** 按当前形态设置窗口尺寸：球 56×56，展开 340×500 */
+async function applyWindowSize() {
+  if (collapsed.value) {
     await setMinSize(BALL_SIZE, BALL_SIZE)
     await setWindowSize(BALL_SIZE, BALL_SIZE)
   } else {
     await setWindowSize(EXPANDED_WIDTH, EXPANDED_HEIGHT)
     await setMinSize(EXPANDED_WIDTH, EXPANDED_HEIGHT)
   }
-})
+}
+
+/** 完全关闭悬浮待办窗口（可从主窗口侧边栏重新打开） */
+async function closeWindow() {
+  try {
+    await getTauriAPI().closeFloatingTodo()
+  } catch {
+    /* 非 Tauri 环境（浏览器预览）忽略 */
+  }
+}
 
 async function togglePin() {
   pinned.value = !pinned.value
@@ -330,8 +356,8 @@ onMounted(async () => {
   // 透明窗口：清除 body 默认背景，让圆角外区域显示桌面
   document.documentElement.style.background = 'transparent'
   document.body.style.background = 'transparent'
-  setWindowSize(EXPANDED_WIDTH, EXPANDED_HEIGHT)
-  setMinSize(EXPANDED_WIDTH, EXPANDED_HEIGHT)
+  // 按默认形态（小球）设置窗口尺寸，避免一开始 340×500 闪一下
+  applyWindowSize()
   loadTodos()
   try {
     const raw = await getTauriAPI().getProjects?.(true) || []
@@ -406,6 +432,27 @@ onUnmounted(() => {
   justify-content: center;
   padding: 0 3px;
   pointer-events: none;
+}
+/* 悬浮球关闭按钮：左上角小圆 x，hover 时加深 */
+.ball-close {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.4);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  transition: background-color 0.12s ease;
+}
+.ball-close:hover {
+  background: rgba(220, 38, 38, 0.85);
 }
 
 .todo-list {
