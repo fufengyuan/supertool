@@ -2080,6 +2080,20 @@ fn get_last_lines(s: &str, n: usize) -> String {
 
 // =================== Artifact Collection ===================
 
+/// 模块远程部署路径解析：模块 deployPath 是相对全局目录的**增量子路径**，
+/// 拼接到全局部署目录后（如全局 /home/nginxWebUI/ui + 模块 pre-corp → /home/nginxWebUI/ui/pre-corp）。
+/// 若已填绝对路径（/ 或 ~ 开头）则原样使用（兼容老配置）。
+fn module_deploy_path(config: &DeployConfig, module: &DeployModuleConfig) -> String {
+    match module.deploy_path.as_deref().filter(|s| !s.trim().is_empty()) {
+        Some(p) if p.starts_with('/') || p.starts_with("~/") || p == "~" => p.trim().to_string(),
+        Some(p) => {
+            let base = config.deploy_dir.trim_end_matches('/');
+            format!("{}/{}", base, p.trim().trim_start_matches('/'))
+        }
+        None => config.deploy_dir.clone(),
+    }
+}
+
 fn collect_artifacts(
     project_path: &PathBuf,
     config: &DeployConfig,
@@ -2152,11 +2166,7 @@ fn collect_artifacts(
                             module: module.name.clone(),
                             is_lib: false,
                             is_compressed: false,
-                            deploy_path: module
-                                .deploy_path
-                                .clone()
-                                .filter(|s| !s.is_empty())
-                                .or(Some(config.deploy_dir.clone())),
+                            deploy_path: Some(module_deploy_path(config, module)),
                         });
                     }
                     // Collect lib/ directory if lib_separate is enabled
@@ -2181,11 +2191,7 @@ fn collect_artifacts(
                                 module: module.name.clone(),
                                 is_lib: true,
                                 is_compressed: true,
-                                deploy_path: module
-                                    .deploy_path
-                                    .clone()
-                                    .filter(|s| !s.is_empty())
-                                    .or(Some(config.deploy_dir.clone())),
+                                deploy_path: Some(module_deploy_path(config, module)),
                             });
                         }
                     }
@@ -2208,11 +2214,7 @@ fn collect_artifacts(
                     module: module.name.clone(),
                     is_lib: false,
                     is_compressed: true,
-                    deploy_path: module
-                        .deploy_path
-                        .clone()
-                        .filter(|s| !s.is_empty())
-                        .or(Some(config.deploy_dir.clone())),
+                    deploy_path: Some(module_deploy_path(config, module)),
                 });
                 continue;
             }
@@ -2220,7 +2222,7 @@ fn collect_artifacts(
             collect_from_dir(
                 &output_dir,
                 module.name.as_deref(),
-                module.deploy_path.as_deref().unwrap_or(&config.deploy_dir),
+                module_deploy_path(config, module).as_str(),
                 config.lib_separate,
                 module.lib_filter_rules.as_deref(),
                 &mut artifacts,
@@ -3294,6 +3296,43 @@ mod single_deploy_tests {
 
         c.build_path = None;
         assert_eq!(single_deploy_module_label(&c), None);
+    }
+
+    #[test]
+    fn module_deploy_path_is_incremental() {
+        let mut c = base_config();
+        c.deploy_dir = "/home/nginxWebUI/ui".to_string();
+        let mut m = DeployModuleConfig {
+            name: Some("seller".into()),
+            path: Some("SRC/front/seller".into()),
+            build_path: None,
+            build_command: None,
+            build_tool: None,
+            output_path: None,
+            artifact_name: None,
+            artifact_type: None,
+            lib_filter_rules: None,
+            deploy_order: 0,
+            deploy_path: None,
+            enabled: true,
+        };
+        // 未设置 → 全局目录
+        assert_eq!(module_deploy_path(&c, &m), "/home/nginxWebUI/ui");
+        // 相对子路径 → 拼到全局目录后
+        m.deploy_path = Some("pre-corp".into());
+        assert_eq!(module_deploy_path(&c, &m), "/home/nginxWebUI/ui/pre-corp");
+        // 带斜杠的相对路径
+        m.deploy_path = Some("staging/pre-corp".into());
+        assert_eq!(
+            module_deploy_path(&c, &m),
+            "/home/nginxWebUI/ui/staging/pre-corp"
+        );
+        // 绝对路径（老配置兼容）→ 原样
+        m.deploy_path = Some("/opt/apphome/seller".into());
+        assert_eq!(module_deploy_path(&c, &m), "/opt/apphome/seller");
+        // ~ 开头绝对路径 → 原样
+        m.deploy_path = Some("~/apphome".into());
+        assert_eq!(module_deploy_path(&c, &m), "~/apphome");
     }
 
     #[test]
