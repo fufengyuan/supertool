@@ -16,3 +16,4 @@ target/
 tauri/.sandbox-home/
 .reasonix/
 reasonix.toml
+test_tokenizer
