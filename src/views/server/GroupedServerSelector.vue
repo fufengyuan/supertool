@@ -47,15 +47,28 @@
       @toggle-group="toggleGroup"
     />
 
-    <div v-if="allServers.length === 0" class="text-center p-4 text-base-content/60 text-xs">暂无服务器</div>
+    <div v-if="allServers.length === 0" class="flex flex-col items-center gap-2 p-4 text-base-content/60 text-xs">
+      <span>暂无服务器</span>
+      <button class="btn btn-xs btn-primary gap-1" @click="goServers">
+        去添加服务器 <SvgIcon name="arrowRight" :size="12" />
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import type { Server, ServerGroup } from '../../types'
 import ServerGroupNode from './ServerGroupNode.vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+
+const router = useRouter()
+
+/** 空态引导：跳转到服务器管理页去添加服务器 */
+function goServers() {
+  router.push('/servers')
+}
 
 const props = defineProps<{
   servers: Server[]
