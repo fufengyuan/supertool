@@ -179,7 +179,7 @@
                     </div>
                     <div v-show="expandedModuleIdx === idx" class="mt-2 pl-8 pr-2 pb-1">
               <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">远程子目录（相对全局目录）</label>
-                      <input v-model="m.deployPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" :placeholder="`相对全局目录的子路径，如 pre-corp（默认沿用全局 ${draft.deployPath || '~/apphome'}）`" />
+                      <input v-model="m.deployPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" :placeholder="`默认填模块名（如 ${m.moduleName || 'seller-api'}），部署到全局目录下该子目录`" />
                     </div>
                   </div>
                 </template>
@@ -524,7 +524,7 @@ function prefillFromInitial() {
   } else if (Array.isArray(c.servers)) {
     selectedServerIds.value = (c.servers as { serverId?: string }[]).map(s => s.serverId).filter((v: string | undefined): v is string => !!v);
   }
-  // 模块：已有模块作为勾选列表（默认按 enabled 勾选）
+  // 模块：已有模块作为勾选列表（默认按 enabled 勾选）；deployPath 默认取模块名（增量子路径）
   const initialMods = Array.isArray(c.modules) ? (c.modules as { moduleName?: string; modulePath?: string; enabled?: boolean }[]) : []
   if (initialMods.length) {
     modules.value = initialMods.map(m => ({
@@ -532,11 +532,27 @@ function prefillFromInitial() {
       modulePath: m.modulePath || m.moduleName || '',
       checked: m.enabled !== false,
       src: { ...m },
+      deployPath: (m as { deployPath?: string }).deployPath || m.moduleName || '',
     }))
   }
 }
 // 编辑模式进入时预填
 watch(() => props.initial, (v) => { if (v?.id) { prefillFromInitial(); } }, { immediate: true })
+
+// Git 仓库列表就绪后：若当前已选仓库且分支列表为空，自动加载分支
+// （修复：编辑模式 prefill 设置 gitRepoId 时，gitRepoId 的 watch 尚未注册，需在此兜底）
+watch(() => props.gitRepos, (repos) => {
+  if (repos.length && draft.gitRepoId && !branches.value.length) {
+    onRepoChange();
+  }
+}, { immediate: true })
+
+// 编辑模式 prefill 完成后：若已有 gitRepoId 且分支为空，主动加载（不依赖 gitRepoId watch 时序）
+watch(() => props.initial?.id, (id) => {
+  if (id && draft.gitRepoId && !branches.value.length) {
+    loadBranches();
+  }
+}, { immediate: true })
 
 // 默认选中第一个可用构建工具
 watch(() => props.buildTools, (tools) => {
@@ -614,7 +630,7 @@ async function scanProject(path: string) {
           if (editing.value && modules.value.length) {
             scanned.value.isMultiModule = true;
           } else {
-            modules.value = names.map(n => ({ moduleName: n, modulePath: n, checked: true }));
+            modules.value = names.map(n => ({ moduleName: n, modulePath: n, checked: true, deployPath: n }));
             scanned.value.isMultiModule = true;
           }
         }
