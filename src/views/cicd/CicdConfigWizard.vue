@@ -1,6 +1,6 @@
 <template>
   <div class="flex-1 overflow-y-auto bg-base-200">
-    <div class="max-w-[760px] mx-auto px-6 py-8">
+    <div class="max-w-[1200px] mx-auto px-8 py-8">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
         <div>
@@ -34,14 +34,14 @@
 
         <!-- Step 1: 项目与分支 -->
         <div v-if="step === 0" class="flex flex-col gap-4">
-          <div>
-            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Git 仓库 <span class="text-error normal-case tracking-normal">*</span></label>
-            <select v-model="draft.gitRepoId" class="select select-bordered w-full bg-base-200 text-sm" @change="onRepoChange">
-              <option value="">选择 Git 仓库...</option>
-              <option v-for="repo in gitRepos" :key="repo.id" :value="repo.id">{{ repo.name }} — {{ repo.path }}</option>
-            </select>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-3 gap-4">
+            <div class="col-span-2">
+              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Git 仓库 <span class="text-error normal-case tracking-normal">*</span></label>
+              <select v-model="draft.gitRepoId" class="select select-bordered w-full bg-base-200 text-sm" @change="onRepoChange">
+                <option value="">选择 Git 仓库...</option>
+                <option v-for="repo in gitRepos" :key="repo.id" :value="repo.id">{{ repo.name }} — {{ repo.path }}</option>
+              </select>
+            </div>
             <div>
               <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">配置名称 <span class="text-error normal-case tracking-normal">*</span></label>
               <input v-model="draft.name" class="input input-bordered w-full bg-base-200 text-sm" placeholder="例如：用户中心后端" />
@@ -52,30 +52,30 @@
                 <option v-for="g in groups" :key="g" :value="g">{{ g }}</option>
               </select>
             </div>
-          </div>
-          <div>
-            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署分支</label>
-            <div class="flex gap-1.5">
-              <select v-model="draft.deployBranch" class="select select-bordered w-full bg-base-200 text-sm flex-1">
-                <option value="main">main</option>
-                <option value="master">master</option>
-                <option v-for="b in branches" :key="b" :value="b">{{ b }}</option>
-              </select>
-              <button class="btn btn-ghost btn-sm" :disabled="!draft.gitRepoId || loadingBranches" @click="loadBranches" title="刷新分支列表">
-                <SvgIcon name="refresh" :size="14" :class="{ 'animate-spin': loadingBranches }" />
-              </button>
+            <div>
+              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署分支</label>
+              <div class="flex gap-1.5">
+                <select v-model="draft.deployBranch" class="select select-bordered w-full bg-base-200 text-sm flex-1">
+                  <option value="main">main</option>
+                  <option value="master">master</option>
+                  <option v-for="b in branches" :key="b" :value="b">{{ b }}</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" :disabled="!draft.gitRepoId || loadingBranches" @click="loadBranches" title="刷新分支列表">
+                  <SvgIcon name="refresh" :size="14" :class="{ 'animate-spin': loadingBranches }" />
+                </button>
+              </div>
             </div>
-          </div>
-          <div>
-            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">本地代码目录</label>
-            <div class="flex gap-1.5">
-              <input :value="draft.localPath" readonly class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="用于扫描构建工具与模块（默认取 Git 仓库根目录）" />
-              <button class="btn btn-ghost btn-sm whitespace-nowrap" @click="pickLocalDir" title="选择实际代码目录（如 src/xxx，不在仓库根目录时）">
-                <SvgIcon name="folderOpen" :size="14" /> 选择目录
-              </button>
-              <button v-if="draft.localPath" class="btn btn-ghost btn-sm" @click="scanProject(draft.localPath)" title="重新扫描" :disabled="scanningProj">
-                <SvgIcon name="refresh" :size="14" :class="{ 'animate-spin': scanningProj }" />
-              </button>
+            <div>
+              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">本地代码目录</label>
+              <div class="flex gap-1.5">
+                <input :value="draft.localPath" readonly class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="用于扫描构建工具与模块（默认取 Git 仓库根目录）" />
+                <button class="btn btn-ghost btn-sm whitespace-nowrap" @click="pickLocalDir" title="选择实际代码目录（如 src/xxx，不在仓库根目录时）">
+                  <SvgIcon name="folderOpen" :size="14" /> 选择目录
+                </button>
+                <button v-if="draft.localPath" class="btn btn-ghost btn-sm" @click="scanProject(draft.localPath)" title="重新扫描" :disabled="scanningProj">
+                  <SvgIcon name="refresh" :size="14" :class="{ 'animate-spin': scanningProj }" />
+                </button>
+              </div>
             </div>
           </div>
           <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
@@ -178,8 +178,8 @@
                       </button>
                     </div>
                     <div v-show="expandedModuleIdx === idx" class="mt-2 pl-8 pr-2 pb-1">
-                      <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">远程部署路径</label>
-                      <input v-model="m.deployPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" :placeholder="`沿用全局目录: ${draft.deployPath || '~/apphome'}`" />
+              <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">远程子目录（相对全局目录）</label>
+                      <input v-model="m.deployPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" :placeholder="`相对全局目录的子路径，如 pre-corp（默认沿用全局 ${draft.deployPath || '~/apphome'}）`" />
                     </div>
                   </div>
                 </template>
@@ -212,15 +212,17 @@
 
         <!-- Step 3: 部署目标 -->
         <div v-else-if="step === 2" class="flex flex-col gap-4">
-          <div>
-            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">目标服务器 <span class="text-error normal-case tracking-normal">*</span></label>
-            <GroupedServerSelector :servers="servers" :groups="serverGroups" v-model="selectedServerIds" mode="multi" />
-            <span class="block text-xs text-base-content/60 mt-1.5">已选 {{ selectedServerIds.length }} 台，部署时按顺序逐台上传</span>
-          </div>
-          <div>
-            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署路径 <span class="text-error normal-case tracking-normal">*</span></label>
-            <input v-model="draft.deployPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" :placeholder="suggestedDeployPath" />
-            <span class="block text-xs text-base-content/60 mt-1">服务器上的目标目录{{ draft.buildTool === 'maven' ? '，如 /opt/apphome' : '，如 /home/nginxWebUI/ui' }}</span>
+          <div class="grid grid-cols-3 gap-4">
+            <div class="col-span-2">
+              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">目标服务器 <span class="text-error normal-case tracking-normal">*</span></label>
+              <GroupedServerSelector :servers="servers" :groups="serverGroups" v-model="selectedServerIds" mode="multi" />
+              <span class="block text-xs text-base-content/60 mt-1.5">已选 {{ selectedServerIds.length }} 台，部署时按顺序逐台上传</span>
+            </div>
+            <div>
+              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署路径 <span class="text-error normal-case tracking-normal">*</span></label>
+              <input v-model="draft.deployPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" :placeholder="suggestedDeployPath" />
+              <span class="block text-xs text-base-content/60 mt-1">{{ draft.buildTool === 'maven' ? '如 /opt/apphome' : '如 /home/nginxWebUI/ui' }}；多模块各子目录在其下增量拼接</span>
+            </div>
           </div>
           <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
             <SvgIcon name="lightbulb" :size="14" class="shrink-0 mt-0.5" />
@@ -699,11 +701,13 @@ async function finish() {
           moduleName: m.moduleName,
           modulePath: m.modulePath,
           enabled: m.checked,
+          deployPath: m.deployPath || (m.src as Record<string, unknown> | undefined)?.deployPath || '',
         }))
       : (monolith ? [] : selectedModules.value.map(m => ({
           moduleName: m.moduleName,
           modulePath: m.modulePath,
           enabled: m.checked,
+          deployPath: m.deployPath || '',
         })))
     emit('complete', {
       ...draft,
