@@ -5,7 +5,8 @@
 // 使用方法 / 前置条件」，前置条件可带跳转链接直接去补齐资源（如去添加服务器）。
 // devtools 等自带说明、无依赖的小工具不纳入，避免打扰。
 //
-// 记忆机制：localStorage 记录已看过的路由，首次进入弹一次；Close 即视为已看。
+// 记忆机制：sessionStorage 仅缓存本次会话（本次打开有效），重启应用后清空，
+// 下次启动进入功能页会继续弹出；Close 即视为已看过。
 
 export interface FeaturePrereq {
   /** 前置条件描述（如「已登记的服务器」） */
@@ -121,6 +122,8 @@ export const FEATURE_INTROS: FeatureIntro[] = [
   },
 ]
 
+// 记忆机制：仅缓存到本次会话（sessionStorage），关闭浏览器/重启应用后清空，
+// 下次启动进入功能页会继续弹出引导；本次运行内每个功能首次进入只弹一次。
 const SEEN_KEY = 'feature_intro_seen_v1'
 
 /** 按路由 path 精确匹配引导配置（忽略 query/hash） */
@@ -129,23 +132,30 @@ export function getIntroForPath(path: string): FeatureIntro | null {
   return FEATURE_INTROS.find(f => f.path === p) || null
 }
 
-export function isIntroSeen(path: string): boolean {
+function readSeen(): string[] {
   try {
-    const seen: string[] = JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')
-    return seen.includes(path)
+    return JSON.parse(sessionStorage.getItem(SEEN_KEY) || '[]') as string[]
   } catch {
-    return false
+    return []
   }
 }
 
-export function markIntroSeen(path: string): void {
+function writeSeen(seen: string[]): void {
   try {
-    const seen: string[] = JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')
-    if (!seen.includes(path)) {
-      seen.push(path)
-      localStorage.setItem(SEEN_KEY, JSON.stringify(seen))
-    }
+    sessionStorage.setItem(SEEN_KEY, JSON.stringify(seen))
   } catch {
     /* 忽略存储异常 */
+  }
+}
+
+export function isIntroSeen(path: string): boolean {
+  return readSeen().includes(path)
+}
+
+export function markIntroSeen(path: string): void {
+  const seen = readSeen()
+  if (!seen.includes(path)) {
+    seen.push(path)
+    writeSeen(seen)
   }
 }
