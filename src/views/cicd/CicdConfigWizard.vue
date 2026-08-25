@@ -41,6 +41,13 @@
                 <option value="">选择 Git 仓库...</option>
                 <option v-for="repo in gitRepos" :key="repo.id" :value="repo.id">{{ repo.name }} — {{ repo.path }}</option>
               </select>
+              <!-- 空态引导：没有可选的 Git 仓库时直接跳去登记 -->
+              <div v-if="!gitRepos?.length" class="flex items-center gap-2 mt-1.5 text-xs text-amber-600">
+                <span>还没有 Git 仓库，CI/CD 需要先有仓库才能拉取代码</span>
+                <button class="btn btn-xs btn-primary gap-1" @click="goAdd('/git')">
+                  去添加 Git 仓库 <SvgIcon name="arrowRight" :size="12" />
+                </button>
+              </div>
             </div>
             <div>
               <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">配置名称 <span class="text-error normal-case tracking-normal">*</span></label>
@@ -348,6 +355,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import GroupedServerSelector from '../server/GroupedServerSelector.vue'
 import DeployModeSelector from './DeployModeSelector.vue'
@@ -389,6 +397,13 @@ const emit = defineEmits<{
 
 // 是否编辑模式（存在 id 即编辑）
 const editing = computed(() => !!props.initial?.id)
+
+const router = useRouter()
+
+/** 跳转到「前置资源」页面（添加 Git 仓库 / 服务器），新手引导用 */
+function goAdd(path: string) {
+  router.push(path)
+}
 
 const steps = [
   { key: 'project', title: '项目与分支' },

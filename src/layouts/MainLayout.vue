@@ -132,12 +132,26 @@
   </div>
   <!-- 页面内查找组件 -->
   <PageFind />
+  <!-- 功能新手引导弹窗（首次进入核心功能页时展示） -->
+  <FeatureIntroModal :intro="featureIntro" :visible="introVisible" />
+  <!-- 已看过引导后，可随时点击右下角帮助按钮重新查看 -->
+  <button
+    v-if="pageHasIntro && !introVisible"
+    class="fixed bottom-6 right-6 z-40 w-10 h-10 rounded-full btn btn-ghost bg-base-100 border border-base-300 shadow-lg hover:shadow-xl transition-shadow"
+    title="查看功能引导"
+    @click="reopenIntro"
+  >
+    <SvgIcon name="question" :size="18" />
+  </button>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import PageFind from '@/components/PageFind.vue'
 import TabBar from '@/components/TabBar.vue'
+import FeatureIntroModal from '@/components/FeatureIntroModal.vue'
+import { useFeatureIntro } from '@/composables/useFeatureIntro'
+import { getIntroForPath } from '@/features/featureIntro'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
@@ -304,6 +318,18 @@ watch(() => route.fullPath, (fullPath) => {
   const path = fullPath.split('?')[0].split('#')[0]
   tabStore.syncRoute(path)
 }, { immediate: true })
+
+// ── 功能新手引导：首次进入核心功能页弹窗，帮助按钮随时重看 ──
+const { currentIntro: featureIntro, visible: introVisible, maybeShowForPath, showIntro } = useFeatureIntro()
+const pageHasIntro = computed(() => !!getIntroForPath(route.path))
+watch(() => route.path, (path) => {
+  maybeShowForPath(path)
+}, { immediate: true })
+
+function reopenIntro() {
+  const intro = getIntroForPath(route.path)
+  if (intro) {showIntro(intro)}
+}
 
 async function toggleLan() {
   if (!showLan.value && !lanStarted.value) {
