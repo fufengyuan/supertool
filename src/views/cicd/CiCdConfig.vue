@@ -197,7 +197,7 @@ async function applyWizardPayload(payload: Record<string, unknown>) {
     buildTool?: string; mavenProfile?: string; npmScript?: string; npmCustomScript?: string;
     restartScript?: string; deployPath?: string; localPath?: string; repoUrl?: string;
     mavenHome?: string; javaHome?: string; nodeHome?: string; mavenSettings?: string; buildCommand?: string;
-    parentBuildMode?: boolean; parentBuildPath?: string; libSeparate?: boolean;
+    parentBuildMode?: boolean; parentBuildPath?: string; outputPath?: string; libSeparate?: boolean;
     incrementalUpload?: boolean; requiresApproval?: boolean;
     healthCheckUrl?: string; healthCheckTimeout?: number; healthCheckRetries?: number;
     environments?: Record<string, unknown>[];
@@ -229,6 +229,7 @@ async function applyWizardPayload(payload: Record<string, unknown>) {
     // 部署模式：向导显式传入，覆盖默认（避免多模块一律强制成父模块单 jar）
     parentBuildMode: p.parentBuildMode ?? cicd.config.value.parentBuildMode,
     parentBuildPath: p.parentBuildPath ?? cicd.config.value.parentBuildPath,
+    outputPath: p.outputPath ?? (cicd.config.value.outputPath || ''),
     libSeparate: p.libSeparate ?? cicd.config.value.libSeparate,
     environments: p.environments && p.environments.length ? p.environments : cicd.config.value.environments || [],
   });

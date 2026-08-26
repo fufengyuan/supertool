@@ -780,6 +780,7 @@ impl CoreService {
                 .filter(|u| !u.is_empty()),
             health_check_timeout: cicd_config.health_check_timeout.max(1) as u64,
             health_check_retries: cicd_config.health_check_retries.max(1) as u32,
+            output_path: cicd_config.output_path.as_deref().filter(|s| !s.is_empty()).map(|s| s.to_string()),
             incremental_upload: cicd_config.incremental_upload,
             environment_name: None,
         };
@@ -1278,6 +1279,7 @@ impl CoreService {
             environments: None,
             incremental_upload: true,
             health_check_retries: 3,
+            output_path: None,
         };
         self.db_write(move |conn| crate::db::cicd::add_cicd_config(conn, &config))?;
         Ok(ApiResponse::ok(()))
