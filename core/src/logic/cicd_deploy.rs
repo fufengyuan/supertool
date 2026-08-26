@@ -2161,14 +2161,28 @@ fn collect_artifacts(
 
             // 模块目录解析带存在性回退（与 build_single_module 一致，防双重前缀）
             let artifact_root = resolve_module_dir(project_path, module.path.as_deref().filter(|s| !s.is_empty()).or(module.build_path.as_deref().filter(|s| !s.is_empty())));
-            let output_dir = if let Some(ref op) = module.output_path {
+            // 前端模块判定：模块级或配置级 build_tool 为 npm/pnpm/yarn，或产物类型标为 dist
+            let is_frontend = matches!(module.build_tool.as_deref(), Some("npm" | "pnpm" | "yarn"))
+                || module.artifact_type.as_deref() == Some("dist")
+                || (module.build_tool.is_none()
+                    && matches!(config.build_tool.as_deref(), Some("npm" | "pnpm" | "yarn")));
+            let mut output_dir = if let Some(ref op) = module.output_path {
                 artifact_root.join(op)
             } else {
                 artifact_root.join("target")
             };
 
             if !output_dir.exists() {
-                continue;
+                // 前端模块：未填产物子目录（或该目录未生成）时回退自动扫描 dist 候选，
+                // 与单体部署行为一致，避免"构建成功但静默无产物上传"
+                if is_frontend {
+                    match find_dist_dir(&artifact_root) {
+                        Some(d) => output_dir = d,
+                        None => continue,
+                    }
+                } else {
+                    continue;
+                }
             }
 
             // Specific artifact name (non-empty)
@@ -3382,6 +3396,38 @@ mod single_deploy_tests {
         // ~ 开头绝对路径 → 原样
         m.deploy_path = Some("~/apphome".into());
         assert_eq!(module_deploy_path(&c, &m), "~/apphome");
+    }
+
+    #[test]
+    fn collect_multi_frontend_falls_back_to_dist_without_output_path() {
+        // 多模块前端：模块行未填 outputPath 时应自动回退扫描 dist，避免静默无产物
+        let tmp = std::env::temp_dir().join(format!("st-multi-dist-{}", std::process::id()));
+        fs::create_dir_all(tmp.join("web/dist")).unwrap();
+        fs::write(tmp.join("web/dist/index.html"), "<!doctype html>").unwrap();
+
+        let m = DeployModuleConfig {
+            name: Some("web".into()),
+            path: Some("web".into()), // 构建目录=模块路径（package.json 所在）
+            build_path: None,
+            build_command: None,
+            build_tool: Some("npm".into()),
+            output_path: None, // 未填产物子目录 → 走 dist 回退
+            artifact_name: None,
+            artifact_type: Some("dist".into()),
+            lib_filter_rules: None,
+            deploy_order: 0,
+            deploy_path: None,
+            enabled: true,
+        };
+        let mut c = base_config();
+        c.parent_build_mode = false;
+        c.modules = vec![m];
+        let artifacts = collect_artifacts(&tmp, &c).unwrap();
+        assert_eq!(artifacts.len(), 1, "应收集到 dist zip 产物");
+        assert!(artifacts[0].name.ends_with(".zip"), "got {}", artifacts[0].name);
+        assert!(Path::new(&artifacts[0].local_path).exists());
+        let _ = fs::remove_file(&artifacts[0].local_path);
+        fs::remove_dir_all(&tmp).unwrap();
     }
 
     #[test]
