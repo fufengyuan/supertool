@@ -253,9 +253,9 @@
                 <span class="text-xs text-base-content/40">不选即用代码目录；手动填写相对路径（如 ./src/main）</span>
                 <input v-model="draft.parentBuildPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="留空=代码目录，或填如 ./SRC/mall/seller-api" />
 
-                <label v-if="draft.buildTool !== 'maven'" class="block mb-0.5 mt-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">产物目录 <span class="text-xs font-normal text-base-content/40 normal-case tracking-normal ml-1">（可选，前端）</span></label>
-                <input v-if="draft.buildTool !== 'maven'" v-model="draft.outputPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="前端构建产物输出目录，如 build/h5、dist；留空自动检测" />
-                <span v-if="draft.buildTool !== 'maven'" class="text-xs text-base-content/40">前端「构建目录」与「产物目录」不同：构建在含 package.json 的代码目录执行，产物从上方目录收集打包</span>
+                <label class="block mb-0.5 mt-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">产物目录 <span class="text-xs font-normal text-base-content/40 normal-case tracking-normal ml-1">（可选，相对代码目录）</span></label>
+                <input v-model="draft.outputPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" :placeholder="draft.buildTool === 'maven' ? '如 mall-server/target（jar 所在目录；父统一构建必填）' : '如 build/h5、dist；留空自动检测'" />
+                <span class="text-xs text-base-content/40">产物目录与构建目录相互独立：前端构建产物输出目录（如 build/h5）；maven 父统一构建在聚合根执行、产物在子模块 target（如 mall-server/target）。构建目录留空即用代码目录</span>
               </div>
             </div>
           </div>

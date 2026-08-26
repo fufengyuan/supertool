@@ -2109,23 +2109,36 @@ fn collect_artifacts(
     let mut artifacts = Vec::new();
 
     if config.modules.is_empty() || config.parent_build_mode {
-        // 单产物部署（单体部署，或父统一构建的 maven 多模块）：
-        // 按主模块目录（parentBuildPath → buildPath → 项目根）收集 target 下的 jar 产物。
-        // 注意：npm 前端单体项目通常没有 target 目录，走下方 dist 兜底收集。
+        // 单产物部署（单体部署，或父统一构建的多模块）：构建根 = single_deploy_root。
+        // 产物收集按工具类型分流：
+        //   cargo → target/release 可执行文件
+        //   maven → target 目录下的 jar（父统一构建时产物在子模块 target，如 mall-server/target，
+        //           且聚合根构建不能把 parentBuildPath 指到子模块——否则 CI-Friendly `revision`
+        //           不解析、兄弟依赖无法从 reactor 解析 → 必须在聚合根构建、从 outputPath 收集）
+        //   npm/pnpm/yarn → 前端产物目录（zip 整目录，outputPath 如 build/h5 优先，否则自动扫描 dist）
         let is_cargo = config.build_tool.as_deref() == Some("cargo");
+        let is_maven = matches!(config.build_tool.as_deref(), Some("maven"));
+        let root = single_deploy_root(config, project_path);
+        // 配置级 outputPath：相对构建根的产物子目录（maven 如 mall-server/target；前端如 build/h5）
+        let configured_output = config
+            .output_path
+            .as_deref()
+            .filter(|s| !s.trim().is_empty());
 
-        let output_dir = if is_cargo {
-            single_deploy_root(config, project_path).join("target/release")
-        } else {
-            single_deploy_root(config, project_path).join("target")
-        };
-
-        if output_dir.exists() {
-            if is_cargo {
-                collect_cargo_binaries(&output_dir, &config.deploy_dir, &mut artifacts)?;
-            } else {
+        if is_cargo {
+            let out = configured_output
+                .map(|p| root.join(p))
+                .unwrap_or_else(|| root.join("target/release"));
+            if out.exists() {
+                collect_cargo_binaries(&out, &config.deploy_dir, &mut artifacts)?;
+            }
+        } else if is_maven {
+            let out = configured_output
+                .map(|p| root.join(p))
+                .unwrap_or_else(|| root.join("target"));
+            if out.exists() {
                 collect_from_dir(
-                    &output_dir,
+                    &out,
                     None,
                     &config.deploy_dir,
                     config.lib_separate,
@@ -2133,18 +2146,9 @@ fn collect_artifacts(
                     &mut artifacts,
                 )?;
             }
-        }
-
-        // npm/前端单体项目兜底：主模块目录下没有 target 时，收集其前端产物目录（zip 整目录）
-        // 排除 maven：maven 父统一构建的产物在 target 下，dist 兜底不适用
-        // 产物目录优先级：配置级 outputPath（相对代码目录，如 build/h5）→ 自动扫描 dist 候选
-        let is_maven = matches!(config.build_tool.as_deref(), Some("maven"));
-        if !is_cargo && !is_maven && !output_dir.exists() {
-            let root = single_deploy_root(config, project_path);
-            let dist_dir = config
-                .output_path
-                .as_deref()
-                .filter(|s| !s.trim().is_empty())
+        } else {
+            // 前端单体：outputPath 指向产物目录（dist 级）优先，否则自动扫描常见 dist 候选
+            let dist_dir = configured_output
                 .map(|p| root.join(p))
                 .filter(|p| p.is_dir())
                 .or_else(|| find_dist_dir(&root));
@@ -3427,6 +3431,34 @@ mod single_deploy_tests {
         assert!(artifacts[0].name.ends_with(".zip"), "got {}", artifacts[0].name);
         assert!(Path::new(&artifacts[0].local_path).exists());
         let _ = fs::remove_file(&artifacts[0].local_path);
+        fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    #[test]
+    fn collect_maven_parent_build_collects_from_output_path() {
+        // maven 父统一构建（聚合根构建，revision 属性依赖聚合 reactor）：
+        // 构建根=集合根（parentBuildPath 空 → localPath），产物在子模块 target（outputPath）
+        let tmp = std::env::temp_dir().join(format!("st-maven-out-{}", std::process::id()));
+        fs::create_dir_all(tmp.join("mall-server/target")).unwrap();
+        fs::write(tmp.join("mall-server/target/mall-server.jar"), "jar").unwrap();
+
+        let mut c = base_config();
+        c.build_tool = Some("maven".into());
+        c.parent_build_mode = true;
+        c.parent_build_path = None; // 聚合根即代码目录
+        c.output_path = Some("mall-server/target".into());
+        let artifacts = collect_artifacts(&tmp, &c).unwrap();
+        assert_eq!(artifacts.len(), 1, "应收集到 mall-server.jar");
+        assert_eq!(artifacts[0].name, "mall-server.jar");
+
+        // 未配 outputPath 时回退构建根/target（不存在 → 无产物）
+        let mut c2 = base_config();
+        c2.build_tool = Some("maven".into());
+        c2.parent_build_mode = true;
+        c2.parent_build_path = None;
+        c2.output_path = None;
+        let artifacts2 = collect_artifacts(&tmp, &c2).unwrap();
+        assert!(artifacts2.is_empty(), "聚合根无 target 时应无产物: {:?}", artifacts2);
         fs::remove_dir_all(&tmp).unwrap();
     }
 
