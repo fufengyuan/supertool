@@ -1653,8 +1653,13 @@ async fn run_npm_build(
     // 命令归一：单体部署的构建命令统一走 npmScript/npmCustomScript（配置级）。
     // 存量配置的脚本曾存在首个启用模块行的 buildCommand 里（如 "npm run build:h5:staging"），
     // 此处兼容读取并回填到配置级字段，模块行命令不再是权威来源。
+    // 模块行命令回退仅用于「逐模块构建」场景（parentBuildMode=false）：单体/父统一模式下
+    // 模块行可能是复制后端配置的残留（如前端配置里带着 "mvn clean package" 的 mall 模块行），
+    // 拾取其 buildCommand 会把 npm 脚本解析成 "mvn" 直接报错。
     let mut custom = config.npm_custom_script.clone();
-    if custom.as_deref().map(|s| s.trim().is_empty()).unwrap_or(true) {
+    if !config.parent_build_mode
+        && custom.as_deref().map(|s| s.trim().is_empty()).unwrap_or(true)
+    {
         if let Some(m) = config.modules.iter().find(|m| m.enabled) {
             if let Some(cmd) = m.build_command.as_deref() {
                 let cmd = cmd.trim();
