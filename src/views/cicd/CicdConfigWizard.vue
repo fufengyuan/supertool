@@ -256,6 +256,16 @@
                 <label class="block mb-0.5 mt-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">产物目录 <span class="text-xs font-normal text-base-content/40 normal-case tracking-normal ml-1">（可选，相对代码目录）</span></label>
                 <input v-model="draft.outputPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" :placeholder="draft.buildTool === 'maven' ? '如 yudao-server/target（jar 所在目录；父统一构建必填）' : '如 build/h5、dist；留空自动检测'" />
                 <span class="text-xs text-base-content/40">产物目录与构建目录相互独立：前端构建产物输出目录（如 build/h5）；maven 父统一构建在聚合根执行、产物在子模块 target（如 yudao-server/target）。构建目录留空即用代码目录</span>
+
+                <!-- 单体模式同样支持 lib 分离与过滤规则（maven 时） -->
+                <label v-if="draft.buildTool === 'maven'" class="flex items-center gap-2 select-none cursor-pointer text-sm mt-1">
+                  <input v-model="libSeparate" type="checkbox" class="toggle toggle-primary toggle-sm" />
+                  <span>Jar/Lib 分离</span>
+                </label>
+                <div v-if="draft.buildTool === 'maven' && libSeparate">
+                  <label class="block mb-0.5 mt-0.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">lib 过滤规则 <span class="text-xs font-normal text-base-content/40 normal-case tracking-normal ml-1">（每行一个通配模式，仅打包匹配的依赖，留空=全部）</span></label>
+                  <textarea v-model="draft.libFilterRules" class="textarea textarea-bordered w-full bg-base-200 text-xs font-mono resize-y leading-relaxed" rows="2" placeholder="*.jar&#10;spring-*.jar" />
+                </div>
               </div>
             </div>
           </div>
@@ -499,6 +509,8 @@ const draft = reactive({
   parentBuildPath: '',
   // 前端单体部署的产物输出目录（相对代码目录，如 build/h5）
   outputPath: '',
+  // 单产物（单体）部署的 lib 分离过滤规则（每行一个通配模式）
+  libFilterRules: '',
   buildCommand: '',
   incrementalUpload: true,
   requiresApproval: false,
@@ -588,6 +600,7 @@ function prefillFromInitial() {
   // 存量配置可能只填过配置级 buildPath（单构建目录，UI 无入口）：编辑时回填到主模块/构建目录展示，
   // 避免黑箱字段看不到也改不了（保存即迁移为 parentBuildPath）
   draft.outputPath = (c.outputPath as string) || ''
+  draft.libFilterRules = (c.libFilterRules as string) || ''
   draft.buildCommand = (c.buildCommand as string) || ''
   draft.incrementalUpload = (c.incrementalUpload as boolean) ?? true
   draft.requiresApproval = !!c.requiresApproval
@@ -843,8 +856,9 @@ async function finish() {
       parentBuildMode: monolith,
       parentBuildPath: draft.parentBuildPath || '',
       outputPath: draft.outputPath || '',
-      // 非多模块项目不可见该开关，fallback 为 false（避免误开启分离上传）
-      libSeparate: isMultiModule.value && libSeparate.value,
+      // lib 分离：多模块在 DeployModeSelector 勾选、单体 maven 在面板内勾选；后端仅 maven 生效
+      libSeparate: libSeparate.value,
+      libFilterRules: draft.libFilterRules || '',
       modules: modPayload,
     })
   } finally {

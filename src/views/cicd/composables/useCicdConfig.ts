@@ -108,6 +108,8 @@ export interface ConfigForm {
   parentBuildPath: string;
   /** 前端单体部署的产物输出目录（相对代码目录，如 build/h5） */
   outputPath: string;
+  /** 单产物（单体）部署的 lib 分离过滤规则（每行一个通配模式，留空=全部） */
+  libFilterRules: string;
   requiresApproval: boolean;
   showAdvanced: boolean;
   buildMode: string;
@@ -248,7 +250,7 @@ export function useCicdConfig() {
       buildTool: '', npmScript: 'build', npmCustomScript: '', mavenSettings: '', mavenProfile: 'prod',
       mavenHome: '', javaHome: '', npmHome: '', pnpmHome: '', yarnHome: '', nodeHome: '', deployPath: '', libSeparate: true,
       restartScript: './restart.sh', healthCheckUrl: '', healthCheckTimeout: 30, healthCheckRetries: 3, groupName: '未分组',
-      parentBuildMode: false, parentBuildPath: '', outputPath: '', requiresApproval: false, showAdvanced: false, buildMode: 'local', buildCommand: '',
+      parentBuildMode: false, parentBuildPath: '', outputPath: '', libFilterRules: '', requiresApproval: false, showAdvanced: false, buildMode: 'local', buildCommand: '',
       environments: [], incrementalUpload: true,
     };
   }
@@ -934,7 +936,7 @@ export function useCicdConfig() {
         for (const key of ['gitRepoId', 'deployBranch', 'groupName', 'name', 'localPath', 'repoUrl',
           'mavenHome', 'javaHome', 'npmHome', 'pnpmHome', 'yarnHome', 'nodeHome',
           'deployPath', 'restartScript', 'mavenProfile', 'mavenSettings',
-          'buildCommand', 'buildPath', 'npmScript', 'npmCustomScript', 'parentBuildPath', 'outputPath',
+          'buildCommand', 'buildPath', 'npmScript', 'npmCustomScript', 'parentBuildPath', 'outputPath', 'libFilterRules',
         ] as const) {
           if ((config.value as any)[key] === null || (config.value as any)[key] === undefined) {
             (config.value as any)[key] = '';
