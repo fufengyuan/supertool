@@ -243,19 +243,22 @@ async function applyWizardPayload(payload: Record<string, unknown>) {
   // 多模块：编辑时保留已有模块 id（复用 src 原字段仅调 enabled）；新建时重建
   cicd.modules.value = (p.modules || []).map(m => {
     const src = (m as DeployModule);
+    const mm = m as Record<string, unknown>;
     const isExisting = src.id != null;
+    // 新建（无 id）时 src 为空对象，需从 payload 直接读取向导带入的模块级配置
     return {
       id: isExisting ? src.id : null,
       configId: isExisting ? (cicd.config.value.id == null ? null : cicd.config.value.id) : null,
       moduleName: (m as { moduleName: string }).moduleName,
       modulePath: (m as { modulePath: string }).modulePath || (m as { moduleName: string }).moduleName,
-      artifactName: src.artifactName || '',
-      artifactType: src.artifactType || '',
-      buildCommand: src.buildCommand || '',
-      buildPath: src.buildPath || '',
-      outputPath: src.outputPath || '',
-      buildTool: src.buildTool || '',
-      deployPath: src.deployPath || '',
+      artifactName: (src.artifactName as string) || (mm.artifactName as string) || '',
+      artifactType: (src.artifactType as string) || (mm.artifactType as string) || '',
+      buildCommand: (src.buildCommand as string) || (mm.buildCommand as string) || '',
+      buildPath: (src.buildPath as string) || (mm.buildPath as string) || '',
+      outputPath: (src.outputPath as string) || (mm.outputPath as string) || '',
+      libFilterRules: (src.libFilterRules as string) || (mm.libFilterRules as string) || '',
+      buildTool: (src.buildTool as string) || (mm.buildTool as string) || '',
+      deployPath: (src.deployPath as string) || (mm.deployPath as string) || '',
       enabled: (m as { enabled: boolean }).enabled !== false,
       deployOrder: src.deployOrder ?? 0,
       createdAt: src.createdAt || new Date().toISOString(),
