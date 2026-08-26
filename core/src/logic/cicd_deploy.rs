@@ -1568,6 +1568,14 @@ async fn run_maven_build(
         }
     }
 
+    // 稳定构建：覆盖项目级 .mvn/maven.config 的并行与 Maven Build Cache 扩展。
+    // 二者同时启用（如 mall 项目 `-T 1C` + `-Dmaven.build.cache.*`）在多线程写本地仓库时
+    // 会触发 "Could not acquire lock(s)"（缓存扩展与并行构建锁竞争，IDE 手动构建不踩）。
+    // CICD 部署求稳求一次成功，追加 CLI 参数（优先级高于 maven.config）强制串行并禁用缓存。
+    args.push("-T");
+    args.push("1");
+    args.push("-Dmaven.build.cache.enabled=false");
+
     let mut cmd = user_shell_cmd(&mvn.to_string_lossy());
     cmd.args(&args).current_dir(build_path);
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
