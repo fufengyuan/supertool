@@ -505,7 +505,7 @@ pub async fn execute_deploy(
     }
 
     // Step 3: Collect artifacts
-    let artifacts = match collect_artifacts(&project_path, config) {
+    let artifacts = match collect_artifacts(&project_path, config, &emit) {
         Ok(a) => a,
         Err(e) => {
             emit("collect", "failed", &e);
@@ -2121,6 +2121,7 @@ fn module_deploy_path(config: &DeployConfig, module: &DeployModuleConfig) -> Str
 fn collect_artifacts(
     project_path: &PathBuf,
     config: &DeployConfig,
+    emit: &impl Fn(&str, &str, &str),
 ) -> Result<Vec<Artifact>, String> {
     let mut artifacts = Vec::new();
 
@@ -2163,12 +2164,33 @@ fn collect_artifacts(
                 )?;
             }
         } else {
-            // 前端单体：outputPath 指向产物目录（dist 级）优先，否则自动扫描常见 dist 候选
-            let dist_dir = configured_output
-                .map(|p| root.join(p))
-                .filter(|p| p.is_dir())
-                .or_else(|| find_dist_dir(&root));
+            // 前端单体：产物目录优先取配置级 outputPath（dist 级目录），否则自动扫描常见 dist 候选。
+            // 配置的 outputPath 目录不存在时必须给出明确警告（否则用户以为配置生效、实际打包了错误的目录）
+            let dist_dir = match configured_output {
+                Some(p) => {
+                    let joined = root.join(p);
+                    if joined.is_dir() {
+                        Some(joined)
+                    } else {
+                        emit(
+                            "collect",
+                            "warning",
+                            &format!(
+                                "配置的产物目录 {} 不存在，已回退自动扫描（请检查项目实际输出目录）",
+                                joined.display()
+                            ),
+                        );
+                        find_dist_dir(&root)
+                    }
+                }
+                None => find_dist_dir(&root),
+            };
             if let Some(dist_dir) = dist_dir {
+                emit(
+                    "collect",
+                    "info",
+                    &format!("收集前端产物目录: {}", dist_dir.display()),
+                );
                 emit_collect_dist(&dist_dir, config, &mut artifacts)?;
             }
         }
@@ -3360,7 +3382,7 @@ mod single_deploy_tests {
         let mut c = base_config(); // npm + parent_build_mode
         c.parent_build_path = None; // 构建目录=代码目录本身
         c.output_path = Some("build/h5".into());
-        let artifacts = collect_artifacts(&tmp, &c).unwrap();
+        let artifacts = collect_artifacts(&tmp, &c, &|_: &str, _: &str, _: &str| {}).unwrap();
 
         // 产物应为 build/h5 压缩包，且 module 标识为项目根名
         assert_eq!(artifacts.len(), 1);
@@ -3373,7 +3395,7 @@ mod single_deploy_tests {
         let mut c2 = base_config();
         c2.parent_build_path = None;
         c2.output_path = None;
-        let artifacts2 = collect_artifacts(&tmp, &c2).unwrap();
+        let artifacts2 = collect_artifacts(&tmp, &c2, &|_: &str, _: &str, _: &str| {}).unwrap();
         assert_eq!(artifacts2.len(), 1);
         assert!(artifacts2[0].name.starts_with("build"), "got {}", artifacts2[0].name);
 
@@ -3443,7 +3465,7 @@ mod single_deploy_tests {
         let mut c = base_config();
         c.parent_build_mode = false;
         c.modules = vec![m];
-        let artifacts = collect_artifacts(&tmp, &c).unwrap();
+        let artifacts = collect_artifacts(&tmp, &c, &|_: &str, _: &str, _: &str| {}).unwrap();
         assert_eq!(artifacts.len(), 1, "应收集到 dist zip 产物");
         assert!(artifacts[0].name.ends_with(".zip"), "got {}", artifacts[0].name);
         assert!(Path::new(&artifacts[0].local_path).exists());
@@ -3464,7 +3486,7 @@ mod single_deploy_tests {
         c.parent_build_mode = true;
         c.parent_build_path = None; // 聚合根即代码目录
         c.output_path = Some("mall-server/target".into());
-        let artifacts = collect_artifacts(&tmp, &c).unwrap();
+        let artifacts = collect_artifacts(&tmp, &c, &|_: &str, _: &str, _: &str| {}).unwrap();
         assert_eq!(artifacts.len(), 1, "应收集到 mall-server.jar");
         assert_eq!(artifacts[0].name, "mall-server.jar");
 
@@ -3474,7 +3496,7 @@ mod single_deploy_tests {
         c2.parent_build_mode = true;
         c2.parent_build_path = None;
         c2.output_path = None;
-        let artifacts2 = collect_artifacts(&tmp, &c2).unwrap();
+        let artifacts2 = collect_artifacts(&tmp, &c2, &|_: &str, _: &str, _: &str| {}).unwrap();
         assert!(artifacts2.is_empty(), "聚合根无 target 时应无产物: {:?}", artifacts2);
         fs::remove_dir_all(&tmp).unwrap();
     }
@@ -3495,7 +3517,7 @@ mod single_deploy_tests {
         c.output_path = None;
         c.lib_separate = true;
         c.lib_filter_rules = Some("spring-*".into());
-        let artifacts = collect_artifacts(&tmp, &c).unwrap();
+        let artifacts = collect_artifacts(&tmp, &c, &|_: &str, _: &str, _: &str| {}).unwrap();
         assert_eq!(artifacts.len(), 2, "主 jar + lib.zip");
         let lib = artifacts.iter().find(|a| a.is_lib).expect("应有 lib 产物");
         assert_eq!(lib.name, "main-lib.zip");
