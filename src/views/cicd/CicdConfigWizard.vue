@@ -180,13 +180,57 @@
                       <input v-model="m.checked" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />
                       <span class="text-sm font-medium text-base-content">{{ m.moduleName }}</span>
                       <span class="ml-auto text-xs text-base-content/40 font-mono">{{ m.modulePath }}</span>
-                      <button @click="toggleModuleExpand(idx)" class="btn btn-ghost btn-xs text-base-content/50" title="远程路径">
+                      <button @click="toggleModuleExpand(idx)" class="btn btn-ghost btn-xs text-base-content/50" title="模块配置（路径/产物/过滤）">
                         <SvgIcon name="settings" size="12" />
                       </button>
                     </div>
-                    <div v-show="expandedModuleIdx === idx" class="mt-2 pl-8 pr-2 pb-1">
-              <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">远程子目录（相对全局目录）</label>
-                      <input v-model="m.deployPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" :placeholder="`默认填模块名（如 ${m.moduleName || 'seller-api'}），部署到全局目录下该子目录`" />
+                    <div v-show="expandedModuleIdx === idx" class="mt-2 pl-8 pr-2 pb-1 flex flex-col gap-2">
+                      <div class="grid grid-cols-2 gap-2">
+                        <div>
+                          <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">构建目录（留空=模块路径）</label>
+                          <input v-model="m.buildPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" placeholder="如 ./yudao-server 或 ." />
+                        </div>
+                        <div>
+                          <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">产物目录</label>
+                          <input v-model="m.outputPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" placeholder="前端 target / dist / build/h5；留空自动检测" />
+                        </div>
+                        <div>
+                          <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">产物文件名（留空=整目录收集）</label>
+                          <input v-model="m.artifactName" class="input input-bordered w-full bg-base-200 text-xs font-mono" placeholder="如 seller-api.jar" />
+                        </div>
+                        <div>
+                          <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">产物类型</label>
+                          <select v-model="m.artifactType" class="select select-bordered w-full bg-base-200 text-xs">
+                            <option value="">自动</option>
+                            <option value="jar">jar</option>
+                            <option value="jar-plus-lib">jar + lib</option>
+                            <option value="dist">dist</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">构建工具（留空=全局）</label>
+                          <select v-model="m.buildTool" class="select select-bordered w-full bg-base-200 text-xs">
+                            <option value="">继承全局</option>
+                            <option value="maven">Maven</option>
+                            <option value="npm">npm</option>
+                            <option value="pnpm">pnpm</option>
+                            <option value="yarn">yarn</option>
+                            <option value="cargo">Cargo</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">远程子目录（相对全局目录）</label>
+                          <input v-model="m.deployPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" :placeholder="`默认填模块名（如 ${m.moduleName || 'seller-api'}）`" />
+                        </div>
+                      </div>
+                      <div>
+                        <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">构建命令（留空=按构建工具与脚本）</label>
+                        <input v-model="m.buildCommand" class="input input-bordered w-full bg-base-200 text-xs font-mono" placeholder="如 mvn clean package -DskipTests 或 npm run build:h5" />
+                      </div>
+                      <div v-if="draft.buildTool === 'maven' && libSeparate">
+                        <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">lib 过滤规则（每行一个通配模式，仅打包匹配的依赖，留空=全部）</label>
+                        <textarea v-model="m.libFilterRules" class="textarea textarea-bordered w-full bg-base-200 text-xs font-mono resize-y leading-relaxed" rows="2" placeholder="*.jar&#10;spring-*.jar" />
+                      </div>
                     </div>
                   </div>
                 </template>
@@ -369,7 +413,18 @@ import type { Server } from '../../types'
 interface GitRepoEntry { id: string; name: string; path?: string; branch?: string }
 interface ServerGroupEntry { id: string; name: string; color: string; parentId: string | null }
 interface BuildToolOption { key: string; name: string; icon: string; version?: string; available: boolean }
-interface ModuleItem { moduleName: string; modulePath: string; checked: boolean; deployPath?: string; src?: Record<string, unknown> }
+interface ModuleItem {
+  moduleName: string; modulePath: string; checked: boolean
+  deployPath?: string
+  buildPath?: string
+  outputPath?: string
+  buildCommand?: string
+  artifactName?: string
+  artifactType?: string
+  libFilterRules?: string
+  buildTool?: string
+  src?: Record<string, unknown>
+}
 
 /// 模块远程子目录规范化：若填了完整路径且以全局部署路径开头，剥掉前缀只存子目录名；
 /// 否则原样返回（相对子路径）。避免把全路径存进模块 deployPath。
@@ -529,7 +584,9 @@ function prefillFromInitial() {
   draft.javaHome = (c.javaHome as string) || ''
   draft.nodeHome = (c.nodeHome as string) || ''
   draft.mavenSettings = (c.mavenSettings as string) || ''
-  draft.parentBuildPath = (c.parentBuildPath as string) || ''
+  draft.parentBuildPath = (c.parentBuildPath as string) || (c.buildPath as string) || ''
+  // 存量配置可能只填过配置级 buildPath（单构建目录，UI 无入口）：编辑时回填到主模块/构建目录展示，
+  // 避免黑箱字段看不到也改不了（保存即迁移为 parentBuildPath）
   draft.outputPath = (c.outputPath as string) || ''
   draft.buildCommand = (c.buildCommand as string) || ''
   draft.incrementalUpload = (c.incrementalUpload as boolean) ?? true
@@ -566,6 +623,13 @@ function prefillFromInitial() {
       checked: m.enabled !== false,
       src: { ...m },
       deployPath: (m as { deployPath?: string }).deployPath || m.moduleName || '',
+      buildPath: (m as { buildPath?: string }).buildPath || '',
+      outputPath: (m as { outputPath?: string }).outputPath || '',
+      buildCommand: (m as { buildCommand?: string }).buildCommand || '',
+      artifactName: (m as { artifactName?: string }).artifactName || '',
+      artifactType: (m as { artifactType?: string }).artifactType || '',
+      libFilterRules: (m as { libFilterRules?: string }).libFilterRules || '',
+      buildTool: (m as { buildTool?: string }).buildTool || '',
     }))
   }
 }
@@ -663,7 +727,7 @@ async function scanProject(path: string) {
           if (editing.value && modules.value.length) {
             scanned.value.isMultiModule = true;
           } else {
-            modules.value = names.map(n => ({ moduleName: n, modulePath: n, checked: true, deployPath: n }));
+            modules.value = names.map(n => ({ moduleName: n, modulePath: n, checked: true, deployPath: n, buildPath: '', outputPath: '', buildCommand: '', artifactName: '', artifactType: '', libFilterRules: '', buildTool: '' }));
             scanned.value.isMultiModule = true;
           }
         }
@@ -751,12 +815,26 @@ async function finish() {
           modulePath: m.modulePath,
           enabled: m.checked,
           deployPath: normalizeModuleDeployPath(String(m.deployPath || (m.src as Record<string, unknown> | undefined)?.deployPath || ''), draft.deployPath),
+          buildPath: m.buildPath || '',
+          outputPath: m.outputPath || '',
+          buildCommand: m.buildCommand || '',
+          artifactName: m.artifactName || '',
+          artifactType: m.artifactType || '',
+          libFilterRules: m.libFilterRules || '',
+          buildTool: m.buildTool || '',
         }))
       : (monolith ? [] : selectedModules.value.map(m => ({
           moduleName: m.moduleName,
           modulePath: m.modulePath,
           enabled: m.checked,
           deployPath: normalizeModuleDeployPath(m.deployPath || '', draft.deployPath),
+          buildPath: m.buildPath || '',
+          outputPath: m.outputPath || '',
+          buildCommand: m.buildCommand || '',
+          artifactName: m.artifactName || '',
+          artifactType: m.artifactType || '',
+          libFilterRules: m.libFilterRules || '',
+          buildTool: m.buildTool || '',
         })))
     emit('complete', {
       ...draft,
