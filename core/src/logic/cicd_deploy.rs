@@ -1557,7 +1557,7 @@ async fn run_maven_build(
     if config.skip_tests {
         args.push("-DskipTests");
     }
-    if let Some(ref profile) = config.maven_profile {
+    if let Some(profile) = config.maven_profile.as_deref().filter(|p| !p.trim().is_empty()) {
         args.push("-P");
         args.push(profile);
     }

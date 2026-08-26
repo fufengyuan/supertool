@@ -265,10 +265,10 @@ async function applyWizardPayload(payload: Record<string, unknown>) {
       updatedAt: src.updatedAt || new Date().toISOString(),
     } as DeployModule;
   });
-  // 单 jar 模式（parentBuildMode=true）：补充父构建目录，取 git 仓库本地路径。
-  // 仅 maven 场景需要：父统一构建要求 parentBuildPath 指向父 POM 目录；
-  // npm 单体项目留空即表示「主模块目录/localPath 本身」，填绝对路径会被
-  // single_deploy_root 错误 join（Rust PathBuf::join 遇绝对路径整体替换），导致打包原路径。
+  // 单 jar 模式（parentBuildMode=true）：补充父构建目录。
+  // 仅 maven 场景需要：父统一构建要求构建根指向含父 POM 的「代码实际目录」（localPath，
+  // 可能被向导选到仓库子目录如 SRC/yudao 聚合根）；切勿回填 gitRepo.path（仓库根可能没有
+  // pom.xml，例如代码在 src/xxx 的 monorepo）。localPath 为空才回退仓库路径。
   if (
     cicd.config.value.parentBuildMode &&
     !cicd.config.value.parentBuildPath &&
@@ -276,7 +276,7 @@ async function applyWizardPayload(payload: Record<string, unknown>) {
       (!cicd.config.value.buildTool && cicd.config.value.javaHome))
   ) {
     const repo = gitRepos.value.find((r: any) => r.id === p.gitRepoId);
-    cicd.config.value.parentBuildPath = repo?.path || cicd.config.value.localPath || '';
+    cicd.config.value.parentBuildPath = cicd.config.value.localPath || repo?.path || '';
   }
   await cicd.saveConfig();
   // 保存成功（saveConfig 内部已把 isNewConfig 置 false）后退出向导，停在被编辑配置的列表选中态
