@@ -162,6 +162,7 @@ watch(activeTool, (v) => {
 const toolComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = {
   crypto: defineAsyncComponent(() => import('./tools/CryptoTool.vue')),
   encrypt: defineAsyncComponent(() => import('./tools/EncryptTool.vue')),
+  navicat: defineAsyncComponent(() => import('./tools/NavicatTool.vue')),
   base64: defineAsyncComponent(() => import('./tools/Base64Tool.vue')),
   url: defineAsyncComponent(() => import('./tools/UrlTool.vue')),
   unicode: defineAsyncComponent(() => import('./tools/UnicodeTool.vue')),
