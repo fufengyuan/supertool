@@ -30,6 +30,8 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 
 **新手引导**（前端）：核心功能页首次进入弹「功能介绍/使用方法/前置条件」，注册表在 `src/features/featureIntro.ts`（新增功能页在此登记三要素，prereqs 可带回跳路由）；MainLayout 监听 route.path 首次弹一次（**sessionStorage `feature_intro_seen_v1` 会话级，重启后继续弹**），页面右下角「?」可随时重看。前置资源选择处空态提供「去添加」跳转（服务器选择器 GroupedServerSelector、CICD 向导 Git 仓库选择已内置）。
 
+**开发工具**：工具卡片注册表 `src/views/devtools/DevToolRegistry.ts`（DEV_TOOL_REGISTRY 条目：id/name/icon/category/description/offline/keywords）+ `DevTools.vue` 的 `toolComponents` 映射（defineAsyncComponent 懒加载 `./tools/*.vue`），新增工具必须两处都改；页面壳用 `views/devtools/components/ToolPage.vue`（icon/name/description + @back）。Navicat 密码加解密（`tools/NavicatTool.vue`）：Navicat 12+ 为 AES-128-CBC，key=`libcckeylibcckey`、iv=`libcciv libcciv `（Latin1，iv 尾带空格共 16 字节）；加密=明文→CBC→ciphertext-Latin1→hex 大写；解密=hex→Latin1→base64→AES 解密→Latin1。纯前端 crypto-js，本地计算；验证向量 enc("123456")=`833E4ABBC56C89041A9070F043641E3B`。
+
 **悬浮待办窗**（floating-todo）：后端命令在 `tauri/src/commands/floating_todo.rs`（open/close/toggle/set_pinned，启动时 ensure_floating_todo 自动创建）；**默认小球形态**（FloatingTodoPanel.vue `collapsed` 初始 true，onMounted 用 `applyWindowSize()` 按形态统一窗口尺寸 球56×56/展开340×500，勿在 onMounted 硬编码展开尺寸否则启动闪大窗）；**关闭入口**在球左上角 × 与展开标题栏 ×（调 closeFloatingTodo 销毁窗口），主窗口侧边栏底部「悬浮待办」toggle 可随时重新打开。
 
 **开源 GitHub 仓库**：remote `github` = `git@github.com:fufengyuan/supertool.git`（SSH 用 `~/.ssh/id_ed25519_github`）；`main` 为开源分支，承载本地 tauri 分支历史（推送 `git push github tauri:main`）。已用 filter-branch 重写历史移除 106MB 沙箱文件 `tauri/.sandbox-home`（本地 tauri 的 commit hash 与腾讯工蜂 origin/tauri 不一致，再推腾讯需 force）；master 分支历史仍含该大文件，勿推 GitHub。
