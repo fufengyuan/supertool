@@ -307,6 +307,9 @@ pub struct DeployConfig {
     /// 健康检查重试次数
     #[serde(rename = "healthCheckRetries", default = "default_health_check_retries")]
     pub health_check_retries: u32,
+    /// 单体前端的产物输出目录（相对代码目录，如 build/h5；空则自动扫描 dist 候选）
+    #[serde(rename = "outputPath", default)]
+    pub output_path: Option<String>,
     /// 增量上传：对比产物 hash 只传变更文件
     #[serde(rename = "incrementalUpload", default = "default_true_fn")]
     pub incremental_upload: bool,
@@ -1711,7 +1714,7 @@ async fn run_npm_build(
         }
     } else {
         return Err(format!(
-            "构建目录 {} 下没有 package.json，请检查部署配置的「代码目录/主模块」设置",
+            "构建目录 {} 下没有 package.json，请检查部署配置的「代码目录/主模块」设置（前端项目构建目录应指向含 package.json 的位置，产物输出目录请填在「产物目录」）",
             build_path.display()
         ));
     }
@@ -2132,11 +2135,19 @@ fn collect_artifacts(
             }
         }
 
-        // npm/前端单体项目兜底：主模块目录下没有 target 时，收集其 dist 目录（zip 整目录）
+        // npm/前端单体项目兜底：主模块目录下没有 target 时，收集其前端产物目录（zip 整目录）
         // 排除 maven：maven 父统一构建的产物在 target 下，dist 兜底不适用
+        // 产物目录优先级：配置级 outputPath（相对代码目录，如 build/h5）→ 自动扫描 dist 候选
         let is_maven = matches!(config.build_tool.as_deref(), Some("maven"));
         if !is_cargo && !is_maven && !output_dir.exists() {
-            let dist_dir = find_dist_dir(&single_deploy_root(config, project_path));
+            let root = single_deploy_root(config, project_path);
+            let dist_dir = config
+                .output_path
+                .as_deref()
+                .filter(|s| !s.trim().is_empty())
+                .map(|p| root.join(p))
+                .filter(|p| p.is_dir())
+                .or_else(|| find_dist_dir(&root));
             if let Some(dist_dir) = dist_dir {
                 emit_collect_dist(&dist_dir, config, &mut artifacts)?;
             }
@@ -3240,6 +3251,7 @@ mod single_deploy_tests {
             health_check_url: None,
             health_check_timeout: 30,
             health_check_retries: 3,
+            output_path: None,
             incremental_upload: true,
             environment_name: None,
         }
@@ -3301,6 +3313,38 @@ mod single_deploy_tests {
 
         c.build_path = None;
         assert_eq!(single_deploy_module_label(&c), None);
+    }
+
+    #[test]
+    fn collect_npm_mobile_prefers_explicit_output_path() {
+        // 前端 uni-app 单体：产物在 build/h5（非固定 dist 候选），必须走配置级 outputPath
+        let tmp = std::env::temp_dir().join(format!("st-collect-h5-{}", std::process::id()));
+        fs::create_dir_all(tmp.join("build/h5")).unwrap();
+        fs::write(tmp.join("build/h5/index.html"), "<!doctype html>").unwrap();
+
+        let mut c = base_config(); // npm + parent_build_mode
+        c.parent_build_path = None; // 构建目录=代码目录本身
+        c.output_path = Some("build/h5".into());
+        let artifacts = collect_artifacts(&tmp, &c).unwrap();
+
+        // 产物应为 build/h5 压缩包，且 module 标识为项目根名
+        assert_eq!(artifacts.len(), 1);
+        assert!(artifacts[0].name.ends_with(".zip"), "got {}", artifacts[0].name);
+        assert!(artifacts[0].is_compressed);
+        assert!(Path::new(&artifacts[0].local_path).exists());
+
+        // 未配置 outputPath 时回退 find_dist_dir：候选 "build" 会命中 build 目录，
+        // 打包整个 build/（含非 h5 内容）→ 正是需要显式产物目录的原因
+        let mut c2 = base_config();
+        c2.parent_build_path = None;
+        c2.output_path = None;
+        let artifacts2 = collect_artifacts(&tmp, &c2).unwrap();
+        assert_eq!(artifacts2.len(), 1);
+        assert!(artifacts2[0].name.starts_with("build"), "got {}", artifacts2[0].name);
+
+        let _ = fs::remove_file(&artifacts[0].local_path);
+        let _ = fs::remove_file(&artifacts2[0].local_path);
+        fs::remove_dir_all(&tmp).unwrap();
     }
 
     #[test]

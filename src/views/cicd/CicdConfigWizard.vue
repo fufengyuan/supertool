@@ -195,19 +195,23 @@
                 </div>
               </div>
             </div>
-            <!-- 单体部署：选择主模块（产物 jar 所在模块）+ 构建目录 -->
+            <!-- 单体部署：选择主模块（构建目录）+ 构建目录 + 前端产物目录 -->
             <div v-else class="flex flex-col gap-3 rounded-xl border border-primary/20 overflow-hidden">
               <div class="px-3 py-2.5 bg-base-200/60 text-xs text-base-content/60">
-                单体部署：整体构建产出单个 jar。主模块常在子目录（如商城 <code class="bg-base-100 px-1 rounded">SRC/mall/seller-api</code>），选错目录将拿不到 jar 产物，请务必选择产物所在模块
+                单体部署：整体构建产出单个产物。后端选主模块（jar 所在目录，如商城 <code class="bg-base-100 px-1 rounded">SRC/mall/seller-api</code>）；前端代码目录在子目录或产物目录非 dist 时，请把构建目录留空并单独填「产物目录」
               </div>
               <div class="px-3 pb-3 flex flex-col gap-2.5">
-                <label class="block mb-0.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">主模块 <span class="text-error normal-case tracking-normal">*</span></label>
+                <label class="block mb-0.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建目录（主模块）</label>
                 <select v-model="draft.parentBuildPath" class="select select-bordered w-full bg-base-200 text-sm">
-                  <option value="">项目根目录（主模块在根目录时）</option>
+                  <option value="">代码目录（构建与收集都以此为准）</option>
                   <option v-for="m in modules" :key="m.modulePath" :value="m.modulePath">{{ m.moduleName }} — {{ m.modulePath }}</option>
                 </select>
-                <span class="text-xs text-base-content/40">或在下方手动填写主模块相对路径（收集其 target 下的 jar 产物）</span>
-                <input v-model="draft.parentBuildPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="如 ./SRC/mall/seller-api" />
+                <span class="text-xs text-base-content/40">不选即用代码目录；手动填写相对路径（如 ./src/main）</span>
+                <input v-model="draft.parentBuildPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="留空=代码目录，或填如 ./SRC/mall/seller-api" />
+
+                <label v-if="draft.buildTool !== 'maven'" class="block mb-0.5 mt-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">产物目录 <span class="text-xs font-normal text-base-content/40 normal-case tracking-normal ml-1">（可选，前端）</span></label>
+                <input v-if="draft.buildTool !== 'maven'" v-model="draft.outputPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="前端构建产物输出目录，如 build/h5、dist；留空自动检测" />
+                <span v-if="draft.buildTool !== 'maven'" class="text-xs text-base-content/40">前端「构建目录」与「产物目录」不同：构建在含 package.json 的代码目录执行，产物从上方目录收集打包</span>
               </div>
             </div>
           </div>
@@ -438,6 +442,8 @@ const draft = reactive({
   nodeHome: '',
   mavenSettings: '',
   parentBuildPath: '',
+  // 前端单体部署的产物输出目录（相对代码目录，如 build/h5）
+  outputPath: '',
   buildCommand: '',
   incrementalUpload: true,
   requiresApproval: false,
@@ -524,6 +530,7 @@ function prefillFromInitial() {
   draft.nodeHome = (c.nodeHome as string) || ''
   draft.mavenSettings = (c.mavenSettings as string) || ''
   draft.parentBuildPath = (c.parentBuildPath as string) || ''
+  draft.outputPath = (c.outputPath as string) || ''
   draft.buildCommand = (c.buildCommand as string) || ''
   draft.incrementalUpload = (c.incrementalUpload as boolean) ?? true
   draft.requiresApproval = !!c.requiresApproval
@@ -757,6 +764,7 @@ async function finish() {
       servers: serverEntries,
       parentBuildMode: monolith,
       parentBuildPath: draft.parentBuildPath || '',
+      outputPath: draft.outputPath || '',
       // 非多模块项目不可见该开关，fallback 为 false（避免误开启分离上传）
       libSeparate: isMultiModule.value && libSeparate.value,
       modules: modPayload,
