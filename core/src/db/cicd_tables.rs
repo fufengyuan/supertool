@@ -142,6 +142,8 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
         "ALTER TABLE cicd_configs ADD COLUMN healthCheckRetries INTEGER NOT NULL DEFAULT 3",
         // 单体前端的产物输出目录（相对代码目录，如 build/h5；npm 收集 dist 用）
         "ALTER TABLE cicd_configs ADD COLUMN outputPath TEXT DEFAULT ''",
+        // 单体（单产物）部署的 lib 分离过滤规则（每行一个通配模式，仅打包匹配依赖）
+        "ALTER TABLE cicd_configs ADD COLUMN libFilterRules TEXT DEFAULT ''",
         // 部署日志记录环境名
         "ALTER TABLE deploy_logs ADD COLUMN environment TEXT",
     ];
@@ -188,7 +190,8 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
             environments TEXT,
             incrementalUpload INTEGER NOT NULL DEFAULT 1,
             healthCheckRetries INTEGER NOT NULL DEFAULT 3,
-            outputPath TEXT DEFAULT ''
+            outputPath TEXT DEFAULT '',
+            libFilterRules TEXT DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS deploy_modules (

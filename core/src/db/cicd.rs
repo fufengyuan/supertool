@@ -80,6 +80,9 @@ pub struct CicdConfig {
     /// 单体前端的产物输出目录（相对代码目录，如 build/h5；空则自动扫描 dist 候选）
     #[serde(rename = "outputPath", default)]
     pub output_path: Option<String>,
+    /// 单体（单产物）部署的 lib 分离过滤规则（每行一个通配模式，仅打包匹配依赖；空=全部）
+    #[serde(rename = "libFilterRules", default)]
+    pub lib_filter_rules: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -225,6 +228,7 @@ pub fn row_to_cicd_config(row: &rusqlite::Row) -> rusqlite::Result<CicdConfig> {
             .flatten()
             .unwrap_or(3),
         output_path: row.get("outputPath").ok().flatten(),
+        lib_filter_rules: row.get("libFilterRules").ok().flatten(),
     })
 }
 
@@ -323,8 +327,8 @@ pub fn add_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<CicdConfig, 
          deployPath, libSeparate, restartScript, healthCheckUrl, healthCheckTimeout, createdAt, \
          updatedAt, buildTool, buildCommand, buildPath, repoUrl, localPath, npmScript, \
          npmCustomScript, mavenHome, npmHome, pnpmHome, yarnHome, javaHome, nodeHome, servers, groupName, \
-         parentBuildMode, parentBuildPath, requiresApproval, gitRepoId, buildMode, environments, incrementalUpload, healthCheckRetries, outputPath) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         parentBuildMode, parentBuildPath, requiresApproval, gitRepoId, buildMode, environments, incrementalUpload, healthCheckRetries, outputPath, libFilterRules) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             c.id, &c.name, c.deploy_branch, c.maven_settings, c.maven_profile,
             c.deploy_path, if c.lib_separate { 1 } else { 0 }, c.restart_script, c.health_check_url,
@@ -335,7 +339,7 @@ pub fn add_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<CicdConfig, 
             if c.requires_approval { 1 } else { 0 },
             c.git_repo_id, c.build_mode, c.environments,
             if c.incremental_upload { 1 } else { 0 }, c.health_check_retries,
-            c.output_path
+            c.output_path, c.lib_filter_rules
         ],
     )?;
     get_cicd_config_by_config_id(conn, &c.id).map(|opt| opt.unwrap())
@@ -351,7 +355,7 @@ pub fn update_cicd_config(
          healthCheckTimeout=?, updatedAt=?, buildTool=?, buildCommand=?, buildPath=?, \
          repoUrl=?, localPath=?, npmScript=?, npmCustomScript=?, mavenHome=?, npmHome=?, pnpmHome=?, yarnHome=?, \
          javaHome=?, nodeHome=?, servers=?, groupName=?, parentBuildMode=?, \
-         parentBuildPath=?, requiresApproval=?, gitRepoId=?, buildMode=?, environments=?, incrementalUpload=?, healthCheckRetries=?, outputPath=? WHERE id=?",
+         parentBuildPath=?, requiresApproval=?, gitRepoId=?, buildMode=?, environments=?, incrementalUpload=?, healthCheckRetries=?, outputPath=?, libFilterRules=? WHERE id=?",
         params![
             &c.name, c.deploy_branch, c.maven_settings, c.maven_profile,
             c.deploy_path, if c.lib_separate { 1 } else { 0 }, c.restart_script,
@@ -362,7 +366,7 @@ pub fn update_cicd_config(
             c.parent_build_path, if c.requires_approval { 1 } else { 0 },
             c.git_repo_id, c.build_mode, c.environments,
             if c.incremental_upload { 1 } else { 0 }, c.health_check_retries,
-            c.output_path, c.id
+            c.output_path, c.lib_filter_rules, c.id
         ],
     )?;
     get_cicd_config_by_config_id(conn, &c.id)

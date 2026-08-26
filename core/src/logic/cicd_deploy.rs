@@ -310,6 +310,9 @@ pub struct DeployConfig {
     /// 单体前端的产物输出目录（相对代码目录，如 build/h5；空则自动扫描 dist 候选）
     #[serde(rename = "outputPath", default)]
     pub output_path: Option<String>,
+    /// 单体（单产物）部署的 lib 分离过滤规则（每行一个通配模式，仅打包匹配依赖；空=全部）
+    #[serde(rename = "libFilterRules", default)]
+    pub lib_filter_rules: Option<String>,
     /// 增量上传：对比产物 hash 只传变更文件
     #[serde(rename = "incrementalUpload", default = "default_true_fn")]
     pub incremental_upload: bool,
@@ -2150,7 +2153,7 @@ fn collect_artifacts(
                     None,
                     &config.deploy_dir,
                     config.lib_separate,
-                    None,
+                    config.lib_filter_rules.as_deref(),
                     &mut artifacts,
                 )?;
             }
@@ -3278,6 +3281,7 @@ mod single_deploy_tests {
             health_check_timeout: 30,
             health_check_retries: 3,
             output_path: None,
+            lib_filter_rules: None,
             incremental_upload: true,
             environment_name: None,
         }
@@ -3467,6 +3471,39 @@ mod single_deploy_tests {
         c2.output_path = None;
         let artifacts2 = collect_artifacts(&tmp, &c2).unwrap();
         assert!(artifacts2.is_empty(), "聚合根无 target 时应无产物: {:?}", artifacts2);
+        fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    #[test]
+    fn collect_maven_single_lib_respects_filter_rules() {
+        // 单产物 maven + lib 分离：lib.zip 应按配置级 lib_filter_rules 过滤（白名单）
+        let tmp = std::env::temp_dir().join(format!("st-libf-{}", std::process::id()));
+        fs::create_dir_all(tmp.join("target/lib")).unwrap();
+        fs::write(tmp.join("target/app.jar"), "jar").unwrap();
+        fs::write(tmp.join("target/lib/spring-core.jar"), "d").unwrap();
+        fs::write(tmp.join("target/lib/mysql-connector.jar"), "d").unwrap();
+
+        let mut c = base_config();
+        c.build_tool = Some("maven".into());
+        c.parent_build_mode = true;
+        c.parent_build_path = None;
+        c.output_path = None;
+        c.lib_separate = true;
+        c.lib_filter_rules = Some("spring-*".into());
+        let artifacts = collect_artifacts(&tmp, &c).unwrap();
+        assert_eq!(artifacts.len(), 2, "主 jar + lib.zip");
+        let lib = artifacts.iter().find(|a| a.is_lib).expect("应有 lib 产物");
+        assert_eq!(lib.name, "main-lib.zip");
+
+        // 校验 zip 内容只含 spring-core.jar（被过滤规则命中）
+        let zip_path = Path::new(&lib.local_path);
+        let mut archive = zip::ZipArchive::new(std::fs::File::open(zip_path).unwrap()).unwrap();
+        let names: Vec<String> = (0..archive.len())
+            .map(|i| archive.by_index(i).unwrap().name().to_string())
+            .collect();
+        assert_eq!(names, vec!["spring-core.jar"]);
+
+        let _ = fs::remove_file(&artifacts[0].local_path);
         fs::remove_dir_all(&tmp).unwrap();
     }
 

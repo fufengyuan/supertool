@@ -197,7 +197,7 @@ async function applyWizardPayload(payload: Record<string, unknown>) {
     buildTool?: string; mavenProfile?: string; npmScript?: string; npmCustomScript?: string;
     restartScript?: string; deployPath?: string; localPath?: string; repoUrl?: string;
     mavenHome?: string; javaHome?: string; nodeHome?: string; mavenSettings?: string; buildCommand?: string;
-    parentBuildMode?: boolean; parentBuildPath?: string; outputPath?: string; libSeparate?: boolean;
+    parentBuildMode?: boolean; parentBuildPath?: string; outputPath?: string; libFilterRules?: string; libSeparate?: boolean;
     incrementalUpload?: boolean; requiresApproval?: boolean;
     healthCheckUrl?: string; healthCheckTimeout?: number; healthCheckRetries?: number;
     environments?: Record<string, unknown>[];
@@ -230,6 +230,7 @@ async function applyWizardPayload(payload: Record<string, unknown>) {
     parentBuildMode: p.parentBuildMode ?? cicd.config.value.parentBuildMode,
     parentBuildPath: p.parentBuildPath ?? cicd.config.value.parentBuildPath,
     outputPath: p.outputPath ?? (cicd.config.value.outputPath || ''),
+    libFilterRules: p.libFilterRules ?? (cicd.config.value.libFilterRules || ''),
     libSeparate: p.libSeparate ?? cicd.config.value.libSeparate,
     environments: p.environments && p.environments.length ? p.environments : cicd.config.value.environments || [],
   });

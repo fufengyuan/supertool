@@ -1518,6 +1518,11 @@ fn build_deploy_config(
             .as_deref()
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string()),
+        lib_filter_rules: cicd_config
+            .lib_filter_rules
+            .as_deref()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()),
         incremental_upload: cicd_config.incremental_upload,
         environment_name: None,
     })
