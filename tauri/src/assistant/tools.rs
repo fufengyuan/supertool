@@ -39,8 +39,12 @@ fn err(message: impl Into<String>) -> ToolExec {
     }
 }
 
+/// 取字符串参数：缺失或只有空白一律按「没给」处理，让模型收到可自纠的错误
 fn as_str<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
-    args.get(key).and_then(|v| v.as_str()).map(str::trim)
+    args.get(key)
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
 }
 
 // 以下读操作全部复用 core 里既有的业务查询（与 CLI 同源），助手侧不做任意 SQL
@@ -1016,5 +1020,299 @@ mod tests {
         // （纯字符串检查，无需 CoreService）
         let msg = format!("没有这个工具: {}；只能使用系统提示里列出的工具", "rm -rf");
         assert!(msg.contains("只能使用"));
+    }
+}
+
+/// 工具分发层的集成测试：真实临时库 + 真实部署日志文件，验证「能给什么、绝不能给什么」
+#[cfg(test)]
+mod tools_exec_tests {
+    use super::*;
+    use crate::assistant::safety::deep_redact;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use supertool_core::db::cicd::{add_deploy_log, add_deploy_step_log, DeployLog, DeployStepLog};
+    use supertool_core::db::db_connections::DbConnectionConfig;
+    use supertool_core::db::Database;
+
+    static SEQ: AtomicUsize = AtomicUsize::new(0);
+
+    const SERVER_PWD: &str = "S3cr3t-Prod-Pwd";
+    const SERVER_KEY: &str = "/Users/x/.ssh/id_prod_secret_key";
+    const DB_PWD: &str = "DbPass#1-plain";
+    const ENV_SECRET: &str = "EnvSecret#7";
+    const LOG_SECRET: &str = "FileSecret#9";
+
+    fn temp_dir(tag: &str) -> std::path::PathBuf {
+        let n = SEQ.fetch_add(1, Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!(
+            "st_assistant_tools_{}_{}_{}",
+            std::process::id(),
+            tag,
+            n
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    async fn seeded(tag: &str) -> (CoreService, std::path::PathBuf) {
+        let dir = temp_dir(tag);
+        let core = CoreService::new(Database::new(&dir.join("t.db")).unwrap(), dir.clone());
+
+        core.add_server(json!({
+            "id": "srv-1", "name": "生产机", "host": "10.0.0.9", "port": 22,
+            "username": "deploy", "password": SERVER_PWD, "sshKeyPath": SERVER_KEY,
+            "description": "核心库", "tags": ["prod"], "requiresApproval": true,
+        }))
+        .await
+        .unwrap();
+
+        core.add_db_connection(DbConnectionConfig {
+            id: "dbc-1".to_string(),
+            name: "订单库".to_string(),
+            db_type: "mysql".to_string(),
+            host: "127.0.0.1".to_string(),
+            port: 3306,
+            username: "root".to_string(),
+            password: DB_PWD.to_string(),
+            db_name: Some("orders".to_string()),
+            db_index: None,
+            path: None,
+        })
+        .await
+        .unwrap();
+
+        core.save_cicd_config_full(json!({
+            "id": "cfg-1", "name": "坏配置", "deployBranch": "master", "mavenProfile": "",
+            "deployPath": "/opt/app", "libSeparate": false, "restartScript": "sh run.sh",
+            "healthCheckTimeout": 30, "healthCheckRetries": 3, "incrementalUpload": true,
+            "buildTool": "maven", "parentBuildMode": true, "parentBuildPath": "mall-server",
+            "localPath": "/repo/SRC/mall", "buildMode": "single", "groupName": "默认",
+            "requiresApproval": false, "createdAt": "2026-08-27T00:00:00Z",
+            "updatedAt": "2026-08-27T00:00:00Z",
+            "servers": "[{\"serverId\":\"srv-1\",\"deployDir\":\"/opt/app\"}]",
+            "environments": format!("[{{\"name\":\"test\",\"envVars\":\"DB_PASSWORD={}\"}}]", ENV_SECRET),
+        }))
+        .unwrap();
+
+        (core, dir)
+    }
+
+    fn seed_deploy(core: &CoreService, dir: &std::path::Path, log_path: Option<String>) -> String {
+        let id = "dep-1".to_string();
+        core.db_write(|conn| {
+            add_deploy_log(
+                conn,
+                &DeployLog {
+                id: id.clone(),
+                config_id: "cfg-1".to_string(),
+                status: "failed".to_string(),
+                start_time: "2026-08-27T06:00:00Z".to_string(),
+                end_time: Some("2026-08-27T06:05:00Z".to_string()),
+                error_message: Some("Maven 构建失败 (exit 1)".to_string()),
+                progress: 40,
+                triggered_by: "user".to_string(),
+                created_at: "2026-08-27T06:00:00Z".to_string(),
+                    log_file_path: log_path.clone(),
+                    artifact_paths: None,
+                    environment: None,
+                },
+            )
+            .map_err(|e| e.to_string())
+        })
+        .unwrap()
+        .unwrap();
+        core.db_write(|conn| {
+            add_deploy_step_log(
+                conn,
+                &DeployStepLog {
+                    id: 0,
+                    deploy_log_id: id.clone(),
+                    stage: "maven".to_string(),
+                    status: "failed".to_string(),
+                    message: Some("[ERROR] no POM in this directory".to_string()),
+                    timestamp: "2026-08-27T06:04:00Z".to_string(),
+                },
+            )
+            .map_err(|e| e.to_string())
+        })
+        .unwrap()
+        .unwrap();
+        if let Some(path) = log_path {
+            let file = std::path::Path::new(&path);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(
+                file,
+                format!(
+                    "[maven] [building] [INFO] Scanning\n\
+                     [ssh] [connecting] ssh://deploy:{}@10.0.0.9:22\n\
+                     [maven] [building] [ERROR] no POM in this directory /repo/SRC/mall/mall-server\n\
+                     [build] [failed] Maven 构建失败 (exit 1)\n",
+                    LOG_SECRET
+                ),
+            )
+            .unwrap();
+        }
+        let _ = dir;
+        id
+    }
+
+    /// 读类工具：连接信息要给全（助手要靠它判断），凭据一个字节都不给
+    #[tokio::test]
+    async fn read_tools_expose_topology_but_never_credentials() {
+        let (core, _dir) = seeded("read").await;
+        for (tool, args) in [
+            ("list_servers", json!({})),
+            ("get_app_snapshot", json!({})),
+            ("list_db_connections", json!({})),
+            ("list_cicd_configs", json!({})),
+            ("get_cicd_config", json!({"configId": "cfg-1"})),
+            ("validate_cicd_config", json!({"configId": "cfg-1"})),
+        ] {
+            let exec = execute(&core, tool, &args).await;
+            let wire = deep_redact(&exec.payload).to_string();
+            for secret in [SERVER_PWD, SERVER_KEY, DB_PWD, ENV_SECRET] {
+                assert!(!wire.contains(secret), "{tool} 泄漏了凭据: {secret}");
+            }
+            assert!(!wire.contains("\"password\":\""), "{tool} 不应带出 password 键");
+        }
+
+        // 同时确认「有用的连接信息」没被过度屏蔽，否则助手没法工作
+        let servers = deep_redact(&execute(&core, "list_servers", &json!({})).await.payload).to_string();
+        assert!(servers.contains("10.0.0.9") && servers.contains("deploy") && servers.contains("\"port\":22"));
+        assert!(servers.contains("[已隐藏]"), "sshKeyPath 应被抹成占位符");
+        let conns = deep_redact(&execute(&core, "list_db_connections", &json!({})).await.payload).to_string();
+        assert!(conns.contains("3306") && conns.contains("orders"));
+    }
+
+    /// 内嵌 JSON 里的密钥（environments/servers 列）也必须被深度脱敏拦下
+    #[tokio::test]
+    async fn embedded_json_secrets_are_scrubbed() {
+        let (core, _dir) = seeded("embed").await;
+        let exec = execute(&core, "get_cicd_config", &json!({"configId": "cfg-1"})).await;
+        let raw = exec.payload.to_string();
+        assert!(raw.contains(ENV_SECRET), "未脱敏前明文确实在结果里（说明用例有意义）");
+        let wire = deep_redact(&exec.payload).to_string();
+        assert!(!wire.contains(ENV_SECRET), "environments 内嵌 JSON 的密钥漏了出去: {wire}");
+    }
+
+    /// 部署日志：只读部署日志目录，命中已知坑，且正文里的凭据被抹掉
+    #[tokio::test]
+    async fn analyze_deploy_error_uses_allowlisted_file() {
+        let (core, dir) = seeded("analyze").await;
+        let log_path = dir.join("deploy-logs").join("dep-1.log").to_string_lossy().to_string();
+        let id = seed_deploy(&core, &dir, Some(log_path));
+
+        let exec = execute(&core, "analyze_deploy_error", &json!({"deployLogId": id})).await;
+        let wire = deep_redact(&exec.payload).to_string();
+        assert!(exec.payload["knownHints"].as_array().map(|a| !a.is_empty()).unwrap_or(false),
+            "应命中 no POM 这个已知坑: {:?}", exec.payload);
+        assert!(exec.payload["errorLines"]
+            .as_array()
+            .map(|l| l.iter().any(|x| x.as_str().unwrap_or("").contains("no POM")))
+            .unwrap_or(false));
+        assert!(!wire.contains(LOG_SECRET), "日志正文里的凭据泄漏了");
+        assert!(wire.contains("10.0.0.9"), "主机信息要保留，助手要靠它诊断");
+        assert!(exec.payload["failedStages"]
+            .as_array()
+            .map(|s| s.iter().any(|x| x["stage"] == "maven"))
+            .unwrap_or(false));
+    }
+
+    /// 数据库里被人塞了目录外的路径时，只能拒绝读取，不能顺手读走
+    #[tokio::test]
+    async fn analyze_deploy_error_refuses_path_outside_deploy_logs() {
+        let (core, dir) = seeded("escape").await;
+        let outside = dir.join("elsewhere").join("id_ed25519");
+        std::fs::create_dir_all(outside.parent().unwrap()).unwrap();
+        std::fs::write(&outside, format!("PRIVATE KEY MATERIAL {LOG_SECRET}")).unwrap();
+        let id = seed_deploy(&core, &dir, Some(outside.to_string_lossy().to_string()));
+
+        let exec = execute(&core, "analyze_deploy_error", &json!({"deployLogId": id})).await;
+        let wire = exec.payload.to_string();
+        assert!(exec.payload["logReadSkipped"].is_string(), "应拒绝读取白名单外路径");
+        assert!(!wire.contains(LOG_SECRET), "越界读取成功了: {wire}");
+        assert!(!wire.contains("PRIVATE KEY MATERIAL"));
+    }
+
+    /// 连通性测试：能用已存凭据去连，但返回体里不含任何凭据
+    #[tokio::test]
+    async fn test_server_connection_reports_failure_without_leaking_credentials() {
+        let (core, _dir) = seeded("ssh").await;
+        let exec = execute(&core, "test_server_connection", &json!({"serverId": "srv-1"})).await;
+        let wire = deep_redact(&exec.payload).to_string();
+        assert_eq!(exec.payload["ok"], false, "10.0.0.9 连不上，应报失败");
+        assert!(exec.payload["reason"].is_string());
+        for secret in [SERVER_PWD, SERVER_KEY] {
+            assert!(!wire.contains(secret), "连通性测试泄漏了凭据");
+        }
+        assert!(wire.contains("hints"), "应带上可执行的排查建议");
+    }
+
+    #[tokio::test]
+    async fn validate_flags_the_seeded_pitfall_and_blocks() {
+        let (core, _dir) = seeded("validate").await;
+        let exec = execute(&core, "validate_cicd_config", &json!({"configId": "cfg-1"})).await;
+        assert_eq!(exec.payload["blocking"], true);
+        assert!(exec.payload["issues"]
+            .as_array()
+            .map(|i| i.iter().any(|x| x["field"] == "parentBuildPath"))
+            .unwrap_or(false));
+    }
+
+    #[tokio::test]
+    async fn proposal_round_trip_and_rejections() {
+        let (core, _dir) = seeded("proposal").await;
+        let good = execute(
+            &core,
+            "propose_config_change",
+            &json!({
+                "targetType": "server", "operation": "create", "displayName": "新增测试机",
+                "fields": {"name": "测试机", "host": "192.168.1.20", "port": 22, "username": "ci"},
+                "rationale": "跑回归", "needUserInput": ["password"],
+            }),
+        )
+        .await;
+        assert_eq!(good.proposals.len(), 1);
+        assert_eq!(good.payload["queued"], true);
+        assert_eq!(good.proposals[0]["fields"]["host"], "192.168.1.20");
+
+        // 想替用户填密码 → 拒绝，且不产出提案
+        let bad = execute(
+            &core,
+            "propose_config_change",
+            &json!({
+                "targetType": "server", "operation": "create", "displayName": "x",
+                "fields": {"host": "1.1.1.1", "password": "我替用户填"},
+                "rationale": "r",
+            }),
+        )
+        .await;
+        assert!(bad.proposals.is_empty());
+        assert!(bad.payload["error"].as_str().unwrap().contains("password"));
+    }
+
+    /// 参数缺失/未知工具/非法 JSON 都必须是「软错误」，让模型能自我纠正而不是中断回合
+    #[tokio::test]
+    async fn soft_errors_for_bad_calls() {
+        let (core, _dir) = seeded("errors").await;
+        for (tool, args) in [
+            ("get_cicd_config", json!({})),
+            ("search_usage_guides", json!({"query": "  "})),
+            ("no_such_tool_at_all", json!({})),
+            ("analyze_deploy_error", json!({"deployLogId": "not-exist"})),
+        ] {
+            let exec = execute(&core, tool, &args).await;
+            assert!(
+                exec.payload.get("error").is_some(),
+                "{tool} 应返回 error 字段，实际 {:?}", exec.payload
+            );
+            assert!(exec.proposals.is_empty());
+        }
+        // 教学检索正常时给出正文
+        let guide = execute(&core, "search_usage_guides", &json!({"query": "产物目录"})).await;
+        assert!(!guide.payload["hits"].as_array().unwrap().is_empty());
+        // 界面动作走 actions 通道
+        let nav = execute(&core, "open_config_page", &json!({"module": "cicd"})).await;
+        assert_eq!(nav.actions[0]["route"], "/cicd");
     }
 }
