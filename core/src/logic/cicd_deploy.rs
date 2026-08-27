@@ -3623,4 +3623,128 @@ mod single_deploy_tests {
 
         fs::remove_dir_all(&tmp).unwrap();
     }
+
+    // ─── 条件字段兜底清理（sanitize）───
+
+    fn sanitize_cfg(overrides: &[(&str, bool)]) -> crate::db::cicd::CicdConfig {
+        use crate::db::cicd::CicdConfig;
+        let mut c = CicdConfig {
+            id: "c1".into(),
+            name: "测试".into(),
+            deploy_branch: "main".into(),
+            maven_settings: Some("~/.m2/settings.xml".into()),
+            maven_profile: "prod".into(),
+            deploy_path: "/opt/app".into(),
+            lib_separate: true,
+            restart_script: "./restart.sh".into(),
+            health_check_url: None,
+            health_check_timeout: 30,
+            created_at: String::new(),
+            updated_at: String::new(),
+            build_tool: Some("maven".into()),
+            build_command: Some("mvn clean package".into()),
+            build_path: None,
+            repo_url: None,
+            local_path: Some("/proj".into()),
+            npm_script: Some("build".into()),
+            npm_custom_script: None,
+            maven_home: Some("/opt/maven".into()),
+            npm_home: Some("/opt/npm".into()),
+            pnpm_home: None,
+            yarn_home: None,
+            java_home: Some("/opt/jdk".into()),
+            node_home: Some("/opt/node".into()),
+            servers: None,
+            group_name: "未分组".into(),
+            last_deployed_at: None,
+            parent_build_mode: true,
+            parent_build_path: "SRC/b2b2c".into(),
+            requires_approval: false,
+            git_repo_id: None,
+            build_mode: "local".into(),
+            environments: None,
+            incremental_upload: true,
+            health_check_retries: 3,
+            output_path: Some("yudao-server/target".into()),
+            lib_filter_rules: Some("*.jar".into()),
+        };
+        for (k, v) in overrides {
+            match *k {
+                "tool" => c.build_tool = if *v { Some("maven".into()) } else { Some("npm".into()) },
+                "modes" => {} // placeholder, 不用于本测试
+                _ => {}
+            }
+        }
+        c
+    }
+
+    #[test]
+    fn sanitize_multi_module_clears_monolith_fields() {
+        use crate::db::cicd::sanitize_cicd_config_conditional;
+        let mut c = sanitize_cfg(&[]);
+        c.parent_build_mode = false; // 多模块
+        sanitize_cicd_config_conditional(&mut c);
+        // 多模块：parentBuildPath / 配置级 outputPath 清空（本次 bug 根因）
+        assert_eq!(c.parent_build_path, "");
+        assert_eq!(c.output_path, None);
+        // maven 专属字段保留
+        assert_eq!(c.maven_home.as_deref(), Some("/opt/maven"));
+    }
+
+    #[test]
+    fn sanitize_non_maven_clears_tool_specific_fields() {
+        use crate::db::cicd::{sanitize_cicd_config_conditional, sanitize_snapshot, sanitize_deploy_module_from_snapshot};
+        let mut c = sanitize_cfg(&[]);
+        c.build_tool = Some("npm".into());
+        sanitize_cicd_config_conditional(&mut c);
+        // npm：maven 路径、lib 分离、maven profile、restartScript 全部清空
+        assert_eq!(c.maven_home, None);
+        assert_eq!(c.java_home, None);
+        assert_eq!(c.maven_settings, None);
+        assert_eq!(c.maven_profile, "");
+        assert!(!c.lib_separate);
+        assert_eq!(c.lib_filter_rules, None);
+        assert_eq!(c.restart_script, "");
+        // npm 字段保留
+        assert_eq!(c.npm_script.as_deref(), Some("build"));
+        // 配置级 buildCommand 非 cargo 清空
+        assert_eq!(c.build_command, None);
+        // 模块行：非 maven → lib 过滤清空；jar-plus-lib 降级
+        let mut m = crate::db::cicd::DeployModule {
+            id: "m1".into(),
+            config_id: "c1".into(),
+            module_name: "seller".into(),
+            module_path: "seller-api".into(),
+            build_path: Some("SRC/b2b2c".into()),
+            build_command: Some("mvn clean package".into()),
+            build_tool: None, // 继承全局（npm）
+            output_path: Some("target".into()),
+            artifact_name: String::new(),
+            artifact_type: Some("jar-plus-lib".into()),
+            lib_filter_rules: Some("*.jar".into()),
+            deploy_order: 1,
+            deploy_path: None,
+            enabled: true,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        let snap = sanitize_snapshot(&c);
+        sanitize_deploy_module_from_snapshot(&mut m, &snap);
+        assert_eq!(m.lib_filter_rules, None);
+        assert_eq!(m.artifact_type.as_deref(), Some("jar"));
+        // 非 maven 模块保留 buildPath/buildCommand
+        assert_eq!(m.build_path.as_deref(), Some("SRC/b2b2c"));
+        // maven 模块则清空 buildPath/buildCommand
+        let mut m2 = crate::db::cicd::DeployModule {
+            build_tool: Some("maven".into()),
+            build_path: Some("SRC/b2b2c".into()),
+            build_command: Some("mvn clean package".into()),
+            lib_filter_rules: Some("*.jar".into()),
+            ..m
+        };
+        sanitize_deploy_module_from_snapshot(&mut m2, &snap);
+        assert_eq!(m2.build_path, None);
+        assert_eq!(m2.build_command, None);
+        assert_eq!(m2.lib_filter_rules, None);
+    }
 }

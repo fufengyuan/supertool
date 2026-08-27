@@ -1354,6 +1354,8 @@ impl CoreService {
         }
 
         let mut config: CicdConfig = serde_json::from_value(json).map_err(|e| format!("配置反序列化失败: {}", e))?;
+        // 保存前兜底清理条件字段（按构建工具/部署模式），防止 UI 未展示的残留值污染后续逻辑
+        crate::db::cicd::sanitize_cicd_config_conditional(&mut config);
         let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
         let now2 = now.clone();
         config.updated_at = now.clone();
@@ -1384,11 +1386,13 @@ impl CoreService {
         // Save modules: DELETE existing, INSERT new
         let config_id = config.id.clone();
         let modules_clone = modules.clone();
+        // 模块行条件清理依赖配置级 buildTool / libSeparate，先快照避免 move 进闭包后无法借用
+        let module_sanitize_ref = crate::db::cicd::sanitize_snapshot(&config);
         self.db_write(move |conn| -> Result<(), String> {
             conn.execute("DELETE FROM deploy_modules WHERE configId = ?1", rusqlite::params![&config_id])
                 .map_err(|e| e.to_string())?;
             for (i, m) in modules_clone.iter().enumerate() {
-                let module = crate::db::cicd::DeployModule {
+                let mut module = crate::db::cicd::DeployModule {
                     id: format!("dm_{}", uuid::Uuid::new_v4().simple()),
                     config_id: config_id.clone(),
                     module_name: m.get("moduleName").and_then(|v| v.as_str()).unwrap_or("").to_string(),
@@ -1406,6 +1410,8 @@ impl CoreService {
                     created_at: now.clone(),
                     updated_at: now.clone(),
                 };
+                // 模块行条件字段兜底清理（maven 模块隐藏构建目录/构建命令等）
+                crate::db::cicd::sanitize_deploy_module_from_snapshot(&mut module, &module_sanitize_ref);
                 crate::db::cicd::add_deploy_module(conn, &module).map_err(|e| e.to_string())?;
             }
             Ok(())
