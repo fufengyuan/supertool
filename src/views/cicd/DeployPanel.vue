@@ -296,8 +296,8 @@
                 <!-- Step logs (结构化步骤日志，优先级最高) -->
                 <div v-if="stepLogs[log.id] && stepLogs[log.id].length > 0" class="flex flex-col gap-2">
                   <div
-                    v-for="step in stepLogs[log.id]"
-                    :key="step.id"
+                    v-for="(step, si) in stepLogs[log.id]"
+                    :key="si"
                     class="flex flex-col px-2.5 py-2 bg-base-200 rounded-lg border-l-4 text-xs"
                     :class="{
                       'border-l-success': step.status === 'success',
@@ -307,7 +307,7 @@
                     }"
                   >
                     <div class="flex justify-between items-center mb-1">
-                      <span class="min-w-[120px] font-semibold text-base-content">{{ step.stepName }}</span>
+                      <span class="min-w-[120px] font-semibold text-base-content">{{ step.stage }}</span>
                       <span class="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
                         :class="{
                           'bg-green-500/15 text-success': step.status === 'success',
@@ -322,11 +322,10 @@
                         {{ step.status }}
                       </span>
                     </div>
-                    <div class="text-xs text-base-content/60 mb-1" v-if="step.startTime || step.endTime">
-                      <span>{{ step.startTime ? formatDate(step.startTime) : '-' }} → {{ step.endTime ? formatDate(step.endTime) : '进行中' }}</span>
+                    <div class="text-xs text-base-content/60 mb-1" v-if="step.timestamp">
+                      <span>{{ formatDate(step.timestamp) }}</span>
                     </div>
-                    <pre v-if="step.output" class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content">{{ step.output }}</pre>
-                    <p v-if="step.errorMessage" class="mt-1 text-error text-xs font-medium">{{ step.errorMessage }}</p>
+                    <pre v-if="step.message" class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content">{{ step.message }}</pre>
                   </div>
                 </div>
 
@@ -429,14 +428,14 @@ interface DeployLog {
   projectCategory?: string;
 }
 
+/** 与 core 的 DeployStepLog 对齐（此前按 Electron 时代的 stepName/output/errorMessage 渲染，字段永远取不到） */
 interface DeployStep {
-  id: string;
-  stepName: string;
+  id: number;
+  deployLogId: string;
+  stage: string;
   status: string;
-  output?: string;
-  startTime?: string;
-  endTime?: string;
-  errorMessage?: string;
+  message?: string;
+  timestamp: string;
 }
 
 const toast = useToast();

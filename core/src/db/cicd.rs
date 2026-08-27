@@ -353,7 +353,11 @@ pub fn row_to_deploy_log(row: &rusqlite::Row) -> rusqlite::Result<DeployLog> {
 
 fn row_to_deploy_step_log(row: &rusqlite::Row) -> rusqlite::Result<DeployStepLog> {
     Ok(DeployStepLog {
-        id: row.get(0)?,
+        // 表里 id 是 TEXT PRIMARY KEY，而 add_deploy_step_log 从不写入 id（沿用 Electron 时代的
+        // 「自增」假设），结果是存量几十万行 id 全为 NULL。按 i64 直接 get 会对**每一行**报
+        // 类型错误，再被上层的 filter_map(|r| r.ok()) 静默丢掉 → 步骤日志永远返回空列表。
+        // 这里容忍缺失/非数字 id（它没有任何业务含义），避免整行被丢弃。
+        id: row.get::<_, Option<i64>>(0).ok().flatten().unwrap_or(0),
         deploy_log_id: row.get(1)?,
         stage: row.get(2)?,
         status: row.get(3)?,
@@ -622,6 +626,8 @@ pub fn get_deploy_log_by_id(
 // Deploy step logs
 #[allow(dead_code)]
 pub fn add_deploy_step_log(conn: &Connection, step: &DeployStepLog) -> Result<(), rusqlite::Error> {
+    // 不写 id：该列是 TEXT 主键，写入整数会被列亲和性变成文本，读取侧再按 i64 取值又会失败；
+    // 保持 NULL（与几十万存量行一致），身份标识由 deployLogId + rowid 承担
     conn.execute(
         "INSERT INTO deploy_step_logs (deployLogId, stage, status, message, timestamp) \
          VALUES (?, ?, ?, ?, ?)",
@@ -640,8 +646,9 @@ pub fn get_deploy_step_logs(
     conn: &Connection,
     deploy_log_id: &str,
 ) -> Result<Vec<DeployStepLog>, rusqlite::Error> {
+    // 排序用 rowid：id 全为 NULL 时按 id 排序等于没排序，rowid 才等于写入（即部署阶段）顺序
     let mut stmt =
-        conn.prepare("SELECT * FROM deploy_step_logs WHERE deployLogId = ? ORDER BY id ASC")?;
+        conn.prepare("SELECT * FROM deploy_step_logs WHERE deployLogId = ? ORDER BY rowid ASC")?;
     stmt.query_map([deploy_log_id], row_to_deploy_step_log)
         .map(|rows| rows.filter_map(|r| r.ok()).collect())
 }
@@ -677,4 +684,65 @@ fn get_deploy_history_by_id(
             rusqlite::Error::QueryReturnedNoRows => Ok(None),
             other => Err(other),
         })
+}
+
+#[cfg(test)]
+mod step_log_tests {
+    use super::*;
+    use crate::db::Database;
+
+    fn temp_db(tag: &str) -> Database {
+        let dir = std::env::temp_dir().join(format!(
+            "st_step_log_{}_{}",
+            tag,
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("t.db");
+        let _ = std::fs::remove_file(&path);
+        Database::new(&path).unwrap()
+    }
+
+    /// 回归：id 列是 TEXT 主键且插入从不写 id（全 NULL），按 i64 强转会静默丢行 → 步骤日志永远为空
+    #[test]
+    fn null_id_rows_are_still_returned_in_insert_order() {
+        let mut db = temp_db("null_id");
+        for (i, stage) in ["git", "build", "ssh"].iter().enumerate() {
+            add_deploy_step_log(
+                db.conn(),
+                &DeployStepLog {
+                    id: 0,
+                    deploy_log_id: "d1".to_string(),
+                    stage: stage.to_string(),
+                    status: if i == 2 { "failed".to_string() } else { "success".to_string() },
+                    message: Some(format!("第{}步", i + 1)),
+                    timestamp: format!("2026-08-27T0{}:00:00Z", 6 + i),
+                },
+            )
+            .unwrap();
+        }
+        let rows = get_deploy_step_logs(db.conn(), "d1").unwrap();
+        assert_eq!(rows.len(), 3, "id 为 NULL 的行也必须读出来");
+        assert_eq!(
+            rows.iter().map(|r| r.stage.as_str()).collect::<Vec<_>>(),
+            vec!["git", "build", "ssh"],
+            "必须按写入顺序返回（阶段顺序是诊断依据）"
+        );
+        assert_eq!(rows[2].message.as_deref(), Some("第3步"));
+
+        // 只取本部署记录的步骤
+        add_deploy_step_log(
+            db.conn(),
+            &DeployStepLog {
+                id: 0,
+                deploy_log_id: "d2".to_string(),
+                stage: "git".to_string(),
+                status: "success".to_string(),
+                message: None,
+                timestamp: "x".to_string(),
+            },
+        )
+        .unwrap();
+        assert_eq!(get_deploy_step_logs(db.conn(), "d1").unwrap().len(), 3);
+    }
 }
