@@ -335,6 +335,8 @@ pub async fn save_cicd_config(
     let now = chrono::Utc::now().to_rfc3339();
     let mut cicd_config: CicdConfig =
         serde_json::from_value(config.clone()).map_err(|e| format!("解析配置失败: {}", e))?;
+    // 保存前兜底清理条件字段（按构建工具/部署模式），防止 UI 未展示的残留值污染后续逻辑
+    supertool_core::db::cicd::sanitize_cicd_config_conditional(&mut cicd_config);
     let result = core.db_write(|conn| {
         let existing = match cicd_get_config_by_id(conn, &cicd_config.id) {
             Ok(v) => v,
@@ -365,6 +367,10 @@ pub async fn save_cicd_config(
                     Ok(v) => v,
                     Err(e) => return Err(format!("解析模块失败: {}", e)),
                 };
+                // 模块行条件字段兜底清理（与配置级同规则：maven 模块隐藏构建目录/构建命令等）
+                let snap =
+                    supertool_core::db::cicd::sanitize_snapshot(&cicd_config);
+                supertool_core::db::cicd::sanitize_deploy_module_from_snapshot(&mut module, &snap);
                 module.config_id = cicd_config.id.clone();
                 module.created_at = now.clone();
                 module.updated_at = now.clone();

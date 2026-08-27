@@ -93,6 +93,87 @@ fn default_retries() -> i64 {
     3
 }
 
+/// 按构建工具 / 部署模式清理配置级条件字段（保存前兜底，防止 UI 不展示的残留值污染后续逻辑）。
+/// 规则与向导面板条件显示一一对应：
+/// - 非 maven：清空 maven 专属路径与 lib 分离（lib 分离后端仅 maven 生效）
+/// - 非 npm/pnpm/yarn：清空 node 相关字段
+/// - 非 cargo：配置级 buildCommand 无入口，清空
+/// - 非 maven：restartScript 仅 maven 面板有入口，非 maven 清空
+/// - 非单体（多模块）：parentBuildPath / 配置级 outputPath 为单体面板字段，多模块时无意义，清空
+pub fn sanitize_cicd_config_conditional(c: &mut CicdConfig) {
+    let tool = c.build_tool.as_deref().unwrap_or("");
+    let is_maven = tool == "maven";
+    let is_node = matches!(tool, "npm" | "pnpm" | "yarn");
+    let is_cargo = tool == "cargo";
+    // 单体部署（parentBuildMode=true）才显示构建目录/产物目录面板
+    let is_monolith = c.parent_build_mode;
+
+    if !is_maven {
+        c.maven_home = None;
+        c.java_home = None;
+        c.maven_settings = None;
+        c.maven_profile = String::new();
+        c.lib_separate = false;
+        c.lib_filter_rules = None;
+        c.restart_script = String::new();
+    }
+    if !is_node {
+        c.npm_home = None;
+        c.pnpm_home = None;
+        c.yarn_home = None;
+        c.node_home = None;
+        c.npm_script = None;
+        c.npm_custom_script = None;
+    }
+    if !is_cargo {
+        // 配置级 buildCommand 仅 cargo 面板有输入；npm/maven 分别走 npmScript 与固定 mvn 命令
+        c.build_command = None;
+    }
+    if !is_monolith {
+        // 多模块模式：聚合根 = localPath（或模块行各自目录），配置级 parentBuildPath/outputPath 不适用
+        c.parent_build_path = String::new();
+        c.output_path = None;
+    }
+}
+
+/// 模块行条件清理所需的配置级快照（摆脱 CicdConfig 所有权，供闭包内使用）
+pub struct SanitizeSnapshot {
+    pub global_build_tool: Option<String>,
+    pub lib_separate: bool,
+}
+
+/// 从配置构造模块清理快照
+pub fn sanitize_snapshot(config: &CicdConfig) -> SanitizeSnapshot {
+    SanitizeSnapshot {
+        global_build_tool: config.build_tool.clone(),
+        lib_separate: config.lib_separate,
+    }
+}
+
+/// 按构建工具 / lib 开关清理模块行条件字段（保存前兜底，使用预取快照）：
+/// - maven 模块：构建路径统一在聚合根，模块行 buildPath/buildCommand 无入口（已隐藏），清空
+/// - 非 maven 或未开启 lib 分离：libFilterRules 不适用，清空
+/// - 产物类型 jar-plus-lib 仅 maven && libSeparate 时有效，否则降级为 jar
+pub fn sanitize_deploy_module_from_snapshot(m: &mut DeployModule, snap: &SanitizeSnapshot) {
+    let module_tool = m
+        .build_tool
+        .as_deref()
+        .unwrap_or(snap.global_build_tool.as_deref().unwrap_or(""));
+    let is_maven = module_tool == "maven";
+    let lib_ok = is_maven && snap.lib_separate;
+
+    if is_maven {
+        m.build_path = None;
+        m.build_command = None;
+    }
+    if !lib_ok {
+        m.lib_filter_rules = None;
+    }
+    if m.artifact_type.as_deref() == Some("jar-plus-lib") && !lib_ok {
+        m.artifact_type = Some("jar".to_string());
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeployModule {
     pub id: String,
