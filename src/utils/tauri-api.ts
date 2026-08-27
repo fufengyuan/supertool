@@ -597,6 +597,10 @@ export function useLanAPI() {
     lanRefreshDiscovery: async (): Promise<void> => {
       await tauriInvoke('lan_refresh_discovery')
     },
+    /** 保证 LAN 服务在运行（断线/启动失败后的重连兜底） */
+    lanStartIfStopped: async (): Promise<any> => {
+      return await tauriInvoke<any>('lan_start_if_stopped')
+    },
     lanGetUserInfo: async (): Promise<any> => {
       const res = await tauriInvoke<any>('lan_get_user_info')
       return res.success ? (res.data ?? {}) : {}
@@ -1755,6 +1759,7 @@ export interface TauriAPI {
   lanGetAllUnreadCounts: (userId: string) => Promise<any>
   lanSetStatus: (status: string) => Promise<void>
   lanRefreshDiscovery: () => Promise<void>
+  lanStartIfStopped: () => Promise<any>
   lanGetStatus: () => Promise<any>
   lanGetNetworkInfo: () => Promise<any>
   lanGetReceivePath: () => Promise<string>
