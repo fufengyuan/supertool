@@ -1513,6 +1513,16 @@ fn build_deploy_config(
             .filter(|u| !u.is_empty()),
         health_check_timeout: cicd_config.health_check_timeout.max(1) as u64,
         health_check_retries: cicd_config.health_check_retries.max(1) as u32,
+        output_path: cicd_config
+            .output_path
+            .as_deref()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()),
+        lib_filter_rules: cicd_config
+            .lib_filter_rules
+            .as_deref()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()),
         incremental_upload: cicd_config.incremental_upload,
         environment_name: None,
     })

@@ -13,6 +13,7 @@ export const DEV_TOOL_REGISTRY: DevTool[] = [
   // === 加密/哈希 ===
   { id: 'crypto', name: '哈希计算', icon: 'lock', category: 'crypto', description: 'MD5, SHA1, SHA256, SHA512, SM3, 批量处理, 文件哈希', offline: true, keywords: 'hash md5 sha sm3 sj hh' },
   { id: 'encrypt', name: '加密/解密', icon: 'key', category: 'crypto', description: 'AES, DES, RC4, Rabbit, TripleDES, SM2, SM4, Bcrypt', offline: true, keywords: 'encrypt decrypt aes des rc4 sm2 sm4 bcrypt jiami jiemi' },
+  { id: 'navicat', name: 'Navicat密码', icon: 'database', category: 'crypto', description: 'Navicat 12+ 保存的数据库密码加解密（.ncx）', offline: true, keywords: 'navicat password ncx 数据库 密码 jiemi jiami' },
 
   // === 编码/转换 ===
   { id: 'base64', name: 'BASE64编码', icon: 'file', category: 'encode', description: '编码, 解码, 支持文件', offline: true, keywords: 'base64 encode decode bm' },

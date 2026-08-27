@@ -254,6 +254,8 @@ impl LanService {
         // ===== UDP receive thread =====
         let peers = Arc::clone(&self.peers);
         let log = Arc::clone(&self.log_buffer);
+        // 心跳线程独立保存一份日志缓冲引用（必须在 recv 线程闭包 move 之前 clone）
+        let hb_log = Arc::clone(&self.log_buffer);
         let stop = Arc::clone(&self.stop_flag);
         let user_id = self.user_id.clone();
         let nick_name = self.nick_name.lock().unwrap().clone();
@@ -380,6 +382,8 @@ impl LanService {
                     None
                 };
                 let mut hb_count = 0u64;
+                let mut consecutive_failures = 0u64;
+                const FAILURE_ALERT_THRESHOLD: u64 = 5;
                 loop {
                     if hb_stop.load(Ordering::SeqCst) {
                         break;
@@ -397,19 +401,46 @@ impl LanService {
                         "messagePort": DISCOVERY_PORT,
                     });
                     if let Ok(msg) = serde_json::to_string(&hb) {
-                        // Send to limited broadcast (255.255.255.255)
+                        // 一次心跳周期内至少一路发成功即视为网络可用
+                        let mut any_success = false;
                         if let Err(e) = hb_udp.send_to(msg.as_bytes(), broadcast_addr) {
                             log::warn!("[LAN] HB#{} broadcast FAILED: {}", hb_count, e);
+                        } else {
+                            any_success = true;
                         }
                         // Also send to multicast group (239.255.0.1)
                         if let Err(e) = hb_udp.send_to(msg.as_bytes(), multicast_addr) {
                             log::warn!("[LAN] HB#{} multicast FAILED: {}", hb_count, e);
+                        } else {
+                            any_success = true;
                         }
                         // Also send to directed broadcast (192.168.x.255) if available
                         if let Some(ref dbc) = directed_broadcast {
                             if let Err(e) = hb_udp.send_to(msg.as_bytes(), dbc) {
                                 log::warn!("[LAN] HB#{} directed_broadcast {} FAILED: {}", hb_count, dbc, e);
+                            } else {
+                                any_success = true;
                             }
+                        }
+                        // 网络断开自检：连续多周期全路失败才告警，恢复后提示（UDP socket 本身可自愈，无需重建）
+                        if !any_success {
+                            consecutive_failures += 1;
+                            if consecutive_failures == FAILURE_ALERT_THRESHOLD {
+                                Self::add_log_static(
+                                    &hb_log,
+                                    "warning",
+                                    "连续多次广播失败，网络可能断开，进入自动重连等待（恢复后自动继续广播）",
+                                );
+                            }
+                        } else {
+                            if consecutive_failures >= FAILURE_ALERT_THRESHOLD {
+                                Self::add_log_static(
+                                    &hb_log,
+                                    "info",
+                                    "广播已恢复，自动重连成功",
+                                );
+                            }
+                            consecutive_failures = 0;
                         }
                         if hb_count <= 5 || hb_count % 5 == 0 {
                             log::info!(
@@ -511,6 +542,15 @@ impl LanService {
 
     pub fn is_running(&self) -> bool {
         self.is_running.load(Ordering::SeqCst)
+    }
+
+    /// 确保服务在运行：未启动或启动后异常停止时重新拉起（重连保障）。
+    /// start() 内部已有 is_running 守卫（已在运行直接跳过），可安全反复调用。
+    pub fn ensure_running(&self) -> Result<(), String> {
+        if self.is_running.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        self.start()
     }
 
     pub fn set_app_handle(&self, app: tauri::AppHandle) {

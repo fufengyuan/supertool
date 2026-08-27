@@ -307,6 +307,12 @@ pub struct DeployConfig {
     /// 健康检查重试次数
     #[serde(rename = "healthCheckRetries", default = "default_health_check_retries")]
     pub health_check_retries: u32,
+    /// 单体前端的产物输出目录（相对代码目录，如 build/h5；空则自动扫描 dist 候选）
+    #[serde(rename = "outputPath", default)]
+    pub output_path: Option<String>,
+    /// 单体（单产物）部署的 lib 分离过滤规则（每行一个通配模式，仅打包匹配依赖；空=全部）
+    #[serde(rename = "libFilterRules", default)]
+    pub lib_filter_rules: Option<String>,
     /// 增量上传：对比产物 hash 只传变更文件
     #[serde(rename = "incrementalUpload", default = "default_true_fn")]
     pub incremental_upload: bool,
@@ -499,7 +505,7 @@ pub async fn execute_deploy(
     }
 
     // Step 3: Collect artifacts
-    let artifacts = match collect_artifacts(&project_path, config) {
+    let artifacts = match collect_artifacts(&project_path, config, &emit) {
         Ok(a) => a,
         Err(e) => {
             emit("collect", "failed", &e);
@@ -1554,7 +1560,7 @@ async fn run_maven_build(
     if config.skip_tests {
         args.push("-DskipTests");
     }
-    if let Some(ref profile) = config.maven_profile {
+    if let Some(profile) = config.maven_profile.as_deref().filter(|p| !p.trim().is_empty()) {
         args.push("-P");
         args.push(profile);
     }
@@ -1564,6 +1570,14 @@ async fn run_maven_build(
             args.push(settings);
         }
     }
+
+    // 稳定构建：覆盖项目级 .mvn/maven.config 的并行与 Maven Build Cache 扩展。
+    // 二者同时启用（如 yudao 项目 `-T 1C` + `-Dmaven.build.cache.*`）在多线程写本地仓库时
+    // 会触发 "Could not acquire lock(s)"（缓存扩展与并行构建锁竞争，IDE 手动构建不踩）。
+    // CICD 部署求稳求一次成功，追加 CLI 参数（优先级高于 maven.config）强制串行并禁用缓存。
+    args.push("-T");
+    args.push("1");
+    args.push("-Dmaven.build.cache.enabled=false");
 
     let mut cmd = user_shell_cmd(&mvn.to_string_lossy());
     cmd.args(&args).current_dir(build_path);
@@ -1639,8 +1653,13 @@ async fn run_npm_build(
     // 命令归一：单体部署的构建命令统一走 npmScript/npmCustomScript（配置级）。
     // 存量配置的脚本曾存在首个启用模块行的 buildCommand 里（如 "npm run build:h5:staging"），
     // 此处兼容读取并回填到配置级字段，模块行命令不再是权威来源。
+    // 模块行命令回退仅用于「逐模块构建」场景（parentBuildMode=false）：单体/父统一模式下
+    // 模块行可能是复制后端配置的残留（如前端配置里带着 "mvn clean package" 的 yudao 模块行），
+    // 拾取其 buildCommand 会把 npm 脚本解析成 "mvn" 直接报错。
     let mut custom = config.npm_custom_script.clone();
-    if custom.as_deref().map(|s| s.trim().is_empty()).unwrap_or(true) {
+    if !config.parent_build_mode
+        && custom.as_deref().map(|s| s.trim().is_empty()).unwrap_or(true)
+    {
         if let Some(m) = config.modules.iter().find(|m| m.enabled) {
             if let Some(cmd) = m.build_command.as_deref() {
                 let cmd = cmd.trim();
@@ -1711,7 +1730,7 @@ async fn run_npm_build(
         }
     } else {
         return Err(format!(
-            "构建目录 {} 下没有 package.json，请检查部署配置的「代码目录/主模块」设置",
+            "构建目录 {} 下没有 package.json，请检查部署配置的「代码目录/主模块」设置（前端项目构建目录应指向含 package.json 的位置，产物输出目录请填在「产物目录」）",
             build_path.display()
         ));
     }
@@ -2102,42 +2121,76 @@ fn module_deploy_path(config: &DeployConfig, module: &DeployModuleConfig) -> Str
 fn collect_artifacts(
     project_path: &PathBuf,
     config: &DeployConfig,
+    emit: &impl Fn(&str, &str, &str),
 ) -> Result<Vec<Artifact>, String> {
     let mut artifacts = Vec::new();
 
     if config.modules.is_empty() || config.parent_build_mode {
-        // 单产物部署（单体部署，或父统一构建的 maven 多模块）：
-        // 按主模块目录（parentBuildPath → buildPath → 项目根）收集 target 下的 jar 产物。
-        // 注意：npm 前端单体项目通常没有 target 目录，走下方 dist 兜底收集。
+        // 单产物部署（单体部署，或父统一构建的多模块）：构建根 = single_deploy_root。
+        // 产物收集按工具类型分流：
+        //   cargo → target/release 可执行文件
+        //   maven → target 目录下的 jar（父统一构建时产物在子模块 target，如 yudao-server/target，
+        //           且聚合根构建不能把 parentBuildPath 指到子模块——否则 CI-Friendly `revision`
+        //           不解析、兄弟依赖无法从 reactor 解析 → 必须在聚合根构建、从 outputPath 收集）
+        //   npm/pnpm/yarn → 前端产物目录（zip 整目录，outputPath 如 build/h5 优先，否则自动扫描 dist）
         let is_cargo = config.build_tool.as_deref() == Some("cargo");
+        let is_maven = matches!(config.build_tool.as_deref(), Some("maven"));
+        let root = single_deploy_root(config, project_path);
+        // 配置级 outputPath：相对构建根的产物子目录（maven 如 yudao-server/target；前端如 build/h5）
+        let configured_output = config
+            .output_path
+            .as_deref()
+            .filter(|s| !s.trim().is_empty());
 
-        let output_dir = if is_cargo {
-            single_deploy_root(config, project_path).join("target/release")
-        } else {
-            single_deploy_root(config, project_path).join("target")
-        };
-
-        if output_dir.exists() {
-            if is_cargo {
-                collect_cargo_binaries(&output_dir, &config.deploy_dir, &mut artifacts)?;
-            } else {
+        if is_cargo {
+            let out = configured_output
+                .map(|p| root.join(p))
+                .unwrap_or_else(|| root.join("target/release"));
+            if out.exists() {
+                collect_cargo_binaries(&out, &config.deploy_dir, &mut artifacts)?;
+            }
+        } else if is_maven {
+            let out = configured_output
+                .map(|p| root.join(p))
+                .unwrap_or_else(|| root.join("target"));
+            if out.exists() {
                 collect_from_dir(
-                    &output_dir,
+                    &out,
                     None,
                     &config.deploy_dir,
                     config.lib_separate,
-                    None,
+                    config.lib_filter_rules.as_deref(),
                     &mut artifacts,
                 )?;
             }
-        }
-
-        // npm/前端单体项目兜底：主模块目录下没有 target 时，收集其 dist 目录（zip 整目录）
-        // 排除 maven：maven 父统一构建的产物在 target 下，dist 兜底不适用
-        let is_maven = matches!(config.build_tool.as_deref(), Some("maven"));
-        if !is_cargo && !is_maven && !output_dir.exists() {
-            let dist_dir = find_dist_dir(&single_deploy_root(config, project_path));
+        } else {
+            // 前端单体：产物目录优先取配置级 outputPath（dist 级目录），否则自动扫描常见 dist 候选。
+            // 配置的 outputPath 目录不存在时必须给出明确警告（否则用户以为配置生效、实际打包了错误的目录）
+            let dist_dir = match configured_output {
+                Some(p) => {
+                    let joined = root.join(p);
+                    if joined.is_dir() {
+                        Some(joined)
+                    } else {
+                        emit(
+                            "collect",
+                            "warning",
+                            &format!(
+                                "配置的产物目录 {} 不存在，已回退自动扫描（请检查项目实际输出目录）",
+                                joined.display()
+                            ),
+                        );
+                        find_dist_dir(&root)
+                    }
+                }
+                None => find_dist_dir(&root),
+            };
             if let Some(dist_dir) = dist_dir {
+                emit(
+                    "collect",
+                    "info",
+                    &format!("收集前端产物目录: {}", dist_dir.display()),
+                );
                 emit_collect_dist(&dist_dir, config, &mut artifacts)?;
             }
         }
@@ -2150,14 +2203,28 @@ fn collect_artifacts(
 
             // 模块目录解析带存在性回退（与 build_single_module 一致，防双重前缀）
             let artifact_root = resolve_module_dir(project_path, module.path.as_deref().filter(|s| !s.is_empty()).or(module.build_path.as_deref().filter(|s| !s.is_empty())));
-            let output_dir = if let Some(ref op) = module.output_path {
+            // 前端模块判定：模块级或配置级 build_tool 为 npm/pnpm/yarn，或产物类型标为 dist
+            let is_frontend = matches!(module.build_tool.as_deref(), Some("npm" | "pnpm" | "yarn"))
+                || module.artifact_type.as_deref() == Some("dist")
+                || (module.build_tool.is_none()
+                    && matches!(config.build_tool.as_deref(), Some("npm" | "pnpm" | "yarn")));
+            let mut output_dir = if let Some(ref op) = module.output_path {
                 artifact_root.join(op)
             } else {
                 artifact_root.join("target")
             };
 
             if !output_dir.exists() {
-                continue;
+                // 前端模块：未填产物子目录（或该目录未生成）时回退自动扫描 dist 候选，
+                // 与单体部署行为一致，避免"构建成功但静默无产物上传"
+                if is_frontend {
+                    match find_dist_dir(&artifact_root) {
+                        Some(d) => output_dir = d,
+                        None => continue,
+                    }
+                } else {
+                    continue;
+                }
             }
 
             // Specific artifact name (non-empty)
@@ -3240,6 +3307,8 @@ mod single_deploy_tests {
             health_check_url: None,
             health_check_timeout: 30,
             health_check_retries: 3,
+            output_path: None,
+            lib_filter_rules: None,
             incremental_upload: true,
             environment_name: None,
         }
@@ -3304,6 +3373,38 @@ mod single_deploy_tests {
     }
 
     #[test]
+    fn collect_npm_mobile_prefers_explicit_output_path() {
+        // 前端 uni-app 单体：产物在 build/h5（非固定 dist 候选），必须走配置级 outputPath
+        let tmp = std::env::temp_dir().join(format!("st-collect-h5-{}", std::process::id()));
+        fs::create_dir_all(tmp.join("build/h5")).unwrap();
+        fs::write(tmp.join("build/h5/index.html"), "<!doctype html>").unwrap();
+
+        let mut c = base_config(); // npm + parent_build_mode
+        c.parent_build_path = None; // 构建目录=代码目录本身
+        c.output_path = Some("build/h5".into());
+        let artifacts = collect_artifacts(&tmp, &c, &|_: &str, _: &str, _: &str| {}).unwrap();
+
+        // 产物应为 build/h5 压缩包，且 module 标识为项目根名
+        assert_eq!(artifacts.len(), 1);
+        assert!(artifacts[0].name.ends_with(".zip"), "got {}", artifacts[0].name);
+        assert!(artifacts[0].is_compressed);
+        assert!(Path::new(&artifacts[0].local_path).exists());
+
+        // 未配置 outputPath 时回退 find_dist_dir：候选 "build" 会命中 build 目录，
+        // 打包整个 build/（含非 h5 内容）→ 正是需要显式产物目录的原因
+        let mut c2 = base_config();
+        c2.parent_build_path = None;
+        c2.output_path = None;
+        let artifacts2 = collect_artifacts(&tmp, &c2, &|_: &str, _: &str, _: &str| {}).unwrap();
+        assert_eq!(artifacts2.len(), 1);
+        assert!(artifacts2[0].name.starts_with("build"), "got {}", artifacts2[0].name);
+
+        let _ = fs::remove_file(&artifacts[0].local_path);
+        let _ = fs::remove_file(&artifacts2[0].local_path);
+        fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    #[test]
     fn module_deploy_path_is_incremental() {
         let mut c = base_config();
         c.deploy_dir = "/home/nginxWebUI/ui".to_string();
@@ -3338,6 +3439,99 @@ mod single_deploy_tests {
         // ~ 开头绝对路径 → 原样
         m.deploy_path = Some("~/apphome".into());
         assert_eq!(module_deploy_path(&c, &m), "~/apphome");
+    }
+
+    #[test]
+    fn collect_multi_frontend_falls_back_to_dist_without_output_path() {
+        // 多模块前端：模块行未填 outputPath 时应自动回退扫描 dist，避免静默无产物
+        let tmp = std::env::temp_dir().join(format!("st-multi-dist-{}", std::process::id()));
+        fs::create_dir_all(tmp.join("web/dist")).unwrap();
+        fs::write(tmp.join("web/dist/index.html"), "<!doctype html>").unwrap();
+
+        let m = DeployModuleConfig {
+            name: Some("web".into()),
+            path: Some("web".into()), // 构建目录=模块路径（package.json 所在）
+            build_path: None,
+            build_command: None,
+            build_tool: Some("npm".into()),
+            output_path: None, // 未填产物子目录 → 走 dist 回退
+            artifact_name: None,
+            artifact_type: Some("dist".into()),
+            lib_filter_rules: None,
+            deploy_order: 0,
+            deploy_path: None,
+            enabled: true,
+        };
+        let mut c = base_config();
+        c.parent_build_mode = false;
+        c.modules = vec![m];
+        let artifacts = collect_artifacts(&tmp, &c, &|_: &str, _: &str, _: &str| {}).unwrap();
+        assert_eq!(artifacts.len(), 1, "应收集到 dist zip 产物");
+        assert!(artifacts[0].name.ends_with(".zip"), "got {}", artifacts[0].name);
+        assert!(Path::new(&artifacts[0].local_path).exists());
+        let _ = fs::remove_file(&artifacts[0].local_path);
+        fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    #[test]
+    fn collect_maven_parent_build_collects_from_output_path() {
+        // maven 父统一构建（聚合根构建，revision 属性依赖聚合 reactor）：
+        // 构建根=集合根（parentBuildPath 空 → localPath），产物在子模块 target（outputPath）
+        let tmp = std::env::temp_dir().join(format!("st-maven-out-{}", std::process::id()));
+        fs::create_dir_all(tmp.join("yudao-server/target")).unwrap();
+        fs::write(tmp.join("yudao-server/target/yudao-server.jar"), "jar").unwrap();
+
+        let mut c = base_config();
+        c.build_tool = Some("maven".into());
+        c.parent_build_mode = true;
+        c.parent_build_path = None; // 聚合根即代码目录
+        c.output_path = Some("yudao-server/target".into());
+        let artifacts = collect_artifacts(&tmp, &c, &|_: &str, _: &str, _: &str| {}).unwrap();
+        assert_eq!(artifacts.len(), 1, "应收集到 yudao-server.jar");
+        assert_eq!(artifacts[0].name, "yudao-server.jar");
+
+        // 未配 outputPath 时回退构建根/target（不存在 → 无产物）
+        let mut c2 = base_config();
+        c2.build_tool = Some("maven".into());
+        c2.parent_build_mode = true;
+        c2.parent_build_path = None;
+        c2.output_path = None;
+        let artifacts2 = collect_artifacts(&tmp, &c2, &|_: &str, _: &str, _: &str| {}).unwrap();
+        assert!(artifacts2.is_empty(), "聚合根无 target 时应无产物: {:?}", artifacts2);
+        fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    #[test]
+    fn collect_maven_single_lib_respects_filter_rules() {
+        // 单产物 maven + lib 分离：lib.zip 应按配置级 lib_filter_rules 过滤（白名单）
+        let tmp = std::env::temp_dir().join(format!("st-libf-{}", std::process::id()));
+        fs::create_dir_all(tmp.join("target/lib")).unwrap();
+        fs::write(tmp.join("target/app.jar"), "jar").unwrap();
+        fs::write(tmp.join("target/lib/spring-core.jar"), "d").unwrap();
+        fs::write(tmp.join("target/lib/mysql-connector.jar"), "d").unwrap();
+
+        let mut c = base_config();
+        c.build_tool = Some("maven".into());
+        c.parent_build_mode = true;
+        c.parent_build_path = None;
+        c.output_path = None;
+        c.lib_separate = true;
+        c.lib_filter_rules = Some("spring-*".into());
+        let artifacts = collect_artifacts(&tmp, &c, &|_: &str, _: &str, _: &str| {}).unwrap();
+        assert_eq!(artifacts.len(), 2, "主 jar + lib.zip");
+        let lib = artifacts.iter().find(|a| a.is_lib).expect("应有 lib 产物");
+        assert_eq!(lib.name, "main-lib.zip");
+
+        // 校验 zip 内容只含 spring-core.jar（被过滤规则命中）
+        let zip_path = Path::new(&lib.local_path);
+        let mut archive = zip::ZipArchive::new(std::fs::File::open(zip_path).unwrap()).unwrap();
+        let names: Vec<String> = (0..archive.len())
+            .map(|i| archive.by_index(i).unwrap().name().to_string())
+            .collect();
+        assert_eq!(names, vec!["spring-core.jar"]);
+
+        let _ = fs::remove_file(&artifacts[0].local_path);
+        fs::remove_dir_all(&tmp).unwrap();
     }
 
     #[test]

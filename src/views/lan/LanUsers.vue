@@ -104,6 +104,9 @@
           {{ onlineCount }}
         </span>
         <span v-if="offlineCount > 0" class="text-xs text-base-content/40">离线 {{ offlineCount }}</span>
+        <span v-if="reconnecting" class="flex items-center gap-1.5 text-[11px] text-amber-500 border border-amber-500/25 rounded-full px-2 py-px" title="检测到离线节点，正在自动重连（每 12 秒自动重扫，网络恢复即自动上线）">
+          <span class="size-1.5 rounded-full bg-amber-500 animate-pulse"></span>自动重连中
+        </span>
       </div>
       <button class="btn btn-ghost btn-square btn-sm" @click="refreshDiscovery" :class="{ 'animate-spin text-primary': scanning }" title="重新扫描">
         <SvgIcon name="refresh" size="16" />
@@ -256,6 +259,8 @@ const lastSeenTimes = ref<Record<string, number>>({});
 const scanning = ref(false);
 const networkInfo = ref<{ address: string; ports: string; version: string } | null>(null);
 const receivePath = ref<string>('');
+/** 存在离线节点且列表非空 → 显示"自动重连中" */
+const reconnecting = ref(false);
 
 import { useLanStore } from '@/stores/lanStore'
 const lanStore = useLanStore()
@@ -452,6 +457,50 @@ async function refreshDiscovery() {
   }
 }
 
+// ── 自动重连（断线恢复保障）──────────────────────────────
+const AUTO_RECONNECT_MS = 12000
+let reconnectTimer: ReturnType<typeof setInterval> | null = null
+let peerLostRetryTimer: ReturnType<typeof setTimeout> | null = null
+
+function hasOfflinePeer(): boolean {
+  return peers.value.some(p => getStatusClass(p) === 'offline')
+}
+
+/** 静默广播探测：不触发扫描动画，供自动重连使用 */
+async function silentProbe() {
+  try {
+    await getTauriAPI().lanRefreshDiscovery()
+  } catch (e) {
+    console.warn('[LAN][auto-reconnect] probe failed:', e)
+  }
+}
+
+/** 自动重连主循环：确保服务在运行（启动失败兜底），存在离线节点时定期重播广播 */
+async function ensureLanRunningAndProbe() {
+  try {
+    // 服务停止/未启动时自动拉起（后端每 10s 还有自身重试线程）
+    await getTauriAPI().lanStartIfStopped()
+  } catch (e) {
+    console.warn('[LAN][auto-reconnect] startIfStopped failed:', e)
+  }
+  if (hasOfflinePeer() || peers.value.length === 0) {
+    await silentProbe()
+  }
+  // 更新"自动重连中"徽标状态：空列表时保持"正在搜索"空态，仅在已有离线节点时提示
+  reconnecting.value = peers.value.length > 0 && hasOfflinePeer()
+}
+
+function handleNetworkOnline() {
+  console.log('[LAN] network online — refreshing discovery')
+  ensureLanRunningAndProbe()
+  checkNetworkPermission()
+}
+
+function handleNetworkOffline() {
+  console.log('[LAN] network offline — entering reconnect wait')
+  reconnecting.value = peers.value.length > 0
+}
+
 // 未读消息计数刷新（模块级，供 onMounted / onUnmounted 共用）
 async function loadUnreadCounts() {
   try {
@@ -467,6 +516,8 @@ async function loadUnreadCounts() {
 let cleanupIpcListeners: (() => void)[] = [];
 
 onMounted(async () => {
+  // 先确保 LAN 服务在运行（断线/启动失败兜底），再加载数据
+  await ensureLanRunningAndProbe();
   await loadMyProfile();
   try {
     const statusInfo = await getTauriAPI().lanGetStatus();
@@ -503,6 +554,10 @@ onMounted(async () => {
   await loadUnreadCounts();
   await loadRemarks();
   window.addEventListener('lan:reload-unread', loadUnreadCounts);
+  // 自动重连：定期探测 + 网络状态变化即时响应
+  window.addEventListener('online', handleNetworkOnline);
+  window.addEventListener('offline', handleNetworkOffline);
+  reconnectTimer = setInterval(() => { ensureLanRunningAndProbe() }, AUTO_RECONNECT_MS);
 
   cleanupIpcListeners.push(await getTauriAPI().onLanPeerDiscovered(async (peer: any) => {
     const exists = peers.value.find(p => p.id === peer.id);
@@ -535,6 +590,11 @@ onMounted(async () => {
     if (existing) {
       existing.online = false;
     }
+    // 掉线可能是短暂抖动：延迟一次静默重扫，加速恢复确认（自动重连）
+    if (peerLostRetryTimer) { clearTimeout(peerLostRetryTimer) }
+    peerLostRetryTimer = setTimeout(() => {
+      ensureLanRunningAndProbe()
+    }, 1500)
   }));
   cleanupIpcListeners.push(await getTauriAPI().onLanPeerAvatarUpdated((data: any) => {
     // 收到其他用户的头像更新广播，更新本地 peer 列表中的头像
@@ -548,6 +608,10 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('lan:reload-unread', loadUnreadCounts);
+  window.removeEventListener('online', handleNetworkOnline);
+  window.removeEventListener('offline', handleNetworkOffline);
+  if (reconnectTimer) { clearInterval(reconnectTimer); reconnectTimer = null }
+  if (peerLostRetryTimer) { clearTimeout(peerLostRetryTimer); peerLostRetryTimer = null }
   cleanupIpcListeners.forEach(fn => fn());
   cleanupIpcListeners = [];
 });

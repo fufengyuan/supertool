@@ -104,7 +104,35 @@ pub fn auto_start_lan(app: &tauri::AppHandle) {
             log::info!("[LAN] auto_start_lan: success");
         }
         Err(e) => {
-            log::error!("[LAN] auto_start_lan: start failed: {}", e);
+            // 启动失败（端口占用/网络未就绪/TCC 等）不放弃：进入后台自动重连，
+            // 每 10 秒重试一次，直到启动成功（对应"断开后自动重连"保障）。
+            log::error!("[LAN] auto_start_lan: start failed: {}, entering auto-retry loop", e);
+            std::thread::spawn(move || {
+                let mut attempt = 0u64;
+                loop {
+                    std::thread::sleep(std::time::Duration::from_secs(10));
+                    attempt += 1;
+                    match lan.ensure_running() {
+                        Ok(()) => {
+                            if let Some(svc) = get_lan_service() {
+                                if let Ok(mut guard) = svc.lock() {
+                                    *guard = Some(lan);
+                                }
+                            }
+                            log::info!("[LAN] auto-retry: LAN service started (attempt #{})", attempt);
+                            break;
+                        }
+                        Err(err) => {
+                            if attempt % 12 == 0 {
+                                log::warn!(
+                                    "[LAN] auto-retry: attempt #{} still failing: {}",
+                                    attempt, err
+                                );
+                            }
+                        }
+                    }
+                }
+            });
         }
     }
 }
@@ -226,6 +254,30 @@ pub fn lan_refresh_discovery() -> Result<serde_json::Value, String> {
     require_lan()?;
     with_lan(|lan| lan.refresh_discovery());
     Ok(serde_json::json!({ "success": true }))
+}
+
+/// 保证 LAN 服务在运行（断线/启动失败后的重连兜底）。
+/// 服务未初始化时重新走 auto_start 流程；已初始化但停止时 ensure_running 重新拉起。
+#[tauri::command(rename_all = "camelCase")]
+pub fn lan_start_if_stopped(app: AppHandle) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] lan_start_if_stopped() called");
+    let svc = get_lan_service().ok_or("LAN 未初始化")?;
+    let guard = svc.lock().map_err(|e| format!("Lock error: {}", e))?;
+    match guard.as_ref() {
+        Some(lan) => match lan.ensure_running() {
+            Ok(()) => Ok(serde_json::json!({ "success": true, "running": true })),
+            Err(e) => {
+                log::error!("[Tauri CMD] lan_start_if_stopped: ensure_running failed: {}", e);
+                Ok(serde_json::json!({ "success": false, "running": false, "error": e }))
+            }
+        },
+        None => {
+            // 服务从未启动成功（auto_start 失败且重试线程还在后台跑）——重新走完整启动流程
+            drop(guard);
+            auto_start_lan(&app);
+            Ok(serde_json::json!({ "success": true, "running": false, "retrying": true }))
+        }
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
