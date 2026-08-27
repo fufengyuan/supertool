@@ -27,12 +27,4 @@ impl<F: Fn(&str, Value) + Send + Sync + 'static> LanEmitter for CallbackEmitter<
 }
 
 // NoopEmitter in lan_service.rs
-
-// Tauri integration — only compiled when tauri feature is enabled
-#[cfg(feature = "tauri-lan")]
-impl LanEmitter for tauri::AppHandle {
-    fn emit(&self, event: &str, payload: serde_json::Value) {
-        use tauri::Emitter;
-        let _ = self.emit(event, payload);
-    }
-}
+// 注意：core 不依赖 tauri。如需要在 Tauri 侧实现 LanEmitter，应在 tauri 层实现，而不是在 core 里 cfg。
