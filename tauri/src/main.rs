@@ -710,6 +710,7 @@ fn main() {
             commands::database::db_test,
             // LAN commands
             commands::lan::lan_start,
+            commands::lan::lan_start_if_stopped,
             commands::lan::lan_set_status,
             commands::lan::lan_refresh_discovery,
             commands::lan::lan_get_user_info,
