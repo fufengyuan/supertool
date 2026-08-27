@@ -97,6 +97,15 @@ pub struct AssistantTurn {
     pub usage: Option<(u64, u64)>,
 }
 
+/// 给提示词用的路由摘要（刻意不含 apiKey，密钥没有任何进入上下文的路径）
+#[derive(Debug, Clone)]
+pub struct RouteInfo {
+    pub provider_name: String,
+    pub protocol: String,
+    pub model_id: String,
+    pub context_window: u32,
+}
+
 // =================== 请求体构造（纯函数） ===================
 
 fn openai_tools(tools: &[ToolSpec]) -> Vec<Value> {
@@ -130,35 +139,36 @@ fn anthropic_tools(tools: &[ToolSpec]) -> Value {
     )
 }
 
+/// 相邻同角色合并（Anthropic 要求 user/assistant 严格交替）
+fn push_turn(turns: &mut Vec<(String, Vec<Value>)>, role: &str, blocks: Vec<Value>) {
+    if blocks.is_empty() {
+        return;
+    }
+    match turns.last_mut() {
+        Some((r, b)) if r == role => b.extend(blocks),
+        _ => turns.push((role.to_string(), blocks)),
+    }
+}
+
 /// 把内部消息序列转成 Anthropic 形态：
-/// system 提到顶层、tool 结果转成 user 的 tool_result 块、assistant 工具调用转 tool_use 块
+/// system 提到顶层、tool 结果转成 user 的 tool_result 块、assistant 工具调用转 tool_use 块，
+/// 并保证角色严格交替、首条为 user（工具循环会产生连续 assistant / 连续 tool_result）。
 fn anthropic_messages(messages: &[ChatMessage]) -> (Option<String>, Vec<Value>) {
     let mut system: Vec<String> = Vec::new();
-    let mut out: Vec<Value> = Vec::new();
+    let mut turns: Vec<(String, Vec<Value>)> = Vec::new();
 
     for m in messages {
         match m.role.as_str() {
             "system" => system.push(m.content.clone()),
-            "tool" => {
-                let block = json!({
+            "tool" => push_turn(
+                &mut turns,
+                "user",
+                vec![json!({
                     "type": "tool_result",
                     "tool_use_id": m.tool_call_id.clone().unwrap_or_default(),
                     "content": m.content,
-                });
-                // 连续的 tool_result 必须合进同一条 user 消息
-                match out.last_mut() {
-                    Some(last)
-                        if last["role"] == json!("user") && last["content"].is_array() =>
-                    {
-                        if let Some(arr) = last["content"].as_array_mut() {
-                            arr.push(block);
-                            continue;
-                        }
-                    }
-                    _ => {}
-                }
-                out.push(json!({ "role": "user", "content": [block] }));
-            }
+                })],
+            ),
             "assistant" => {
                 let mut blocks: Vec<Value> = Vec::new();
                 if !m.content.is_empty() {
@@ -171,18 +181,31 @@ fn anthropic_messages(messages: &[ChatMessage]) -> (Option<String>, Vec<Value>) 
                         "type": "tool_use", "id": tc.id, "name": tc.name, "input": input,
                     }));
                 }
-                if blocks.is_empty() {
-                    blocks.push(json!({ "type": "text", "text": "" }));
-                }
-                out.push(json!({ "role": "assistant", "content": blocks }));
+                push_turn(&mut turns, "assistant", blocks);
             }
-            _ => out.push(json!({
-                "role": if m.role == "assistant" { "assistant" } else { "user" },
-                "content": m.content,
-            })),
+            _ => push_turn(
+                &mut turns,
+                "user",
+                vec![json!({ "type": "text", "text": m.content })],
+            ),
         }
     }
 
+    // 首条必须是 user：多轮工具循环里可能出现「以 assistant 开头」的历史切片
+    if turns.first().map(|(r, _)| r != "user").unwrap_or(true) {
+        turns.insert(
+            0,
+            (
+                "user".to_string(),
+                vec![json!({ "type": "text", "text": "（接上文）" })],
+            ),
+        );
+    }
+
+    let out: Vec<Value> = turns
+        .into_iter()
+        .map(|(role, blocks)| json!({ "role": role, "content": blocks }))
+        .collect();
     let sys = if system.is_empty() {
         None
     } else {
@@ -323,6 +346,8 @@ pub struct SseAccumulator {
     partial_tools: Vec<(String, String, String)>, // (id, name, arguments)
     usage: Option<(u64, u64)>,
     finished: bool,
+    /// usage 只在收尾时发一次（finish_reason 与 [DONE] 会先后到）
+    usage_emitted: bool,
 }
 
 impl SseAccumulator {
@@ -363,14 +388,25 @@ impl SseAccumulator {
         let mut events = Vec::new();
         if self.finished {
             events.extend(self.emit_pending_tools());
-            if let Some(u) = self.usage {
-                events.push(LlmEvent::Usage {
-                    input_tokens: u.0,
-                    output_tokens: u.1,
-                });
-            }
+            events.extend(self.emit_usage());
         }
         events
+    }
+
+    fn emit_usage(&mut self) -> Vec<LlmEvent> {
+        if self.usage_emitted {
+            return Vec::new();
+        }
+        match self.usage {
+            Some((i, o)) => {
+                self.usage_emitted = true;
+                vec![LlmEvent::Usage {
+                    input_tokens: i,
+                    output_tokens: o,
+                }]
+            }
+            None => Vec::new(),
+        }
     }
 
     fn emit_pending_tools(&mut self) -> Vec<LlmEvent> {
@@ -465,12 +501,7 @@ impl SseAccumulator {
         if choice["finish_reason"].as_str().is_some() {
             self.finished = true;
             events.extend(self.emit_pending_tools());
-            if let Some(u) = self.usage {
-                events.push(LlmEvent::Usage {
-                    input_tokens: u.0,
-                    output_tokens: u.1,
-                });
-            }
+            events.extend(self.emit_usage());
         }
         events
     }
@@ -537,12 +568,7 @@ impl SseAccumulator {
             "message_stop" => {
                 self.finished = true;
                 events.extend(self.emit_pending_tools());
-                if let Some((i, o)) = self.usage {
-                    events.push(LlmEvent::Usage {
-                        input_tokens: i,
-                        output_tokens: o,
-                    });
-                }
+                events.extend(self.emit_usage());
             }
             "error" => {
                 self.finished = true;
@@ -591,11 +617,12 @@ pub async fn stream_completion(
 
     let status = response.status();
     if !status.is_success() {
+        // 不合规的网关可能把请求头/请求体回显在错误里，抹掉凭据形态再抛给上层
         let text = response.text().await.unwrap_or_default();
         return Err(format!(
             "模型返回 {}：{}",
             status.as_u16(),
-            clip(&text, 600)
+            clip(&super::safety::redact_text(&text), 600)
         ));
     }
 
@@ -728,11 +755,16 @@ mod tests {
             true,
         );
         let msgs = body["messages"].as_array().unwrap();
-        assert_eq!(msgs[0]["content"][0]["type"], "tool_use");
-        assert_eq!(msgs[0]["content"][0]["input"]["a"], 1);
-        assert_eq!(msgs[1]["role"], "user");
-        assert_eq!(msgs[1]["content"][0]["type"], "tool_result");
-        assert_eq!(msgs[1]["content"][0]["tool_use_id"], "tu_1");
+        // 历史以 assistant 开头时会自动补一条 user 桥接，这里按角色取而不是按下标
+        let assistant_msg = msgs.iter().find(|m| m["role"] == "assistant").unwrap();
+        assert_eq!(assistant_msg["content"][0]["type"], "tool_use");
+        assert_eq!(assistant_msg["content"][0]["input"]["a"], 1);
+        let tool_msg = msgs
+            .iter()
+            .find(|m| m["content"][0]["type"] == "tool_result")
+            .expect("应有 tool_result");
+        assert_eq!(tool_msg["role"], "user");
+        assert_eq!(tool_msg["content"][0]["tool_use_id"], "tu_1");
 
         // OpenAI 侧：assistant 带 tool_calls，结果用 role=tool
         let oai = build_body(
@@ -745,6 +777,55 @@ mod tests {
         assert_eq!(om[0]["content"], Value::Null);
         assert_eq!(om[1]["role"], "tool");
         assert_eq!(om[1]["tool_call_id"], "tu_1");
+    }
+
+    /// 工具循环会产生连续 assistant / 连续 tool_result，Anthropic 要求严格交替且首条为 user
+    #[test]
+    fn anthropic_forces_role_alternation_and_user_first() {
+        let call = |id: &str| ToolCall {
+            id: id.to_string(),
+            name: "list_servers".to_string(),
+            arguments: "{}".to_string(),
+        };
+        let msgs = vec![
+            ChatMessage::system("s"),
+            // 连续两条 assistant（模型说完话又发起调用）
+            ChatMessage::text("assistant", "我先看看"),
+            ChatMessage {
+                role: "assistant".into(),
+                content: String::new(),
+                tool_calls: vec![call("t1"), call("t2")],
+                tool_call_id: None,
+                name: None,
+            },
+            // 连续两个工具结果
+            ChatMessage::tool("t1", "list_servers", json!({"a": 1})),
+            ChatMessage::tool("t2", "list_servers", json!({"b": 2})),
+            ChatMessage::user("然后呢"),
+        ];
+        let body = build_body(AiProtocol::Anthropic, &req(msgs), true);
+        let list = body["messages"].as_array().unwrap();
+        let roles: Vec<&str> = list.iter().map(|m| m["role"].as_str().unwrap()).collect();
+        assert_eq!(roles.first().copied(), Some("user"), "首条必须是 user");
+        for w in roles.windows(2) {
+            assert_ne!(w[0], w[1], "角色必须交替，实际 {roles:?}");
+        }
+        // 合并后：连续的两次工具调用结果应在同一条 user 消息里
+        let with_results = list
+            .iter()
+            .find(|m| m["content"].as_array().map(|b| b.iter().any(|x| x["type"] == "tool_result")).unwrap_or(false))
+            .expect("应有 tool_result 消息");
+        let blocks = with_results["content"].as_array().unwrap();
+        assert_eq!(blocks.iter().filter(|b| b["type"] == "tool_result").count(), 2);
+        // 连续 assistant 合并成一条，文本与 tool_use 都在里面
+        let assistant = list.iter().find(|m| m["role"] == "assistant").unwrap();
+        let kinds: Vec<&str> = assistant["content"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| b["type"].as_str().unwrap())
+            .collect();
+        assert_eq!(kinds, vec!["text", "tool_use", "tool_use"]);
     }
 
     #[test]

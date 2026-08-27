@@ -669,6 +669,9 @@ fn main() {
             assistant::commands::get_active_ai_model,
             assistant::commands::set_active_ai_model,
             assistant::commands::test_ai_model,
+            assistant::commands::assistant_chat,
+            assistant::commands::assistant_abort,
+            assistant::commands::assistant_get_state,
             // Database additional commands
             commands::database::db_get_table_structure,
             commands::database::db_get_table_primary_keys,

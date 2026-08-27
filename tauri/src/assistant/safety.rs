@@ -6,6 +6,7 @@
 //! 3. 变更提案里不允许出现密码类字段，密钥一律由用户在表单里自己填。
 use serde_json::{Value, json};
 use std::path::Path;
+use std::sync::LazyLock;
 
 /// 复用日志脱敏（覆盖 password/token/secret 等常见键名）
 use supertool_core::logic::log_sanitizer::sanitize_value;
@@ -67,25 +68,67 @@ pub fn redact_secrets(value: &Value) -> Value {
     }
 }
 
-/// 文本里的明文密钥（日志、报错信息）按形态抹掉：
-/// 只针对凭据形态，不抹 IP/邮箱 —— 助手需要靠这些连接信息判断配置对不对
-pub fn redact_text(text: &str) -> String {
-    let mut out = text.to_string();
-    let patterns: [(&str, &str); 6] = [
-        // 先处理「值即凭据」的形态，再处理 key=value（否则只抹掉前缀会留下真令牌）
+/// 形态规则：先「值即凭据」的形态，再 key=value
+/// （否则 "Authorization: Bearer xxx" 只会抹掉 Bearer，把真令牌留下）
+static TEXT_RULES: LazyLock<Vec<(regex::Regex, String)>> = LazyLock::new(|| {
+    [
         (r"(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", "[已隐藏的私钥]"),
         (r"(?i)(bearer\s+)[a-z0-9._\-]{8,}", "$1[已隐藏]"),
         (r"\bsk-[A-Za-z0-9_\-]{12,}", "[已隐藏]"),
         (r#"(?i)("(?:\w*(?:password|passwd|pwd|secret|token|apikey|api_key|authorization|credential|privatekey|private_key|sshkeypath|keyfile)\w*)"\s*:\s*")[^"]*(")"#, "$1[已隐藏]$2"),
-        (r#"(?i)\b((?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|authorization|credential|identity file)\s*[=:]\s*)(\S+)"#, "$1[已隐藏]"),
+        // 允许 DB_PASSWORD / my_token 这类带前缀的环境变量名（\b 在 "_" 与字母之间不成立）
+        (r#"(?i)((?:\w*(?:password|passwd|pwd|secret|token|apikey|api[_-]?key|access[_-]?key|authorization|credential))\s*[=:]\s*|identity file\s*)(\S+)"#, "$1[已隐藏]"),
         (r#"(?i)(://[^:/\s]+:)[^@\s]+(@)"#, "$1[已隐藏]$2"),
-    ];
-    for (pattern, replacement) in patterns {
-        if let Ok(re) = regex::Regex::new(pattern) {
-            out = re.replace_all(&out, replacement).to_string();
-        }
+    ]
+        .into_iter()
+        .filter_map(|(p, r)| regex::Regex::new(p).ok().map(|re| (re, r.to_string())))
+        .collect()
+});
+
+/// 文本里的明文密钥（日志、报错信息、配置内嵌 JSON）按形态抹掉：
+/// 只针对凭据形态，不抹 IP/邮箱 —— 助手需要靠这些连接信息判断配置对不对
+pub fn redact_text(text: &str) -> String {
+    if text.is_empty() {
+        return String::new();
+    }
+    let mut out = text.to_string();
+    for (re, replacement) in TEXT_RULES.iter() {
+        out = re.replace_all(&out, replacement.as_str()).to_string();
     }
     out
+}
+
+/// 递归脱敏 + 逐个字符串抹形态：**任何工具返回值进上下文前必须走这里**。
+/// 只做键名匹配是不够的——cicd 的 environments / servers / restartScript 都是
+/// 整段 JSON 或脚本文本塞在一个字符串叶子裡，密钥会以「文本」形态混过去。
+pub fn deep_redact(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(k, v)| {
+                    (
+                        k.clone(),
+                        if is_secret_key(k) {
+                            json!("[已隐藏]")
+                        } else {
+                            deep_redact(v)
+                        },
+                    )
+                })
+                .collect(),
+        ),
+        Value::Array(arr) => Value::Array(arr.iter().map(deep_redact).collect()),
+        Value::String(s) => {
+            // 内嵌 JSON 字符串（environments / servers 这类列）先解开按键名脱敏再回序列化
+            if let Ok(inner) = serde_json::from_str::<Value>(s) {
+                if inner.is_object() || inner.is_array() {
+                    return json!(deep_redact(&inner).to_string());
+                }
+            }
+            json!(redact_text(s))
+        }
+        other => other.clone(),
+    }
 }
 
 /// 提案字段黑名单：助手不得经手任何密钥字段
@@ -196,6 +239,26 @@ mod tests {
         assert_eq!(out["keyboard"], "wasd");
         assert_eq!(out["monkey"], "gogo");
         assert_eq!(out["sortKey"], "id");
+    }
+
+    /// 红线：密钥塞在字符串叶子／内嵌 JSON 里也必须被抹掉（键名匹配拦不住）
+    #[test]
+    fn deep_redact_reaches_string_leaves_and_nested_json() {
+        let payload = json!({
+            "config": {
+                "name": "订单后台",
+                "servers": "[{\"serverId\":\"s1\",\"password\":\"leak-me\"}]",
+                "environments": "[{\"name\":\"test\",\"envVars\":\"DB_PASSWORD=leak-me-2\nREDIS_URL=redis://u:leak-me-3@h:6379\"}]",
+                "restartScript": "export API_KEY=sk-liveabcdefgh123456 && java -jar app.jar"
+            },
+            "tail": "失败：ssh://deploy:leak-me-4@192.168.1.69:22"
+        });
+        let out = deep_redact(&payload).to_string();
+        for leak in ["leak-me", "sk-liveabcdefgh123456", "leak-me-3"] {
+            assert!(!out.contains(leak), "深度脱敏残留 {leak}: {out}");
+        }
+        assert!(out.contains("192.168.1.69"), "连接信息要保留");
+        assert!(out.contains("订单后台"));
     }
 
     #[test]

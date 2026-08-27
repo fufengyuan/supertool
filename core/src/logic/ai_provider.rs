@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 pub const AI_PROVIDERS_KEY: &str = "ai_providers";
+/// 显式清除已存密钥的哨兵值（留空 = 沿用旧值，所以清掉需要显式表态）
+pub const CLEAR_KEY: &str = "__clear__";
 pub const AI_ACTIVE_MODEL_KEY: &str = "ai_active_model";
 
 /// 未填时的默认上下文窗口 / 最大输出（tokens）
@@ -259,7 +261,9 @@ impl super::CoreService {
         let existing = providers.iter().find(|p| p.id == provider.id).cloned();
 
         let incoming_key = provider.api_key.trim().to_string();
-        provider.api_key = if incoming_key.is_empty() || looks_masked(&incoming_key) {
+        provider.api_key = if incoming_key == CLEAR_KEY {
+            String::new()
+        } else if incoming_key.is_empty() || looks_masked(&incoming_key) {
             // 沿用旧密文（未配置过则为空）
             existing.as_ref().map(|e| e.api_key.clone()).unwrap_or_default()
         } else {
@@ -506,6 +510,25 @@ mod tests {
             );
         }
         assert_eq!(core.resolve_ai_route().unwrap().provider_name, "改名后");
+    }
+
+    /// 清空密钥要显式表态（留空表示沿用，避免一编辑就把 key 抹了）
+    #[tokio::test]
+    async fn clear_sentinel_removes_stored_key_but_empty_keeps_it() {
+        let core = temp_core();
+        let saved = core.save_ai_provider(sample("sk-to-clear")).await.unwrap();
+        let id = saved["id"].as_str().unwrap().to_string();
+
+        let mut keep = sample("");
+        keep["id"] = json!(id);
+        core.save_ai_provider(keep).await.unwrap();
+        assert_eq!(core.resolve_ai_route().unwrap().api_key, "sk-to-clear");
+
+        let mut clear = sample(CLEAR_KEY);
+        clear["id"] = json!(id);
+        let after = core.save_ai_provider(clear).await.unwrap();
+        assert_eq!(after["hasKey"], false);
+        assert_eq!(core.resolve_ai_route().unwrap().api_key, "");
     }
 
     #[tokio::test]

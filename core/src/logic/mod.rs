@@ -77,6 +77,11 @@ impl CoreService {
         &self.ssh
     }
 
+    /// 应用数据根目录（部署日志等落盘位置的父目录）
+    pub fn app_dir(&self) -> &std::path::Path {
+        &self.app_dir
+    }
+
     /// 克隆 SSH 服务 Arc（用于 spawn_blocking）
     #[allow(dead_code)]
     pub fn clone_ssh(&self) -> Arc<ssh::SshService> {
