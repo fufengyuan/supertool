@@ -241,7 +241,7 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
                 // value is like "custom '$remote_addr...' '$request...'"
                 // Split by first space to get name and format strings
                 let value_trimmed = p.value.trim();
-                if let Some((fmt_name, rest)) = value_trimmed.split_once(' ') {
+                if value_trimmed.split_once(' ').is_some() {
                     // rest may already contain quotes from original format
                     // Just output: log_format name rest;
                     out.push_str(&format!("  {} {};\n", p.name, value_trimmed));
@@ -426,7 +426,7 @@ fn append_http_block_decomposed(
                 // value is like "custom '$remote_addr...' '$request...'"
                 // Split by first space to get name and format strings
                 let value_trimmed = p.value.trim();
-                if let Some((fmt_name, rest)) = value_trimmed.split_once(' ') {
+                if value_trimmed.split_once(' ').is_some() {
                     // rest may already contain quotes from original format
                     // Just output: log_format name rest;
                     out.push_str(&format!("  {} {};\n", p.name, value_trimmed));
@@ -1124,6 +1124,7 @@ let ret_url_quoted = quote_return_url(&ret_url);
     Ok(())
 }
 
+#[allow(dead_code)]
 fn append_param_json_prepend(conn: &Connection, s: &NginxServer, out: &mut String) {
     if !s.param_json.is_empty() {
         if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {

@@ -1,14 +1,12 @@
 /// WireGuard 管理器 — boringtun 0.7 + tun2 TUN device for real IP packet forwarding
 use serde::{Deserialize, Serialize};
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::unix::io::AsRawFd;
 use std::sync::{Arc, Mutex};
 use crate::logic::wireguard_tunnel as wg_tunnel;
 
 use boringtun::noise::Tunn;
 use boringtun::noise::TunnResult;
 use boringtun::x25519::{PublicKey, StaticSecret};
-
-use tun2::Configuration;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WireGuardStatus {
@@ -409,15 +407,17 @@ impl WireGuardManager {
     }
 }
 
-// ─── Background packet forwarding loop ───────────────────────────────────────
-
+// ─── Background packet forwarding loop（预留实现，当前走 wg_tunnel 子进程模式）───
+#[allow(dead_code)]
 /// Buffer sizes:
 ///   TUN_MTU: 1500 bytes (standard IP MTU)
 ///   WG_OVERHEAD: ~80 bytes (WireGuard header + authentication tag)
 ///   WG_BUF: TUN_MTU + WG_OVERHEAD = 1580 bytes
 const TUN_MTU: usize = 1500;
+#[allow(dead_code)]
 const WG_BUF: usize = 1580;
 
+#[allow(dead_code)]
 async fn run_forwarding_loop(
     mut tunn: Tunn,
     mut tun_device: tun2::AsyncDevice,
@@ -585,6 +585,7 @@ async fn run_forwarding_loop(
 /// Drain cascaded decapsulate results after a WriteToNetwork is returned.
 /// Per boringtun docs: when WriteToNetwork is returned, you must call
 /// decapsulate again with an empty datagram until Done is returned.
+#[allow(dead_code)]
 async fn drain_decapsulate(
     tunn: &mut Tunn,
     socket: &tokio::net::UdpSocket,
