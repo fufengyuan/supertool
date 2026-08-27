@@ -1360,14 +1360,49 @@ async fn do_build(
             &format!("父模块构建成功 ({} 个子模块)", config.modules.len()),
         );
     } else if has_modules && !config.parent_build_mode {
-        // Per-module build（仅多模块部署；单体模式下模块表不参与构建，
-        // 否则复制配置带入的旧模块会把整体构建拆成逐模块错误执行）
+        // 多模块部署：maven 模块在聚合根统一构建。
+        // 逐模块独立 `mvn clean package` 时兄弟模块依赖无法从本地仓库解析
+        // （framework 等纯依赖模块未 install，consumer 编译找不到这类包）；
+        // 改为聚合根一次性 reactor 构建后所有子模块产物均生成。
+        // 前端（npm/pnpm/yarn）等模块仍逐模块独立构建（各子应用构建命令不同）。
         let mut sorted_modules = config.modules.clone();
         sorted_modules.sort_by_key(|m| m.deploy_order);
+        let enabled_modules: Vec<_> = sorted_modules
+            .iter()
+            .filter(|m| m.enabled)
+            .collect();
 
-        for module in &sorted_modules {
-            // 跳过未启用模块（纯依赖模块如 framework 不在部署列表中，enabled=0）
-            if !module.enabled {
+        let maven_modules: Vec<_> = enabled_modules
+            .iter()
+            .filter(|m| is_maven_module(m, config))
+            .cloned()
+            .collect();
+        if !maven_modules.is_empty() {
+            emit(
+                "maven",
+                "starting",
+                "多模块 Maven 统一构建（聚合根 reactor）...",
+            );
+            // 聚合根：优先配置的 parentBuildPath（相对 localPath），否则 localPath 本身（含聚合 pom）
+            let parent_cwd = match config
+                .parent_build_path
+                .as_deref()
+                .filter(|s| !s.trim().is_empty())
+            {
+                Some(pbp) => project_path.join(pbp),
+                None => project_path.clone(),
+            };
+            run_maven_build(&parent_cwd, config, emit).await?;
+            emit(
+                "maven",
+                "success",
+                &format!("多模块 Maven 构建成功 ({} 个 maven 模块)", maven_modules.len()),
+            );
+        }
+
+        for module in &enabled_modules {
+            // maven 模块已统一构建，跳过逐模块构建
+            if is_maven_module(module, config) {
                 continue;
             }
             if let Err(e) = build_single_module(project_path, module, config, emit).await {
@@ -1402,6 +1437,15 @@ async fn do_build(
     }
 
     Ok(())
+}
+
+/// 是否为 maven 模块：模块行显式 build_tool=maven，或继承全局构建工具且全局为 maven。
+/// 用于决定多模块部署时：maven 模块统一在聚合根构建，前端等模块仍逐模块构建。
+fn is_maven_module(module: &DeployModuleConfig, config: &DeployConfig) -> bool {
+    match module.build_tool.as_deref() {
+        Some(t) => t == "maven",
+        None => config.build_tool.as_deref() == Some("maven"),
+    }
 }
 
 /// 模块目录解析：相对路径 join 项目根后不存在时，尝试剥掉与历史仓库根重叠的前缀
