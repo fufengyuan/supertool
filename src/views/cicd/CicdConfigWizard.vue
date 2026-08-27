@@ -30,14 +30,14 @@
       </div>
 
       <!-- Step panels -->
-      <div class="bg-base-100 border border-base-content/10 rounded-xl p-6 min-h-[320px]">
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-7">
 
         <!-- Step 1: 项目与分支 -->
-        <div v-if="step === 0" class="flex flex-col gap-4">
-          <div class="grid grid-cols-3 gap-4">
+        <div v-if="step === 0" class="flex flex-col gap-5">
+          <div class="grid grid-cols-2 gap-x-5 gap-y-4">
             <div class="col-span-2">
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Git 仓库 <span class="text-error normal-case tracking-normal">*</span></label>
-              <select v-model="draft.gitRepoId" class="select select-bordered w-full bg-base-200 text-sm" @change="onRepoChange">
+              <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">Git 仓库 <span class="text-error normal-case tracking-normal">*</span></label>
+              <select v-model="draft.gitRepoId" class="select select-bordered w-full bg-base-200" @change="onRepoChange">
                 <option value="">选择 Git 仓库...</option>
                 <option v-for="repo in gitRepos" :key="repo.id" :value="repo.id">{{ repo.name }} — {{ repo.path }}</option>
               </select>
@@ -50,36 +50,36 @@
               </div>
             </div>
             <div>
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">配置名称 <span class="text-error normal-case tracking-normal">*</span></label>
-              <input v-model="draft.name" class="input input-bordered w-full bg-base-200 text-sm" placeholder="例如：用户中心后端" />
+              <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">配置名称 <span class="text-error normal-case tracking-normal">*</span></label>
+              <input v-model="draft.name" class="input input-bordered w-full bg-base-200" placeholder="例如：用户中心后端" />
             </div>
             <div>
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">分组</label>
-              <select v-model="draft.groupName" class="select select-bordered w-full bg-base-200 text-sm">
+              <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">分组</label>
+              <select v-model="draft.groupName" class="select select-bordered w-full bg-base-200">
                 <option v-for="g in groups" :key="g" :value="g">{{ g }}</option>
               </select>
             </div>
             <div>
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署分支</label>
+              <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署分支</label>
               <div class="flex gap-1.5">
-                <select v-model="draft.deployBranch" class="select select-bordered w-full bg-base-200 text-sm flex-1">
+                <select v-model="draft.deployBranch" class="select select-bordered w-full bg-base-200 flex-1 min-w-0">
                   <option value="main">main</option>
                   <option value="master">master</option>
                   <option v-for="b in branches" :key="b" :value="b">{{ b }}</option>
                 </select>
-                <button class="btn btn-ghost btn-sm" :disabled="!draft.gitRepoId || loadingBranches" @click="loadBranches" title="刷新分支列表">
+                <button class="btn btn-ghost btn-sm shrink-0" :disabled="!draft.gitRepoId || loadingBranches" @click="loadBranches" title="刷新分支列表">
                   <SvgIcon name="refresh" :size="14" :class="{ 'animate-spin': loadingBranches }" />
                 </button>
               </div>
             </div>
             <div>
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">本地代码目录</label>
+              <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">本地代码目录</label>
               <div class="flex gap-1.5">
-                <input :value="draft.localPath" readonly class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="用于扫描构建工具与模块（默认取 Git 仓库根目录）" />
-                <button class="btn btn-ghost btn-sm whitespace-nowrap" @click="pickLocalDir" title="选择实际代码目录（如 src/xxx，不在仓库根目录时）">
+                <input :value="draft.localPath" readonly class="input input-bordered w-full bg-base-200 font-mono min-w-0" placeholder="用于扫描构建工具与模块（默认取 Git 仓库根目录）" />
+                <button class="btn btn-ghost btn-sm whitespace-nowrap shrink-0" @click="pickLocalDir" title="选择实际代码目录（如 src/xxx，不在仓库根目录时）">
                   <SvgIcon name="folderOpen" :size="14" /> 选择目录
                 </button>
-                <button v-if="draft.localPath" class="btn btn-ghost btn-sm" @click="scanProject(draft.localPath)" title="重新扫描" :disabled="scanningProj">
+                <button v-if="draft.localPath" class="btn btn-ghost btn-sm shrink-0" @click="scanProject(draft.localPath)" title="重新扫描" :disabled="scanningProj">
                   <SvgIcon name="refresh" :size="14" :class="{ 'animate-spin': scanningProj }" />
                 </button>
               </div>
@@ -92,10 +92,10 @@
         </div>
 
         <!-- Step 2: 构建配置 -->
-        <div v-else-if="step === 1" class="flex flex-col gap-4">
+        <div v-else-if="step === 1" class="flex flex-col gap-5">
           <div>
-            <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建工具 <span class="text-error normal-case tracking-normal">*</span></label>
-            <div class="grid grid-cols-6 gap-2">
+            <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建工具 <span class="text-error normal-case tracking-normal">*</span></label>
+            <div class="grid grid-cols-3 gap-2">
               <div v-for="tool in buildTools" :key="tool.key"
                 class="flex flex-col items-center px-2 py-3 border-2 rounded-xl cursor-pointer transition-all duration-150 relative hover:border-primary"
                 :class="{ 'border-primary bg-primary/10': draft.buildTool === tool.key, 'opacity-40': !tool.available && tool.key !== 'cargo' }"
@@ -108,44 +108,44 @@
             </div>
           </div>
           <template v-if="draft.buildTool === 'maven'">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-x-5 gap-y-4">
               <div>
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Maven 路径</label>
-                <input v-model="draft.mavenHome" class="input input-bordered w-full bg-base-200 text-sm" placeholder="自动检测 / 如 /opt/homebrew/opt/maven" />
+                <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">Maven 路径</label>
+                <input v-model="draft.mavenHome" class="input input-bordered w-full bg-base-200" placeholder="自动检测 / 如 /opt/homebrew/opt/maven" />
               </div>
               <div>
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">JDK 路径</label>
-                <input v-model="draft.javaHome" class="input input-bordered w-full bg-base-200 text-sm" placeholder="自动检测 / 如 /opt/homebrew/opt/openjdk" />
+                <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">JDK 路径</label>
+                <input v-model="draft.javaHome" class="input input-bordered w-full bg-base-200" placeholder="自动检测 / 如 /opt/homebrew/opt/openjdk" />
               </div>
               <div>
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">settings.xml</label>
-                <input v-model="draft.mavenSettings" class="input input-bordered w-full bg-base-200 text-sm" placeholder="~/.m2/settings.xml（可留空）" />
+                <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">settings.xml</label>
+                <input v-model="draft.mavenSettings" class="input input-bordered w-full bg-base-200" placeholder="~/.m2/settings.xml（可留空）" />
               </div>
               <div>
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">重启脚本</label>
-                <input v-model="draft.restartScript" class="input input-bordered w-full bg-base-200 text-sm" placeholder="./restart.sh" />
+                <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">重启脚本</label>
+                <input v-model="draft.restartScript" class="input input-bordered w-full bg-base-200" placeholder="./restart.sh" />
               </div>
               <div>
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Maven Profile</label>
-                <input v-model="draft.mavenProfile" class="input input-bordered w-full bg-base-200 text-sm" placeholder="prod" />
+                <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">Maven Profile</label>
+                <input v-model="draft.mavenProfile" class="input input-bordered w-full bg-base-200" placeholder="prod" />
               </div>
             </div>
           </template>
-          <div v-else-if="draft.buildTool === 'cargo'" class="grid grid-cols-2 gap-4">
+          <div v-else-if="draft.buildTool === 'cargo'" class="grid grid-cols-2 gap-x-5">
             <div>
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建命令</label>
-              <input v-model="draft.buildCommand" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="cargo build --release --features xxx" />
+              <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建命令</label>
+              <input v-model="draft.buildCommand" class="input input-bordered w-full bg-base-200 font-mono" placeholder="cargo build --release --features xxx" />
             </div>
           </div>
           <div v-else-if="['npm', 'pnpm', 'yarn'].includes(draft.buildTool)">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-x-5 gap-y-4">
               <div>
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">{{ draft.buildTool }} 路径</label>
-                <input v-model="draft.nodeHome" class="input input-bordered w-full bg-base-200 text-sm" placeholder="自动检测 / 如 ~/.nvm/versions/node/v20.x" />
+                <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">{{ draft.buildTool }} 路径</label>
+                <input v-model="draft.nodeHome" class="input input-bordered w-full bg-base-200" placeholder="自动检测 / 如 ~/.nvm/versions/node/v20.x" />
               </div>
               <div>
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建脚本</label>
-                <select v-model="draft.npmScript" class="select select-bordered w-full bg-base-200 text-sm">
+                <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建脚本</label>
+                <select v-model="draft.npmScript" class="select select-bordered w-full bg-base-200">
                   <!-- 当前值不在候选列表时兜底显示，避免 select 空白 -->
                   <option v-if="draft.npmScript && !npmScriptOptions.includes(draft.npmScript) && draft.npmScript !== 'custom'" :value="draft.npmScript">{{ draft.npmScript }}（当前配置）</option>
                   <option v-for="s in npmScriptOptions" :key="s" :value="s">{{ s }}</option>
@@ -153,7 +153,7 @@
                 </select>
               </div>
             </div>
-            <input v-if="draft.npmScript === 'custom'" v-model="draft.npmCustomScript" class="input input-bordered w-full bg-base-200 text-sm mt-2" placeholder="脚本名称" />
+            <input v-if="draft.npmScript === 'custom'" v-model="draft.npmCustomScript" class="input input-bordered w-full bg-base-200 mt-3" placeholder="脚本名称" />
           </div>
 
           <!-- 部署模式：共享组件（单体/多模块）+ Jar/Lib 分离开关；仅多模块项目显示 -->
@@ -245,16 +245,16 @@
                 单体部署：整体构建产出单个产物。后端选主模块（jar 所在目录，如预付卡 <code class="bg-base-100 px-1 rounded">SRC/b2b2c/seller-api</code>）；前端代码目录在子目录或产物目录非 dist 时，请把构建目录留空并单独填「产物目录」
               </div>
               <div class="px-3 pb-3 flex flex-col gap-2.5">
-                <label class="block mb-0.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建目录（主模块）</label>
-                <select v-model="draft.parentBuildPath" class="select select-bordered w-full bg-base-200 text-sm">
+                <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建目录（主模块）</label>
+                <select v-model="draft.parentBuildPath" class="select select-bordered w-full bg-base-200">
                   <option value="">代码目录（构建与收集都以此为准）</option>
                   <option v-for="m in modules" :key="m.modulePath" :value="m.modulePath">{{ m.moduleName }} — {{ m.modulePath }}</option>
                 </select>
                 <span class="text-xs text-base-content/40">不选即用代码目录；手动填写相对路径（如 ./src/main）</span>
-                <input v-model="draft.parentBuildPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="留空=代码目录，或填如 ./SRC/b2b2c/seller-api" />
+                <input v-model="draft.parentBuildPath" class="input input-bordered w-full bg-base-200 font-mono" placeholder="留空=代码目录，或填如 ./SRC/b2b2c/seller-api" />
 
-                <label class="block mb-0.5 mt-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">产物目录 <span class="text-xs font-normal text-base-content/40 normal-case tracking-normal ml-1">（可选，相对代码目录）</span></label>
-                <input v-model="draft.outputPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" :placeholder="draft.buildTool === 'maven' ? '如 yudao-server/target（jar 所在目录；父统一构建必填）' : '如 build/h5、dist；留空自动检测'" />
+                <label class="block mb-1.5 mt-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">产物目录 <span class="text-xs font-normal text-base-content/40 normal-case tracking-normal ml-1">（可选，相对代码目录）</span></label>
+                <input v-model="draft.outputPath" class="input input-bordered w-full bg-base-200 font-mono" :placeholder="draft.buildTool === 'maven' ? '如 yudao-server/target（jar 所在目录；父统一构建必填）' : '如 build/h5、dist；留空自动检测'" />
                 <span class="text-xs text-base-content/40">产物目录与构建目录相互独立：前端构建产物输出目录（如 build/h5）；maven 父统一构建在聚合根执行、产物在子模块 target（如 yudao-server/target）。构建目录留空即用代码目录</span>
 
                 <!-- 单体模式同样支持 lib 分离与过滤规则（maven 时） -->
@@ -276,17 +276,17 @@
         </div>
 
         <!-- Step 3: 部署目标 -->
-        <div v-else-if="step === 2" class="flex flex-col gap-4">
-          <div class="grid grid-cols-3 gap-4">
+        <div v-else-if="step === 2" class="flex flex-col gap-5">
+          <div class="grid grid-cols-2 gap-x-5 gap-y-4">
             <div class="col-span-2">
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">目标服务器 <span class="text-error normal-case tracking-normal">*</span></label>
+              <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">目标服务器 <span class="text-error normal-case tracking-normal">*</span></label>
               <GroupedServerSelector :servers="servers" :groups="serverGroups" v-model="selectedServerIds" mode="multi" />
               <span class="block text-xs text-base-content/60 mt-1.5">已选 {{ selectedServerIds.length }} 台，部署时按顺序逐台上传</span>
             </div>
-            <div>
-              <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署路径 <span class="text-error normal-case tracking-normal">*</span></label>
-              <input v-model="draft.deployPath" class="input input-bordered w-full bg-base-200 text-sm font-mono" :placeholder="suggestedDeployPath" />
-              <span class="block text-xs text-base-content/60 mt-1">{{ draft.buildTool === 'maven' ? '如 /opt/apphome' : '如 /home/nginxWebUI/ui' }}；多模块各子目录在其下增量拼接</span>
+            <div class="col-span-2">
+              <label class="block mb-1.5 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署路径 <span class="text-error normal-case tracking-normal">*</span></label>
+              <input v-model="draft.deployPath" class="input input-bordered w-full bg-base-200 font-mono" :placeholder="suggestedDeployPath" />
+              <span class="block text-xs text-base-content/60 mt-1.5">{{ draft.buildTool === 'maven' ? '如 /opt/apphome' : '如 /home/nginxWebUI/ui' }}；多模块各子目录在其下增量拼接</span>
             </div>
           </div>
           <div class="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15 text-xs text-base-content/70">
@@ -296,13 +296,13 @@
         </div>
 
         <!-- Step 4: 确认创建 -->
-        <div v-else class="flex flex-col gap-4">
+        <div v-else class="flex flex-col gap-5">
           <div class="text-sm font-semibold text-base-content mb-1">确认配置摘要</div>
           <div class="border border-base-content/10 rounded-xl overflow-hidden text-sm">
-            <div class="grid grid-cols-[110px_1fr]">
+            <div class="grid grid-cols-[130px_1fr]">
               <template v-for="row in summaryRows" :key="row.label">
-                <div class="px-4 py-2.5 bg-base-200 text-base-content/60 border-b border-base-content/5">{{ row.label }}</div>
-                <div class="px-4 py-2.5 text-base-content border-b border-base-content/5 break-all">{{ row.value || '—' }}</div>
+                <div class="px-4 py-3 bg-base-200 text-base-content/60 border-b border-base-content/5">{{ row.label }}</div>
+                <div class="px-4 py-3 text-base-content border-b border-base-content/5 break-all">{{ row.value || '—' }}</div>
               </template>
             </div>
           </div>
@@ -319,7 +319,7 @@
               <span class="ml-auto text-[10px] text-base-content/50" v-if="!showAdvanced">{{ draft.environments.length }} 个多环境{{ draft.healthCheckUrl ? ' · 健康检查' : '' }} {{ draft.incrementalUpload ? ' · 增量上传' : '' }}</span>
             </div>
 
-            <div v-show="showAdvanced" class="border-t border-base-content/10 px-4 py-4 flex flex-col gap-5">
+            <div v-show="showAdvanced" class="border-t border-base-content/10 px-5 py-5 flex flex-col gap-5">
               <!-- 多环境部署 -->
               <div>
                 <div class="flex items-center justify-between mb-2">
@@ -371,8 +371,8 @@
                     <span>部署需审核</span>
                   </label>
                 </div>
-                <div class="grid grid-cols-3 gap-3 mt-3">
-                  <div class="col-span-1">
+                <div class="grid grid-cols-[2fr_1fr_1fr] gap-3 mt-3">
+                  <div>
                     <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">健康检查 URL（全局）</label>
                     <input v-model="draft.healthCheckUrl" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="留空跳过健康检查" />
                   </div>
