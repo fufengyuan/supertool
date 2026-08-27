@@ -32,6 +32,148 @@ fn get_config_deploy_lock(config_id: &str) -> std::sync::Arc<tokio::sync::Mutex<
     map.entry(config_id.to_string()).or_default().clone()
 }
 
+// =================== 部署进度事件合并（防主线程卡死） ===================
+// 构建期 maven/npm 的 stdout 是逐行输出，实测峰值 700 行/秒（uni-app 构建见过 10000 行/秒，
+// 单次部署 2 万+ 行）。Tauri 每次 emit 都要在 macOS 主线程 runloop 上做一次 webview eval
+// （sample 抓栈可见 WebKitWebPage evaluateJavaScript_ + WKCommandDecodeEncodeSizes），
+// 事件风暴会占满主线程 → 整个窗口点击无响应，直到部署结束才恢复（其他 app 不受影响）。
+// 前端 50ms 批量只压住 Vue 重渲染，压不住事件投递本身，因此必须在后端合并：
+// 高频日志行（building/installing）进缓冲，按「最小间隔 + 单批行数上限」发一个 batch 事件；
+// 状态类事件（连接/上传/成功/失败/队列）先冲缓冲再立即发送，保证日志顺序。
+/// 两次 batch 之间的最小间隔：把主线程 eval 次数压到 ~5 次/秒
+const PROGRESS_BATCH_INTERVAL_MS: u64 = 200;
+/// 单批最多保留的行数，超出丢弃最旧行并在批次头部标注
+/// （实时面板本来就是尾随滚动，全量内容始终写入部署日志文件）
+const PROGRESS_BATCH_MAX_BUFFER: usize = 200;
+/// 推送给前端的单行最大长度（避免超长路径行撑爆 IPC）
+const PROGRESS_LINE_MAX_CHARS: usize = 400;
+
+/// 报错行不参与攒批：构建失败时用户要靠实时日志看原因，既不能延迟也不能被裁剪掉
+fn looks_like_error(message: &str) -> bool {
+    let upper = message.to_ascii_uppercase();
+    upper.contains("[ERROR]")
+        || upper.contains("ERROR:")
+        || upper.contains("ERR!")
+        || upper.contains("ERROR ")
+        || upper.contains("BUILD FAILURE")
+        || upper.contains("FAILED")
+        || upper.contains("FATAL")
+        || message.contains("异常")
+}
+
+/// 高频逐行输出（构建 / 依赖安装）才需要攒批；状态类事件一律立即发送
+/// （ssh 上传进度自带 5% 阈值节流，无需批量）
+fn is_noisy_progress(status: &str, message: &str) -> bool {
+    matches!(status, "building" | "installing") && !looks_like_error(message)
+}
+
+fn clip_progress_line(msg: &str) -> String {
+    match msg.chars().count() > PROGRESS_LINE_MAX_CHARS {
+        true => {
+            let mut s: String = msg.chars().take(PROGRESS_LINE_MAX_CHARS).collect();
+            s.push('…');
+            s
+        }
+        false => msg.to_string(),
+    }
+}
+
+#[derive(Default)]
+struct DeployProgressBatcher {
+    lines: Vec<serde_json::Value>,
+    dropped: usize,
+    last_flush: Option<std::time::Instant>,
+    progress: Option<i64>,
+}
+
+impl DeployProgressBatcher {
+    /// 追加一行高频日志；到达最小发送间隔时返回可发送的 batch payload
+    fn push(&mut self, line: serde_json::Value, progress: Option<i64>) -> Option<serde_json::Value> {
+        if progress.is_some() {
+            self.progress = progress;
+        }
+        self.lines.push(line);
+        // 超出单批上限丢弃最旧行（部署日志文件仍是全量）
+        if self.lines.len() > PROGRESS_BATCH_MAX_BUFFER {
+            let excess = self.lines.len() - PROGRESS_BATCH_MAX_BUFFER;
+            self.lines.drain(..excess);
+            self.dropped += excess;
+        }
+        let due = self
+            .last_flush
+            .map(|t| t.elapsed().as_millis() >= PROGRESS_BATCH_INTERVAL_MS as u128)
+            .unwrap_or(true);
+        if due {
+            self.drain()
+        } else {
+            None
+        }
+    }
+
+    /// 取走缓冲并组成一个 batch 事件 payload（空缓冲返回 None）
+    fn drain(&mut self) -> Option<serde_json::Value> {
+        self.last_flush = Some(std::time::Instant::now());
+        if self.lines.is_empty() {
+            return None;
+        }
+        let mut lines = std::mem::take(&mut self.lines);
+        let dropped = std::mem::take(&mut self.dropped);
+        // 进度只带本批次内出现过的值，避免旧进度被后续批次重复回放
+        let progress = self.progress.take();
+        if dropped > 0 {
+            lines.insert(
+                0,
+                serde_json::json!({
+                    "stage": "info",
+                    "status": "info",
+                    "message": format!("… 输出过快，已省略 {} 行（完整内容见部署日志）", dropped),
+                }),
+            );
+        }
+        let message = lines
+            .last()
+            .and_then(|l| l.get("message"))
+            .and_then(|m| m.as_str())
+            .unwrap_or_default()
+            .to_string();
+        Some(serde_json::json!({
+            "stage": "batch",
+            "status": "lines",
+            "message": message,
+            "progress": progress,
+            "lines": lines,
+        }))
+    }
+}
+
+fn emit_deploy_progress(
+    app: &tauri::AppHandle,
+    deploy_log_id: &str,
+    config_id: &str,
+    fields: serde_json::Value,
+) {
+    let mut payload = match fields {
+        serde_json::Value::Object(map) => map,
+        other => {
+            let mut map = serde_json::Map::new();
+            map.insert("message".into(), other);
+            map
+        }
+    };
+    payload.insert("deployLogId".into(), serde_json::json!(deploy_log_id));
+    payload.insert("configId".into(), serde_json::json!(config_id));
+    let _ = app.emit("deploy-progress", serde_json::Value::Object(payload));
+}
+
+/// 部署任务结束（含 panic 回卷）时置位停止标志，让进度兜底定时器自行退出
+struct TickerStopGuard(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+impl Drop for TickerStopGuard {
+    fn drop(&mut self) {
+        self.0.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
 // =================== 多环境配置类型（cicd_configs.environments JSON） ===================
 
 #[derive(Debug, Deserialize, Clone)]
@@ -592,24 +734,113 @@ pub async fn deploy(
             }
         };
 
+        let batcher: std::sync::Arc<Mutex<DeployProgressBatcher>> =
+            std::sync::Arc::new(Mutex::new(DeployProgressBatcher::default()));
+        let batcher_for_closure = batcher.clone();
+
+        // 兜底定时器：构建输出暂停（长时间无新行）时也要把缓冲行发出去，避免日志延迟到下一阶段才显示。
+        // 用停止标志协作退出而非 abort：abort 可能正好落在「已取走缓冲、尚未发出」之间丢尾部批次，
+        // panic 回卷时也需要靠 guard 停掉，否则定时器永久泄漏。
+        let ticker_stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let _ticker_guard = TickerStopGuard(ticker_stop.clone());
+        let _ticker = {
+            let batcher_for_ticker = batcher.clone();
+            let app_for_ticker = app_arc.clone();
+            let did_for_ticker = deploy_id_arc.clone();
+            let cid_for_ticker = config_id_arc.clone();
+            let stop_for_ticker = ticker_stop.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_millis(
+                        PROGRESS_BATCH_INTERVAL_MS + 50,
+                    ))
+                    .await;
+                    if stop_for_ticker.load(std::sync::atomic::Ordering::SeqCst) {
+                        break;
+                    }
+                    // 持锁发送：与闭包/最终冲刷共用一把锁，保证事件严格 FIFO
+                    let mut b = match batcher_for_ticker.lock() {
+                        Ok(g) => g,
+                        Err(poisoned) => poisoned.into_inner(),
+                    };
+                    if let Some(fields) = b.drain() {
+                        emit_deploy_progress(
+                            &app_for_ticker,
+                            &did_for_ticker,
+                            &cid_for_ticker,
+                            fields,
+                        );
+                    }
+                }
+            })
+        };
+
         let deploy_result = cicd_deploy::execute_deploy(
             &deploy_config,
             &app_dir,
             &deploy_id_arc,
             move |event| {
-                let payload = serde_json::json!({
-                    "deployLogId": *did_for_closure,
-                    "configId": *cid_for_closure,
-                    "stage": event.stage,
-                    "status": event.status,
-                    "message": event.message,
-                    "progress": event.progress,
-                });
-                let _ = app_for_closure.emit("deploy-progress", &payload);
+                // 全程持锁发送：批次与状态事件、兜底定时器共用一把锁 → 严格 FIFO
+                let mut b = match batcher_for_closure.lock() {
+                    Ok(g) => g,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                if is_noisy_progress(&event.status, &event.message) {
+                    if let Some(fields) = b.push(
+                        serde_json::json!({
+                            "stage": event.stage,
+                            "status": event.status,
+                            "message": clip_progress_line(&event.message),
+                        }),
+                        event.progress,
+                    ) {
+                        emit_deploy_progress(
+                            &app_for_closure,
+                            &did_for_closure,
+                            &cid_for_closure,
+                            fields,
+                        );
+                    }
+                } else {
+                    // 状态事件：先冲缓冲保持顺序，再立即发送（进度条/阶段提示不受批量影响）
+                    b.progress = event.progress.or(b.progress);
+                    if let Some(fields) = b.drain() {
+                        emit_deploy_progress(
+                            &app_for_closure,
+                            &did_for_closure,
+                            &cid_for_closure,
+                            fields,
+                        );
+                    }
+                    emit_deploy_progress(
+                        &app_for_closure,
+                        &did_for_closure,
+                        &cid_for_closure,
+                        serde_json::json!({
+                            "stage": event.stage,
+                            "status": event.status,
+                            "message": event.message,
+                            "progress": event.progress,
+                        }),
+                    );
+                }
             },
             move || is_deploy_cancelled(&did_for_cancel),
         )
         .await;
+
+        // 停止兜底定时器并冲掉最后残留，确保尾部日志不丢
+        // （无需 await/abort：所有 deploy-progress 都在持锁期间发送，最终冲刷天然排在定时器之后）
+        ticker_stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        {
+            let mut b = match batcher.lock() {
+                Ok(g) => g,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            if let Some(fields) = b.drain() {
+                emit_deploy_progress(&app_arc, &deploy_id_arc, &config_id_arc, fields);
+            }
+        }
 
         // Update deploy log with result
         let final_status: String;
@@ -1608,4 +1839,94 @@ pub async fn get_deploy_step_logs(
             .map_err(|e| e.to_string())
     })?;
     serde_json::to_value(&logs).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod progress_batcher_tests {
+    use super::*;
+
+    fn line(msg: &str) -> serde_json::Value {
+        serde_json::json!({ "stage": "maven", "status": "building", "message": msg })
+    }
+
+    fn aged_batcher(ms_ago: u64) -> DeployProgressBatcher {
+        let mut b = DeployProgressBatcher::default();
+        b.last_flush = Some(std::time::Instant::now() - std::time::Duration::from_millis(ms_ago));
+        b
+    }
+
+    /// 时间窗未到就只攒不发；到点一次性发出整批 —— 这就是压住主线程 eval 次数的关键
+    #[test]
+    fn holds_lines_until_interval() {
+        let mut b = aged_batcher(0);
+        for i in 0..5 {
+            assert!(b.push(line(&format!("line {i}")), None).is_none());
+        }
+        b.last_flush = Some(
+            std::time::Instant::now() - std::time::Duration::from_millis(PROGRESS_BATCH_INTERVAL_MS + 20),
+        );
+        let batch = b.push(line("last"), None).expect("超过最小间隔应产出 batch");
+        assert_eq!(batch["stage"], "batch");
+        assert_eq!(batch["lines"].as_array().unwrap().len(), 6);
+        // message 取批次末行，供前端 currentStep 显示
+        assert_eq!(batch["message"], "last");
+        // 缓冲已清空：再次 drain 无内容
+        assert!(b.drain().is_none());
+    }
+
+    /// burst 超过单批上限时裁剪最旧行，并在批次头部标注省略数量（全量仍在部署日志文件）
+    #[test]
+    fn trims_oldest_and_annotates_dropped() {
+        let mut b = aged_batcher(0);
+        let total = PROGRESS_BATCH_MAX_BUFFER + 50;
+        for i in 0..total {
+            assert!(b.push(line(&format!("line {i}")), None).is_none());
+        }
+        b.last_flush = Some(
+            std::time::Instant::now() - std::time::Duration::from_millis(PROGRESS_BATCH_INTERVAL_MS + 20),
+        );
+        let batch = b.push(line("tail"), None).expect("到点应产出 batch");
+        let lines = batch["lines"].as_array().unwrap();
+        // 单批上限行 + 头部一行省略提示
+        assert_eq!(lines.len(), PROGRESS_BATCH_MAX_BUFFER + 1);
+        assert!(lines[0]["message"].as_str().unwrap().contains("已省略"));
+        assert_eq!(batch["message"], "tail");
+        // 省略计数随批次一次性消费
+        assert_eq!(b.dropped, 0);
+    }
+
+    /// 只有构建/依赖安装的普通输出可以攒批，状态事件与报错行必须即时
+    #[test]
+    fn only_quiet_line_stream_is_batched() {
+        assert!(is_noisy_progress("building", "[INFO] Compiling 12 source files"));
+        assert!(is_noisy_progress("installing", "npm WARN deprecated x@1: use y"));
+        for status in ["success", "failed", "connecting", "uploading", "warning", "info"] {
+            assert!(
+                !is_noisy_progress(status, "[INFO] whatever"),
+                "{status} 不应被批量延迟"
+            );
+        }
+        for msg in [
+            "[ERROR] /src/Foo.java:42 找不到符号",
+            "BUILD FAILURE",
+            "npm ERR! code ELIFECYCLE",
+            "测试用例 FAILED",
+            "编译异常: NPE",
+        ] {
+            assert!(
+                !is_noisy_progress("building", msg),
+                "报错行不能被攒批或裁剪: {msg}"
+            );
+        }
+    }
+
+    /// 超长行截断，防止单条事件撑爆 IPC
+    #[test]
+    fn clips_overlong_lines() {
+        let short = clip_progress_line("ok");
+        assert_eq!(short, "ok");
+        let long = clip_progress_line(&"字".repeat(PROGRESS_LINE_MAX_CHARS + 50));
+        assert_eq!(long.chars().count(), PROGRESS_LINE_MAX_CHARS + 1);
+        assert!(long.ends_with('…'));
+    }
 }

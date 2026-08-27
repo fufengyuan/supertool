@@ -755,9 +755,10 @@ function goToConfig() {
 }
 
 // ─── 日志批量渲染节流 ───
-// maven/npm 构建是逐行输出（几百行/秒），后端每行 emit 一次 deploy-progress。
-// 若逐行 push + 响应式更新，事件风暴会打满 JS 主线程 → 全局 UI 卡顿（点击无响应）。
-// 改为按时间窗口批量追加日志行；progress/currentStep 仍即时更新。
+// 构建期逐行 emit 会打满 macOS 主线程（每次 emit 都要回主线程做一次 webview eval），
+// 那部分已在后端 tauri/src/commands/cicd.rs::DeployProgressBatcher 攒批成 stage='batch' 事件。
+// 这里的时间窗只负责把（批量）日志行一次性追加进数组，压低 Vue 重渲染次数；
+// progress/currentStep 仍即时更新。
 const pendingLogLines = new Map<string, Array<{ time: string; stage: string; message: string }>>();
 let logFlushTimer: number | null = null;
 const LOG_FLUSH_MS = 50;
@@ -788,13 +789,30 @@ function scheduleLogFlush() {
   logFlushTimer = window.setTimeout(flushPendingLogs, LOG_FLUSH_MS);
 }
 
-const progressHandler = (data: { progress?: number; message?: string; stage?: string; status?: string; configId?: string; deployLogId?: string }) => {
+const progressHandler = (data: { progress?: number; message?: string; stage?: string; status?: string; configId?: string; deployLogId?: string; lines?: { stage?: string; status?: string; message?: string }[] }) => {
   // 从事件中获取 configId，如果没有则使用当前选中的配置
   const cfgId = data.configId || selectedConfigId.value;
   if (!cfgId) {return;}
 
   const state = deployStates.value.get(cfgId);
   if (!state || !state.deploying) {return;} // 只处理正在部署的状态
+
+  // 后端合并的批量日志行：构建期逐行输出已在 Rust 侧攒批发射（避免 emit 风暴打满主线程致窗口卡死）
+  if (data.stage === 'batch' && Array.isArray(data.lines)) {
+    const now = new Date().toLocaleTimeString('zh-CN');
+    const arr = pendingLogLines.get(cfgId) || [];
+    for (const line of data.lines) {
+      arr.push({ time: now, stage: line.stage || 'info', message: line.message || '' });
+    }
+    pendingLogLines.set(cfgId, arr);
+    scheduleLogFlush();
+    const updates: Partial<DeployState> = {};
+    if (data.progress && data.progress > 0) {updates.progress = data.progress;}
+    if (data.message) {updates.currentStep = data.message;}
+    if (data.deployLogId && !state.deployLogId) {updates.deployLogId = data.deployLogId;}
+    if (Object.keys(updates).length > 0) {updateDeployState(cfgId, updates);}
+    return;
+  }
 
   // 部署队列事件：waiting → 标记排队中；acquired → 排队结束（不改进度条）
   if (data.stage === 'queue') {
