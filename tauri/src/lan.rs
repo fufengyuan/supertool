@@ -274,14 +274,12 @@ impl LanService {
         thread::spawn(move || {
             let mut buf = [0u8; 65536];
             let mut recv_count = 0u64;
-            let mut last_recv_time = std::time::Instant::now();
             let mut external_recv_count = 0u64;
             let mut last_external_recv_time = std::time::Instant::now();
             while !stop.load(Ordering::SeqCst) {
                 match recv_udp.recv_from(&mut buf) {
                     Ok((len, addr)) => {
                         recv_count += 1;
-                        last_recv_time = std::time::Instant::now();
                         let is_local = addr.ip().to_string() == recv_local_ip
                             || addr.ip().is_loopback();
                         if !is_local {
