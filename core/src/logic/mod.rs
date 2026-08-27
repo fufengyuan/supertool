@@ -1346,10 +1346,13 @@ impl CoreService {
 
         // Normalize empty strings to null for Option<String> fields
         if let Some(obj) = json.as_object_mut() {
-            let empty_to_null = ["mavenSettings","mavenProfile","repoUrl","localPath","gitRepoId",
+            // 只规范化 Option<String> 字段：mavenProfile / parentBuildPath 在 CicdConfig 里是
+            // 非 Option 的 String，置 null 会让 serde 直接报「invalid type: null, expected a string」
+            // （CLI/MCP 保存不带 profile 的配置必然踩中），它们的「未设置」形态本来就是空串。
+            let empty_to_null = ["mavenSettings","repoUrl","localPath","gitRepoId",
                 "buildCommand","buildPath","npmScript","npmCustomScript","healthCheckUrl",
                 "mavenHome","javaHome","npmHome","nodeHome","pnpmHome","yarnHome",
-                "parentBuildPath","buildTool","servers"];
+                "buildTool","servers"];
             for field in &empty_to_null {
                 if let Some(v) = obj.get(*field) {
                     if v.as_str().map(|s| s.is_empty()).unwrap_or(false) {
