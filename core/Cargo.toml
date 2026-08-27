@@ -1,6 +1,6 @@
 [package]
 name = "supertool-core"
-version = "6.50.6"
+version = "6.51.0"
 edition = "2024"
 
 [dependencies]
@@ -36,6 +36,7 @@ notify-rust = "4"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 flate2 = "1"
 hex = "0.4"
+url = "2"
 libc = "0.2"
 socket2 = "0.5"
 if-addrs = "0.13"

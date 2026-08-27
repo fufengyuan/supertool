@@ -18,6 +18,7 @@ pub mod wireguard_tunnel;
 
 // 拆分后的模块
 pub mod accounting;
+pub mod ai_provider;
 pub mod alert;
 pub mod backup;
 pub mod cicd_data;

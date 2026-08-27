@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod assistant;
 mod commands;
 mod lan;
 mod system_logger;
@@ -661,6 +662,13 @@ fn main() {
             commands::cicd::save_deploy_module,
             commands::cicd::update_deploy_module,
             commands::cicd::delete_deploy_module,
+            // AI 配置助手：模型提供商配置
+            assistant::commands::list_ai_providers,
+            assistant::commands::save_ai_provider,
+            assistant::commands::delete_ai_provider,
+            assistant::commands::get_active_ai_model,
+            assistant::commands::set_active_ai_model,
+            assistant::commands::test_ai_model,
             // Database additional commands
             commands::database::db_get_table_structure,
             commands::database::db_get_table_primary_keys,
