@@ -1614,3 +1614,42 @@ async fn connect_db(config: &crate::db_pool::DbConnectionConfig) -> Result<crate
         _ => Err(format!("Unsupported database type: {}", config.db_type)),
     }
 }
+
+#[cfg(test)]
+mod cicd_save_tests {
+    use super::*;
+
+    fn temp_core(tag: &str) -> CoreService {
+        let dir = std::env::temp_dir().join(format!(
+            "st_cicd_save_{}_{}",
+            tag,
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        CoreService::new(
+            crate::db::Database::new(&dir.join("t.db")).unwrap(),
+            dir,
+        )
+    }
+
+    /// 回归：空 mavenProfile / parentBuildPath 是这两个字段的「未设置」形态，
+    /// 曾被 empty_to_null 列表置成 null，导致 CLI/MCP 保存直接报反序列化失败
+    #[test]
+    fn saving_config_with_empty_profile_and_parent_path_works() {
+        let core = temp_core("empty_profile");
+        let resp = core
+            .save_cicd_config_full(json!({
+                "id": "cfg-a", "name": "商城后端", "deployBranch": "master",
+                "mavenProfile": "", "parentBuildPath": "", "deployPath": "/opt/app",
+                "restartScript": "sh run.sh", "buildTool": "maven", "buildMode": "single",
+                "libSeparate": false, "requiresApproval": false, "parentBuildMode": false,
+                "groupName": "默认", "healthCheckTimeout": 30, "healthCheckRetries": 3,
+                "incrementalUpload": true, "createdAt": "", "updatedAt": "",
+                "servers": [{ "serverId": "srv-1", "deployDir": "/opt/app" }],
+            }))
+            .expect("空 profile / 空构建目录不应导致保存失败");
+        assert!(resp.success, "{:?}", resp.error);
+        assert_eq!(resp.data.unwrap().maven_profile, "");
+    }
+}
