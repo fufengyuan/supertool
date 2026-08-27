@@ -103,7 +103,7 @@ impl CoreService {
     /// 在事务中执行多个数据库写操作，自动提交或回滚
     /// 闭包返回 Err 时自动回滚。返回结构与 db_write 一致（外层 String 为系统错误，内层为业务错误）
     pub fn db_write_tx<T>(&self, f: impl FnOnce(&rusqlite::Connection) -> Result<T, String>) -> Result<Result<T, String>, String> {
-        let mut db = self.db.lock().map_err(|e| e.to_string())?;
+        let db = self.db.lock().map_err(|e| e.to_string())?;
         let conn = db.conn();
         conn.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
         match f(conn) {
@@ -1194,7 +1194,8 @@ impl CoreService {
             crate::db::git_repo::add(
                 conn, &id, &name, &path, remote.as_deref(), branch.as_deref(),
             )
-        })?;
+            .map_err(|e| e.to_string())
+        })??;
         Ok(ApiResponse::ok(()))
     }
 
@@ -1215,13 +1216,14 @@ impl CoreService {
             crate::db::git_repo::update(
                 conn, &id, &name, &path, remote.as_deref(), branch.as_deref(),
             )
-        })?;
+            .map_err(|e| e.to_string())
+        })??;
         Ok(ApiResponse::ok(()))
     }
 
     pub fn delete_git_repo(&self, id: &str) -> Result<ApiResponse<()>, String> {
         let id = id.to_string();
-        self.db_write(move |conn| crate::db::git_repo::delete(conn, &id))?;
+        self.db_write(move |conn| crate::db::git_repo::delete(conn, &id).map_err(|e| e.to_string()))??;
         Ok(ApiResponse::ok(()))
     }
 
@@ -1283,7 +1285,7 @@ impl CoreService {
             output_path: None,
             lib_filter_rules: None,
         };
-        self.db_write(move |conn| crate::db::cicd::add_cicd_config(conn, &config))?;
+        self.db_write(move |conn| crate::db::cicd::add_cicd_config(conn, &config).map_err(|e| e.to_string()))??;
         Ok(ApiResponse::ok(()))
     }
 
@@ -1302,13 +1304,13 @@ impl CoreService {
                 rusqlite::params![name, now, id],
             ).map_err(|e| e.to_string())?;
             Ok::<_, String>(())
-        })?;
+        })??;
         Ok(ApiResponse::ok(()))
     }
 
     pub fn delete_cicd_config(&self, id: &str) -> Result<ApiResponse<()>, String> {
         let id = id.to_string();
-        self.db_write(move |conn| crate::db::cicd::delete_cicd_config(conn, &id))?;
+        self.db_write(move |conn| crate::db::cicd::delete_cicd_config(conn, &id).map_err(|e| e.to_string()))??;
         Ok(ApiResponse::ok(()))
     }
 
@@ -1370,13 +1372,13 @@ impl CoreService {
             self.db_write(move |conn| -> Result<(), String> {
                 crate::db::cicd::add_cicd_config(conn, &cfg).map_err(|e| e.to_string())?;
                 Ok(())
-            })?;
+            })??;
         } else {
             let cfg = config.clone();
             self.db_write(move |conn| -> Result<(), String> {
                 crate::db::cicd::update_cicd_config(conn, &cfg).map_err(|e| e.to_string())?;
                 Ok(())
-            })?;
+            })??;
         }
 
         // Save modules: DELETE existing, INSERT new
@@ -1407,7 +1409,7 @@ impl CoreService {
                 crate::db::cicd::add_deploy_module(conn, &module).map_err(|e| e.to_string())?;
             }
             Ok(())
-        })?;
+        })??;
 
         Ok(ApiResponse::ok(config))
     }
