@@ -1346,10 +1346,18 @@ async fn do_build(
             "父模块统一构建 (Maven multi-module)...",
         );
 
-        let parent_cwd = if let Some(ref pbp) = config.parent_build_path {
-            project_path.join(pbp)
-        } else {
-            project_path.clone()
+        // 聚合根：parentBuildPath join 结果需真实存在，否则回退到 localPath（聚合根）
+        // 避免 parentBuildPath 与 localPath 指向同目录时 join 出双重前缀
+        let parent_cwd = match config.parent_build_path.as_deref().filter(|s| !s.trim().is_empty()) {
+            Some(pbp) => {
+                let joined = project_path.join(pbp);
+                if joined.exists() {
+                    joined
+                } else {
+                    project_path.clone()
+                }
+            }
+            None => project_path.clone(),
         };
 
         run_maven_build(&parent_cwd, config, emit).await?;
@@ -1383,13 +1391,23 @@ async fn do_build(
                 "starting",
                 "多模块 Maven 统一构建（聚合根 reactor）...",
             );
-            // 聚合根：优先配置的 parentBuildPath（相对 localPath），否则 localPath 本身（含聚合 pom）
+            // 聚合根：优先配置的 parentBuildPath（相对 localPath，join 结果需真实存在），
+            // 否则直接用 localPath（含聚合 pom）。多模块模式下 parentBuildPath 可能是
+            // 单体模式残留（如 "SRC/b2b2c"），与已指向聚合根的 localPath join 会产生双重前缀。
             let parent_cwd = match config
                 .parent_build_path
                 .as_deref()
                 .filter(|s| !s.trim().is_empty())
             {
-                Some(pbp) => project_path.join(pbp),
+                Some(pbp) => {
+                    let joined = project_path.join(pbp);
+                    // join 目标不存在则回退聚合根目录本身（与 resolve_module_dir 回退策略一致）
+                    if joined.exists() {
+                        joined
+                    } else {
+                        project_path.clone()
+                    }
+                }
                 None => project_path.clone(),
             };
             run_maven_build(&parent_cwd, config, emit).await?;
