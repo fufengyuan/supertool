@@ -254,6 +254,8 @@ impl LanService {
         // ===== UDP receive thread =====
         let peers = Arc::clone(&self.peers);
         let log = Arc::clone(&self.log_buffer);
+        // 心跳线程独立保存一份日志缓冲引用（必须在 recv 线程闭包 move 之前 clone）
+        let hb_log = Arc::clone(&self.log_buffer);
         let stop = Arc::clone(&self.stop_flag);
         let user_id = self.user_id.clone();
         let nick_name = self.nick_name.lock().unwrap().clone();
@@ -362,7 +364,6 @@ impl LanService {
             let hb_status = self.my_status.lock().unwrap().clone();
             let hb_version = self.version.clone();
             let hb_local_ip = self.local_ip.lock().unwrap().clone();
-            let hb_log = Arc::clone(&log);
             log::info!("[LAN] My version for heartbeat: {}", hb_version);
 
             thread::spawn(move || {
