@@ -186,7 +186,8 @@
                     </div>
                     <div v-show="expandedModuleIdx === idx" class="mt-2 pl-8 pr-2 pb-1 flex flex-col gap-2">
                       <div class="grid grid-cols-2 gap-2">
-                        <div>
+                        <!-- maven 多模块：构建路径统一在模块目录，仅产物路径不同，故隐藏构建目录/构建命令 -->
+                        <div v-if="!isMavenModule(m)">
                           <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">构建目录（留空=模块路径）</label>
                           <input v-model="m.buildPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" placeholder="如 ./mall-server 或 ." />
                         </div>
@@ -203,7 +204,7 @@
                           <select v-model="m.artifactType" class="select select-bordered w-full bg-base-200 text-xs">
                             <option value="">自动</option>
                             <option value="jar">jar</option>
-                            <option value="jar-plus-lib">jar + lib</option>
+                            <option v-if="libSeparate" value="jar-plus-lib">jar + lib</option>
                             <option value="dist">dist</option>
                           </select>
                         </div>
@@ -223,11 +224,11 @@
                           <input v-model="m.deployPath" class="input input-bordered w-full bg-base-200 text-xs font-mono" :placeholder="`默认填模块名（如 ${m.moduleName || 'seller-api'}）`" />
                         </div>
                       </div>
-                      <div>
+                      <div v-if="!isMavenModule(m)">
                         <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">构建命令（留空=按构建工具与脚本）</label>
                         <input v-model="m.buildCommand" class="input input-bordered w-full bg-base-200 text-xs font-mono" placeholder="如 mvn clean package -DskipTests 或 npm run build:h5" />
                       </div>
-                      <div v-if="draft.buildTool === 'maven' && libSeparate">
+                      <div v-if="isMavenModule(m) && libSeparate">
                         <label class="block mb-1 text-[11px] font-medium text-base-content/50 uppercase tracking-wider">lib 过滤规则（每行一个通配模式，仅打包匹配的依赖，留空=全部）</label>
                         <textarea v-model="m.libFilterRules" class="textarea textarea-bordered w-full bg-base-200 text-xs font-mono resize-y leading-relaxed" rows="2" placeholder="*.jar&#10;spring-*.jar" />
                       </div>
@@ -561,6 +562,28 @@ function toggleModuleExpand(idx: number) {
   expandedModuleIdx.value = expandedModuleIdx.value === idx ? null : idx
 }
 
+/// 是否 maven 模块：模块行显式选 maven，或继承全局构建工具且全局为 maven。
+/// maven 多模块构建路径统一在模块目录，仅产物路径不同，因此隐藏构建目录/构建命令（产物字段不变）。
+function isMavenModule(m: ModuleItem): boolean {
+  const tool = m.buildTool || draft.buildTool
+  return tool === 'maven'
+}
+
+// 全局关闭「Jar/Lib 分离」时：产物类型选项隐藏 jar + lib，已选 jar-plus-lib 的模块自动降级为 jar，
+// 避免用户必须逐个模块手动改产物类型（后端 lib 分离仅对 maven 生效，非 maven 传值无损）。
+function downgradeLibModules() {
+  for (const m of modules.value) {
+    if (m.artifactType === 'jar-plus-lib') {
+      m.artifactType = 'jar'
+    }
+  }
+}
+watch(libSeparate, (v) => {
+  if (!v) {
+    downgradeLibModules()
+  }
+})
+
 // ── 编辑模式：从已有配置预填向导 ──
 function prefillFromInitial() {
   const c = props.initial
@@ -644,6 +667,10 @@ function prefillFromInitial() {
       libFilterRules: (m as { libFilterRules?: string }).libFilterRules || '',
       buildTool: (m as { buildTool?: string }).buildTool || '',
     }))
+  }
+  // 编辑旧配置：lib 分离已关闭但模块残留 jar-plus-lib 时同步降级，与 watch(libSeparate) 行为一致
+  if (!libSeparate.value) {
+    downgradeLibModules()
   }
 }
 // 编辑模式进入时预填
