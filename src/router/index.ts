@@ -124,6 +124,12 @@ const routes = [
         component: () => import('../views/image/ImageProcessor.vue'),
       },
       {
+        path: 'assistant',
+        name: 'AssistantPage',
+        meta: { title: 'AI 配置助手' },
+        component: () => import('../views/assistant/AssistantPage.vue'),
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('../views/settings/SettingsView.vue'),

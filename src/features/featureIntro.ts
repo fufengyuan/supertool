@@ -32,6 +32,17 @@ export interface FeatureIntro {
 
 export const FEATURE_INTROS: FeatureIntro[] = [
   {
+    path: '/assistant',
+    title: 'AI 配置助手',
+    intro:
+      '读得懂你已配参数的内置助手：解释每个字段该填什么、体检部署配置、分析这次部署为什么失败，并把要改的内容整理成「待确认的提案」。它没有写库能力，也不会看到你的密码与密钥。',
+    howto:
+      '① 先在 设置 → AI 模型 接入一个提供商（协议 / 接口地址 / 模型 ID / 上下文窗口）；\n② 直接说目标，例如「给后端加一台测试环境服务器」「这个配置为什么收不到产物」；\n③ 它会读配置、查日志并给出提案卡片，逐项确认后才写入；\n④ 需要密码/密钥时，由你在卡片上亲手填写，不经过对话。',
+    prereqs: [
+      { label: '已配置可用的 AI 模型', link: '/settings', linkLabel: '去配置模型' },
+    ],
+  },
+  {
     path: '/servers',
     title: '服务器管理',
     intro:

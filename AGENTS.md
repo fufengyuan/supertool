@@ -29,6 +29,17 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 
 详见 [docs/cicd-multi-env-deploy.md](docs/cicd-multi-env-deploy.md)
 
+### AI 配置助手
+
+- 后端在 `tauri/src/assistant/`（llm 双协议 / tools 注册表 / agent 循环 / safety 红线 / knowledge 内置知识库 / context 窗口裁剪 / floating 悬浮窗），模型配置存取在 `core/src/logic/ai_provider.rs`（settings 的 `ai_providers` + `ai_active_model`，apiKey AES 加密、对外只回掩码，`__clear__` 哨兵清除）
+- **助手没有任何写库工具**：改动只能由 `propose_config_change` 产出提案 → 前端 `ProposalCard` 逐条确认 → 由 `src/composables/useAssistantChat.ts::applyProposal` 调用各功能页一直在用的既有命令写入。新增工具时不得破坏这条，且必须同步 `tools::registry_exposes_no_dangerous_capabilities` 的精确名 + 关键字双重断言
+- **凭据绝不允许进入模型上下文**：所有工具返回值必须过 `safety::deep_redact`（既按字段名抹，也逐个字符串抹形态——`environments`/`servers`/`restartScript` 这类整段 JSON/脚本文本里塞的密钥，键名匹配拦不住）；`read_db_connections` 刻意不 SELECT password 列；需要凭据时由用户在提案卡片里亲手输入
+- 助手没有文件能力，唯一本地读取入口是 `safety::read_text_file_in`（只允许部署日志目录、canonicalize 后前缀校验）——**不要**把已有的 `commands::cicd::read_log_file`（无路径校验）包成工具
+- 助手事件（`assistant-event` 的文本/思考增量）与部署进度事件一样必须**后端攒批**（≥120 字或 ≥80ms），逐 token emit 会重演窗口卡死
+- 上下文窗口按模型配置（`AiModel.contextWindow`），裁剪在 `context::trim_to_budget`（CJK 1 字≈1 token 的保守估算）；Anthropic 侧要求角色严格交替且首条为 user，`llm::anthropic_messages` 已处理，改消息结构时要同步
+- 教学与报错特征都在 `knowledge.rs` 内置（内容源自本文件与 docs 的结论），不读仓库文件；新增踩坑结论要同时补进 knowledge
+- 详见 [docs/ai-config-assistant.md](docs/ai-config-assistant.md)
+
 **新手引导**（前端）：核心功能页首次进入弹「功能介绍/使用方法/前置条件」，注册表在 `src/features/featureIntro.ts`（新增功能页在此登记三要素，prereqs 可带回跳路由）；MainLayout 监听 route.path 首次弹一次（**sessionStorage `feature_intro_seen_v1` 会话级，重启后继续弹**），页面右下角「?」可随时重看。前置资源选择处空态提供「去添加」跳转（服务器选择器 GroupedServerSelector、CICD 向导 Git 仓库选择已内置）。
 
 **开发工具**：工具卡片注册表 `src/views/devtools/DevToolRegistry.ts`（DEV_TOOL_REGISTRY 条目：id/name/icon/category/description/offline/keywords）+ `DevTools.vue` 的 `toolComponents` 映射（defineAsyncComponent 懒加载 `./tools/*.vue`），新增工具必须两处都改；页面壳用 `views/devtools/components/ToolPage.vue`（icon/name/description + @back）。Navicat 密码加解密（`tools/NavicatTool.vue`）：Navicat 12+ 为 AES-128-CBC，key=`libcckeylibcckey`、iv=`libcciv libcciv `（Latin1，iv 尾带空格共 16 字节）；加密=明文→CBC→ciphertext-Latin1→hex 大写；解密=hex→Latin1→base64→AES 解密→Latin1。纯前端 crypto-js，本地计算；验证向量 enc("123456")=`833E4ABBC56C89041A9070F043641E3B`。

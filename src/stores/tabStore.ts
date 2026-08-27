@@ -60,6 +60,7 @@ export const KNOWN_ROUTES: Record<string, RouteInfo> = {
   '/backup':    { label: '备份',    viewId: 'data-backup',      componentNames: ['DataBackup'] },
   '/disk-cleaner': { label: '磁盘清理', viewId: 'disk-cleaner', componentNames: ['DiskCleaner'] },
   '/report':    { label: '报告',    viewId: 'report',           componentNames: ['TodoReport'] },
+  '/assistant': { label: 'AI 助手', viewId: 'assistant',        componentNames: ['AssistantPage'] },
   '/image':     { label: '图像处理', viewId: 'image-processor', componentNames: ['ImageProcessor'] },
   '/settings':  { label: '设置',     viewId: 'settings',          componentNames: ['SettingsView'] },
 }

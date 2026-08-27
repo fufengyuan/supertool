@@ -1708,6 +1708,21 @@ export interface TauriAPI {
   onTaskAssigned: (callback: (data: any) => void) => Promise<UnlistenFn>
   onDataChanged: (callback: (data: any) => void) => Promise<() => void>
   onTodosChanged: (callback: () => void) => Promise<() => void>
+  // AI 配置助手
+  assistantGetState: () => Promise<any>
+  assistantChat: (turnId: string, message: string, history: any[]) => Promise<any>
+  assistantAbort: (turnId: string) => Promise<any>
+  onAssistantEvent: (callback: (data: any) => void) => Promise<UnlistenFn>
+  listAiProviders: () => Promise<any[]>
+  saveAiProvider: (provider: any) => Promise<any>
+  deleteAiProvider: (id: string) => Promise<any>
+  getActiveAiModel: () => Promise<any>
+  setActiveAiModel: (providerId: string, modelId: string) => Promise<any>
+  testAiModel: (providerId: string, modelId: string) => Promise<any>
+  openFloatingAssistant: () => Promise<any>
+  closeFloatingAssistant: () => Promise<any>
+  toggleFloatingAssistant: () => Promise<any>
+  setFloatingAssistantPinned: (pinned: boolean) => Promise<any>
   onDeployProgress: (callback: (data: any) => void) => Promise<UnlistenFn>
   onDeployNotification: (callback: (data: any) => void) => Promise<UnlistenFn>
   onDeployLogIdCreated: (callback: (data: any) => void) => Promise<UnlistenFn>
@@ -2516,6 +2531,20 @@ export function getTauriAPI(): TauriAPI {
     onTaskAssigned: (callback: (data: any) => void) => { return listen('task-assigned', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onDataChanged: (callback: (data: any) => void) => { return listen('data-changed', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onTodosChanged: (callback: () => void) => { return listen('todos-changed', () => callback()) as Promise<UnlistenFn> },
+    assistantGetState: async () => tauriCall('assistant_get_state'),
+    assistantChat: async (turnId: string, message: string, history: any[]) => { return tauriCall('assistant_chat', { turnId, message, history }); },
+    assistantAbort: async (turnId: string) => { return tauriCall('assistant_abort', { turnId }); },
+    onAssistantEvent: (callback: (data: any) => void) => { return listen('assistant-event', (e) => callback(e.payload)) as Promise<UnlistenFn> },
+    listAiProviders: async () => { return (await tauriCall('list_ai_providers')) as any[]; },
+    saveAiProvider: async (provider: any) => tauriCall('save_ai_provider', { provider }),
+    deleteAiProvider: async (id: string) => tauriCall('delete_ai_provider', { id }),
+    getActiveAiModel: async () => tauriCall('get_active_ai_model'),
+    setActiveAiModel: async (providerId: string, modelId: string) => { return tauriCall('set_active_ai_model', { providerId, modelId }); },
+    testAiModel: async (providerId: string, modelId: string) => { return tauriCall('test_ai_model', { providerId, modelId }); },
+    openFloatingAssistant: async () => tauriCall('open_floating_assistant'),
+    closeFloatingAssistant: async () => tauriCall('close_floating_assistant'),
+    toggleFloatingAssistant: async () => tauriCall('toggle_floating_assistant'),
+    setFloatingAssistantPinned: async (pinned: boolean) => { return tauriCall('set_floating_assistant_pinned', { pinned }); },
     onDeployProgress: (callback: (data: any) => void) => { return listen('deploy-progress', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onDeployNotification: (callback: (data: any) => void) => { return listen('deploy-notification', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onDeployLogIdCreated: (callback: (data: any) => void) => { return listen('deploy-log-id-created', (e) => callback(e.payload)) as Promise<UnlistenFn> },

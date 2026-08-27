@@ -2,7 +2,7 @@
   "identifier": "default",
   "description": "Default capabilities for SuperTool",
   "local": true,
-  "windows": ["main", "floating-todo"],
+  "windows": ["main", "floating-todo", "floating-assistant"],
   "permissions": [
     "core:default",
     "core:window:default",

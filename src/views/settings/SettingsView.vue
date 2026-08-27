@@ -29,12 +29,21 @@
         <span>{{ t('settings.tabs.shortcuts') }}</span>
       </button>
       <button class="tab tab-bordered tab-sm flex items-center gap-1"
+        :class="tab === 'ai' ? 'tab-active' : ''"
+        @click="tab = 'ai'">
+        <SvgIcon name="sparkles" size="16" />
+        <span>AI 模型</span>
+      </button>
+      <button class="tab tab-bordered tab-sm flex items-center gap-1"
         :class="tab === 'about' ? 'tab-active' : ''"
         @click="tab = 'about'">
         <SvgIcon name="info" size="16" />
         <span>{{ t('settings.tabs.about') }}</span>
       </button>
     </div>
+
+    <!-- ==================== AI Model Tab ==================== -->
+    <AiModelSettings v-if="tab === 'ai'" />
 
     <!-- ==================== General Tab ==================== -->
     <div v-if="tab === 'general'" class="space-y-4">
@@ -126,20 +135,27 @@ defineOptions({ name: 'SettingsView' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import NotificationSettings from './NotificationSettings.vue'
 import ShortcutSettings from './ShortcutSettings.vue'
-import { ref, onMounted } from 'vue'
+import AiModelSettings from './AiModelSettings.vue'
+import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/utils/settings'
+import { useRoute } from 'vue-router'
 import { useTheme } from '@/utils/theme'
 import { useLanguage } from '@/utils/i18n'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { appConfigDir } from '@tauri-apps/api/path'
+
+const route = useRoute()
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const { toggleTheme } = useTheme()
 const { switchLanguage } = useLanguage()
 
-const tab = ref<'general' | 'notifications' | 'shortcuts' | 'about'>('general')
+type SettingsTab = 'general' | 'notifications' | 'shortcuts' | 'about' | 'ai'
+// 支持 /settings?tab=ai 直达（AI 助手的「去配置模型」按钮会带这个参数过来）
+const initialTab = (route.query?.tab as SettingsTab) || 'general'
+const tab = ref<SettingsTab>(['general', 'notifications', 'shortcuts', 'about', 'ai'].includes(initialTab) ? initialTab : 'general')
 const appVersion = ref(__APP_VERSION__ || '')
 const dataDir = ref('')
 
@@ -158,6 +174,14 @@ const handleLanguageChange = async (event: Event) => {
   const target = event.target as HTMLSelectElement
   await switchLanguage(target.value as 'zh-CN' | 'en-US')
 }
+
+watch(
+  () => route.query?.tab,
+  value => {
+    const next = value as SettingsTab | undefined
+    if (next && ['general', 'notifications', 'shortcuts', 'about', 'ai'].includes(next)) {tab.value = next}
+  },
+)
 
 onMounted(async () => {
   await loadAppInfo()

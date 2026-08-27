@@ -1,6 +1,7 @@
 <template>
   <div class="app-root">
     <FloatingTodoPanel v-if="isFloatingTodo" />
+    <FloatingAssistantPanel v-else-if="isFloatingAssistant" />
     <template v-else>
       <router-view />
       <!-- 全局组件 -->
@@ -33,11 +34,13 @@ import AboutDialog from '@/components/AboutDialog.vue'
 import QuickSwitch from '@/components/QuickSwitch.vue'
 import ToolCommandPalette from '@/components/ToolCommandPalette.vue'
 import FloatingTodoPanel from '@/components/FloatingTodoPanel.vue'
+import FloatingAssistantPanel from '@/components/FloatingAssistantPanel.vue'
 import { useAppStore } from '@/stores/appStore'
 import { useLanStore } from '@/stores/lanStore'
 import { useTheme } from '@/utils/theme'
 
 const isFloatingTodo = ref(false)
+const isFloatingAssistant = ref(false)
 const { toggleTheme: toggleThemeSetting } = useTheme()
 const showAboutDialog = ref(false)
 // 启动过渡页：floating-todo 窗口不显示
@@ -68,6 +71,7 @@ async function onQuickSwitchSelect(viewId: string) {
     'data-backup': '/backup',
     'report': '/report',
     'settings': '/settings',
+    'assistant': '/assistant',
   }
   const path = routeMap[viewId]
   if (path) {
@@ -102,9 +106,10 @@ onMounted(async () => {
     const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow')
     const label = getCurrentWebviewWindow().label
     isFloatingTodo.value = label === 'floating-todo'
-    if (isFloatingTodo.value) {
-      showSplash.value = false // floating window: skip splash
-      return // floating window: skip global setup
+    isFloatingAssistant.value = label === 'floating-assistant'
+    if (isFloatingTodo.value || isFloatingAssistant.value) {
+      showSplash.value = false // 悬浮窗不需要启动过渡页与全局监听
+      return
     }
   } catch {} // not in Tauri, or webview not available
 

@@ -672,6 +672,10 @@ fn main() {
             assistant::commands::assistant_chat,
             assistant::commands::assistant_abort,
             assistant::commands::assistant_get_state,
+            assistant::floating::open_floating_assistant,
+            assistant::floating::close_floating_assistant,
+            assistant::floating::toggle_floating_assistant,
+            assistant::floating::set_floating_assistant_pinned,
             // Database additional commands
             commands::database::db_get_table_structure,
             commands::database::db_get_table_primary_keys,

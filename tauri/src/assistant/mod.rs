@@ -8,6 +8,7 @@
 //! - `commands`—— Tauri 命令与事件出口
 pub mod agent;
 pub mod commands;
+pub mod floating;
 pub mod context;
 pub mod knowledge;
 pub mod llm;
