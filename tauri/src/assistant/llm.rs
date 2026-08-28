@@ -710,11 +710,19 @@ pub async fn stream_completion(
             on_event(event);
         }
     }
+    // 流在结束标记（finish_reason/[DONE]/message_stop）之前断开：网关连接不稳的典型表现。
+    // 不能把半截文本静默当完整回答（用户会看到"说半句就停"还以为模型抽风），必须显式报错。
     if !acc.is_finished() {
-        acc.finished = true;
-        for event in acc.flush_if_finished() {
-            on_event(event);
-        }
+        log::warn!(
+            "[assistant] {} 的响应流在结束标记前中断，已收到 {} 字符",
+            route.provider_name,
+            acc.turn().text.chars().count()
+        );
+        return Err(format!(
+            "模型响应流中断（未收到正常结束标记），回复可能不完整，请重试。\
+             若反复出现，检查 {} 的网络连通性或稍后再试",
+            route.provider_name
+        ));
     }
     Ok(acc.turn().clone())
 }
