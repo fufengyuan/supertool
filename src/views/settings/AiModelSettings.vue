@@ -181,9 +181,43 @@
         <div>
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs text-base-content/60">模型（模型 ID 按网关实际命名自由填）</span>
-            <button class="btn btn-ghost btn-xs" @click="addModel">
-              <SvgIcon name="plus" size="12" /> 加一行
-            </button>
+            <div class="flex items-center gap-1.5">
+              <button class="btn btn-ghost btn-xs" :disabled="fetching" @click="fetchModels" title="从当前网关的 /models 接口拉取可用模型">
+                <span v-if="fetching" class="loading loading-spinner loading-xs" />
+                <SvgIcon v-else name="download" size="12" /> 一键拉取
+              </button>
+              <button class="btn btn-ghost btn-xs" @click="addModel">
+                <SvgIcon name="plus" size="12" /> 加一行
+              </button>
+            </div>
+          </div>
+
+          <!-- 一键拉取：loading / 错误 / 结果勾选面板 -->
+          <div v-if="fetching" class="flex items-center gap-1.5 text-[11px] text-base-content/45 mb-2">
+            <span class="loading loading-spinner loading-xs" /> 正在从网关拉取模型列表…
+          </div>
+          <p v-if="fetchError" class="text-[11px] text-error mb-2 m-0">{{ fetchError }}</p>
+          <div v-if="fetchedModels.length" class="border border-primary/30 rounded-lg p-2.5 mb-3">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[11px] font-semibold text-base-content/70">
+                拉取到 {{ fetchedModels.length }} 个模型（勾选要添加的）
+              </span>
+              <div class="flex items-center gap-1.5">
+                <button class="btn btn-ghost btn-xs" @click="toggleAllFetched">全选/全不选</button>
+                <button class="btn btn-primary btn-xs" @click="addFetchedModels">添加所选</button>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+              <label
+                v-for="m in fetchedModels"
+                :key="m.id"
+                class="flex items-center gap-1.5 text-[11px] px-2 py-1 rounded border cursor-pointer select-none"
+                :class="m.checked ? 'border-primary bg-primary/5' : 'border-base-content/15'"
+              >
+                <input v-model="m.checked" type="checkbox" class="checkbox checkbox-xs checkbox-primary" />
+                <span class="font-mono">{{ m.id }}</span>
+              </label>
+            </div>
           </div>
 
           <!-- 快捷模板：只在新增时展示，避免编辑时覆盖已有配置 -->
@@ -346,6 +380,10 @@ const saving = ref(false)
 const saveError = ref('')
 const testing = ref('')
 const results = ref<Record<string, any>>({})
+/** 一键拉取模型的状态 */
+const fetching = ref(false)
+const fetchedModels = ref<{ id: string; checked: boolean }[]>([])
+const fetchError = ref('')
 
 const api = () => getTauriAPI() as any
 
@@ -427,6 +465,77 @@ function formatTokens(n?: number) {
   if (v >= 1048576) {return `${Math.round(v / 1048576 * 10) / 10}M`}
   if (v >= 1024) {return `${Math.round(v / 1024)}K`}
   return String(v)
+}
+
+/** 一键拉取模型时按 ID 匹配窗口/输出/识图（顺序即优先级，具体在前；未命中用默认） */
+const MODEL_HINTS: { match: string; contextWindow: number; maxOutputTokens: number; vision: boolean }[] = [
+  { match: 'deepseek-v4', contextWindow: 1048576, maxOutputTokens: 32768, vision: false },
+  { match: 'deepseek', contextWindow: 131072, maxOutputTokens: 8192, vision: false },
+  { match: 'glm-5.3', contextWindow: 1048576, maxOutputTokens: 32768, vision: true },
+  { match: 'glm', contextWindow: 131072, maxOutputTokens: 16384, vision: false },
+  { match: 'kimi-k3', contextWindow: 1048576, maxOutputTokens: 32768, vision: true },
+  { match: 'kimi', contextWindow: 262144, maxOutputTokens: 16384, vision: false },
+  { match: 'qwen3', contextWindow: 1048576, maxOutputTokens: 32768, vision: false },
+  { match: 'qwen', contextWindow: 131072, maxOutputTokens: 8192, vision: false },
+  { match: 'gpt-5', contextWindow: 1050000, maxOutputTokens: 128000, vision: true },
+  { match: 'gpt', contextWindow: 128000, maxOutputTokens: 16384, vision: true },
+  { match: 'claude', contextWindow: 1000000, maxOutputTokens: 128000, vision: true },
+  { match: 'gemini', contextWindow: 1048576, maxOutputTokens: 65536, vision: true },
+]
+const DEFAULT_HINT = { contextWindow: 131072, maxOutputTokens: 8192, vision: false }
+function hintFor(id: string) {
+  const low = id.toLowerCase()
+  return MODEL_HINTS.find(h => low.includes(h.match)) || DEFAULT_HINT
+}
+
+/** 一键拉取模型：优先用已存提供商（key 从本地库取），新增时用表单填的 baseUrl+apiKey */
+async function fetchModels() {
+  if (!form.value || fetching.value) {return}
+  fetching.value = true
+  fetchError.value = ''
+  fetchedModels.value = []
+  const args: Record<string, string> = { baseUrl: form.value.baseUrl, protocol: form.value.protocol }
+  if (form.value.id) {args.providerId = form.value.id}
+  else if (form.value.apiKey.trim()) {args.apiKey = form.value.apiKey.trim()}
+  try {
+    const res = await api().fetchAiModels(args)
+    if (!res?.ok) {throw new Error(res?.error || '拉取失败')}
+    const existing = new Set((form.value.models || []).map(m => m.id))
+    fetchedModels.value = (res.models || [])
+      .filter((id: string) => id && !existing.has(id))
+      .map((id: string) => ({ id, checked: true }))
+    if (!fetchedModels.value.length) {toast.info('网关里没有新模型（已全部在列表中）')}
+  } catch (e) {
+    fetchError.value = String((e as Error)?.message || e)
+  } finally {
+    fetching.value = false
+  }
+}
+
+function toggleAllFetched() {
+  const allOn = fetchedModels.value.every(m => m.checked)
+  fetchedModels.value.forEach(m => { m.checked = !allOn })
+}
+
+/** 把勾选的拉取结果并入模型列表（去重，窗口/输出按名称匹配） */
+function addFetchedModels() {
+  if (!form.value) {return}
+  const picked = fetchedModels.value.filter(m => m.checked)
+  const existing = new Set((form.value.models || []).map(m => m.id))
+  for (const m of picked) {
+    if (existing.has(m.id)) {continue}
+    const hint = hintFor(m.id)
+    form.value.models.push({
+      id: m.id,
+      label: '',
+      contextWindow: hint.contextWindow,
+      maxOutputTokens: hint.maxOutputTokens,
+      vision: hint.vision,
+    })
+    existing.add(m.id)
+  }
+  toast.success(`已添加 ${picked.length} 个模型`)
+  fetchedModels.value = []
 }
 
 /** 一键套用常见模型模板：填充提供商表单 */

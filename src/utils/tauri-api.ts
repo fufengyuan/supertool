@@ -1716,6 +1716,7 @@ export interface TauriAPI {
   listAiProviders: () => Promise<any[]>
   saveAiProvider: (provider: any) => Promise<any>
   deleteAiProvider: (id: string) => Promise<any>
+  fetchAiModels: (args: { providerId?: string; baseUrl?: string; apiKey?: string; protocol?: string }) => Promise<any>
   getActiveAiModel: () => Promise<any>
   setActiveAiModel: (providerId: string, modelId: string) => Promise<any>
   testAiModel: (providerId: string, modelId: string) => Promise<any>
@@ -2538,6 +2539,7 @@ export function getTauriAPI(): TauriAPI {
     listAiProviders: async () => { return (await tauriCall('list_ai_providers')) as any[]; },
     saveAiProvider: async (provider: any) => tauriCall('save_ai_provider', { provider }),
     deleteAiProvider: async (id: string) => tauriCall('delete_ai_provider', { id }),
+    fetchAiModels: async (args: { providerId?: string; baseUrl?: string; apiKey?: string; protocol?: string }) => { return tauriCall('fetch_ai_models', args); },
     getActiveAiModel: async () => tauriCall('get_active_ai_model'),
     setActiveAiModel: async (providerId: string, modelId: string) => { return tauriCall('set_active_ai_model', { providerId, modelId }); },
     testAiModel: async (providerId: string, modelId: string) => { return tauriCall('test_ai_model', { providerId, modelId }); },

@@ -2,6 +2,7 @@
 //!
 //! 前端只通过这些命令读写提供商，返回结构里**没有明文 apiKey**（只有掩码）。
 use serde_json::{Value, json};
+use supertool_core::logic::ai_provider::AiProtocol;
 use supertool_core::logic::CoreService;
 use tauri::State;
 
@@ -92,6 +93,89 @@ pub async fn test_ai_model(
 /// 界面能传回来的历史条数与单条长度上限（防一次请求塞进几十万字）
 const MAX_HISTORY_MESSAGES: usize = 40;
 const MAX_HISTORY_CHARS: usize = 8_000;
+
+/// 一键拉取模型：GET {base_url}/models 返回该网关可用模型 ID 列表，免去逐个手填。
+///
+/// 两种模式：
+/// - 传 providerId：key 从本地库解密（前端不需要碰明文 key），base 优先用传入的 baseUrl，否则用库里的；
+/// - 不传 providerId：用前端传的 baseUrl + apiKey 现场请求（新增提供商未保存时用）。
+/// apiKey 只用于本次请求，不落库、不进日志；返回只含模型 ID。
+#[tauri::command(rename_all = "camelCase")]
+pub async fn fetch_ai_models(
+    core: State<'_, CoreService>,
+    provider_id: Option<String>,
+    base_url: Option<String>,
+    api_key: Option<String>,
+    protocol: Option<String>,
+) -> Result<Value, String> {
+    let pid = provider_id.filter(|p| !p.trim().is_empty());
+    let mut base = base_url.as_deref().unwrap_or("").trim().trim_end_matches('/').to_string();
+    let mut key = api_key.unwrap_or_default().trim().to_string();
+    let mut is_anthropic = protocol.as_deref() == Some("anthropic");
+
+    if let Some(pid) = &pid {
+        let providers = core.ai_providers_decrypted().map_err(|e| e.to_string())?;
+        let p = providers
+            .iter()
+            .find(|p| p.id == *pid)
+            .ok_or_else(|| "提供商不存在".to_string())?;
+        if base.is_empty() {
+            base = p.base_url.trim_end_matches('/').to_string();
+        }
+        if key.is_empty() {
+            key = p.api_key.clone();
+        }
+        is_anthropic = p.protocol == AiProtocol::Anthropic;
+    }
+
+    if base.is_empty() {
+        return Err("缺少接口地址".to_string());
+    }
+    if key.is_empty() {
+        return Err("缺少 apiKey（拉取模型需要真实密钥，新增时可先填上）".to_string());
+    }
+
+    let url = format!("{base}/models");
+    let mut rb = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?
+        .get(&url);
+    if is_anthropic {
+        rb = rb.header("x-api-key", &key).header("anthropic-version", "2023-06-01");
+    } else {
+        rb = rb.bearer_auth(&key);
+    }
+
+    let resp = rb.send().await.map_err(|e| format!("请求 {url} 失败: {e}"))?;
+    let status = resp.status();
+    let body_text = resp.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Ok(json!({
+            "ok": false,
+            "error": format!("拉取模型失败（HTTP {}）：{}", status.as_u16(), super::llm::clip(&body_text, 200)),
+        }));
+    }
+
+    let parsed: Value = serde_json::from_str(&body_text)
+        .map_err(|e| format!("返回不是合法 JSON: {e}"))?;
+    let ids: Vec<String> = parsed["data"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|m| m["id"].as_str().map(|s| s.to_string()))
+                .filter(|s| !s.trim().is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
+    if ids.is_empty() {
+        return Ok(json!({
+            "ok": false,
+            "error": "网关返回了空模型列表，该端点可能不支持 /models",
+        }));
+    }
+    Ok(json!({ "ok": true, "models": ids }))
+}
 
 /// 历史只接受 user / assistant：系统提示词由服务端构造，
 /// 否则前端（或被诱导的模型自写历史）能覆盖指令。

@@ -669,6 +669,7 @@ fn main() {
             assistant::commands::get_active_ai_model,
             assistant::commands::set_active_ai_model,
             assistant::commands::test_ai_model,
+            assistant::commands::fetch_ai_models,
             assistant::commands::assistant_chat,
             assistant::commands::assistant_abort,
             assistant::commands::assistant_get_state,
