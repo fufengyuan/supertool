@@ -9,6 +9,7 @@
         给「AI 配置助手」接入模型。支持任意 OpenAI 兼容网关（<code>/chat/completions</code>）与
         Anthropic（<code>/v1/messages</code>）两种协议，模型 ID 与上下文窗口都可自定义；
         接口地址允许内网/本机（如 <code>http://127.0.0.1:11434/v1</code>）。
+        常见模型可用下方的「快捷模板」一键填充，上下文/输出上限可点快捷档位选择（1M / 256K / 128K…）。
         apiKey 用 AES-256-GCM 加密后存在本地库，界面与助手永远只会看到掩码。
       </p>
     </div>
@@ -36,8 +37,8 @@
         </option>
       </select>
       <p v-if="activeModel" class="text-[11px] text-base-content/50 mt-2 m-0">
-        上下文窗口 {{ activeModel.contextWindow }} tokens · 单次输出上限
-        {{ activeModel.maxOutputTokens }} tokens · 决定助手能带多少历史，配太小会频繁截断上下文
+        上下文窗口 {{ formatTokens(activeModel.contextWindow) }} tokens（{{ activeModel.contextWindow }}）· 单次输出上限
+        {{ formatTokens(activeModel.maxOutputTokens) }} tokens · 决定助手能带多少历史，配太小会频繁截断上下文
       </p>
     </div>
 
@@ -174,29 +175,119 @@
         </label>
 
         <div>
-          <div class="flex items-center justify-between mb-1.5">
+          <div class="flex items-center justify-between mb-2">
             <span class="text-xs text-base-content/60">模型（模型 ID 按网关实际命名自由填）</span>
             <button class="btn btn-ghost btn-xs" @click="addModel">
               <SvgIcon name="plus" size="12" /> 加一行
             </button>
           </div>
-          <div class="flex flex-col gap-2">
+
+          <!-- 快捷模板：只在新增时展示，避免编辑时覆盖已有配置 -->
+          <div v-if="!form.id" class="mb-3">
+            <span class="text-[11px] text-base-content/45 block mb-1">
+              快捷模板（一键填充协议/地址/模型，版本更新快，按实际网关调整）：
+            </span>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="t in MODEL_PRESETS"
+                :key="t.name"
+                class="btn btn-ghost btn-xs border border-base-content/15"
+                :title="t.note"
+                @click="applyTemplate(t)"
+              >
+                {{ t.name }}
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-3">
             <div
               v-for="(m, i) in form.models"
               :key="i"
-              class="grid grid-cols-[1fr_1fr_88px_88px_28px] gap-2 items-center"
+              class="border border-base-content/10 rounded-lg p-3 flex flex-col gap-2.5"
             >
-              <input v-model="m.id" class="input input-bordered input-sm font-mono text-xs" placeholder="模型 ID" />
-              <input v-model="m.label" class="input input-bordered input-sm text-xs" placeholder="显示名（可空）" />
-              <input v-model.number="m.contextWindow" type="number" class="input input-bordered input-sm font-mono text-xs" title="上下文窗口 tokens" />
-              <input v-model.number="m.maxOutputTokens" type="number" class="input input-bordered input-sm font-mono text-xs" title="输出上限 tokens" />
-              <button class="btn btn-ghost btn-xs text-error" title="删除该模型" @click="form.models.splice(i, 1)">
-                <SvgIcon name="x" size="12" />
-              </button>
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-base-content/70">模型 #{{ i + 1 }}</span>
+                <button class="btn btn-ghost btn-xs text-error" title="删除该模型" @click="form.models.splice(i, 1)">
+                  <SvgIcon name="x" size="12" /> 删除
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <label class="flex flex-col gap-1 text-xs text-base-content/60">
+                  模型 ID（必填）
+                  <input
+                    v-model="m.id"
+                    class="input input-bordered input-sm font-mono text-xs"
+                    placeholder="如 deepseek-chat"
+                  />
+                </label>
+                <label class="flex flex-col gap-1 text-xs text-base-content/60">
+                  显示名（可空）
+                  <input
+                    v-model="m.label"
+                    class="input input-bordered input-sm text-xs"
+                    placeholder="如 DeepSeek Chat"
+                  />
+                </label>
+              </div>
+
+              <label class="flex flex-col gap-1 text-xs text-base-content/60">
+                上下文窗口（tokens）
+                <div class="flex items-center gap-2">
+                  <input
+                    v-model.number="m.contextWindow"
+                    type="number"
+                    min="512"
+                    class="input input-bordered input-sm font-mono text-xs w-36"
+                  />
+                  <span class="text-[11px] text-base-content/45 font-mono shrink-0">
+                    {{ formatTokens(m.contextWindow) }}
+                  </span>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  <button
+                    v-for="p in CONTEXT_PRESETS"
+                    :key="p.label"
+                    class="btn btn-xs px-2 py-0.5 h-auto min-h-0"
+                    :class="Number(m.contextWindow) === p.value ? 'btn-primary text-primary-content' : 'btn-ghost border border-base-content/15'"
+                    @click="setContextPreset(m, p)"
+                  >
+                    {{ p.label }}
+                  </button>
+                </div>
+              </label>
+
+              <label class="flex flex-col gap-1 text-xs text-base-content/60">
+                单次输出上限（tokens）
+                <div class="flex items-center gap-2">
+                  <input
+                    v-model.number="m.maxOutputTokens"
+                    type="number"
+                    min="1"
+                    class="input input-bordered input-sm font-mono text-xs w-36"
+                  />
+                  <span class="text-[11px] text-base-content/45 font-mono shrink-0">
+                    {{ formatTokens(m.maxOutputTokens) }}
+                  </span>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  <button
+                    v-for="p in OUTPUT_PRESETS"
+                    :key="p.label"
+                    class="btn btn-xs px-2 py-0.5 h-auto min-h-0"
+                    :class="Number(m.maxOutputTokens) === p.value ? 'btn-primary text-primary-content' : 'btn-ghost border border-base-content/15'"
+                    @click="setOutputPreset(m, p)"
+                  >
+                    {{ p.label }}
+                  </button>
+                </div>
+              </label>
             </div>
+
             <p class="text-[11px] text-base-content/45 m-0 leading-relaxed">
-              上下文窗口决定助手能带多少历史（太小会频繁裁剪、太大浪费额度）；
-              常见值：8192 / 32000 / 128000。输出上限会被自动收敛到窗口以内。
+              上下文窗口决定助手能带多少历史（太小会频繁裁剪、太大浪费额度），主流模型普遍 128K~1M；
+              输出上限会被自动收敛到窗口以内。窗口/输出可点上方快捷档位，也可以直接手动输入。
             </p>
           </div>
         </div>
@@ -248,12 +339,111 @@ const results = ref<Record<string, any>>({})
 
 const api = () => getTauriAPI() as any
 
+/** 上下文窗口快捷档位（常见值，点击填入；仍可手动微调） */
+const CONTEXT_PRESETS = [
+  { label: '1M', value: 1048576 },
+  { label: '512K', value: 524288 },
+  { label: '256K', value: 262144 },
+  { label: '128K', value: 131072 },
+  { label: '64K', value: 65536 },
+  { label: '32K', value: 32768 },
+  { label: '8K', value: 8192 },
+]
+/** 输出上限快捷档位 */
+const OUTPUT_PRESETS = [
+  { label: '128K', value: 131072 },
+  { label: '64K', value: 65536 },
+  { label: '32K', value: 32768 },
+  { label: '16K', value: 16384 },
+  { label: '8K', value: 8192 },
+  { label: '4K', value: 4096 },
+]
+/** 常见模型一键预设（协议/地址/模型ID/窗口/输出；模型版本更新快，仅作起点，按实际网关调整） */
+const MODEL_PRESETS = [
+  {
+    name: 'DeepSeek',
+    note: '官方 OpenAI 兼容端点（根路径）；deepseek-v4-flash 1M 上下文、输出最大 384K',
+    protocol: 'openai',
+    baseUrl: 'https://api.deepseek.com',
+    models: [{ id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', contextWindow: 1048576, maxOutputTokens: 32768 }],
+  },
+  {
+    name: '智谱 GLM',
+    note: 'glm-5.3-flash 为 1M 上下文、输出最大 128K',
+    protocol: 'openai',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    models: [{ id: 'glm-5.3-flash', label: 'GLM 5.3 Flash', contextWindow: 1048576, maxOutputTokens: 32768 }],
+  },
+  {
+    name: 'Kimi',
+    note: 'kimi-k3 为 1M 上下文、默认输出 128K',
+    protocol: 'openai',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    models: [{ id: 'kimi-k3', label: 'Kimi K3', contextWindow: 1048576, maxOutputTokens: 32768 }],
+  },
+  {
+    name: '通义千问',
+    note: 'qwen3.8-flash 为 1M 上下文（DashScope 国内兼容端点）',
+    protocol: 'openai',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    models: [{ id: 'qwen3.8-flash', label: 'Qwen3.8 Flash', contextWindow: 1048576, maxOutputTokens: 32768 }],
+  },
+  {
+    name: 'Anthropic Claude',
+    note: '1M 上下文为 Sonnet 5 / Opus 5；Haiku 4.5 为 200K',
+    protocol: 'anthropic',
+    baseUrl: 'https://api.anthropic.com',
+    models: [{ id: 'claude-sonnet-5', label: 'Claude Sonnet 5', contextWindow: 1000000, maxOutputTokens: 128000 }],
+  },
+  {
+    name: 'OpenAI GPT',
+    note: 'GPT-5.6 系（Sol/Terra/Luna）为 1M 上下文',
+    protocol: 'openai',
+    baseUrl: 'https://api.openai.com/v1',
+    models: [{ id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', contextWindow: 1050000, maxOutputTokens: 128000 }],
+  },
+  {
+    name: 'Google Gemini',
+    note: 'OpenAI 兼容端点；gemini-2.5-pro / 2.5-flash 均为 1M',
+    protocol: 'openai',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    models: [{ id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', contextWindow: 1048576, maxOutputTokens: 65536 }],
+  },
+]
+
+/** 友好显示 token 数：1048576 → 1M、131072 → 128K */
+function formatTokens(n?: number) {
+  const v = Number(n) || 0
+  if (v >= 1048576) {return `${Math.round(v / 1048576 * 10) / 10}M`}
+  if (v >= 1024) {return `${Math.round(v / 1024)}K`}
+  return String(v)
+}
+
+/** 一键套用常见模型模板：填充提供商表单 */
+function applyTemplate(t: (typeof MODEL_PRESETS)[number]) {
+  if (!form.value) {return}
+  form.value.name = t.name
+  form.value.protocol = t.protocol as 'openai' | 'anthropic'
+  form.value.baseUrl = t.baseUrl
+  form.value.models = t.models.map(m => ({ ...m }))
+  saveError.value = ''
+}
+
+/** 上下文快捷档位填入当前模型行 */
+function setContextPreset(model: AiModelRow, preset: { label: string; value: number }) {
+  model.contextWindow = preset.value
+}
+/** 输出上限快捷档位填入当前模型行 */
+function setOutputPreset(model: AiModelRow, preset: { label: string; value: number }) {
+  model.maxOutputTokens = preset.value
+}
+
 const activeKey = computed(() => (active.value ? `${active.value.providerId}::${active.value.modelId}` : ''))
 const modelOptions = computed(() =>
   providers.value.flatMap(p =>
     (p.models || []).map(m => ({
       value: `${p.id}::${m.id}`,
-      label: `${p.name} · ${m.label || m.id}（${m.contextWindow || 8192} 窗口）`,
+      label: `${p.name} · ${m.label || m.id}（${formatTokens(m.contextWindow || 8192)} 窗口）`,
     })),
   ),
 )
@@ -295,12 +485,12 @@ function openForm(p: AiProviderRow | null) {
         baseUrl: 'https://',
         apiKey: '',
         enabled: true,
-        models: [{ id: '', contextWindow: 8192, maxOutputTokens: 2048 }],
+        models: [{ id: '', contextWindow: 131072, maxOutputTokens: 8192 }],
       }
 }
 
 function addModel() {
-  form.value?.models.push({ id: '', contextWindow: 8192, maxOutputTokens: 2048 })
+  form.value?.models.push({ id: '', contextWindow: 131072, maxOutputTokens: 8192 })
 }
 
 async function save() {
