@@ -245,6 +245,10 @@ const capabilitySummary = computed(() => {
     get_usage_guide: '给完整操作说明',
     propose_config_change: '生成待确认的变更提案',
     open_config_page: '带你到对应页面',
+    search_project_guides: '查本项目文档指南',
+    get_project_guide: '看项目指南全文',
+    search_project_source: '检索本项目源码',
+    read_project_source: '读本项目源码文件',
   }
   return capabilities.value
     .map((c: { name: string; description: string }) => labels[c.name] || '')

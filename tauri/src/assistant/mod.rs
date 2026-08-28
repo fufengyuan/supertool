@@ -5,6 +5,8 @@
 //! - `safety`  —— 安全红线：进上下文前脱敏、文件读取白名单、提案密钥字段黑名单
 //! - `tools`   —— 助手可调用的内部工具注册表（只读配置 + 错误分析 + 教学 + 提案，无文件/命令/SQL）
 //! - `paths`   —— 受限的本地路径元信息检索（填 CICD 路径用，永不读文件内容）
+//! - `project_knowledge` —— 编译期内嵌的项目指南（AGENTS.md + docs/*.md 全文，供查本项目约定）
+//! - `source_tools` —— 受限的只读源码查阅（限定本项目根，检索 + 读片段）
 //! - `agent`   —— 多轮工具调用循环 + 上下文窗口预算裁剪
 //! - `commands`—— Tauri 命令与事件出口
 pub mod agent;
@@ -14,5 +16,7 @@ pub mod context;
 pub mod knowledge;
 pub mod llm;
 pub mod paths;
+pub mod project_knowledge;
 pub mod safety;
+pub mod source_tools;
 pub mod tools;

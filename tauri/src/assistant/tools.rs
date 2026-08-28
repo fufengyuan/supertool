@@ -13,7 +13,9 @@ use supertool_core::logic::CoreService;
 use super::context::{MAX_TOOL_RESULT_CHARS, clip_for_context};
 use super::knowledge;
 use super::llm::ToolSpec;
+use super::project_knowledge;
 use super::safety::{assert_no_secret_fields, read_text_file_in, redact_text};
+use super::source_tools;
 
 /// 一次工具调用的产出：回给模型的内容 + 需要前端处理的东西
 #[derive(Default)]
@@ -332,6 +334,53 @@ pub fn tool_specs() -> Vec<ToolSpec> {
                 "description": {"type": "string", "description": "补充说明（可选）"}
             },
             "required": ["question"]
+        }),
+    );
+    add(
+        "search_project_guides",
+        "检索本项目内置的开发/维护指南（AGENTS.md 约定 + docs/ 文档全文的编译期快照）。\
+         用户问本项目约定、踩坑结论、实现原理、怎么排查某个模块的问题时，先查这里。\
+         结果含正文预览，需要整篇时用 get_project_guide。查不到就如实说明，再考虑 search_project_source 翻源码。",
+        json!({
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "中文/英文关键词，如「产物目录」「卡死」「MCP」「安全红线」"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 5, "default": 3}
+            },
+            "required": ["query"],
+        }),
+    );
+    add(
+        "get_project_guide",
+        "按 id 取整篇项目指南全文（search_project_guides 命中后需要完整上下文时用）。",
+        json!({
+            "type": "object",
+            "properties": { "guideId": {"type": "string"} },
+            "required": ["guideId"],
+        }),
+    );
+    add(
+        "search_project_source",
+        "在本项目源码（tauri/src、src、core/src、cli/src、docs）里按关键词检索，返回 文件:行号 + 片段。\
+         用于定位本项目某个实现/某个 bug 的根因：先检索关键词，再 read_project_source 取文件看上下文。\
+         只读本项目根，不做任意路径。",
+        json!({
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "要检索的关键词，如函数名/字段名/报错字符串"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 40, "default": 20}
+            },
+            "required": ["query"],
+        }),
+    );
+    add(
+        "read_project_source",
+        "读取本项目根内某个源码文件的内容（相对项目根的路径，如 tauri/src/assistant/tools.rs）。\
+         与 search_project_source 搭配：先检索定位到文件，再读全文上下文。只读本项目根，超过 64KB 会拒绝。",
+        json!({
+            "type": "object",
+            "properties": { "path": {"type": "string", "description": "相对项目根的路径，如 src/composables/useAssistantChat.ts"} },
+            "required": ["path"],
         }),
     );
     specs
@@ -1212,6 +1261,43 @@ pub async fn execute(core: &CoreService, name: &str, args: &Value) -> ToolExec {
                 Err(e) => err(e),
             }
         }
+        "search_project_guides" => {
+            let Some(q) = as_str(args, "query") else {
+                return err("缺少参数 query");
+            };
+            let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(3).clamp(1, 5) as usize;
+            let hits = project_knowledge::search_project_guides(q, limit);
+            if hits.is_empty() {
+                return ok(json!({
+                    "hits": [],
+                    "note": "项目指南里没有直接命中。可以换关键词（模块名/字段名/文档标题）再查；也可以 search_project_source 直接翻源码。",
+                    "availableTitles": project_knowledge::project_guide_index(),
+                }));
+            }
+            ok(json!({ "hits": hits }))
+        }
+        "get_project_guide" => {
+            let Some(id) = as_str(args, "guideId") else {
+                return err("缺少参数 guideId");
+            };
+            match project_knowledge::get_project_guide(id) {
+                Some(g) => ok(g),
+                None => err(format!("没有该项目指南条目: {id}，可用 search_project_guides 先查有哪些")),
+            }
+        }
+        "search_project_source" => {
+            let Some(q) = as_str(args, "query") else {
+                return err("缺少参数 query");
+            };
+            let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(20).clamp(1, 40) as usize;
+            source_tools::search_project_source(q, limit).map(ok).unwrap_or_else(err)
+        }
+        "read_project_source" => {
+            let Some(p) = as_str(args, "path") else {
+                return err("缺少参数 path");
+            };
+            source_tools::read_project_source(p).map(ok).unwrap_or_else(err)
+        }
         other => err(format!("没有这个工具: {other}；只能使用系统提示里列出的工具")),
     }
 }
@@ -1389,11 +1475,37 @@ mod tests {
         for needed in ["find_local_path", "inspect_local_path", "detect_local_project"] {
             assert!(names.contains(&needed.to_string()), "缺少路径检索工具 {needed}");
         }
+        // 项目指南/源码查阅是刻意例外：只读本项目根，名字与描述都必须体现边界
+        for needed in [
+            "search_project_guides",
+            "get_project_guide",
+            "search_project_source",
+            "read_project_source",
+        ] {
+            assert!(names.contains(&needed.to_string()), "缺少项目查阅工具 {needed}");
+        }
         for t in tool_specs() {
-            if t.name.contains("path") || t.name.contains("project") {
+            // 路径元信息工具：必须写清拿不到内容
+            if t.name.contains("path") && !t.name.contains("project") {
                 assert!(
                     t.description.contains("不读文件内容") || t.description.contains("只看存在性"),
                     "{} 的描述必须写清只能拿元信息",
+                    t.name
+                );
+            }
+            // 源码查阅工具：必须写清只读本项目
+            if matches!(t.name.as_str(), "search_project_source" | "read_project_source") {
+                assert!(
+                    t.description.contains("只读本项目根") || t.description.contains("本项目源码"),
+                    "{} 的描述必须写清只读本项目",
+                    t.name
+                );
+            }
+            // 指南工具：必须写清是内嵌文档快照
+            if matches!(t.name.as_str(), "search_project_guides" | "get_project_guide") {
+                assert!(
+                    t.description.contains("内嵌") || t.description.contains("文档") || t.description.contains("指南"),
+                    "{} 的描述必须写清是内嵌文档",
                     t.name
                 );
             }
@@ -1767,6 +1879,90 @@ mod tools_exec_tests {
         )
         .await;
         assert_eq!(missing.payload["exists"], json!(false));
+    }
+
+    /// 项目指南（内嵌文档快照）经 execute 分发出入正常，且返回的是预览而非整篇
+    #[tokio::test]
+    async fn project_guides_are_queryable_through_execute() {
+        let (core, _dir) = seeded("pguides").await;
+
+        let found = execute(
+            &core,
+            "search_project_guides",
+            &json!({"query": "产物目录"}),
+        )
+        .await;
+        assert!(found.payload["hits"].as_array().unwrap().len() >= 1, "{:?}", found.payload);
+
+        let full = execute(
+            &core,
+            "get_project_guide",
+            &json!({"guideId": "project-agents"}),
+        )
+        .await;
+        let body = full.payload["body"].as_str().unwrap();
+        assert!(body.contains("SuperTool"), "AGENTS.md 全文应可读到");
+
+        let missing = execute(
+            &core,
+            "get_project_guide",
+            &json!({"guideId": "no-such-id"}),
+        )
+        .await;
+        assert!(missing.payload.get("error").is_some());
+    }
+
+    /// 源码查阅：真实项目根内可检索到本工具自身源码（开发环境），越界/凭据被拒
+    #[tokio::test]
+    async fn project_source_is_readonly_and_confined() {
+        let (core, _dir) = seeded("psource").await;
+        let Some(root) = source_tools::project_root() else {
+            return; // 非开发环境（发布包）直接跳过
+        };
+
+        let hits = execute(
+            &core,
+            "search_project_source",
+            &json!({"query": "search_project_source", "limit": 20}),
+        )
+        .await;
+        let wire = hits.payload.to_string();
+        let arr = hits.payload["hits"].as_array().unwrap();
+        assert!(!arr.is_empty(), "应能检索到本项目源码: {wire}");
+        for h in arr {
+            let p = h["path"].as_str().unwrap();
+            assert!(
+                p.starts_with("tauri/src/") || p.starts_with("src/") || p.starts_with("core/src/"),
+                "命中应落在本项目目录内: {p}"
+            );
+        }
+
+        let read = execute(
+            &core,
+            "read_project_source",
+            &json!({"path": "AGENTS.md"}),
+        )
+        .await;
+        assert!(read.payload["content"].as_str().is_some());
+        assert!(read.payload["content"].as_str().unwrap().contains("SuperTool"));
+
+        // 越界路径被拒
+        let escaped = execute(
+            &core,
+            "read_project_source",
+            &json!({"path": "../../etc/passwd"}),
+        )
+        .await;
+        assert!(escaped.payload.get("error").is_some(), "逃逸应被拒: {:?}", escaped.payload);
+
+        // 项目根外文件无法用绝对路径读取
+        let abs = execute(
+            &core,
+            "read_project_source",
+            &json!({"path": root.join("src/main.rs").to_string_lossy()}),
+        )
+        .await;
+        assert!(abs.payload.get("error").is_some(), "绝对路径应被拒");
     }
 
     /// 目录识别复用向导同一套逻辑，远端地址里的口令必须抹掉

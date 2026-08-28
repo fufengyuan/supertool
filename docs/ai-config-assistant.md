@@ -28,7 +28,7 @@
 `settings.ai_active_model` = 当前选用的 `{providerId, modelId}`，首个提供商保存时自动设为当前。
 上下文窗口用于两处：历史裁剪预算、单次回复输出上限（输出上限会被收敛到窗口内）。
 
-## 工具集（15 个，四类能力）
+## 工具集（23 个，六类能力）
 
 读配置：`get_app_snapshot`、`list_servers`、`list_server_groups`、`list_db_connections`、
 `list_cicd_configs`、`get_cicd_config`、`get_deploy_history`
@@ -36,7 +36,39 @@
 路径：`find_local_path`、`inspect_local_path`、`detect_local_project`（填 CICD 的 localPath/构建目录/产物目录用，
 复用部署向导同一套 `scan_project_impl`；**只返回路径与元信息，读不到文件内容**）
 教学：`search_usage_guides`、`get_usage_guide`、`open_config_page`
+交互：`request_form`（多字段表单）、`ask`（答题：单选/多选勾选候选，可自定义输入）
+项目：`search_project_guides`、`get_project_guide`（内嵌项目指南）、`search_project_source`、`read_project_source`（只读本项目源码）
 变更：`propose_config_change`（**唯一**能导致写库的工具，且必须用户确认）
+
+## 项目指南与源码查阅（查本项目问题/迭代用）
+
+- **项目指南（编译期内嵌基准快照）**：`project_knowledge.rs` 用 `include_str!` 打包
+  AGENTS.md + docs/*.md 全文（`../../../` 相对源文件目录 = 项目根）。`search_project_guides`
+  按关键词检索（结果给 600 字预览），`get_project_guide` 取整篇。改文档重新构建即生效，
+  不依赖运行时文件路径；发布后即使源码不在用户机器，指南仍可用。
+- **源码查阅（受限实时只读）**：`source_tools.rs` 定位项目根为 `CARGO_MANIFEST_DIR` 的父目录，
+  `search_project_source` 只在白名单子目录（tauri/src、src、core/src、cli/src、docs）+ 根级散文件内
+  按关键词检索，返回 文件:行号 + 160 字片段；`read_project_source` 按相对路径读单个文件（≤64KB）。
+  安全边界：路径 canonicalize 前缀校验 + `..`/绝对路径拦截（拒绝软链接逃逸）、扫描文件数/结果数/
+  单文件命中数三重上限、复用 paths::is_denied 排除凭据目录、返回值仍过 `deep_redact`。
+- 系统提示「本项目的问题排查」引导模型：先 search_project_guides → 不够再 search_project_source →
+  read_project_source 读上下文；只读本项目根，读不到就明说不编造。
+
+## 交互卡片（request_form / ask）
+
+系统提示里「交互录入」是独立强提示，引导模型**优先**用这两个工具收集结构化输入，
+禁止在正文里罗列字段/选项让用户逐条打字回复。
+
+- 后端：agent 层对工具参数二次 `sanitize_*` 净化后，下发 `assistant-event` 的
+  `form` / `question` 事件（含 `callId`），前端渲染 `FormCard.vue` / `AskCard.vue`；
+  工具执行结果只回模型一句 `waiting_user_input/answer` 确认，**不回表单细节**。
+- 前端：`useAssistantChat.ts` 的 `submitForm` / `submitAsk` 把填写值作为普通用户消息
+  回给模型继续处理（`【表单提交】…` / `【回答】…`），仍走提案确认才写库。
+- 敏感字段：`request_form` 的 password 字段 name 必须是标准凭据名
+  （`password/sshKeyPath/apiKey/token/secret/privateKey`，后端 `SECRET_FIELD_NAMES` 强校验），
+  值只进前端 `secretVault` 本地暂存，按字段名与提案凭据槽位匹配自动预填
+  （`proposalSecrets` → `ProposalCard` 的 `initialSecrets`），**绝不进对话文本/模型上下文**。
+- `registry_exposes_no_dangerous_capabilities` 断言 request_form/ask 名字与 schema 不含能力关键字。
 
 ## 安全红线（都有对应单测）
 
