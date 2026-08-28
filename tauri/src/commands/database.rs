@@ -1979,22 +1979,6 @@ pub async fn db_execute_data_sync(params: serde_json::Value) -> Result<serde_jso
     }))
 }
 
-fn execute_sql_on_conn<'a>(
-    conn: &'a DbConnection,
-    sql: &'a str,
-) -> std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send + 'a>,
-> {
-    Box::pin(async move {
-        match &conn {
-            DbConnection::MySql(p) => execute_mysql_query(p, sql).await,
-            DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), sql).await,
-            DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, sql).await,
-            _ => Err("Unsupported DB type".to_string()),
-        }
-    })
-}
-
 fn generate_insert_sql(table: &str, row: &serde_json::Value, conn: &DbConnection) -> String {
     let db_type = match &conn {
         DbConnection::MySql(_) => "mysql",
