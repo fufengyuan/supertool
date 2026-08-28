@@ -77,9 +77,9 @@
           </router-link>
         </nav>
 
-        <!-- 侧栏底部操作区 -->
+        <!-- 侧栏底部操作区（精简：更多功能/设置/局域网） -->
         <div class="border-t border-base-300 p-2 flex flex-col gap-1">
-          <!-- 更多功能（低频页面集中跳转：周报/任务报告/看板） -->
+          <!-- 更多功能（低频页面集中跳转 + 悬浮待办开关等） -->
           <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/more')" title="更多功能">
             <SvgIcon name="grid" :size="20" stroke-width="0" />
             <span v-show="!sidebarCollapsed" class="text-sm">更多功能</span>
@@ -88,16 +88,6 @@
           <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/settings')" title="设置（含 AI 模型配置/数据备份/审计）">
             <SvgIcon name="settings" :size="20" stroke-width="0" />
             <span v-show="!sidebarCollapsed" class="text-sm">设置</span>
-          </button>
-          <!-- 待办悬浮球开关（关闭后可在此重新打开） -->
-          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="toggleFloatingTodo" title="打开/关闭待办悬浮球">
-            <SvgIcon name="checkCircle" :size="20" />
-            <span v-show="!sidebarCollapsed" class="text-sm">悬浮待办</span>
-          </button>
-          <!-- 搜索 -->
-          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="openGlobalSearch" :title="'全局搜索 (Ctrl+K)'">
-            <SvgIcon name="search" :size="20" />
-            <span v-show="!sidebarCollapsed" class="text-sm">搜索</span>
           </button>
           <!-- 局域网 -->
           <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="toggleLan" :class="{ 'text-primary': showLan }" title="局域网协作">
@@ -108,11 +98,6 @@
               </span>
             </div>
             <span v-show="!sidebarCollapsed" class="text-sm">局域网</span>
-          </button>
-          <!-- 主题切换 -->
-          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="toggleTheme" title="切换主题">
-            <SvgIcon :name="isDark ? 'sun' : 'moon'" :size="20" stroke-width="0" />
-            <span v-show="!sidebarCollapsed" class="text-sm">{{ isDark ? '浅色' : '深色' }}</span>
           </button>
         </div>
       </aside>
@@ -371,11 +356,6 @@ async function toggleTheme() {
 
 function openGlobalSearch() {
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))
-}
-
-/** 打开/关闭待办悬浮球（关闭后同样的入口可重新打开） */
-function toggleFloatingTodo() {
-  getTauriAPI().toggleFloatingTodo().catch(() => {})
 }
 
 let unlistenFns: (() => void)[] = []
