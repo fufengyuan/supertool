@@ -201,7 +201,6 @@ async fn run_inner(
             protocol: route.protocol.as_str().to_string(),
             model_id: route.model_id.clone(),
             context_window: route.context_window,
-            vision: route.vision,
         },
         &names,
     ))];
@@ -471,7 +470,6 @@ mod tests {
             protocol: "openai".into(),
             model_id: "qwen-max".into(),
             context_window: 32000,
-            vision: true,
         };
         let prompt = system_prompt(&route, &["list_servers".to_string(), "search_usage_guides".to_string()]);
         assert!(prompt.contains("propose_config_change"));

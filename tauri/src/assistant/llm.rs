@@ -129,8 +129,6 @@ pub struct RouteInfo {
     pub protocol: String,
     pub model_id: String,
     pub context_window: u32,
-    /// 当前模型是否支持识图
-    pub vision: bool,
 }
 
 // =================== 请求体构造（纯函数） ===================
