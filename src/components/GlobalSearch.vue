@@ -260,7 +260,7 @@ const freqNavInfo: Record<string, { icon: string; label: string; route: string }
   'git': { icon: 'gitBranch', label: 'Git 仓库', route: '/git' },
   'mfa': { icon: 'lock', label: 'MFA', route: '/mfa' },
   'vpn': { icon: 'globe', label: 'VPN', route: '/vpn' },
-  'data-backup': { icon: 'save', label: '备份', route: '/backup' },
+  'data-backup': { icon: 'save', label: '备份', route: '/settings?tab=data' },
 }
 
 const frequentNavs = computed(() => {

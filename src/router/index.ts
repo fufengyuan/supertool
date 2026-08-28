@@ -130,6 +130,12 @@ const routes = [
         component: () => import('../views/assistant/AssistantPage.vue'),
       },
       {
+        path: 'more',
+        name: 'MoreToolsHub',
+        meta: { title: '更多功能' },
+        component: () => import('../views/misc/MoreToolsHub.vue'),
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('../views/settings/SettingsView.vue'),

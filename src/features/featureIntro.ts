@@ -137,10 +137,11 @@ export const FEATURE_INTROS: FeatureIntro[] = [
 // 下次启动进入功能页会继续弹出引导；本次运行内每个功能首次进入只弹一次。
 const SEEN_KEY = 'feature_intro_seen_v1'
 
-/** 按路由 path 精确匹配引导配置（忽略 query/hash） */
+/** 按路由 path 精确匹配引导配置（忽略 query/hash）；已并入设置页的页面映射到新入口 */
 export function getIntroForPath(path: string): FeatureIntro | null {
   const p = path.split('?')[0].split('#')[0]
-  return FEATURE_INTROS.find(f => f.path === p) || null
+  const alias: Record<string, string> = { '/backup': '/settings?tab=data' }
+  return FEATURE_INTROS.find(f => f.path === (alias[p] || p)) || null
 }
 
 function readSeen(): string[] {

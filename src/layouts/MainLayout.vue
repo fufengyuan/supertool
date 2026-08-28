@@ -79,8 +79,13 @@
 
         <!-- 侧栏底部操作区 -->
         <div class="border-t border-base-300 p-2 flex flex-col gap-1">
-          <!-- 设置（通用入口，含 AI 模型配置） -->
-          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/settings')" title="设置（含 AI 模型配置）">
+          <!-- 更多功能（低频页面集中跳转：周报/任务报告/看板） -->
+          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/more')" title="更多功能">
+            <SvgIcon name="grid" :size="20" stroke-width="0" />
+            <span v-show="!sidebarCollapsed" class="text-sm">更多功能</span>
+          </button>
+          <!-- 设置（通用入口，含 AI 模型/数据与维护） -->
+          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/settings')" title="设置（含 AI 模型配置/数据备份/审计）">
             <SvgIcon name="settings" :size="20" stroke-width="0" />
             <span v-show="!sidebarCollapsed" class="text-sm">设置</span>
           </button>
@@ -292,7 +297,6 @@ const navGroups = {
   business: [
     { path: '/', icon: '📊', label: '综合看板', viewId: 'dashboard' },
     { path: '/todo', icon: '📝', label: '任务', viewId: 'todo' },
-    { path: '/weekly', icon: '📊', label: '周报', viewId: 'weekly-report' },
     { path: '/projects', icon: '📁', label: '项目', viewId: 'projects' },
     { path: '/accounting', icon: '💰', label: '记账本', viewId: 'accounting' },
   ],
@@ -314,9 +318,6 @@ const navGroups = {
   security: [
     { path: '/mfa', icon: '🔐', label: 'MFA', viewId: 'mfa' },
     { path: '/vpn', icon: '🌐', label: 'VPN', viewId: 'vpn' },
-    { path: '/backup', icon: '💾', label: '备份', viewId: 'data-backup' },
-    { path: '/audit', icon: '📜', label: '审计', viewId: 'audit' },
-    { path: '/disk-cleaner', icon: '🧹', label: '磁盘清理', viewId: 'disk-cleaner' },
   ],
 }
 
@@ -412,7 +413,7 @@ onMounted(async () => {
       'accounting': '/accounting', 'servers': '/servers', 'cicd': '/cicd',
       'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'alert': '/alert', 'devtools': '/devtools',
       'notes': '/notes', 'git': '/git', 'mfa': '/mfa', 'vpn': '/vpn',
-      'data-backup': '/backup', 'disk-cleaner': '/disk-cleaner', 'report': '/report', 'settings': '/settings',
+      'data-backup': '/settings?tab=data', 'disk-cleaner': '/settings?tab=data', 'report': '/report', 'settings': '/settings',
       'image-processor': '/image',
       'sessions': '/terminal',
     }

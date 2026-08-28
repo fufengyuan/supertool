@@ -35,6 +35,12 @@
         <span>AI 模型</span>
       </button>
       <button class="tab tab-bordered tab-sm flex items-center gap-1"
+        :class="tab === 'data' ? 'tab-active' : ''"
+        @click="tab = 'data'">
+        <SvgIcon name="download" size="16" />
+        <span>数据与维护</span>
+      </button>
+      <button class="tab tab-bordered tab-sm flex items-center gap-1"
         :class="tab === 'about' ? 'tab-active' : ''"
         @click="tab = 'about'">
         <SvgIcon name="info" size="16" />
@@ -91,6 +97,19 @@
       <ShortcutSettings />
     </div>
 
+    <!-- ==================== 数据与维护 Tab（原独立菜单页合并：备份/磁盘清理/审计） ==================== -->
+    <div v-if="tab === 'data'" class="space-y-4">
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
+        <DataBackup />
+      </div>
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
+        <DiskCleaner />
+      </div>
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-0 overflow-hidden">
+        <AuditView />
+      </div>
+    </div>
+
     <!-- ==================== About Tab ==================== -->
     <div v-if="tab === 'about'" class="space-y-4">
       <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
@@ -136,6 +155,9 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
 import NotificationSettings from './NotificationSettings.vue'
 import ShortcutSettings from './ShortcutSettings.vue'
 import AiModelSettings from './AiModelSettings.vue'
+import DataBackup from '@/views/backup/DataBackup.vue'
+import DiskCleaner from '@/components/DiskCleaner.vue'
+import AuditView from '@/views/audit/AuditView.vue'
 import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/utils/settings'
@@ -152,10 +174,10 @@ const settingsStore = useSettingsStore()
 const { toggleTheme } = useTheme()
 const { switchLanguage } = useLanguage()
 
-type SettingsTab = 'general' | 'notifications' | 'shortcuts' | 'about' | 'ai'
+type SettingsTab = 'general' | 'notifications' | 'shortcuts' | 'about' | 'ai' | 'data'
 // 支持 /settings?tab=ai 直达（AI 助手的「去配置模型」按钮会带这个参数过来）
 const initialTab = (route.query?.tab as SettingsTab) || 'general'
-const tab = ref<SettingsTab>(['general', 'notifications', 'shortcuts', 'about', 'ai'].includes(initialTab) ? initialTab : 'general')
+const tab = ref<SettingsTab>(['general', 'notifications', 'shortcuts', 'about', 'ai', 'data'].includes(initialTab) ? initialTab : 'general')
 const appVersion = ref(__APP_VERSION__ || '')
 const dataDir = ref('')
 
@@ -179,7 +201,7 @@ watch(
   () => route.query?.tab,
   value => {
     const next = value as SettingsTab | undefined
-    if (next && ['general', 'notifications', 'shortcuts', 'about', 'ai'].includes(next)) {tab.value = next}
+    if (next && ['general', 'notifications', 'shortcuts', 'about', 'ai', 'data'].includes(next)) {tab.value = next}
   },
 )
 
