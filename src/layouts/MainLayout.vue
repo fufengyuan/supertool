@@ -283,7 +283,6 @@ const navGroups = {
     { path: '/', icon: '📊', label: '综合看板', viewId: 'dashboard' },
     { path: '/todo', icon: '📝', label: '任务', viewId: 'todo' },
     { path: '/projects', icon: '📁', label: '项目', viewId: 'projects' },
-    { path: '/accounting', icon: '💰', label: '记账本', viewId: 'accounting' },
   ],
   ops: [
     { path: '/servers', icon: '🖥️', label: '服务器', viewId: 'servers' },
@@ -294,11 +293,9 @@ const navGroups = {
   ],
   dev: [
     { path: '/database', icon: '🗄️', label: '数据库', viewId: 'database' },
-    { path: '/alert', icon: '🔔', label: '告警', viewId: 'alert' },
     { path: '/devtools', icon: '🛠️', label: '开发工具', viewId: 'devtools' },
     { path: '/notes', icon: '📓', label: '笔记', viewId: 'notes' },
     { path: '/git', icon: '🔀', label: 'Git 仓库', viewId: 'git' },
-    { path: '/image', icon: '🖼️', label: '图像处理', viewId: 'image-processor' },
   ],
   security: [
     { path: '/mfa', icon: '🔐', label: 'MFA', viewId: 'mfa' },

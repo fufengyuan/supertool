@@ -195,6 +195,7 @@ const toolComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = 
   ws: defineAsyncComponent(() => import('./tools/WsTool.vue')),
   apidebugger: defineAsyncComponent(() => import('./tools/ApiDebugger.vue')),
   html2md: defineAsyncComponent(() => import('./tools/HtmlToMdTool.vue')),
+  image: defineAsyncComponent(() => import('./tools/ImageTool.vue')),
 }
 
 const currentToolComponent = computed(() => {

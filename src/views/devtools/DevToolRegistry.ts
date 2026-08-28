@@ -60,6 +60,7 @@ export const DEV_TOOL_REGISTRY: DevTool[] = [
   { id: 'random', name: '随机生成器', icon: 'sparkles', category: 'misc', description: '批量生成, 特殊字符', offline: true, keywords: 'random generate sjscq' },
   { id: 'uuid', name: 'UUID生成', icon: 'plus', category: 'misc', description: '在线生成 UUID v4', offline: true, keywords: 'uuid guid uuidsc' },
   { id: 'html2md', name: 'HTML转Markdown', icon: 'download', category: 'misc', description: '输入网址或粘贴HTML，转换为 Markdown', offline: false, keywords: 'html markdown html2md hzzmd' },
+  { id: 'image', name: '图像处理', icon: 'image', category: 'misc', description: '压缩, 转格式, 尺寸调整等', offline: true, keywords: 'image photo compress resize tuxs tuxiangcl' },
 ]
 
 export function getToolById(id: string): DevTool | undefined {

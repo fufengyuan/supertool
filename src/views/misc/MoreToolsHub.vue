@@ -47,6 +47,18 @@ const router = useRouter()
 
 const items = [
   {
+    path: '/accounting',
+    icon: '💰',
+    label: '记账本',
+    description: '日常收支记录与统计',
+  },
+  {
+    path: '/alert',
+    icon: '🔔',
+    label: '告警',
+    description: '服务器资源与服务异常监控事件，集中查看与跟进',
+  },
+  {
     path: '/weekly',
     icon: '📊',
     label: '周报',
