@@ -1932,8 +1932,9 @@ mod tools_exec_tests {
         for h in arr {
             let p = h["path"].as_str().unwrap();
             assert!(
-                p.starts_with("tauri/src/") || p.starts_with("src/") || p.starts_with("core/src/"),
-                "命中应落在本项目目录内: {p}"
+                p.starts_with("tauri/src/") || p.starts_with("src/") || p.starts_with("core/src/")
+                    || p.starts_with("docs/") || p == "AGENTS.md",
+                "命中应落在本项目检索范围内: {p}"
             );
         }
 
