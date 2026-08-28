@@ -177,6 +177,41 @@ pub fn tool_specs() -> Vec<ToolSpec> {
         }),
     );
     add(
+        "find_local_path",
+        "在本机的允许范围内按名称查找目录或文件，用来把 CICD 要填的路径找出来（localPath、构建目录、产物目录、javaHome/mavenHome 等）。\n         只返回路径与元信息（类型/大小/修改时间），**不读文件内容**；凭据目录（.ssh、钥匙串等）不可寻址；\n         node_modules/.git/target 等噪音目录会被跳过；结果有数量上限，被截断时会告诉你。",
+        json!({
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "目录/文件名关键词，如 seller-api、mall-h5、mall"},
+                "within": {"type": "string", "description": "可选：把查找限定在某个目录内（必须在允许范围内）"},
+                "dirsOnly": {"type": "boolean", "default": true},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 25, "default": 15}
+            },
+            "required": ["query"],
+        }),
+    );
+    add(
+        "inspect_local_path",
+        "核对一个具体路径：是否存在、是目录还是文件、有无 pom.xml/package.json 等构建标志、有哪些子目录、是不是 Git 仓库。\n         用户给的「构建目录/产物目录」对不对，用这个先验证再给建议。只看存在性，不读文件内容。",
+        json!({
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "绝对路径或 ~ 开头的路径"},
+                "includeHidden": {"type": "boolean", "default": false}
+            },
+            "required": ["path"],
+        }),
+    );
+    add(
+        "detect_local_project",
+        "用一个代码目录跑一遍与部署向导完全相同的识别逻辑：构建工具、包管理器、可用 npm 脚本与推荐脚本、\n         Git 当前分支与远端、多模块列表。配 CICD 前拿它确认「该在哪构建、有哪些模块」，比自己猜路径可靠。\n         只看存在性与目录结构，不读文件内容。",
+        json!({
+            "type": "object",
+            "properties": { "path": {"type": "string"} },
+            "required": ["path"],
+        }),
+    );
+    add(
         "get_deploy_history",
         "看某个部署配置最近几次部署记录（状态、时间、错误信息）。",
         json!({
@@ -248,6 +283,55 @@ pub fn tool_specs() -> Vec<ToolSpec> {
                 "note": {"type": "string", "description": "到页面后要做的一件事，展示给用户"}
             },
             "required": ["module"],
+        }),
+    );
+    add(
+        "request_form",
+        "需要用户填写一组结构化信息（如新增服务器的名称/IP/端口/用户名/分组）时调用，界面会弹出表单让用户直接填写提交，\
+         不要再在正文里罗列字段让用户逐条回复。能自己查到或推出来的字段不要放进表单（如端口默认 22 直接给默认值）。\
+         敏感字段（type 为 password）的 name 必须用标准凭据字段名：password / sshKeyPath / apiKey / token / secret / privateKey，\
+         用户填的值只会保存在本地、自动带入后续确认卡片的凭据槽位，永远不会出现在对话里。",
+        json!({
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "表单标题，如「新增生产服务器」"},
+                "description": {"type": "string", "description": "一句话说明填这些信息干什么"},
+                "fields": {
+                    "type": "array",
+                    "description": "要收集的字段（2~8 个为宜，越少越好）",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "英文字段名，将作为提案字段 key"},
+                            "label": {"type": "string", "description": "界面显示的字段中文名"},
+                            "type": {"type": "string", "enum": ["text", "number", "select", "boolean", "textarea", "password"], "description": "默认 text"},
+                            "required": {"type": "boolean", "description": "是否必填，默认 false"},
+                            "placeholder": {"type": "string", "description": "输入提示"},
+                            "default": {"type": ["string", "number", "boolean"], "description": "默认值（能从已查数据推导就给）"},
+                            "options": {"type": "array", "items": {"type": "string"}, "description": "select 类型的候选项"},
+                            "description": {"type": "string", "description": "字段帮助说明"}
+                        },
+                        "required": ["name", "label"]
+                    }
+                }
+            },
+            "required": ["title", "fields"]
+        }),
+    );
+    add(
+        "ask",
+        "只需要用户在几个选项里选一个答案、或回答一个简短问题时调用，界面会弹出一个轻量问题卡片：\
+         你给出候选选项（单选/多选），用户勾选即可，也可以自己输入答案。不要把多个问题塞进一次 ask——\
+         多个字段就改用 request_form。",
+        json!({
+            "type": "object",
+            "properties": {
+                "question": {"type": "string", "description": "问题内容"},
+                "type": {"type": "string", "enum": ["single", "multiple", "text"], "description": "single=单选 multiple=多选 text=自由输入，默认 single"},
+                "options": {"type": "array", "items": {"type": "string"}, "description": "single/multiple 时的候选选项"},
+                "description": {"type": "string", "description": "补充说明（可选）"}
+            },
+            "required": ["question"]
         }),
     );
     specs
@@ -539,6 +623,69 @@ pub fn validate_cicd_rules(cfg: &CicdConfig, modules: &[DeployModule]) -> Vec<Va
     issues
 }
 
+/// 路径检索允许的根：用户主目录 + 设置里的 Git 扫描目录 + 应用数据目录
+fn search_roots(core: &CoreService) -> Vec<std::path::PathBuf> {
+    let mut roots: Vec<std::path::PathBuf> = Vec::new();
+    if let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) {
+        roots.push(std::path::PathBuf::from(home));
+    }
+    if let Ok(raw) = core.db_read(|conn| {
+        conn.query_row(
+            "SELECT value FROM settings WHERE key = 'git_scan_directories'",
+            [],
+            |r| r.get::<_, String>(0),
+        )
+        .unwrap_or_default()
+    }) {
+        for line in raw.lines() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                roots.push(super::paths::expand_home(trimmed));
+            }
+        }
+    }
+    roots.push(core.app_dir().to_path_buf());
+    let mut seen: Vec<String> = Vec::new();
+    roots.retain(|r| {
+        let key = r.to_string_lossy().to_string();
+        if seen.contains(&key) {
+            false
+        } else {
+            seen.push(key);
+            true
+        }
+    });
+    roots.retain(|r| r.is_dir() && !super::paths::is_denied(r));
+    roots
+}
+
+/// 只有落在搜索根之内才允许当遍历起点，防止把 within 当成任意目录的枚举入口
+fn root_within(roots: &[std::path::PathBuf], within: &str) -> Option<std::path::PathBuf> {
+    let candidate = super::paths::expand_home(within);
+    let resolved = candidate.canonicalize().ok()?;
+    if super::paths::is_denied(&resolved) {
+        return None;
+    }
+    roots
+        .iter()
+        .filter_map(|r| r.canonicalize().ok())
+        .find(|r| resolved.starts_with(r))
+        .map(|_| resolved)
+}
+
+/// git 远端地址可能带 `https://user:token@host`，抹掉口令段
+fn deep_redact_url_field(mut payload: Value) -> Value {
+    if let Some(obj) = payload.as_object_mut() {
+        if let Some(url) = obj.get("gitRemoteUrl").and_then(|v| v.as_str()).map(str::to_string) {
+            obj.insert(
+                "gitRemoteUrl".to_string(),
+                json!(super::safety::redact_text(&url)),
+            );
+        }
+    }
+    payload
+}
+
 /// 部署日志允许读取的目录（系统自己写的部署日志，别的一律不给读）
 fn allowed_log_dirs(core: &CoreService) -> Vec<std::path::PathBuf> {
     let mut dirs = vec![core.app_dir().join("deploy-logs")];
@@ -582,6 +729,103 @@ fn cicd_summary(cfg: &CicdConfig) -> Value {
         "requiresApproval": cfg.requires_approval,
         "lastDeployedAt": cfg.last_deployed_at,
     })
+}
+
+/// 表单里允许收集的敏感字段名：前端按这个名字把用户填的值带入确认卡片的凭据槽位，
+/// 值本身绝不进模型上下文；非清单内的密码字段名一律拒绝。
+const SECRET_FIELD_NAMES: &[&str] = &["password", "sshKeyPath", "apiKey", "token", "secret", "privateKey"];
+
+fn is_plain_key(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 40 && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// request_form 的 schema 校验与净化：只保留认识的字段，非法结构直接报错。
+/// agent 层用同一份净化结果发卡片事件，保证前后端看到同一套 schema。
+pub fn sanitize_form_schema(args: &Value) -> Result<Value, String> {
+    let title = as_str(args, "title").ok_or("request_form 缺少参数 title")?;
+    let fields = args
+        .get("fields")
+        .and_then(|v| v.as_array())
+        .ok_or("request_form 缺少 fields 数组")?;
+    if fields.is_empty() || fields.len() > 10 {
+        return Err(format!("fields 数量应为 1~10，实际 {}", fields.len()));
+    }
+    let mut out = Vec::new();
+    for (i, f) in fields.iter().enumerate() {
+        let name = as_str(f, "name").ok_or(format!("第 {} 个字段缺 name", i + 1))?;
+        if !is_plain_key(name) {
+            return Err(format!("字段名「{name}」只能含字母数字下划线"));
+        }
+        let label = as_str(f, "label").ok_or(format!("字段「{name}」缺 label"))?;
+        let ftype = as_str(f, "type").unwrap_or("text");
+        if !matches!(ftype, "text" | "number" | "select" | "boolean" | "textarea" | "password") {
+            return Err(format!("字段「{name}」的 type 不支持: {ftype}"));
+        }
+        if ftype == "password" && !SECRET_FIELD_NAMES.contains(&name) {
+            return Err(format!(
+                "敏感字段名「{name}」不在标准凭据清单里，请改用 password/sshKeyPath/apiKey/token/secret/privateKey 之一"
+            ));
+        }
+        let mut o = json!({
+            "name": name,
+            "label": label,
+            "type": ftype,
+            "required": f.get("required").and_then(|v| v.as_bool()).unwrap_or(false),
+        });
+        if let Some(p) = as_str(f, "placeholder") {
+            o["placeholder"] = json!(p);
+        }
+        if let Some(d) = f.get("default") {
+            if d.is_string() || d.is_number() || d.is_boolean() {
+                o["default"] = d.clone();
+            }
+        }
+        if let Some(desc) = as_str(f, "description") {
+            o["description"] = json!(desc);
+        }
+        if ftype == "select" {
+            let options: Vec<&str> = f
+                .get("options")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|x| x.as_str()).collect())
+                .unwrap_or_default();
+            if options.is_empty() {
+                return Err(format!("select 字段「{name}」需要 options 候选"));
+            }
+            o["options"] = json!(options);
+        }
+        out.push(o);
+    }
+    let mut spec = json!({ "title": title, "fields": out });
+    if let Some(desc) = as_str(args, "description") {
+        spec["description"] = json!(desc);
+    }
+    Ok(spec)
+}
+
+/// ask 的 schema 校验与净化（单选/多选/自由文本）
+pub fn sanitize_ask_schema(args: &Value) -> Result<Value, String> {
+    let question = as_str(args, "question").ok_or("ask 缺少参数 question")?;
+    let qtype = as_str(args, "type").unwrap_or("single");
+    if !matches!(qtype, "single" | "multiple" | "text") {
+        return Err(format!("ask 的 type 不支持: {qtype}"));
+    }
+    let mut spec = json!({ "question": question, "type": qtype });
+    if qtype != "text" {
+        let options: Vec<&str> = args
+            .get("options")
+            .and_then(|v| v.as_array())
+            .map(|a| a.iter().filter_map(|x| x.as_str()).collect())
+            .unwrap_or_default();
+        if options.is_empty() {
+            return Err("ask 的 single/multiple 需要 options 候选".to_string());
+        }
+        spec["options"] = json!(options);
+    }
+    if let Some(desc) = as_str(args, "description") {
+        spec["description"] = json!(desc);
+    }
+    Ok(spec)
 }
 
 pub async fn execute(core: &CoreService, name: &str, args: &Value) -> ToolExec {
@@ -677,6 +921,105 @@ pub async fn execute(core: &CoreService, name: &str, args: &Value) -> ToolExec {
                 "issues": issues,
                 "blocking": issues.iter().any(|i| i["level"] == "error"),
             }))
+        }
+        "find_local_path" => {
+            let Some(query) = as_str(args, "query") else {
+                return err("缺少参数 query（要找的目录或文件名关键词）");
+            };
+            let roots = search_roots(core);
+            let roots = match as_str(args, "within") {
+                Some(within) => match root_within(&roots, within) {
+                    Some(r) => vec![r],
+                    None => {
+                        return err(
+                            "within 不在允许的搜索范围内（只能覆盖主目录、Git 扫描目录与应用数据目录之内）",
+                        )
+                    }
+                },
+                None => roots,
+            };
+            if roots.is_empty() {
+                return err("本机没有可用的搜索根目录");
+            }
+            let dirs_only = args
+                .get("dirsOnly")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            let limit = args
+                .get("limit")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(15)
+                .clamp(1, 25) as usize;
+            // 目录遍历可能耗时，放到阻塞线程里跑，避免占住 tokio worker 拖累界面
+            let query_owned = query.to_string();
+            let found = tokio::task::spawn_blocking(move || {
+                super::paths::find_paths(
+                    &roots,
+                    &query_owned,
+                    dirs_only,
+                    false,
+                    &super::paths::WalkLimits {
+                        max_results: limit,
+                        ..Default::default()
+                    },
+                )
+            })
+            .await
+            .map(|(hits, truncated)| (hits, truncated))
+            .unwrap_or((Vec::new(), false));
+            ok(json!({
+                "query": query,
+                "matches": found.0,
+                "truncated": found.1,
+                "note": if found.1 { "结果已达上限被截断，可用 within 缩小范围或换更精确的关键词" } else { "已给出全部匹配结果" },
+            }))
+        }
+        "inspect_local_path" => {
+            let Some(path) = as_str(args, "path") else {
+                return err("缺少参数 path");
+            };
+            let include_hidden = args
+                .get("includeHidden")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let owned = path.to_string();
+            let info = tokio::task::spawn_blocking(move || {
+                super::paths::inspect_path(&owned, include_hidden)
+            })
+            .await
+            .unwrap_or_else(|_| json!({"error": "路径检查超时或失败"}));
+            ok(info)
+        }
+        "detect_local_project" => {
+            let Some(path) = as_str(args, "path") else {
+                return err("缺少参数 path");
+            };
+            let resolved = super::paths::expand_home(path);
+            if super::paths::is_denied(&resolved) {
+                return err("该位置属于凭据/系统敏感目录，助手不访问");
+            }
+            if !resolved.is_dir() {
+                return ok(json!({ "path": resolved.to_string_lossy(), "error": "目录不存在或不是目录，先用 find_local_path 确认真实路径" }));
+            }
+            let owned = resolved.to_string_lossy().to_string();
+            let scanned = tokio::task::spawn_blocking(move || {
+                let scan = crate::commands::cicd::scan_project_impl(&owned);
+                let modules = supertool_core::logic::cicd_tools::scan_project_modules(&owned);
+                (scan, modules)
+            })
+            .await;
+            match scanned {
+                Ok((scan, modules)) => {
+                    let mut payload = serde_json::to_value(&scan).unwrap_or_else(|_| json!({}));
+                    if let Some(obj) = payload.as_object_mut() {
+                        obj.insert("path".to_string(), json!(resolved.to_string_lossy()));
+                        obj.insert("modules".to_string(), modules);
+                    }
+                    // 远端地址可能内嵌账号口令，去掉口令段再给模型
+                    ok(deep_redact_url_field(payload))
+                }
+                Err(_) => err("识别该项目失败（目录不可读或超时）"),
+            }
         }
         "get_deploy_history" => {
             let Some(id) = as_str(args, "configId") else {
@@ -841,6 +1184,32 @@ pub async fn execute(core: &CoreService, name: &str, args: &Value) -> ToolExec {
                     })],
                 },
                 None => err(format!("未知模块: {module}")),
+            }
+        }
+        // ── 交互卡片：请求用户填写表单 / 答题。真正的卡片事件由 agent 层据 args 发出，
+        //    这里只校验并回填一句确认（模型不需要看到表单细节，更不需要看到字段里的敏感定义）。
+        "request_form" => {
+            match sanitize_form_schema(args) {
+                Ok(spec) => {
+                    let title = spec.get("title").and_then(|v| v.as_str()).unwrap_or("");
+                    let count = spec.get("fields").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
+                    ok(json!({
+                        "status": "waiting_user_input",
+                        "title": title,
+                        "fieldCount": count,
+                        "note": "表单已展示给用户填写，等待提交；不要在正文里再次罗列这些字段。",
+                    }))
+                }
+                Err(e) => err(e),
+            }
+        }
+        "ask" => {
+            match sanitize_ask_schema(args) {
+                Ok(_) => ok(json!({
+                    "status": "waiting_user_answer",
+                    "note": "问题已展示给用户，等待作答；不要在正文里重复提问。",
+                })),
+                Err(e) => err(e),
             }
         }
         other => err(format!("没有这个工具: {other}；只能使用系统提示里列出的工具")),
@@ -1012,6 +1381,23 @@ mod tests {
             assert!(t.parameters.get("properties").is_some(), "{} 缺 properties", t.name);
         }
         assert!(names.contains(&"propose_config_change".to_string()));
+        // 交互卡片工具：request_form（表单）/ ask（答题）——名字与 schema 均不含任何能力关键字
+        for interactive in ["request_form", "ask"] {
+            assert!(names.contains(&interactive.to_string()), "缺少交互卡片工具 {interactive}");
+        }
+        // 路径工具是刻意开出来的例外：只允许「查路径」，名字与描述都必须体现这个边界
+        for needed in ["find_local_path", "inspect_local_path", "detect_local_project"] {
+            assert!(names.contains(&needed.to_string()), "缺少路径检索工具 {needed}");
+        }
+        for t in tool_specs() {
+            if t.name.contains("path") || t.name.contains("project") {
+                assert!(
+                    t.description.contains("不读文件内容") || t.description.contains("只看存在性"),
+                    "{} 的描述必须写清只能拿元信息",
+                    t.name
+                );
+            }
+        }
     }
 
     #[test]
@@ -1020,6 +1406,72 @@ mod tests {
         // （纯字符串检查，无需 CoreService）
         let msg = format!("没有这个工具: {}；只能使用系统提示里列出的工具", "rm -rf");
         assert!(msg.contains("只能使用"));
+    }
+
+    #[test]
+    fn form_schema_sanitizes_and_rejects() {
+        // 合法表单：保留字段、默认值、select 候选项，敏感字段用标准名
+        let good = sanitize_form_schema(&json!({
+            "title": "新增生产服务器",
+            "description": "收集接入信息",
+            "fields": [
+                {"name": "name", "label": "名称", "type": "text", "required": true},
+                {"name": "port", "label": "端口", "type": "number", "default": 22},
+                {"name": "group", "label": "分组", "type": "select", "options": ["生产-核心", "nginx网关"]},
+                {"name": "password", "label": "密码", "type": "password"}
+            ]
+        }))
+        .unwrap();
+        assert_eq!(good["title"], "新增生产服务器");
+        assert_eq!(good["fields"].as_array().unwrap().len(), 4);
+        let fields = good["fields"].as_array().unwrap();
+        assert_eq!(fields[1]["default"], 22);
+        assert_eq!(fields[2]["options"].as_array().unwrap().len(), 2);
+        // 敏感字段保留给前端渲染，但任何校验结果都不带用户值
+        assert!(good.to_string().contains("password"));
+
+        // 缺 title / 空 fields / 未知 type / select 无 options 一律拒绝
+        assert!(sanitize_form_schema(&json!({"fields": []})).is_err());
+        assert!(sanitize_form_schema(&json!({"title": "x", "fields": []})).is_err());
+        assert!(sanitize_form_schema(&json!({
+            "title": "x",
+            "fields": [{"name": "a", "label": "A", "type": "weird"}]
+        })).is_err());
+        assert!(sanitize_form_schema(&json!({
+            "title": "x",
+            "fields": [{"name": "a", "label": "A", "type": "select"}]
+        })).is_err());
+        // 敏感字段名不在标准凭据清单里 → 拒绝，防止前端按名预填失效
+        assert!(sanitize_form_schema(&json!({
+            "title": "x",
+            "fields": [{"name": "myPass", "label": "密码", "type": "password"}]
+        })).is_err());
+        // 非法字段名
+        assert!(sanitize_form_schema(&json!({
+            "title": "x",
+            "fields": [{"name": "a b", "label": "A"}]
+        })).is_err());
+    }
+
+    #[test]
+    fn ask_schema_sanitizes_and_rejects() {
+        let single = sanitize_ask_schema(&json!({
+            "question": "归属哪个分组？", "type": "single",
+            "options": ["生产-核心", "nginx网关"], "description": "选一个"
+        }))
+        .unwrap();
+        assert_eq!(single["type"], "single");
+        assert_eq!(single["options"].as_array().unwrap().len(), 2);
+        assert_eq!(single["description"], "选一个");
+
+        let text = sanitize_ask_schema(&json!({"question": "随便说点？", "type": "text"})).unwrap();
+        assert_eq!(text["type"], "text");
+        assert!(text.get("options").is_none());
+
+        // 缺 question / 未知 type / 非 text 缺 options 都要被拦
+        assert!(sanitize_ask_schema(&json!({})).is_err());
+        assert!(sanitize_ask_schema(&json!({"question": "x", "type": "radio"})).is_err());
+        assert!(sanitize_ask_schema(&json!({"question": "x", "type": "single"})).is_err());
     }
 }
 
@@ -1246,6 +1698,101 @@ mod tools_exec_tests {
             assert!(!wire.contains(secret), "连通性测试泄漏了凭据");
         }
         assert!(wire.contains("hints"), "应带上可执行的排查建议");
+    }
+
+    /// 路径工具：能找到、只给元信息、越界与凭据目录一律拒绝
+    #[tokio::test]
+    async fn path_tools_return_metadata_only() {
+        let (core, dir) = seeded("paths").await;
+        // 应用数据目录本身就是一个搜索根，直接在这里造目标
+        let project = dir.join("cicd-sandbox/seller-api");
+        std::fs::create_dir_all(project.join("src")).unwrap();
+        std::fs::write(project.join("pom.xml"), b"<project>SECRET-CONTENT-7</project>").unwrap();
+        std::fs::create_dir_all(dir.join("cicd-sandbox/node_modules/left-pad")).unwrap();
+        std::fs::create_dir_all(dir.join(".ssh")).unwrap();
+        std::fs::write(dir.join(".ssh/id_rsa"), b"PRIVKEY-9").unwrap();
+
+        let hits = execute(
+            &core,
+            "find_local_path",
+            &json!({"query": "seller-api", "within": dir.to_string_lossy()}),
+        )
+        .await;
+        let wire = hits.payload.to_string();
+        assert!(
+            wire.contains("seller-api"),
+            "应找到该目录: {:?}",
+            hits.payload
+        );
+        assert!(!wire.contains("SECRET-CONTENT-7"), "路径工具不得带出文件内容");
+        assert!(!wire.contains("left-pad"), "node_modules 应被剪掉");
+
+        let probe = execute(
+            &core,
+            "inspect_local_path",
+            &json!({"path": project.to_string_lossy()}),
+        )
+        .await;
+        assert_eq!(probe.payload["isDir"], json!(true));
+        assert!(probe.payload["signals"]["buildMarkers"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("pom.xml")));
+        assert!(!probe.payload.to_string().contains("SECRET-CONTENT-7"));
+
+        // 凭据目录：既搜不到也不能 stat
+        let denied = execute(
+            &core,
+            "inspect_local_path",
+            &json!({"path": dir.join(".ssh/id_rsa").to_string_lossy()}),
+        )
+        .await;
+        assert!(denied.payload.get("error").is_some(), "应拒绝访问凭据路径");
+        assert!(!denied.payload.to_string().contains("PRIVKEY-9"));
+
+        // within 逃出搜索根必须被拒
+        let escaped = execute(
+            &core,
+            "find_local_path",
+            &json!({"query": "passwd", "within": "/etc"}),
+        )
+        .await;
+        assert!(escaped.payload.get("error").is_some(), "within 越界应报错");
+
+        // 不存在的路径要能明确回答，供助手继续追问而不是瞎猜
+        let missing = execute(
+            &core,
+            "inspect_local_path",
+            &json!({"path": dir.join("nope/nada").to_string_lossy()}),
+        )
+        .await;
+        assert_eq!(missing.payload["exists"], json!(false));
+    }
+
+    /// 目录识别复用向导同一套逻辑，远端地址里的口令必须抹掉
+    #[tokio::test]
+    async fn detect_local_project_reuses_wizard_scan() {
+        let (core, dir) = seeded("detect").await;
+        let project = dir.join("cicd-proj");
+        std::fs::create_dir_all(project.join("src/main/java")).unwrap();
+        std::fs::write(project.join("pom.xml"), b"<project/>").unwrap();
+
+        let exec = execute(
+            &core,
+            "detect_local_project",
+            &json!({"path": project.to_string_lossy()}),
+        )
+        .await;
+        assert_eq!(exec.payload["buildTool"], json!("maven"), "{:?}", exec.payload);
+        assert!(exec.payload["path"].is_string());
+
+        let bogus = execute(
+            &core,
+            "detect_local_project",
+            &json!({"path": dir.join("missing-dir").to_string_lossy()}),
+        )
+        .await;
+        assert!(bogus.payload.get("error").is_some());
     }
 
     #[tokio::test]

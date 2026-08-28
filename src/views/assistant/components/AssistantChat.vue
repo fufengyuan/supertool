@@ -114,9 +114,26 @@
             v-for="p in entry.proposals"
             :key="p.id"
             :proposal="p"
+            :initial-secrets="proposalSecrets(p)"
             @apply="(fields, secrets) => applyProposal(p, fields, secrets)"
             @dismiss="dismissProposal(p)"
             @retry="applyProposal(p, p.fields, {})"
+          />
+
+          <!-- 信息收集表单 -->
+          <FormCard
+            v-for="f in entry.forms"
+            :key="f.callId"
+            :form="f"
+            @submit="(values) => { submitForm(f, values); jumpBottom(true) }"
+          />
+
+          <!-- 提问答题 -->
+          <AskCard
+            v-for="q in entry.questions"
+            :key="q.callId"
+            :ask="q"
+            @submit="(answer) => { submitAsk(q, answer); jumpBottom(true) }"
           />
 
           <div v-if="entry.error" class="px-3 py-2 rounded-xl border border-error/40 bg-error/5 text-[11px] text-error leading-relaxed">
@@ -185,6 +202,8 @@ import { useRouter } from 'vue-router'
 import SvgIcon from '../../../components/ui/SvgIcon.vue'
 import { renderMarkdown } from '../../../composables/useMarkdownRenderer'
 import { useAssistantChat } from '../../../composables/useAssistantChat'
+import FormCard from './FormCard.vue'
+import AskCard from './AskCard.vue'
 import ProposalCard from './ProposalCard.vue'
 
 const props = withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
@@ -193,6 +212,7 @@ const router = useRouter()
 const {
   entries, running, ready, modelInfo, capabilities, stateError,
   refreshState, start, send, stop, clear, applyProposal, dismissProposal,
+  submitForm, submitAsk, proposalSecrets,
 } = useAssistantChat((to: RouteLocationRaw) => router.push(to))
 
 const listRef = ref<HTMLElement | null>(null)

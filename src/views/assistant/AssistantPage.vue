@@ -33,6 +33,7 @@
           </h3>
           <ul class="text-[11px] text-base-content/70 leading-relaxed m-0 pl-4 flex flex-col gap-1">
             <li>读取你已配置的服务器、数据库连接、部署配置与部署日志</li>
+            <li>查找本机项目目录、核对某个构建/产物路径是否存在（只取路径与元信息）</li>
             <li>按项目踩过的坑做字段级体检（构建目录 / 产物目录 / lib 分离 / 健康检查…）</li>
             <li>解释每个字段的含义，给出下一步操作并带你到对应页面</li>
             <li>把要改的内容整理成「变更提案」，列出每个取值和理由</li>
@@ -46,7 +47,8 @@
           <ul class="text-[11px] text-base-content/70 leading-relaxed m-0 pl-4 flex flex-col gap-1">
             <li><b>看不到任何密码/密钥</b>：返回值里这类字段一律是 [已隐藏]</li>
             <li><b>不能直接改配置</b>：所有写入都必须你在提案卡片上点「确认应用」</li>
-            <li><b>没有文件与命令能力</b>：不能读写磁盘、不能执行 SSH/SQL</li>
+            <li><b>读不到任何文件内容</b>：路径工具只给存在性/类型/大小，磁盘写、命令执行、SQL 一律没有</li>
+            <li><b>凭据目录不可访问</b>：<code>.ssh</code>、钥匙串、<code>.aws</code> 等既搜不到也不能核对</li>
             <li>需要凭据时（如新建服务器），由你在卡片上亲手填写，不经过对话</li>
           </ul>
         </section>

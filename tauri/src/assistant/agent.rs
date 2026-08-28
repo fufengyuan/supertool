@@ -92,8 +92,10 @@ pub fn system_prompt(route: &llm::RouteInfo, tool_names: &[String]) -> String {
          并教会他们怎么用。\n\n\
         你能用的工具（{count} 个）：{tools}。\n\n\
         硬性规则，任何情况下都不得违反：\n\
-        1) 你没有写配置的能力，也没有读文件、执行命令、写 SQL、访问网络的能力。要改配置只能调用 \
-           propose_config_change 生成「变更提案」，由用户在确认卡片上点确认后才由界面写入。\n\
+        1) 你没有写配置的能力，也没有读文件内容、执行命令、写 SQL、访问网络的能力。要改配置只能调用 \
+           propose_config_change 生成「变更提案」，由用户在确认卡片上点确认后才由界面写入。\n           你可以用 find_local_path / inspect_local_path / detect_local_project 查本机路径与目录结构\
+           （只有路径、类型、大小、有没有 pom.xml/package.json 这类元信息，拿不到文件内容），\
+           填 localPath、构建目录、产物目录之前先这样确认真实路径，不要凭猜。\n\
         2) 永远不要索要、猜测或转述密码、SSH 私钥、apiKey、token 等凭据。工具返回里这类字段是 [已隐藏]，\
            提案里出现这类字段会被直接拒绝——遇到需要凭据的场合，告诉用户自己在表单里填哪一格。\n\
         3) 不给猜测性的结论。涉及具体某条配置时先用读类工具看真实值（list_cicd_configs / get_cicd_config /\
@@ -101,8 +103,12 @@ pub fn system_prompt(route: &llm::RouteInfo, tool_names: &[String]) -> String {
         4) 解释字段含义或使用步骤前，先用 search_usage_guides 查内置知识库；查不到就明说不确定，\n\
            不要编造工具里没有的规则。引用知识条目时给出条目标题，方便用户回看。\n\
         5) 用户问「怎么操作」时，可以在给出步骤的同时调用 open_config_page 把他们带过去。\n\
-        6) 提案里的 fields 必须是可直接使用的完整值（不要占位符、不要 JSON 字符串化），\n\
-           一次提案只改一个目标，改动多就分多条提案让用户逐条确认。\n\n\
+        6) 提案里的 fields 必须是可直接使用的完整值（不要占位符、不要 JSON 字符串化），\
+           一次提案只改一个目标，改动多就分多条提案让用户逐条确认。\n\
+        7) 需要用户录入结构化信息时（如新增服务器/部署配置要填的字段），调用 request_form 弹出表单让用户直接填写，\
+           不要在正文里罗列字段等用户逐条回复；只需要用户在少数选项里选一个时，用 ask 给出候选让用户勾选（也允许自定义输入）。\
+           敏感字段（type 为 password）的 name 必须用标准凭据字段名（password/sshKeyPath/apiKey/token/secret/privateKey），\
+           用户填的值只保存在本地并自动带入确认卡片的凭据槽位，永远不会出现在对话里——不要替用户填、也不要再在正文里追问或转述这些值。\n\n\
         风格：中文、简洁、面向操作。先给结论或下一步动作，再给原因。不要长篇复述配置内容。\n\
         当前接入模型：{provider}（协议 {protocol}，模型 {model}，上下文窗口 {window} tokens）。",
         count = tool_names.len(),
@@ -320,6 +326,32 @@ async fn run_inner(
             // 深度脱敏：既按字段名抹密钥，也逐个字符串抹形态（内嵌 JSON / 环境变量）
             let cleaned = safety::deep_redact(&exec.payload);
             let shrunk = tools::shrink(cleaned);
+
+            // 交互卡片：request_form / ask 把净化后的 schema 发给前端渲染表单/问题，
+            // 用户填完提交后再作为新消息回给模型继续处理（敏感字段值只留在前端本地）。
+            if shrunk.get("error").is_none() {
+                match call.name.as_str() {
+                    "request_form" => {
+                        if let Ok(spec) = tools::sanitize_form_schema(&args) {
+                            emit_event(
+                                &app,
+                                turn_id,
+                                json!({"type": "form", "callId": call.id, "form": spec}),
+                            );
+                        }
+                    }
+                    "ask" => {
+                        if let Ok(spec) = tools::sanitize_ask_schema(&args) {
+                            emit_event(
+                                &app,
+                                turn_id,
+                                json!({"type": "question", "callId": call.id, "question": spec}),
+                            );
+                        }
+                    }
+                    _ => {}
+                }
+            }
 
             if !exec.proposals.is_empty() {
                 for p in &exec.proposals {

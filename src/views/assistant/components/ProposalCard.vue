@@ -123,7 +123,11 @@ import { useRouter } from 'vue-router'
 import SvgIcon from '../../../components/ui/SvgIcon.vue'
 import type { Proposal } from '../../../composables/useAssistantChat'
 
-const props = defineProps<{ proposal: Proposal }>()
+const props = defineProps<{
+  proposal: Proposal
+  /** 从表单收集的敏感值按字段名预填，用户可直接确认（值仍只来自本地暂存） */
+  initialSecrets?: Record<string, string>
+}>()
 const emit = defineEmits<{
   (e: 'apply', fields: Record<string, unknown>, secrets: Record<string, string>): void
   (e: 'dismiss'): void
@@ -136,7 +140,7 @@ const localError = ref('')
 
 /** 助手给出的字段先复制到本地，用户可以在卡片上直接改 */
 const draft = reactive<Record<string, any>>(JSON.parse(JSON.stringify(props.proposal.fields || {})))
-const secrets = reactive<Record<string, string>>({})
+const secrets = reactive<Record<string, string>>({ ...(props.initialSecrets || {}) })
 
 const TARGET_LABELS: Record<string, string> = {
   server: '服务器',

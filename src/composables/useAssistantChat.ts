@@ -38,6 +38,36 @@ export interface Proposal {
   error?: string
 }
 
+/** request_form 弹出来的表单字段（后端 sanitize_form_schema 净化后下发） */
+export interface FormField {
+  name: string
+  label: string
+  type: 'text' | 'number' | 'select' | 'boolean' | 'textarea' | 'password'
+  required?: boolean
+  placeholder?: string
+  default?: string | number | boolean
+  options?: string[]
+  description?: string
+}
+
+export interface AssistantForm {
+  callId: string
+  title: string
+  description?: string
+  fields: FormField[]
+  status: 'pending' | 'submitted'
+}
+
+/** ask 弹出来的问题卡片（单选/多选/自由输入） */
+export interface AssistantAsk {
+  callId: string
+  question: string
+  type: 'single' | 'multiple' | 'text'
+  options?: string[]
+  description?: string
+  status: 'pending' | 'submitted'
+}
+
 export interface AssistantEntry {
   id: string
   role: 'user' | 'assistant' | 'note'
@@ -45,6 +75,8 @@ export interface AssistantEntry {
   thinking: string
   tools: ToolRun[]
   proposals: Proposal[]
+  forms: AssistantForm[]
+  questions: AssistantAsk[]
   streaming: boolean
   error?: string
   /** 模型未配置，需要先去设置页 */
@@ -57,6 +89,11 @@ export interface AssistantEntry {
 
 const nowTime = () => new Date().toLocaleTimeString('zh-CN', { hour12: false })
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
+
+/** 表单里收集的敏感值：只在本组件实例内暂存，绝不进对话文本/模型上下文；
+ *  按字段名（password/sshKeyPath/apiKey/token/secret/privateKey）与提案凭据槽位匹配自动带入 */
+const SECRET_KEYS = ['password', 'sshKeyPath', 'apiKey', 'token', 'secret', 'privateKey']
+const SECRET_PLACEHOLDER = '已填写（保存在本地，确认提案时自动带入）'
 
 /** 送给后端的历史：只要 user/assistant 正文，最多 20 条（后端还会再裁一次） */
 const HISTORY_LIMIT = 20
@@ -74,6 +111,8 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
 
   const pendingProposals = computed(() =>
     entries.value.flatMap(e => e.proposals.filter(p => p.status === 'pending')))
+  /** 表单里收集过的敏感值暂存区（实例级，不持久化、不进模型上下文） */
+  const secretVault = ref<Record<string, string>>({})
   const lastAssistant = () => {
     for (let i = entries.value.length - 1; i >= 0; i--) {
       if (entries.value[i].role === 'assistant') {return entries.value[i]}
@@ -84,7 +123,7 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
   function newAssistantEntry(): AssistantEntry {
     const entry: AssistantEntry = {
       id: uid(), role: 'assistant', text: '', thinking: '', tools: [],
-      proposals: [], streaming: true, at: nowTime(),
+      proposals: [], forms: [], questions: [], streaming: true, at: nowTime(),
     }
     entries.value.push(entry)
     return entry
@@ -158,6 +197,26 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
           entry.proposals.push({ id: uid(), status: 'pending', ...data.proposal })
         }
         break
+      case 'form':
+        if (data.form) {
+          entry.forms.push({
+            callId: data.callId || uid(),
+            status: 'pending',
+            title: data.form.title || '请填写以下信息',
+            description: data.form.description,
+            fields: data.form.fields || [],
+          })
+        }
+        break
+      case 'question':
+        if (data.question) {
+          entry.questions.push({
+            callId: data.callId || uid(),
+            status: 'pending',
+            ...data.question,
+          })
+        }
+        break
       case 'action':
         handleAction(data.action, entry)
         break
@@ -167,7 +226,7 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
       case 'notice':
         entries.value.push({
           id: uid(), role: 'note', text: data.message || '', thinking: '', tools: [],
-          proposals: [], streaming: false, at: nowTime(),
+          proposals: [], forms: [], questions: [], streaming: false, at: nowTime(),
         })
         break
       case 'error':
@@ -202,7 +261,7 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
 
     entries.value.push({
       id: uid(), role: 'user', text, thinking: '', tools: [], proposals: [],
-      streaming: false, at: nowTime(),
+      forms: [], questions: [], streaming: false, at: nowTime(),
     })
     running.value = true
     turnId = uid()
@@ -235,7 +294,7 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
     settle()
     entries.value.push({
       id: uid(), role: 'note', text: '已停止本次回答', thinking: '', tools: [],
-      proposals: [], streaming: false, at: nowTime(),
+      proposals: [], forms: [], questions: [], streaming: false, at: nowTime(),
     })
   }
 
@@ -248,8 +307,54 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
     }) as (() => void) | undefined
   }
 
+  /** 把表单填写的值作为新消息回给模型继续处理。敏感字段值只进本地暂存区，不进对话文本。 */
+  function submitForm(form: AssistantForm, values: Record<string, unknown>) {
+    if (running.value || form.status === 'submitted') {return}
+    for (const f of form.fields) {
+      if (f.type !== 'password') {continue}
+      const v = values[f.name]
+      if (typeof v === 'string' && v.trim()) {secretVault.value[f.name] = v.trim()}
+    }
+    form.status = 'submitted'
+    const lines: string[] = [`【表单提交】${form.title}`]
+    for (const f of form.fields) {
+      if (f.type === 'password') {
+        lines.push(`${f.label}：${SECRET_PLACEHOLDER}`)
+        continue
+      }
+      const raw = values[f.name]
+      if (typeof raw === 'boolean') {lines.push(`${f.label}：${raw ? '是' : '否'}`)}
+      else if (raw === undefined || raw === null || raw === '') {lines.push(`${f.label}：（未填写）`)}
+      else {lines.push(`${f.label}：${String(raw)}`)}
+    }
+    send(lines.join('\n'))
+  }
+
+  /** 把答案作为新消息回给模型继续处理（勾选结果 + 自定义输入合并） */
+  function submitAsk(ask: AssistantAsk, answer: string | string[]) {
+    if (running.value || ask.status === 'submitted') {return}
+    ask.status = 'submitted'
+    const text = Array.isArray(answer) ? answer.join('、') : answer
+    send(`【回答】${ask.question}\n${text}`)
+  }
+
+  /** 提案卡片凭据槽位的初始值：从表单收集的敏感值按字段名匹配自动带入 */
+  function proposalSecrets(proposal: Proposal): Record<string, string> {
+    const out: Record<string, string> = {}
+    const candidates = new Set([
+      ...(proposal.needUserInput || []),
+      ...Object.keys(proposal.fields || {}).filter(k => SECRET_KEYS.includes(k)),
+    ])
+    for (const name of candidates) {
+      const v = secretVault.value[name]
+      if (v) {out[name] = v}
+    }
+    return out
+  }
+
   function clear() {
     entries.value = []
+    secretVault.value = {}
     settle()
   }
 
@@ -346,6 +451,6 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
   return {
     entries, running, ready, modelInfo, capabilities, stateError,
     pendingProposals, refreshState, start, send, stop, clear,
-    applyProposal, dismissProposal,
+    applyProposal, dismissProposal, submitForm, submitAsk, proposalSecrets,
   }
 }
