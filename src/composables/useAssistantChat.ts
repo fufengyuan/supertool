@@ -77,6 +77,8 @@ export interface AssistantEntry {
   proposals: Proposal[]
   forms: AssistantForm[]
   questions: AssistantAsk[]
+  /** 用户消息携带的图片（data URI，仅展示；发送时只随当前轮，不进历史） */
+  images?: string[]
   streaming: boolean
   error?: string
   /** 模型未配置，需要先去设置页 */
@@ -256,10 +258,23 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
     }
   }
 
-  async function send(message: string) {
+  /** 发送一条消息，可带图片（data URI 数组，如 data:image/png;base64,xxx）。
+   *  图片只随当前轮发给模型（需模型开「支持识图」），历史仍只保留文本。 */
+  async function send(message: string, images?: string[]) {
     const text = message.trim()
-    if (!text || running.value) {return}
+    if ((!text && !(images && images.length)) || running.value) {return}
     const api = getTauriAPI() as any
+
+    // data URI → 后端 ImageBlock 形态：data:image/png;base64,xxx → {mediaType, dataBase64}
+    const imagePayload = (images || [])
+      .filter(Boolean)
+      .map(uri => {
+        const m = /^data:([^;,]+);base64,(.*)$/s.exec(uri)
+        return m
+          ? { mediaType: m[1], dataBase64: m[2] }
+          : null
+      })
+      .filter((x): x is { mediaType: string; dataBase64: string } => !!x)
 
     const history = entries.value
       .filter(e => (e.role === 'user' || e.role === 'assistant') && e.text.trim() && !e.error)
@@ -269,18 +284,19 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
     entries.value.push({
       id: uid(), role: 'user', text, thinking: '', tools: [], proposals: [],
       forms: [], questions: [], streaming: false, at: nowTime(),
+      images: images && images.length ? [...images] : undefined,
     })
     running.value = true
     turnId = uid()
     newAssistantEntry()
 
     try {
-      await api.assistantChat(turnId, text, history)
+      await api.assistantChat(turnId, text, history, imagePayload)
     } catch (e) {
       const entry = targetEntry(true)
       if (entry) {
         entry.error = String((e as Error)?.message || e)
-        entry.needConfig = /尚未配置|未就绪|提供商|模型/.test(entry.error)
+        entry.needConfig = /尚未配置|未就绪|提供商|模型|识图/.test(entry.error)
         entry.streaming = false
       }
       running.value = false

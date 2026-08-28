@@ -38,7 +38,11 @@
       </select>
       <p v-if="activeModel" class="text-[11px] text-base-content/50 mt-2 m-0">
         上下文窗口 {{ formatTokens(activeModel.contextWindow) }} tokens（{{ activeModel.contextWindow }}）· 单次输出上限
-        {{ formatTokens(activeModel.maxOutputTokens) }} tokens · 决定助手能带多少历史，配太小会频繁截断上下文
+        {{ formatTokens(activeModel.maxOutputTokens) }} tokens ·
+        <span :class="activeModel.vision ? 'text-success' : 'text-base-content/45'">
+          {{ activeModel.vision ? '支持识图，可粘贴截图' : '未开启识图' }}
+        </span>
+        · 决定助手能带多少历史，配太小会频繁截断上下文
       </p>
     </div>
 
@@ -283,6 +287,12 @@
                   </button>
                 </div>
               </label>
+
+              <label class="flex items-center gap-1.5 text-xs text-base-content/60 cursor-pointer">
+                <input v-model="m.vision" type="checkbox" class="toggle toggle-xs toggle-primary" />
+                支持识图
+                <span class="text-[10px] text-base-content/45">开启后可给助手粘贴截图/图片排查问题</span>
+              </label>
             </div>
 
             <p class="text-[11px] text-base-content/45 m-0 leading-relaxed">
@@ -315,7 +325,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useToast } from '@/composables/useToast'
 
-interface AiModelRow { id: string; label?: string; contextWindow?: number; maxOutputTokens?: number }
+interface AiModelRow { id: string; label?: string; contextWindow?: number; maxOutputTokens?: number; vision?: boolean }
 interface AiProviderRow {
   id: string
   name: string
@@ -362,52 +372,52 @@ const OUTPUT_PRESETS = [
 const MODEL_PRESETS = [
   {
     name: 'DeepSeek',
-    note: '官方 OpenAI 兼容端点（根路径）；deepseek-v4-flash 1M 上下文、输出最大 384K',
+    note: '官方 OpenAI 兼容端点（根路径）；deepseek-v4-flash 1M 上下文、输出最大 384K；识图需用 deepseek-v4-flash-vision-exp',
     protocol: 'openai',
     baseUrl: 'https://api.deepseek.com',
-    models: [{ id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', contextWindow: 1048576, maxOutputTokens: 32768 }],
+    models: [{ id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', contextWindow: 1048576, maxOutputTokens: 32768, vision: false }],
   },
   {
     name: '智谱 GLM',
-    note: 'glm-5.3-flash 为 1M 上下文、输出最大 128K',
+    note: 'glm-5.3-flash 为 1M 上下文、输出最大 128K、支持识图',
     protocol: 'openai',
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-    models: [{ id: 'glm-5.3-flash', label: 'GLM 5.3 Flash', contextWindow: 1048576, maxOutputTokens: 32768 }],
+    models: [{ id: 'glm-5.3-flash', label: 'GLM 5.3 Flash', contextWindow: 1048576, maxOutputTokens: 32768, vision: true }],
   },
   {
     name: 'Kimi',
-    note: 'kimi-k3 为 1M 上下文、默认输出 128K',
+    note: 'kimi-k3 为 1M 上下文、默认输出 128K、原生支持识图',
     protocol: 'openai',
     baseUrl: 'https://api.moonshot.cn/v1',
-    models: [{ id: 'kimi-k3', label: 'Kimi K3', contextWindow: 1048576, maxOutputTokens: 32768 }],
+    models: [{ id: 'kimi-k3', label: 'Kimi K3', contextWindow: 1048576, maxOutputTokens: 32768, vision: true }],
   },
   {
     name: '通义千问',
-    note: 'qwen3.8-flash 为 1M 上下文（DashScope 国内兼容端点）',
+    note: 'qwen3.8-flash 为 1M 上下文（DashScope 国内兼容端点）；识图能力视网关而定，可手动开启',
     protocol: 'openai',
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    models: [{ id: 'qwen3.8-flash', label: 'Qwen3.8 Flash', contextWindow: 1048576, maxOutputTokens: 32768 }],
+    models: [{ id: 'qwen3.8-flash', label: 'Qwen3.8 Flash', contextWindow: 1048576, maxOutputTokens: 32768, vision: false }],
   },
   {
     name: 'Anthropic Claude',
-    note: '1M 上下文为 Sonnet 5 / Opus 5；Haiku 4.5 为 200K',
+    note: '1M 上下文为 Sonnet 5 / Opus 5；Haiku 4.5 为 200K；均支持识图',
     protocol: 'anthropic',
     baseUrl: 'https://api.anthropic.com',
-    models: [{ id: 'claude-sonnet-5', label: 'Claude Sonnet 5', contextWindow: 1000000, maxOutputTokens: 128000 }],
+    models: [{ id: 'claude-sonnet-5', label: 'Claude Sonnet 5', contextWindow: 1000000, maxOutputTokens: 128000, vision: true }],
   },
   {
     name: 'OpenAI GPT',
-    note: 'GPT-5.6 系（Sol/Terra/Luna）为 1M 上下文',
+    note: 'GPT-5.6 系（Sol/Terra/Luna）为 1M 上下文、支持识图',
     protocol: 'openai',
     baseUrl: 'https://api.openai.com/v1',
-    models: [{ id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', contextWindow: 1050000, maxOutputTokens: 128000 }],
+    models: [{ id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', contextWindow: 1050000, maxOutputTokens: 128000, vision: true }],
   },
   {
     name: 'Google Gemini',
-    note: 'OpenAI 兼容端点；gemini-2.5-pro / 2.5-flash 均为 1M',
+    note: 'OpenAI 兼容端点；gemini-2.5-pro / 2.5-flash 均为 1M、支持识图',
     protocol: 'openai',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    models: [{ id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', contextWindow: 1048576, maxOutputTokens: 65536 }],
+    models: [{ id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', contextWindow: 1048576, maxOutputTokens: 65536, vision: true }],
   },
 ]
 

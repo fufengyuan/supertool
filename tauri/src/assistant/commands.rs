@@ -122,6 +122,43 @@ fn sanitize_history(raw: Option<Vec<Value>>) -> Vec<super::llm::ChatMessage> {
     out
 }
 
+/// 解析前端传来的图片参数（[{mediaType, dataBase64}]）：
+/// 校验格式、大小上限；数量上限；空数组按无图处理
+fn parse_images(raw: Option<Vec<Value>>) -> Result<Vec<super::llm::ImageBlock>, String> {
+    const MAX_IMAGES: usize = 4;
+    const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024; // 单图 base64 上限约 8MB
+    let Some(list) = raw else {
+        return Ok(Vec::new());
+    };
+    let mut out = Vec::new();
+    for (i, item) in list.into_iter().enumerate() {
+        if i >= MAX_IMAGES {
+            return Err(format!("一次最多携带 {MAX_IMAGES} 张图片"));
+        }
+        let media_type = item["mediaType"]
+            .as_str()
+            .filter(|m| m.starts_with("image/"))
+            .ok_or_else(|| format!("第 {} 张图片媒体类型不合法", i + 1))?
+            .to_string();
+        let data = item["dataBase64"]
+            .as_str()
+            .filter(|d| !d.trim().is_empty())
+            .ok_or_else(|| format!("第 {} 张图片数据为空", i + 1))?;
+        if data.len() > MAX_IMAGE_BYTES {
+            return Err(format!(
+                "第 {} 张图片过大（>{:.0}MB），压缩后再试",
+                i + 1,
+                MAX_IMAGE_BYTES as f64 / 1024.0 / 1024.0
+            ));
+        }
+        out.push(super::llm::ImageBlock {
+            media_type,
+            data_base64: data.to_string(),
+        });
+    }
+    Ok(out)
+}
+
 /// 发起一轮回答：立即返回，过程与结果通过 `assistant-event` 事件流推送
 #[tauri::command(rename_all = "camelCase")]
 pub async fn assistant_chat(
@@ -130,6 +167,7 @@ pub async fn assistant_chat(
     turn_id: String,
     message: String,
     history: Option<Vec<Value>>,
+    images: Option<Vec<Value>>,
 ) -> Result<Value, String> {
     if message.trim().is_empty() {
         return Err("消息为空".to_string());
@@ -142,6 +180,14 @@ pub async fn assistant_chat(
     }
     // 没配模型时立刻给引导，不要让用户等一次必然失败的请求
     let route = core.resolve_ai_route()?;
+    let images = parse_images(images)?;
+    if !images.is_empty() && !route.vision {
+        return Err(format!(
+            "当前模型「{}」不支持识图，无法接收图片/截图。\
+             请到 设置 → AI 模型 给该模型打开「支持识图」开关，或切换支持识图的模型",
+            route.model_id
+        ));
+    }
     let history = sanitize_history(history);
     super::agent::run_turn(
         app,
@@ -149,6 +195,7 @@ pub async fn assistant_chat(
         turn_id.clone(),
         message.trim().to_string(),
         history,
+        images,
     );
     Ok(json!({
         "ok": true,

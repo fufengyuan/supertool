@@ -149,6 +149,7 @@ pub fn run_turn(
     turn_id: String,
     user_message: String,
     history: Vec<llm::ChatMessage>,
+    images: Vec<llm::ImageBlock>,
 ) {
     let cancel = Arc::new(AtomicBool::new(false));
     let handle = tokio::spawn({
@@ -156,7 +157,7 @@ pub fn run_turn(
         let cancel = cancel.clone();
         let turn_id = turn_id.clone();
         async move {
-            run_inner(app, core, &turn_id, user_message, history, cancel).await;
+            run_inner(app, core, &turn_id, user_message, history, images, cancel).await;
         }
     });
     // 任务可能在登记前就结束了（Guard 先移除、这里后插入会留残骸），登记后补一次清理
@@ -175,6 +176,7 @@ async fn run_inner(
     turn_id: &str,
     user_message: String,
     history: Vec<llm::ChatMessage>,
+    images: Vec<llm::ImageBlock>,
     cancel: Arc<AtomicBool>,
 ) {
     let _guard = FinishGuard(turn_id.to_string());
@@ -199,11 +201,16 @@ async fn run_inner(
             protocol: route.protocol.as_str().to_string(),
             model_id: route.model_id.clone(),
             context_window: route.context_window,
+            vision: route.vision,
         },
         &names,
     ))];
     messages.extend(history);
-    messages.push(llm::ChatMessage::user(user_message));
+    if images.is_empty() {
+        messages.push(llm::ChatMessage::user(user_message));
+    } else {
+        messages.push(llm::ChatMessage::user_with_images(user_message, images));
+    }
 
     let context_window = route.context_window;
     let reserve = route.max_output_tokens;
@@ -315,6 +322,7 @@ async fn run_inner(
         messages.push(llm::ChatMessage {
             role: "assistant".to_string(),
             content: turn.text.clone(),
+            images: Vec::new(),
             tool_calls: turn.tool_calls.clone(),
             tool_call_id: None,
             name: None,
@@ -463,6 +471,7 @@ mod tests {
             protocol: "openai".into(),
             model_id: "qwen-max".into(),
             context_window: 32000,
+            vision: true,
         };
         let prompt = system_prompt(&route, &["list_servers".to_string(), "search_usage_guides".to_string()]);
         assert!(prompt.contains("propose_config_change"));

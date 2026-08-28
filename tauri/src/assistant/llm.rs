@@ -10,12 +10,24 @@ use serde_json::{Value, json};
 use super::safety::redact_secrets;
 use supertool_core::logic::ai_provider::{AiProtocol, AiRoute};
 
+/// 一张图片：媒体类型 + base64 数据（不含 data: 前缀）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageBlock {
+    /// 如 image/png、image/jpeg、image/webp
+    pub media_type: String,
+    /// base64 编码的图片字节
+    pub data_base64: String,
+}
+
 /// 一次会话消息（内部统一用 OpenAI 形态表达，发往 Anthropic 时再做结构转换）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     /// system | user | assistant | tool
     pub role: String,
     pub content: String,
+    /// 用户消息携带的图片（仅当前轮生效，不进历史裁剪预算）
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub images: Vec<ImageBlock>,
     /// assistant 发起的工具调用
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_calls: Vec<ToolCall>,
@@ -31,6 +43,18 @@ impl ChatMessage {
         Self {
             role: role.to_string(),
             content: content.into(),
+            images: Vec::new(),
+            tool_calls: Vec::new(),
+            tool_call_id: None,
+            name: None,
+        }
+    }
+    /// 带图片的用户消息（vision 模型用）
+    pub fn user_with_images(content: impl Into<String>, images: Vec<ImageBlock>) -> Self {
+        Self {
+            role: "user".to_string(),
+            content: content.into(),
+            images,
             tool_calls: Vec::new(),
             tool_call_id: None,
             name: None,
@@ -46,6 +70,7 @@ impl ChatMessage {
         Self {
             role: "tool".to_string(),
             content: redact_secrets(&result).to_string(),
+            images: Vec::new(),
             tool_calls: Vec::new(),
             tool_call_id: Some(call_id.to_string()),
             name: Some(name.to_string()),
@@ -104,6 +129,8 @@ pub struct RouteInfo {
     pub protocol: String,
     pub model_id: String,
     pub context_window: u32,
+    /// 当前模型是否支持识图
+    pub vision: bool,
 }
 
 // =================== 请求体构造（纯函数） ===================
@@ -183,11 +210,23 @@ fn anthropic_messages(messages: &[ChatMessage]) -> (Option<String>, Vec<Value>) 
                 }
                 push_turn(&mut turns, "assistant", blocks);
             }
-            _ => push_turn(
-                &mut turns,
-                "user",
-                vec![json!({ "type": "text", "text": m.content })],
-            ),
+            _ => {
+                let mut blocks: Vec<Value> = Vec::new();
+                if !m.content.is_empty() {
+                    blocks.push(json!({ "type": "text", "text": m.content }));
+                }
+                for img in &m.images {
+                    blocks.push(json!({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": img.media_type,
+                            "data": img.data_base64,
+                        },
+                    }));
+                }
+                push_turn(&mut turns, "user", blocks);
+            }
         }
     }
 
@@ -248,7 +287,27 @@ pub fn build_body(protocol: AiProtocol, req: &ChatRequest, stream: bool) -> Valu
                         );
                     }
                     _ => {
-                        obj.insert("content".into(), json!(m.content));
+                        // 用户消息带图时，content 转为内容块数组（OpenAI 多模态规范）
+                        if m.role == "user" && !m.images.is_empty() {
+                            let mut blocks: Vec<Value> = Vec::new();
+                            if !m.content.is_empty() {
+                                blocks.push(json!({ "type": "text", "text": m.content }));
+                            }
+                            for img in &m.images {
+                                blocks.push(json!({
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": format!(
+                                            "data:{};base64,{}",
+                                            img.media_type, img.data_base64
+                                        ),
+                                    },
+                                }));
+                            }
+                            obj.insert("content".into(), Value::Array(blocks));
+                        } else {
+                            obj.insert("content".into(), json!(m.content));
+                        }
                     }
                 }
                 messages.push(Value::Object(obj));
@@ -741,6 +800,7 @@ mod tests {
         let assistant = ChatMessage {
             role: "assistant".to_string(),
             content: String::new(),
+            images: Vec::new(),
             tool_calls: vec![ToolCall {
                 id: "tu_1".to_string(),
                 name: "list_servers".to_string(),
@@ -779,6 +839,41 @@ mod tests {
         assert_eq!(om[1]["tool_call_id"], "tu_1");
     }
 
+    /// 带图用户消息：OpenAI 用 image_url(data URI)，Anthropic 用 image(base64 source)
+    #[test]
+    fn vision_images_are_encoded_per_protocol() {
+        let img = ImageBlock {
+            media_type: "image/png".to_string(),
+            data_base64: "QUJDRA==".to_string(),
+        };
+        let user = ChatMessage::user_with_images("看这张图", vec![img]);
+
+        let oai = build_body(AiProtocol::OpenAi, &req(vec![user.clone()]), true);
+        let content = oai["messages"][0]["content"].as_array().unwrap();
+        assert_eq!(content[0]["type"], "text");
+        assert_eq!(content[0]["text"], "看这张图");
+        assert_eq!(content[1]["type"], "image_url");
+        assert_eq!(
+            content[1]["image_url"]["url"],
+            "data:image/png;base64,QUJDRA=="
+        );
+
+        let anth = build_body(AiProtocol::Anthropic, &req(vec![user]), true);
+        let blocks = anth["messages"][0]["content"].as_array().unwrap();
+        assert_eq!(blocks[0]["type"], "text");
+        assert_eq!(blocks[1]["type"], "image");
+        assert_eq!(blocks[1]["source"]["type"], "base64");
+        assert_eq!(blocks[1]["source"]["media_type"], "image/png");
+        assert_eq!(blocks[1]["source"]["data"], "QUJDRA==");
+    }
+
+    /// 纯文本用户消息不带图时，content 仍是字符串（不破坏现有请求形态）
+    #[test]
+    fn text_only_user_keeps_plain_content() {
+        let oai = build_body(AiProtocol::OpenAi, &req(vec![ChatMessage::user("hi")]), true);
+        assert_eq!(oai["messages"][0]["content"], "hi");
+    }
+
     /// 工具循环会产生连续 assistant / 连续 tool_result，Anthropic 要求严格交替且首条为 user
     #[test]
     fn anthropic_forces_role_alternation_and_user_first() {
@@ -794,6 +889,7 @@ mod tests {
             ChatMessage {
                 role: "assistant".into(),
                 content: String::new(),
+                images: Vec::new(),
                 tool_calls: vec![call("t1"), call("t2")],
                 tool_call_id: None,
                 name: None,

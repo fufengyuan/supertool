@@ -1710,7 +1710,7 @@ export interface TauriAPI {
   onTodosChanged: (callback: () => void) => Promise<() => void>
   // AI 配置助手
   assistantGetState: () => Promise<any>
-  assistantChat: (turnId: string, message: string, history: any[]) => Promise<any>
+  assistantChat: (turnId: string, message: string, history: any[], images?: { mediaType: string; dataBase64: string }[]) => Promise<any>
   assistantAbort: (turnId: string) => Promise<any>
   onAssistantEvent: (callback: (data: any) => void) => Promise<UnlistenFn>
   listAiProviders: () => Promise<any[]>
@@ -2532,7 +2532,7 @@ export function getTauriAPI(): TauriAPI {
     onDataChanged: (callback: (data: any) => void) => { return listen('data-changed', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onTodosChanged: (callback: () => void) => { return listen('todos-changed', () => callback()) as Promise<UnlistenFn> },
     assistantGetState: async () => tauriCall('assistant_get_state'),
-    assistantChat: async (turnId: string, message: string, history: any[]) => { return tauriCall('assistant_chat', { turnId, message, history }); },
+    assistantChat: async (turnId: string, message: string, history: any[], images?: { mediaType: string; dataBase64: string }[]) => { return tauriCall('assistant_chat', { turnId, message, history, images }); },
     assistantAbort: async (turnId: string) => { return tauriCall('assistant_abort', { turnId }); },
     onAssistantEvent: (callback: (data: any) => void) => { return listen('assistant-event', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     listAiProviders: async () => { return (await tauriCall('list_ai_providers')) as any[]; },

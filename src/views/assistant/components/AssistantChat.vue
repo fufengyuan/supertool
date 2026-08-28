@@ -68,7 +68,19 @@
 
         <!-- 用户消息 -->
         <div v-else-if="entry.role === 'user'" class="self-end max-w-[85%]">
-          <div class="px-3 py-2 rounded-xl rounded-br-sm bg-primary text-primary-content text-xs leading-relaxed whitespace-pre-wrap break-words">
+          <div
+            v-if="entry.images && entry.images.length"
+            class="flex flex-wrap gap-1.5 mb-1.5 justify-end"
+          >
+            <img
+              v-for="(uri, i) in entry.images"
+              :key="i"
+              :src="uri"
+              class="w-28 h-28 object-cover rounded-lg border border-white/20 bg-base-200"
+              alt="用户附图"
+            />
+          </div>
+          <div v-if="entry.text" class="px-3 py-2 rounded-xl rounded-br-sm bg-primary text-primary-content text-xs leading-relaxed whitespace-pre-wrap break-words">
             {{ entry.text }}
           </div>
           <div class="text-[10px] text-base-content/35 text-right mt-0.5">{{ entry.at }}</div>
@@ -161,15 +173,29 @@
 
     <!-- 输入区 -->
     <div class="shrink-0 border-t border-base-content/10 bg-base-100 p-2.5">
+      <!-- 待发送图片预览（粘贴 / 附带） -->
+      <div v-if="pendingImages.length" class="flex flex-wrap gap-1.5 mb-2">
+        <div v-for="(uri, i) in pendingImages" :key="i" class="relative">
+          <img :src="uri" class="w-16 h-16 object-cover rounded-lg border border-base-content/15 bg-base-200" alt="待发送图片" />
+          <button
+            class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-error text-error-content text-[10px] leading-none flex items-center justify-center"
+            title="移除"
+            @click="pendingImages.splice(i, 1)"
+          >×</button>
+        </div>
+        <span class="text-[10px] text-base-content/40 self-end">支持粘贴截图/图片（Ctrl/Cmd+V）</span>
+      </div>
+
       <div class="flex items-end gap-2">
         <textarea
           ref="inputRef"
           v-model="input"
           rows="1"
           :disabled="!ready"
-          :placeholder="ready ? '说说你要配什么、或哪里报错了（Enter 发送，Shift+Enter 换行）' : '先在设置里配好模型，助手才能工作'"
+          :placeholder="ready ? '说说你要配什么、或哪里报错了（Enter 发送，Shift+Enter 换行；可粘贴截图给助手看）' : '先在设置里配好模型，助手才能工作'"
           class="textarea textarea-bordered flex-1 text-xs leading-relaxed resize-none min-h-[38px] max-h-40 disabled:opacity-60"
           @input="autoGrow"
+          @paste="onPaste"
           @keydown.enter.exact.prevent="submit"
         ></textarea>
         <button
@@ -182,7 +208,7 @@
         <button
           v-else
           class="btn btn-primary btn-sm shrink-0 gap-1"
-          :disabled="!ready || !input.trim()"
+          :disabled="!ready || (!input.trim() && !pendingImages.length)"
           @click="submit"
         >
           <SvgIcon name="send" size="13" /> 发送
@@ -202,6 +228,7 @@ import { useRouter } from 'vue-router'
 import SvgIcon from '../../../components/ui/SvgIcon.vue'
 import { renderMarkdown } from '../../../composables/useMarkdownRenderer'
 import { useAssistantChat } from '../../../composables/useAssistantChat'
+import { useToast } from '../../../composables/useToast'
 import FormCard from './FormCard.vue'
 import AskCard from './AskCard.vue'
 import ProposalCard from './ProposalCard.vue'
@@ -209,6 +236,7 @@ import ProposalCard from './ProposalCard.vue'
 const props = withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
 
 const router = useRouter()
+const toast = useToast()
 const {
   entries, running, ready, modelInfo, capabilities, stateError,
   refreshState, start, send, stop, clear, applyProposal, dismissProposal,
@@ -218,8 +246,53 @@ const {
 const listRef = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const input = ref('')
+const pendingImages = ref<string[]>([])
 const pinnedToBottom = ref(true)
 const showJumpBottom = ref(false)
+
+/** 单张图片体积上限（原始字节）：base64 会膨胀约 1.33 倍，后端还有兜底校验 */
+const MAX_IMAGE_BYTES = 6 * 1024 * 1024
+
+/** 粘贴处理：优先把剪贴板里的图片转成 data URI 加入待发送，文本粘贴照常 */
+function onPaste(e: ClipboardEvent) {
+  const files = e.clipboardData?.files
+  const items = e.clipboardData?.items
+  const candidates: File[] = []
+  if (files && files.length) {
+    for (const f of Array.from(files)) {
+      if (f.type.startsWith('image/')) {candidates.push(f)}
+    }
+  } else if (items) {
+    for (const it of Array.from(items)) {
+      if (it.kind === 'file' && it.type.startsWith('image/')) {
+        const f = it.getAsFile()
+        if (f) {candidates.push(f)}
+      }
+    }
+  }
+  if (!candidates.length) {return}
+
+  e.preventDefault()
+  for (const f of candidates) {
+    if (f.size > MAX_IMAGE_BYTES) {
+      toast.error(`图片过大（${(f.size / 1024 / 1024).toFixed(1)}MB），请压缩后再粘贴`)
+      continue
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const uri = String(reader.result || '')
+      if (uri.startsWith('data:image/')) {
+        pendingImages.value.push(uri)
+        jumpBottom(true)
+      }
+    }
+    reader.readAsDataURL(f)
+  }
+}
+
+function removeImage(i: number) {
+  pendingImages.value.splice(i, 1)
+}
 
 const QUICK_PROMPTS = [
   '我想新增一台服务器，需要准备哪些信息？',
@@ -305,10 +378,12 @@ function autoGrow(e: Event) {
 
 function submit() {
   const text = input.value.trim()
-  if (!text || running.value || !ready.value) {return}
+  if ((!text && !pendingImages.value.length) || running.value || !ready.value) {return}
+  const images = pendingImages.value.slice()
   input.value = ''
+  pendingImages.value = []
   if (inputRef.value) {inputRef.value.style.height = 'auto'}
-  send(text)
+  send(text, images)
   jumpBottom(true)
 }
 

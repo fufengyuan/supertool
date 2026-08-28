@@ -55,6 +55,9 @@ pub struct AiModel {
     pub context_window: u32,
     /// 单次回复上限（tokens）
     pub max_output_tokens: u32,
+    /// 是否支持识图（视觉输入）：开了才允许给助手发图片/截图
+    #[serde(default)]
+    pub vision: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -94,6 +97,8 @@ pub struct AiRoute {
     pub model_id: String,
     pub context_window: u32,
     pub max_output_tokens: u32,
+    /// 当前模型是否支持识图（决定能否带图请求）
+    pub vision: bool,
 }
 
 /// 密钥掩码：只保留末 4 位用于界面确认「配的是哪个」
@@ -192,6 +197,7 @@ impl AiProvider {
                 "label": m.label,
                 "contextWindow": m.context_window,
                 "maxOutputTokens": m.max_output_tokens,
+                "vision": m.vision,
             })).collect::<Vec<_>>(),
             "enabled": self.enabled,
         })
@@ -421,6 +427,7 @@ fn build_route(provider: &AiProvider, model: &AiModel) -> AiRoute {
             .max_output_tokens
             .max(1)
             .min(context_window.saturating_sub(1).max(1)),
+        vision: model.vision,
     }
 }
 
