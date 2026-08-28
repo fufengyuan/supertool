@@ -140,7 +140,10 @@ const localError = ref('')
 
 /** 助手给出的字段先复制到本地，用户可以在卡片上直接改 */
 const draft = reactive<Record<string, any>>(JSON.parse(JSON.stringify(props.proposal.fields || {})))
-const secrets = reactive<Record<string, string>>({ ...(props.initialSecrets || {}) })
+// 凭据初始值只在「新建」时从表单暂存带入；更新走「保留原有密码」语义，不预填也不覆盖
+const secrets = reactive<Record<string, string>>(
+  props.proposal.operation === 'create' ? { ...(props.initialSecrets || {}) } : {},
+)
 
 const TARGET_LABELS: Record<string, string> = {
   server: '服务器',
@@ -169,7 +172,9 @@ const opClass = computed(() =>
 const secretFields = computed(() => {
   const declared = (props.proposal.needUserInput || []) as string[]
   const fromKeys = Object.keys(draft).filter(k => SECRET_FIELDS.includes(k))
-  return Array.from(new Set([...declared.filter(f => SECRET_FIELDS.includes(f)), ...fromKeys]))
+  // 表单里收集过并已预填的凭据（即使提案没声明，也要显示槽位让用户核对/确认）
+  const fromVault = Object.keys(props.initialSecrets || {}).filter(k => SECRET_FIELDS.includes(k))
+  return Array.from(new Set([...declared.filter(f => SECRET_FIELDS.includes(f)), ...fromKeys, ...fromVault]))
 })
 const secretHint = computed(() => {
   if (props.proposal.operation === 'update') {

@@ -462,6 +462,20 @@ fn allowed_fields(target: &str) -> Option<&'static [&'static str]> {
         .map(|(_, f)| *f)
 }
 
+/// 新建目标时默认需要的凭据字段（模型漏列 needUserInput 也强制补上，保证确认卡片显示凭据槽位）
+const DEFAULT_CREDENTIAL_FIELDS: &[(&str, &[&str])] = &[
+    ("server", &["password", "sshKeyPath"]),
+    ("dbConnection", &["password"]),
+    ("aiProvider", &["apiKey"]),
+];
+
+fn default_credential_fields(target: &str) -> Option<&'static [&'static str]> {
+    DEFAULT_CREDENTIAL_FIELDS
+        .iter()
+        .find(|(t, _)| *t == target)
+        .map(|(_, f)| *f)
+}
+
 /// 校验并归一提案（纯函数，可单测）
 pub fn check_proposal(
     target: &str,
@@ -1190,6 +1204,23 @@ pub async fn execute(core: &CoreService, name: &str, args: &Value) -> ToolExec {
             let fields = args.get("fields").cloned().unwrap_or(Value::Null);
             match check_proposal(target, operation, target_id, &fields) {
                 Ok(accepted) => {
+                    // 凭据字段兜底：新建目标时，即使模型漏了 needUserInput，
+                    // 也强制把该类型默认凭据字段补进去——否则确认卡片不显示凭据槽位，
+                    // 用户表单里填过的密码既不会自动带入，也会导致建出空密码记录。
+                    let mut need_input: Vec<Value> = args
+                        .get("needUserInput")
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default();
+                    if operation == "create" {
+                        if let Some(creds) = default_credential_fields(target) {
+                            for c in creds {
+                                if !need_input.iter().any(|v| v.as_str() == Some(c)) {
+                                    need_input.push(json!(c));
+                                }
+                            }
+                        }
+                    }
                     let proposal = json!({
                         "targetType": target,
                         "operation": operation,
@@ -1197,7 +1228,7 @@ pub async fn execute(core: &CoreService, name: &str, args: &Value) -> ToolExec {
                         "displayName": args.get("displayName").and_then(|v| v.as_str()).unwrap_or("配置变更"),
                         "fields": accepted,
                         "rationale": args.get("rationale").and_then(|v| v.as_str()).unwrap_or(""),
-                        "needUserInput": args.get("needUserInput").cloned().unwrap_or(json!([])),
+                        "needUserInput": need_input,
                         "applyRoute": args.get("applyRoute").and_then(|v| v.as_str()),
                         "allowedFields": allowed_fields(target).map(|a| json!(a)).unwrap_or(Value::Null),
                     });
@@ -2033,6 +2064,83 @@ mod tools_exec_tests {
         .await;
         assert!(bad.proposals.is_empty());
         assert!(bad.payload["error"].as_str().unwrap().contains("password"));
+    }
+
+    /// 凭据字段兜底：新建 server 时模型漏了 needUserInput，后端也强制补 password/sshKeyPath，
+    /// 保证确认卡片一定显示凭据槽位（否则会建出空密码记录）
+    #[tokio::test]
+    async fn create_proposal_forces_credential_fields() {
+        let (core, _dir) = seeded("creds").await;
+
+        // 模型完全没提 needUserInput
+        let exec = execute(
+            &core,
+            "propose_config_change",
+            &json!({
+                "targetType": "server", "operation": "create", "displayName": "测试机",
+                "fields": {"name": "测试机", "host": "10.0.0.5", "port": 22, "username": "ci"},
+            }),
+        )
+        .await;
+        let p = &exec.proposals[0];
+        let need: Vec<&str> = p["needUserInput"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert!(
+            need.contains(&"password") && need.contains(&"sshKeyPath"),
+            "server create 应强制补 password/sshKeyPath: {need:?}"
+        );
+
+        // 模型只列了 password → 补 sshKeyPath，且不去重破坏原有项
+        let exec2 = execute(
+            &core,
+            "propose_config_change",
+            &json!({
+                "targetType": "server", "operation": "create", "displayName": "测试机2",
+                "fields": {"name": "x", "host": "10.0.0.6"},
+                "needUserInput": ["password"],
+            }),
+        )
+        .await;
+        let need2: Vec<&str> = exec2.proposals[0]["needUserInput"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert_eq!(need2.iter().filter(|v| **v == "password").count(), 1, "不应重复: {need2:?}");
+        assert!(need2.contains(&"sshKeyPath"));
+
+        // update 不强制补
+        let upd = execute(
+            &core,
+            "propose_config_change",
+            &json!({
+                "targetType": "server", "operation": "update", "targetId": "srv-1",
+                "fields": {"host": "10.0.0.7"}, "displayName": "改host",
+            }),
+        )
+        .await;
+        assert_eq!(upd.proposals[0]["needUserInput"].as_array().unwrap().len(), 0, "update 不应强制补凭据");
+
+        // aiProvider create 补 apiKey
+        let ai = execute(
+            &core,
+            "propose_config_change",
+            &json!({
+                "targetType": "aiProvider", "operation": "create", "displayName": "新模型",
+                "fields": {"name": "内网", "protocol": "openai", "baseUrl": "http://x/v1"},
+            }),
+        )
+        .await;
+        assert!(ai.proposals[0]["needUserInput"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v.as_str() == Some("apiKey")));
     }
 
     /// 参数缺失/未知工具/非法 JSON 都必须是「软错误」，让模型能自我纠正而不是中断回合

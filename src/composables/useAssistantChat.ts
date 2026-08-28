@@ -93,6 +93,13 @@ const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 /** 表单里收集的敏感值：只在本组件实例内暂存，绝不进对话文本/模型上下文；
  *  按字段名（password/sshKeyPath/apiKey/token/secret/privateKey）与提案凭据槽位匹配自动带入 */
 const SECRET_KEYS = ['password', 'sshKeyPath', 'apiKey', 'token', 'secret', 'privateKey']
+/** 各目标类型默认需要的凭据字段（与后端 default_credential_fields 一致）：
+ *  即使提案的 needUserInput 里漏了，也按类型兜底把表单收集过的值带入确认卡片 */
+const TARGET_CREDENTIAL_KEYS: Record<string, string[]> = {
+  server: ['password', 'sshKeyPath'],
+  dbConnection: ['password'],
+  aiProvider: ['apiKey'],
+}
 const SECRET_PLACEHOLDER = '已填写（保存在本地，确认提案时自动带入）'
 
 /** 送给后端的历史：只要 user/assistant 正文，最多 20 条（后端还会再裁一次） */
@@ -338,12 +345,14 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
     send(`【回答】${ask.question}\n${text}`)
   }
 
-  /** 提案卡片凭据槽位的初始值：从表单收集的敏感值按字段名匹配自动带入 */
+  /** 提案卡片凭据槽位的初始值：从表单收集的敏感值按字段名匹配自动带入。
+   *  候选来源 = 提案声明的 needUserInput + fields 里的凭据键 + 按目标类型的默认凭据键（兜底） */
   function proposalSecrets(proposal: Proposal): Record<string, string> {
     const out: Record<string, string> = {}
     const candidates = new Set([
       ...(proposal.needUserInput || []),
       ...Object.keys(proposal.fields || {}).filter(k => SECRET_KEYS.includes(k)),
+      ...(TARGET_CREDENTIAL_KEYS[proposal.targetType] || []),
     ])
     for (const name of candidates) {
       const v = secretVault.value[name]
