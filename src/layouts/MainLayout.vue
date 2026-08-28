@@ -79,6 +79,11 @@
 
         <!-- 侧栏底部操作区 -->
         <div class="border-t border-base-300 p-2 flex flex-col gap-1">
+          <!-- 设置（通用入口，含 AI 模型配置） -->
+          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/settings')" title="设置（含 AI 模型配置）">
+            <SvgIcon name="settings" :size="20" stroke-width="0" />
+            <span v-show="!sidebarCollapsed" class="text-sm">设置</span>
+          </button>
           <!-- 待办悬浮球开关（关闭后可在此重新打开） -->
           <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="toggleFloatingTodo" title="打开/关闭待办悬浮球">
             <SvgIcon name="checkCircle" :size="20" />
