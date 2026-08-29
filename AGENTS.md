@@ -16,6 +16,7 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 - 配置存储在 `cicd_configs` 表；多环境以 JSON 数组存于 `environments` 列（结构见 `core/src/db/cicd_tables.rs`）
 - 新增配置字段必须同时改三处：`CREATE TABLE` / migration 列表（`cicd_tables.rs`）、`CicdConfig` struct + `row_to_cicd_config`（`core/src/db/cicd.rs`）、`add_cicd_config` / `update_cicd_config` 的 INSERT/UPDATE 语句 —— 漏任何一处会导致保存静默丢字段
 - 部署核心流程：`core/src/logic/cicd_deploy.rs::execute_deploy`（git 同步 → 构建 → 收集产物 → SFTP 上传 → 重启 → 健康检查）
+- **判定是否 Git 仓库禁止看 `path/.git` 是否存在**：部署根可以是仓库子目录（如 `SRC/mall/seller-api`），子目录天然没有 `.git`，用存在性判断会让这类配置**静默跳过分支切换与拉取**、部署到本地旧代码。必须用 `git rev-parse --show-toplevel`（`cicd_deploy.rs::git_repo_root`）；git 子命令在子目录执行是合法的（作用于整个仓库）。`logic/git/git_basic.rs::run_git` 同样改为 `rev-parse --is-inside-work-tree` 兜底。2026-08-29 修复。
 - 部署队列：同一 `config_id` 并发部署通过 `DEPLOY_QUEUES`（tokio Mutex）排队，事件 stage=`queue`（waiting/acquired）
 - **部署进度事件必须在后端攒批**（`tauri/src/commands/cicd.rs::DeployProgressBatcher`）：构建期 stdout 逐行 `app.emit` 实测峰值 700~10000 事件/秒，macOS 上每次 emit 都要回主线程做一次 webview eval，事件风暴会**卡死整个窗口**（点击无响应，部署结束才恢复）。高频行（status=`building`/`installing`）按 200ms 合并成一个 `stage:"batch"` 事件（单批 200 行，超出丢最旧行并标注省略数，日志文件仍全量）；状态事件与报错行立即发（先冲缓冲保序）。**勿把批量挪回前端** —— 前端 50ms 批量只压 Vue 重渲染，压不住事件投递（曾因此修过一次仍然卡）。详见 [docs/cicd-deploy-ui-freeze.md](docs/cicd-deploy-ui-freeze.md)
 - 增量上传：远端 `.deploy_manifest.json` 记录文件 SHA-256；**回滚恢复备份后必须删除 manifest**，否则下次增量部署会误判"未变更"跳过上传（已修复过一次，勿回退）
