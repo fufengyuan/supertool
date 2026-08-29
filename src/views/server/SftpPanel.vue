@@ -31,12 +31,22 @@
 
     <div class="flex items-center gap-2 bg-base-content/10 p-2.5">
       <SvgIcon name="home" size="16" class="shrink-0 opacity-50" />
-      <input v-model="currentPath" @keyup.enter="loadDir" placeholder="/home/user" class="input input-bordered input-sm flex-1 text-xs" />
-      <button @click="loadDir" class="btn btn-ghost btn-sm">刷新</button>
-      <button @click="goUp" class="btn btn-ghost btn-sm" :disabled="currentPath === '/'">↑ 上级</button>
-      <button @click="showCreateFolderDialog" class="btn btn-ghost btn-sm gap-1.5"><SvgIcon name="folderPlus" size="14" /> 新建文件夹</button>
-      <button @click="uploadFile" class="btn btn-ghost btn-sm">↑ 上传文件</button>
-      <button @click="uploadFolder" class="btn btn-ghost btn-sm gap-1.5"><SvgIcon name="folder" size="14" /> 上传文件夹</button>
+      <input v-model="currentPath" @keyup.enter="loadDir" placeholder="/home/user"
+        class="input input-bordered input-sm flex-1 text-xs transition-colors"
+        :class="[loadingDir ? 'border-primary/40' : '']" />
+      <button @click="loadDir" class="btn btn-ghost btn-sm gap-1.5" :disabled="loadingDir">
+        <span v-if="loadingDir" class="loading loading-spinner loading-xs"></span>
+        <span class="transition-opacity" :class="loadingDir ? 'opacity-50' : ''">刷新</span>
+      </button>
+      <button @click="goUp" class="btn btn-ghost btn-sm" :disabled="currentPath === '/' || loadingDir">↑ 上级</button>
+      <button @click="showCreateFolderDialog" class="btn btn-ghost btn-sm gap-1.5" :disabled="loadingDir"><SvgIcon name="folderPlus" size="14" /> 新建文件夹</button>
+      <button @click="uploadFile" class="btn btn-ghost btn-sm" :disabled="loadingDir">↑ 上传文件</button>
+      <button @click="uploadFolder" class="btn btn-ghost btn-sm gap-1.5" :disabled="loadingDir"><SvgIcon name="folder" size="14" /> 上传文件夹</button>
+    </div>
+
+    <!-- 加载中的不定长进度条：切目录时给出「正在取数据」的明确反馈 -->
+    <div class="h-0.5 w-full overflow-hidden bg-transparent">
+      <div v-if="loadingDir" class="sftp-indet h-full w-1/3 rounded-full bg-primary"></div>
     </div>
 
     <!-- 文件列表头部 + 搜索框 -->
@@ -66,44 +76,75 @@
         :class="[isDragOver ? 'bg-[rgba(137,180,250,0.08)] rounded-lg' : '']"
       >
         <!-- 拖拽提示层 -->
-        <div v-if="isDragOver" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#89b4fa] rounded-lg bg-[rgba(30,30,46,0.9)] text-[#89b4fa] pointer-events-none">
-          <SvgIcon name="upload" size="48" stroke-width="1.5" />
-          <p class="text-sm font-semibold">释放以上传文件</p>
-        </div>
+        <Transition enter-active-class="transition duration-150 ease-out" enter-from-class="opacity-0 scale-[0.98]"
+          leave-active-class="transition duration-100 ease-in" leave-to-class="opacity-0">
+          <div v-if="isDragOver" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#89b4fa] rounded-lg bg-[rgba(30,30,46,0.9)] text-[#89b4fa] pointer-events-none">
+            <SvgIcon name="upload" size="48" stroke-width="1.5" class="animate-bounce" />
+            <p class="text-sm font-semibold">释放以上传文件</p>
+          </div>
+        </Transition>
 
-        <div
-          v-for="file in filteredFiles"
-          :key="file.name"
-          class="group flex items-center gap-2.5 rounded-md px-2.5 py-2 cursor-pointer transition-colors duration-100 hover:bg-base-200"
-          :class="[selectedFile?.name === file.name ? 'bg-base-content/10' : '']"
-          @click="selectFile(file)"
-          @dblclick="handleDoubleClick(file)"
-        >
-          <span class="flex items-center shrink-0">
-            <SvgIcon v-if="file.type === 'directory'" name="folder" size="20" class="text-[#f9a825]" />
-            <SvgIcon v-else name="file" size="20" class="text-base-content/60" />
-          </span>
-          <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs">{{ file.name }}</span>
-          <span class="w-[70px] shrink-0 text-right text-xs text-base-content/60">{{ formatSize(file.size) }}</span>
-          <span class="w-[130px] shrink-0 text-xs text-base-content/60">{{ formatDate(file.modifyTime) }}</span>
-          <div class="flex shrink-0 gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <button v-if="file.type === 'file'" @click.stop="downloadFile(file)" class="btn btn-ghost btn-xs btn-square" title="下载">
-              <SvgIcon name="download" size="14" />
-            </button>
-            <button @click.stop="deleteFile(file)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
-              <SvgIcon name="trash" size="14" />
-            </button>
+        <!-- 首次进入 / 空列表时拉取中：骨架行 -->
+        <div v-if="loadingDir && files.length === 0" class="flex flex-col gap-1">
+          <div v-for="i in 8" :key="i" class="flex items-center gap-2.5 rounded-md px-2.5 py-2">
+            <span class="w-5 h-5 shrink-0 rounded bg-base-content/10 animate-pulse" :style="{ animationDelay: `${i * 70}ms` }"></span>
+            <span class="h-3 rounded bg-base-content/10 animate-pulse flex-1" :style="{ maxWidth: `${34 + ((i * 23) % 52)}%`, animationDelay: `${i * 70}ms` }"></span>
+            <span class="w-[70px] h-3 rounded bg-base-content/10 animate-pulse" :style="{ animationDelay: `${i * 70}ms` }"></span>
+            <span class="w-[110px] h-3 rounded bg-base-content/10 animate-pulse" :style="{ animationDelay: `${i * 70}ms` }"></span>
           </div>
         </div>
 
+        <!-- 拉取失败：内联错误 + 重试 -->
+        <div v-else-if="loadError && files.length === 0" class="flex flex-col items-center justify-center gap-3 py-10 text-base-content/60">
+          <SvgIcon name="warning" size="40" stroke-width="1.5" class="text-error/70" />
+          <p class="text-sm">{{ loadError }}</p>
+          <button class="btn btn-sm btn-primary gap-1.5" :disabled="loadingDir" @click="loadDir">
+            <span v-if="loadingDir" class="loading loading-spinner loading-xs"></span>重试
+          </button>
+        </div>
+
+        <!-- 文件行：进出/换位都有过渡，重拉时旧列表淡出而不是硬切 -->
+        <TransitionGroup v-else tag="div" name="sftp-rows" class="flex flex-col gap-1 transition-opacity duration-200"
+          :class="loadingDir ? 'opacity-40 pointer-events-none' : ''">
+          <div
+            v-for="file in filteredFiles"
+            :key="file.name"
+            class="group relative flex items-center gap-2.5 rounded-md px-2.5 py-2 cursor-pointer transition-all duration-150 hover:bg-base-200 hover:translate-x-0.5"
+            :class="[selectedFile?.name === file.name ? 'bg-base-content/10' : '']"
+            @click="selectFile(file)"
+            @dblclick="handleDoubleClick(file)"
+          >
+            <span v-if="selectedFile?.name === file.name" class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary"></span>
+            <span class="flex items-center shrink-0 transition-transform duration-150 group-hover:scale-110">
+              <SvgIcon v-if="file.type === 'directory'" name="folder" size="20" class="text-[#f9a825]" />
+              <SvgIcon v-else name="file" size="20" class="text-base-content/60" />
+            </span>
+            <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs">{{ file.name }}</span>
+            <span class="w-[70px] shrink-0 text-right text-xs text-base-content/60">{{ formatSize(file.size) }}</span>
+            <span class="w-[130px] shrink-0 text-xs text-base-content/60">{{ formatDate(file.modifyTime) }}</span>
+            <div class="flex shrink-0 items-center gap-1 transition-opacity duration-150"
+              :class="busyRows[file.name] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'">
+              <span v-if="busyRows[file.name]" class="loading loading-dots loading-xs text-primary"></span>
+              <template v-else>
+                <button v-if="file.type === 'file'" @click.stop="downloadFile(file)" class="btn btn-ghost btn-xs btn-square" title="下载">
+                  <SvgIcon name="download" size="14" />
+                </button>
+                <button @click.stop="deleteFile(file)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
+                  <SvgIcon name="trash" size="14" />
+                </button>
+              </template>
+            </div>
+          </div>
+        </TransitionGroup>
+
         <!-- 搜索无结果 -->
-        <div v-if="filteredFiles.length === 0 && files.length > 0" class="flex flex-col items-center justify-center gap-3 py-10 text-base-content/60">
+        <div v-if="!loadingDir && filteredFiles.length === 0 && files.length > 0" class="flex flex-col items-center justify-center gap-3 py-10 text-base-content/60 sftp-fade">
           <SvgIcon name="search" size="48" stroke-width="1.5" />
           <p>未找到匹配文件</p>
           <p class="text-xs">尝试其他关键词</p>
         </div>
         <!-- 真正空目录 -->
-        <div v-if="files.length === 0" class="flex flex-col items-center justify-center gap-3 py-10 text-base-content/60">
+        <div v-if="!loadingDir && files.length === 0 && !loadError" class="flex flex-col items-center justify-center gap-3 py-10 text-base-content/60 sftp-fade">
           <SvgIcon name="folder" size="48" stroke-width="1.5" />
           <p>空目录</p>
         </div>
@@ -111,8 +152,11 @@
     </div>
 
     <div class="flex gap-4 rounded-b-xl border-t border-base-content/10 bg-base-200 px-4 py-2.5 text-xs text-base-content/60">
-      <span v-if="searchQuery">匹配 {{ filteredFiles.length }} / {{ files.length }} 项</span>
-      <span v-else>{{ files.length }} 项</span>
+      <span v-if="loadingDir" class="flex items-center gap-1.5 text-primary"><span class="loading loading-spinner loading-xs"></span>正在读取目录…</span>
+      <template v-else>
+        <span v-if="searchQuery">匹配 {{ filteredFiles.length }} / {{ files.length }} 项</span>
+        <span v-else>{{ files.length }} 项</span>
+      </template>
       <span v-if="selectedFile">已选: {{ selectedFile.name }}</span>
     </div>
 
@@ -225,6 +269,11 @@ const filteredFiles = computed(() => {
 const uploadProgress = ref<{ file: string; percent: number; speedFormatted?: string } | null>(null);
 const connectionStatus = ref('connecting'); // 'online' | 'offline' | 'connecting'
 const isDragOver = ref(false);
+// 目录读取与行内操作状态：驱动骨架屏、顶部进度条、按钮禁用与行内 spinner
+const loadingDir = ref(false);
+const loadError = ref('');
+const busyRows = ref<Record<string, boolean>>({});
+let loadToken = 0;
 const isUploading = ref(false);
 const uploadMessage = ref(''); // 实时进度消息
 const uploadFailed = ref(false); // 上传失败状态
@@ -442,10 +491,14 @@ function formatBytes(bytes: number): string {
 let uploadIdCounter = 0
 
 async function loadDir() {
+  const token = ++loadToken;          // 连点目录时丢弃过期响应，避免列表闪回旧目录
+  loadingDir.value = true;
+  loadError.value = '';
   try {
     // 直接列目录，不再调用可能卡死的 connectServer
     // 连接由 onMounted 初始化时完成，Rust 端会自动重连
     const result = await getTauriAPI().listSftpDir(props.server.id, currentPath.value);
+    if (token !== loadToken) {return;}
     if (result.success) {
       files.value = result.files.sort((a: any, b: any) => {
         if (a.type === 'directory' && b.type !== 'directory') {return -1;}
@@ -457,12 +510,17 @@ async function loadDir() {
     } else {
       connectionStatus.value = 'offline';
       connectionLabel.value = '连接失败';
+      loadError.value = result.error || '目录读取失败';
       toast.error('加载失败: ' + result.error);
     }
   } catch (error) {
+    if (token !== loadToken) {return;}
     connectionStatus.value = 'offline';
     connectionLabel.value = '连接失败';
+    loadError.value = (error as Error)?.message || '目录读取失败';
     handleError(error, { context: 'SFTP loadDir' });
+  } finally {
+    if (token === loadToken) {loadingDir.value = false;}
   }
 }
 
@@ -538,6 +596,7 @@ async function downloadFile(file: any) {
       ? downloadsDir + file.name
       : downloadsDir + '/' + file.name
 
+    busyRows.value = { ...busyRows.value, [file.name]: true }
     downloadProgress.value = { file: file.name, percent: 0 }
     downloadSpeed.value = ''
 
@@ -557,6 +616,10 @@ async function downloadFile(file: any) {
     downloadProgress.value = null
     downloadSpeed.value = ''
     handleError(error, { context: 'SFTP downloadFile' })
+  } finally {
+    const next = { ...busyRows.value }
+    delete next[file.name]
+    busyRows.value = next
   }
 }
 
@@ -905,12 +968,17 @@ async function confirmDelete() {
 
   const path = currentPath.value + '/' + file.name;
 
+  busyRows.value = { ...busyRows.value, [file.name]: true };
   try {
     await getTauriAPI().deleteSftpFile(props.server.id, path, file.type === 'directory');
     await loadDir();
     toast.success(`已删除 ${file.name}`);
   } catch (error) {
     handleError(error, { context: 'SFTP deleteFile' });
+  } finally {
+    const next = { ...busyRows.value }
+    delete next[file.name]
+    busyRows.value = next
   }
 }
 
@@ -939,3 +1007,29 @@ function formatDate(dateStr: string | null | undefined) {
 }
 </script>
 
+<style scoped>
+/* 不定长进度条：目录读取中 */
+.sftp-indet {
+  animation: sftpIndet 1.1s ease-in-out infinite;
+}
+@keyframes sftpIndet {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(330%); }
+}
+
+/* 文件行进出/换位动画 */
+.sftp-rows-enter-active { transition: opacity .22s ease, transform .22s cubic-bezier(.32,.72,.35,1); }
+.sftp-rows-enter-from { opacity: 0; transform: translateY(6px); }
+.sftp-rows-leave-active { transition: opacity .16s ease, transform .16s ease; position: absolute; width: calc(100% - 1rem); }
+.sftp-rows-leave-to { opacity: 0; transform: translateX(-10px); }
+.sftp-rows-move { transition: transform .24s cubic-bezier(.32,.72,.35,1); }
+
+/* 空态淡入 */
+.sftp-fade { animation: sftpFade .28s ease both; }
+@keyframes sftpFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sftp-indet, .sftp-fade { animation: none; }
+  .sftp-rows-enter-active, .sftp-rows-leave-active, .sftp-rows-move { transition: none; }
+}
+</style>
