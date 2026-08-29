@@ -313,7 +313,6 @@ const navGroups = {
     { path: '/cicd', icon: '🚀', label: 'CI/CD', viewId: 'cicd' },
     { path: '/logs', icon: '📋', label: '日志聚合', viewId: 'log-aggregator' },
     { path: '/nginx', icon: '🌐', label: 'Nginx', viewId: 'nginx' },
-    { path: '/assistant', icon: '🤖', label: 'AI 助手', viewId: 'assistant' },
   ],
   dev: [
     { path: '/database', icon: '🗄️', label: '数据库', viewId: 'database' },
