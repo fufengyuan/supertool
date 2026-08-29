@@ -15,8 +15,23 @@ async fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
     if !path.exists() {
         return Err(format!("仓库路径不存在: {}", repo_path));
     }
+    // 仓库子目录（如某个模块目录）里没有 .git 是正常的，先让 git 自己判定，
+    // 只有确实不在任何工作区内才报错——否则会把「路径写法不同」误判成非仓库。
     if !path.join(".git").exists() {
-        return Err(format!("不是 Git 仓库: {}", repo_path));
+        let probe = Command::new(find_git())
+            .args(["rev-parse", "--is-inside-work-tree"])
+            .current_dir(repo_path)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await;
+        let inside = matches!(
+            &probe,
+            Ok(o) if o.status.success() && String::from_utf8_lossy(&o.stdout).trim() == "true"
+        );
+        if !inside {
+            return Err(format!("不是 Git 仓库: {}", repo_path));
+        }
     }
 
     let git_bin = find_git();
