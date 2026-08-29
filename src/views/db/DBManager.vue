@@ -81,7 +81,14 @@
             <SvgIcon name="plus" size="12" />
           </button>
         </div>
+        <div v-if="treeLoading && db.connections.value.length === 0" class="flex flex-col gap-2.5 p-3">
+          <div v-for="i in 5" :key="i" class="flex items-center gap-2">
+            <span class="w-3 h-3 shrink-0 rounded-sm bg-base-content/10 animate-pulse" :style="{ animationDelay: `${i * 70}ms` }"></span>
+            <span class="h-3 flex-1 rounded bg-base-content/10 animate-pulse" :style="{ maxWidth: `${45 + ((i * 17) % 40)}%`, animationDelay: `${i * 70}ms` }"></span>
+          </div>
+        </div>
         <ConnectionTree
+          v-else
           ref="treeRef"
           :sorted-connections="db.sortedConnections.value"
           :active-connection-id="db.activeConnectionId.value"
@@ -136,7 +143,7 @@
         <!-- No tabs open -->
         <div v-else-if="db.tabs.value.length === 0" class="flex-1 flex items-center justify-center p-8 bg-gradient-to-b from-base-100 to-base-200">
           <template v-if="db.activeConnection.value?.type === 'redis'">
-            <div class="flex flex-col items-center gap-5 max-w-[320px] text-center">
+            <div class="db-empty flex max-w-[320px] flex-col items-center gap-5 text-center">
               <div class="w-20 h-20 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shadow-sm">
                 <SvgIcon name="key" size="40" stroke-width="1.5" class="text-red-500/60" />
               </div>
@@ -452,6 +459,8 @@ import { getTauriAPI } from '../../utils/tauri-api'
 const db = useDBManager()
 const toast = useToast()
 const treeRef = ref<InstanceType<typeof ConnectionTree> | null>(null)
+// 首屏连接列表加载中：左树显示骨架行，避免闪空白
+const treeLoading = ref(true)
 
 // Convert Date objects and ISO strings to MySQL-compatible format before IPC
 // JSON.stringify turns Date into ISO string ('2026-04-21T16:00:00.000Z') which MySQL DATE columns reject
@@ -1219,6 +1228,7 @@ function redisHistoryDown() {
 
 onMounted(async () => {
   await db.loadConnections()
+  treeLoading.value = false
 })
 
 // Auto-open RedisManager when a Redis connection is selected
@@ -1231,4 +1241,10 @@ watch(() => db.activeConnection.value, (conn) => {
 })
 </script>
 
-
+<style scoped>
+.db-empty { animation: dbEmptyIn .32s ease both; }
+@keyframes dbEmptyIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.db-empty .w-20 { animation: dbEmptyFloat 3.2s ease-in-out infinite; }
+@keyframes dbEmptyFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .db-empty, .db-empty .w-20 { animation: none; } }
+</style>
