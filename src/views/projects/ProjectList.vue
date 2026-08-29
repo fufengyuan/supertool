@@ -1,5 +1,5 @@
 <template>
-  <div class="p-5">
+  <div>
     <div class="flex justify-between items-center mb-5">
       <h2 class="m-0 text-2xl text-base-content">{{ $t('project.list') }}</h2>
       <UiButton @click="openAddModal">+ {{ $t('project.add') }}</UiButton>

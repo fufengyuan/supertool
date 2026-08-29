@@ -1,5 +1,5 @@
 <template>
-  <div class="px-4 py-3">
+  <div>
     <h2>服务器管理</h2>
 
     <div class="flex gap-1.5 mb-3 items-center flex-wrap">

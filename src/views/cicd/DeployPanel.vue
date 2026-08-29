@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-full min-h-0 w-full flex-col px-5 py-4">
+  <div class="flex h-full min-h-0 w-full flex-col">
     <!-- Loading skeleton (non-blocking initial render) -->
     <div v-if="initialLoading" class="flex flex-col gap-4">
       <div class="skeleton h-8 w-48 rounded-lg"></div>

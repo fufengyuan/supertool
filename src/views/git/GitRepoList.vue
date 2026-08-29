@@ -3,7 +3,7 @@
   <GitManager v-if="selectedRepo" :repo="selectedRepo" @close="closeGitManager" />
 
   <!-- Git 仓库列表 -->
-  <div v-else class="p-5 max-w-[1200px] mx-auto">
+  <div v-else class="max-w-[1200px] mx-auto">
     <div class="flex justify-between items-center mb-5">
       <h2 class="m-0 text-2xl font-semibold text-base-content">Git 仓库</h2>
       <div class="flex gap-2">

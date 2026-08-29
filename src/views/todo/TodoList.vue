@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-3 p-5 w-full outline-none" ref="containerRef" tabindex="0" @keydown="handleKeyboardNav">
+  <div class="flex flex-col gap-3 w-full outline-none" ref="containerRef" tabindex="0" @keydown="handleKeyboardNav">
     <!-- 快速输入框 -->
     <div class="flex items-center gap-2.5 px-4 py-3 bg-base-100 border-2 border-primary rounded-xl shadow-sm flex-shrink-0 transition-all duration-200 focus-within:border-primary/80 focus-within:shadow-[0_4px_20px_rgba(136,57,239,0.2)]">
       <SvgIcon name="plus" size="18" class="text-primary shrink-0 opacity-70" />

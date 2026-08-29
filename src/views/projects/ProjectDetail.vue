@@ -1,5 +1,5 @@
 <template>
-  <div v-if="project" class="flex flex-col h-full p-5 overflow-hidden">
+  <div v-if="project" class="flex flex-col h-full overflow-hidden">
     <!-- 面包屑导航 -->
     <div class="flex items-center gap-2 mb-4 text-sm shrink-0">
       <button class="btn btn-ghost btn-xs gap-1 px-2 text-primary font-medium no-underline" @click="goBack" title="返回项目列表">

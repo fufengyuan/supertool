@@ -1,5 +1,5 @@
 <template>
-  <div class="p-5 w-full max-w-full">
+  <div class="w-full max-w-full">
     <div class="flex justify-between items-center mb-7 flex-wrap gap-5">
       <h2 class="text-2xl text-base-content m-0"><SvgIcon name="barChart" size="14" class="inline-block align-text-bottom" />  {{ $t('report.title') }}</h2>
       <div class="flex gap-4 items-end flex-wrap">

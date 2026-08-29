@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full p-5">
+  <div class="w-full">
     <div class="flex items-center justify-between mb-5">
       <h2 class="text-lg font-bold text-base-content m-0">工作报表</h2>
       <div class="flex items-center gap-2 shrink-0">

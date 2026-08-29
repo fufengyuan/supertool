@@ -1,5 +1,5 @@
 <template>
-  <div :class="['h-full flex flex-col bg-base-200 text-base-content', isFullscreen ? 'fixed inset-0 z-[9999] p-2' : 'p-4']">
+  <div :class="['h-full flex flex-col bg-base-200 text-base-content', isFullscreen ? 'fixed inset-0 z-[9999] p-2' : '']">
     <div class="flex gap-4 flex-1 min-h-0">
       <!-- 左侧：预设列表（按分组展示）- 全屏时隐藏 -->
       <div v-show="!isFullscreen" class="w-[260px] flex flex-col gap-4 overflow-y-auto">

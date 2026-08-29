@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-5 p-5">
+  <div class="flex flex-col gap-5">
     <!-- 页面头部 -->
     <div class="flex items-center justify-between px-5 py-4 bg-base-100 border border-base-content/10 rounded-xl">
       <div class="flex items-center gap-3">

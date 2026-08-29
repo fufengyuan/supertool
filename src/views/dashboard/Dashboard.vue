@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-4 p-4 lg:p-6">
+  <div class="flex flex-col gap-4">
     <!-- 顶部欢迎 -->
     <div class="flex items-center justify-between">
       <div>

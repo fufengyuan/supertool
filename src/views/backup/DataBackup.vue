@@ -1,5 +1,5 @@
 <template>
-  <div class="p-6 space-y-4">
+  <div class="space-y-4">
     <h3 class="text-lg font-semibold"><SvgIcon name="download" size="14" />  {{ $t('backup.title') }}</h3>
 
     <div class="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">

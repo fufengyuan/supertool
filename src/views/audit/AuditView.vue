@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col p-4 bg-base-200 text-base-content">
+  <div class="h-full flex flex-col bg-base-200 text-base-content">
     <div class="flex-1 min-h-0 bg-base-100 rounded-box overflow-hidden flex flex-col">
       <!-- 头部：标题 + 筛选 -->
       <div class="flex items-center gap-3 px-4 py-3 border-b border-base-content/10">

@@ -3,7 +3,7 @@
     <!-- 网格首页 -->
     <template v-if="!activeTool">
       <div class="flex-1 overflow-y-auto">
-        <div class="max-w-[1240px] mx-auto px-6 py-6">
+        <div class="max-w-[1240px] mx-auto">
           <!-- 头部：标题 + 搜索 -->
           <div class="flex flex-wrap items-end justify-between gap-4 mb-7">
             <div>

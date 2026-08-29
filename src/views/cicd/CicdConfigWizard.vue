@@ -1,6 +1,6 @@
 <template>
   <div class="flex-1 overflow-y-auto bg-base-200">
-    <div class="max-w-[1200px] mx-auto px-8 py-8">
+    <div class="max-w-[1200px] mx-auto px-4 py-4">
       <!-- Header -->
       <div class="flex items-center justify-between mb-6">
         <div>
