@@ -93,34 +93,35 @@
           </router-link>
         </nav>
 
-        <!-- 侧栏底部操作区（精简：更多功能/AI 助手/局域网；设置已并入更多功能） -->
-        <div class="border-t border-base-300 p-2 flex flex-col gap-1">
+        <!-- 侧栏底部操作区：展开时横排一行图标工具条，折叠时竖排小按钮（高度约为原来一半） -->
+        <div class="border-t border-base-300 px-2 py-1 flex gap-0.5"
+          :class="sidebarCollapsed ? 'flex-col' : 'flex-row'">
           <!-- 更多功能（低频页面集中跳转 + 设置 + 悬浮待办开关等） -->
-          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/more')" title="更多功能（含设置）">
-            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+          <button class="flex flex-1 items-center justify-center rounded-lg hover:bg-base-200 transition-colors"
+            :class="sidebarCollapsed ? 'h-6' : 'h-7'" @click="router.push('/more')" title="更多功能（含设置）">
+            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors"
               :style="navChipStyle('more', $route.path === '/more')">
-              <SvgIcon name="grid" :size="17" stroke-width="1.7" :style="navIconStyle('more')" />
+              <SvgIcon name="grid" :size="14" stroke-width="1.7" :style="navIconStyle('more')" />
             </span>
-            <span v-show="!sidebarCollapsed" class="text-sm">更多功能</span>
           </button>
-          <!-- AI 助手（原设置位置） -->
-          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/assistant')" title="AI 配置助手">
-            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+          <!-- AI 配置助手 -->
+          <button class="flex flex-1 items-center justify-center rounded-lg hover:bg-base-200 transition-colors"
+            :class="sidebarCollapsed ? 'h-6' : 'h-7'" @click="router.push('/assistant')" title="AI 配置助手">
+            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors"
               :style="navChipStyle('assistant', $route.path === '/assistant')">
-              <SvgIcon name="bot" :size="17" stroke-width="1.7" :style="navIconStyle('assistant')" />
+              <SvgIcon name="bot" :size="14" stroke-width="1.7" :style="navIconStyle('assistant')" />
             </span>
-            <span v-show="!sidebarCollapsed" class="text-sm">AI 助手</span>
           </button>
           <!-- 局域网 -->
-          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="toggleLan" :class="{ 'text-primary': showLan }" title="局域网协作">
-            <div class="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+          <button class="flex flex-1 items-center justify-center rounded-lg hover:bg-base-200 transition-colors"
+            :class="[sidebarCollapsed ? 'h-6' : 'h-7', showLan ? 'bg-base-200' : '']" @click="toggleLan" title="局域网协作">
+            <span class="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors"
               :style="navChipStyle('lan', showLan)">
-              <IconNetwork size="17" stroke-width="1.7" :style="navIconStyle('lan')" />
+              <IconNetwork size="14" stroke-width="1.7" :style="navIconStyle('lan')" />
               <span v-if="lanStore.totalUnread > 0" class="absolute -top-1.5 -right-2 badge badge-error badge-xs min-w-4 h-4 text-[10px] px-1 shadow-[0_2px_8px_rgba(239,68,68,0.4)]">
                 {{ lanStore.totalUnread > 99 ? '99+' : lanStore.totalUnread }}
               </span>
-            </div>
-            <span v-show="!sidebarCollapsed" class="text-sm">局域网</span>
+            </span>
           </button>
         </div>
       </aside>
