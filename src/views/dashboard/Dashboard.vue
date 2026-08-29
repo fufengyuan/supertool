@@ -16,7 +16,7 @@
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <!-- 待办统计 -->
       <div 
-        class="bg-base-100 rounded-xl border border-base-content/10 p-4 cursor-pointer hover:border-primary/50 hover:bg-base-200/50 transition-all"
+        class="dash-card bg-base-100 rounded-xl border border-base-content/10 p-4 cursor-pointer hover:border-primary/50 hover:bg-base-200/50 transition-all"
         @click="navigateTo('/todo')"
       >
         <div class="flex items-center gap-2 mb-3">
@@ -25,7 +25,7 @@
         </div>
         <div class="flex items-end justify-between">
           <div>
-            <span class="text-2xl font-bold text-base-content">{{ todoStats.active }}</span>
+            <span class="text-2xl font-bold text-base-content tabular-nums">{{ numTodoActive }}</span>
             <span class="text-xs text-base-content/50 ml-1">进行中</span>
           </div>
           <div class="text-right">
@@ -43,7 +43,7 @@
 
       <!-- 服务器状态 -->
       <div 
-        class="bg-base-100 rounded-xl border border-base-content/10 p-4 cursor-pointer hover:border-primary/50 hover:bg-base-200/50 transition-all"
+        class="dash-card bg-base-100 rounded-xl border border-base-content/10 p-4 cursor-pointer hover:border-primary/50 hover:bg-base-200/50 transition-all"
         @click="navigateTo('/servers')"
       >
         <div class="flex items-center gap-2 mb-3">
@@ -52,11 +52,13 @@
         </div>
         <div class="flex items-end justify-between">
           <div>
-            <span class="text-2xl font-bold text-success">{{ serverStats.total }}</span>
+            <span class="text-2xl font-bold text-success tabular-nums">{{ numServerTotal }}</span>
             <span class="text-xs text-base-content/50 ml-1">已配置</span>
           </div>
           <div class="text-right">
-            <span class="text-xs text-base-content/40" v-if="serverStats.total > 0">未做连通性检测</span>
+            <button v-if="serverStats.total > 0" @click.stop="navigateTo('/servers')"
+              class="text-[11px] text-base-content/50 underline decoration-dotted underline-offset-2 hover:text-primary"
+              title="到服务器页做连通性检测">未做连通性检测 · 去检测</button>
           </div>
         </div>
         <div class="mt-3 text-xs text-base-content/40">{{ serverStats.total }} 台服务器</div>
@@ -64,7 +66,7 @@
 
       <!-- 项目进度 -->
       <div 
-        class="bg-base-100 rounded-xl border border-base-content/10 p-4 cursor-pointer hover:border-primary/50 hover:bg-base-200/50 transition-all"
+        class="dash-card bg-base-100 rounded-xl border border-base-content/10 p-4 cursor-pointer hover:border-primary/50 hover:bg-base-200/50 transition-all"
         @click="navigateTo('/projects')"
       >
         <div class="flex items-center gap-2 mb-3">
@@ -73,7 +75,7 @@
         </div>
         <div class="flex items-end justify-between">
           <div>
-            <span class="text-2xl font-bold text-base-content">{{ projectStats.active }}</span>
+            <span class="text-2xl font-bold text-base-content tabular-nums">{{ numProjectActive }}</span>
             <span class="text-xs text-base-content/50 ml-1">活跃</span>
           </div>
         </div>
@@ -92,7 +94,7 @@
 
       <!-- 告警 -->
       <div 
-        class="bg-base-100 rounded-xl border border-base-content/10 p-4 cursor-pointer hover:border-primary/50 hover:bg-base-200/50 transition-all"
+        class="dash-card bg-base-100 rounded-xl border border-base-content/10 p-4 cursor-pointer hover:border-primary/50 hover:bg-base-200/50 transition-all"
         :class="{ 'border-error/30': alertStats.today > 0 }"
         @click="navigateTo('/alert')"
       >
@@ -102,7 +104,7 @@
         </div>
         <div class="flex items-end justify-between">
           <div>
-            <span class="text-2xl font-bold" :class="alertStats.today > 0 ? 'text-error' : 'text-base-content'">{{ alertStats.today }}</span>
+            <span class="text-2xl font-bold tabular-nums" :class="alertStats.today > 0 ? 'text-error' : 'text-base-content'">{{ numAlertToday }}</span>
             <span class="text-xs text-base-content/50 ml-1">今日告警</span>
           </div>
         </div>
@@ -143,7 +145,7 @@
     </div>
 
     <!-- 最近活动 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       <!-- 最近待办 -->
       <div class="bg-base-100 rounded-xl border border-base-content/10 p-4">
         <div class="flex items-center justify-between mb-3">
@@ -153,7 +155,7 @@
           </div>
           <button class="btn btn-ghost btn-xs" @click="navigateTo('/todo')">查看全部</button>
         </div>
-        <div class="space-y-2" v-if="recentTodos.length > 0">
+        <div class="space-y-2 max-h-[300px] overflow-y-auto dash-scroll" v-if="recentTodos.length > 0">
           <div 
             v-for="todo in recentTodos" 
             :key="todo.id"
@@ -185,7 +187,7 @@
           </div>
           <button class="btn btn-ghost btn-xs" @click="navigateTo('/cicd')">查看全部</button>
         </div>
-        <div class="space-y-2" v-if="recentDeployments.length > 0">
+        <div class="space-y-2 max-h-[300px] overflow-y-auto dash-scroll" v-if="recentDeployments.length > 0">
           <div 
             v-for="deploy in recentDeployments" 
             :key="deploy.id"
@@ -248,6 +250,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useTodoStore } from '../../stores/todoStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useToast } from '../../composables/useToast';
+import { useCountUp } from '../../composables/useCountUp';
 import SvgIcon from '../../components/ui/SvgIcon.vue';
 import Modal from '../../components/ui/Modal.vue';
 import PerpetualCalendar from './components/PerpetualCalendar.vue';
@@ -348,6 +351,12 @@ const projectStats = computed(() => {
 
 // 告警统计
 const alertStats = ref({ total: 0, today: 0 });
+
+// 统计数字滚动动画：首屏从 0 递增，数据刷新时平滑过渡
+const numTodoActive = useCountUp(computed(() => todoStats.value.active));
+const numServerTotal = useCountUp(computed(() => serverStats.value.total));
+const numProjectActive = useCountUp(computed(() => projectStats.value.active));
+const numAlertToday = useCountUp(computed(() => alertStats.value.today));
 const loadAlertStats = async () => {
   try {
     const alerts = await invoke<{ id: string; alertType: string; sentAt: string }[]>('get_alert_history');
@@ -456,3 +465,19 @@ onUnmounted(() => {
   }
 });
 </script>
+
+<style scoped>
+/* 统计卡错峰淡入 */
+.dash-card { animation: dashIn .3s cubic-bezier(.32,.72,.35,1) both; }
+.dash-card:nth-child(2) { animation-delay: .05s; }
+.dash-card:nth-child(3) { animation-delay: .1s; }
+.dash-card:nth-child(4) { animation-delay: .15s; }
+@keyframes dashIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* 列表内部滚动时的细滚动条 */
+.dash-scroll { scrollbar-width: thin; scrollbar-color: rgba(128,128,128,.35) transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-card { animation: none; }
+}
+</style>
