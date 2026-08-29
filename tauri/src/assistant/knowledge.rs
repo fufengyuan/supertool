@@ -45,7 +45,7 @@ pub const GUIDES: &[Guide] = &[
         title: "maven 多模块（父统一构建）构建目录要留空",
         module: "持续部署",
         route: "/cicd",
-        keywords: &["maven", "父统一构建", "多模块", "聚合根", "revision", "mall", "no POM"],
+        keywords: &["maven", "父统一构建", "多模块", "聚合根", "revision", "mall-server", "no POM"],
         body: "开启父统一构建时，构建根就是代码目录（聚合根）。构建目录**绝不能填子模块**：\n\
                填子模块会退化成单模块构建，CI-Friendly 项目（聚合根定义 <revision>）的 ${revision} 不展开、\n\
                兄弟模块依赖解析失败。产物从配置级「产物目录」收集（例如 mall-server/target）。\n\
@@ -166,6 +166,29 @@ pub const GUIDES: &[Guide] = &[
                上下文窗口决定助手能带多少历史（会据此自动裁剪），输出上限用于限制单次回复长度。\n\
                接口地址支持内网/本机（如 http://127.0.0.1:11434/v1），密钥留空表示该服务不需要。\n\
                保存后用「测试」按钮验证协议/地址/密钥/模型 ID 是否真的可用。",
+    },
+    Guide {
+        id: "log-preset-fields",
+        title: "日志聚合预设怎么配",
+        module: "日志聚合",
+        route: "/logs",
+        keywords: &["日志", "预设", "聚合", "logPath", "tail", "关键词", "跟踪"],
+        body: "一个预设=在若干台服务器上跟踪一个日志源：名称、目标服务器（可多选）、\n\
+               日志路径（服务器上的绝对路径，如 /var/log/nginx/access.log）、类型（file 单文件 / dir 目录）、\n\
+               拉取行数（1~10000，默认 100）、分组与关键词过滤。\n\
+               建好后就能在日志聚合页直接 tail / 搜索 / 看上下文，不需要每次手动 ssh。\n\
+               助手配预设时走提案确认：serverIds 要先 list_servers 拿真实 id，不要自己编。",
+    },
+    Guide {
+        id: "git-repo-fields",
+        title: "Git 仓库（CICD 前置项）怎么登记",
+        module: "Git 仓库",
+        route: "/git",
+        keywords: &["git", "仓库", "登记", "远端", "分支", "cicd前置"],
+        body: "CICD 部署配置的前置项：先在 Git 仓库页登记本机仓库（名称 + 本地路径 + 可选远端地址与默认分支），\n\
+               部署配置里通过「选择仓库」引用它，部署引擎按它做 git 同步（fetch/reset 到部署分支）。\n\
+               本地路径必须真实存在，可用助手的 find_local_path / inspect_local_path 先确认。\n\
+               助手登记仓库走提案确认，仓库本身不含凭据（凭据在系统 SSH 配置里）。",
     },
     Guide {
         id: "deploy-freeze",

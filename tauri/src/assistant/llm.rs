@@ -403,6 +403,8 @@ pub struct SseAccumulator {
     partial_tools: Vec<(String, String, String)>, // (id, name, arguments)
     usage: Option<(u64, u64)>,
     finished: bool,
+    /// 结束原因（stop / length / tool_calls / message_stop / [DONE]），诊断短回复用
+    finish_reason: Option<String>,
     /// usage 只在收尾时发一次（finish_reason 与 [DONE] 会先后到）
     usage_emitted: bool,
 }
@@ -423,12 +425,19 @@ impl SseAccumulator {
         self.finished
     }
 
+    pub fn finish_reason(&self) -> Option<&str> {
+        self.finish_reason.as_deref()
+    }
+
     /// 输入 SSE 里的 data 载荷（已去掉 `data:` 前缀）。返回本次产生的事件。
     pub fn feed(&mut self, payload: &str) -> Vec<LlmEvent> {
         let payload = payload.trim();
         if payload.is_empty() || payload == "[DONE]" {
             if payload == "[DONE]" {
                 self.finished = true;
+                if self.finish_reason.is_none() {
+                    self.finish_reason = Some("[DONE]".to_string());
+                }
             }
             return self.flush_if_finished();
         }
@@ -556,6 +565,11 @@ impl SseAccumulator {
             }
         }
         if choice["finish_reason"].as_str().is_some() {
+            if let Some(fr) = choice["finish_reason"].as_str() {
+                if !fr.is_empty() {
+                    self.finish_reason = Some(fr.to_string());
+                }
+            }
             self.finished = true;
             events.extend(self.emit_pending_tools());
             events.extend(self.emit_usage());
@@ -624,6 +638,9 @@ impl SseAccumulator {
             }
             "message_stop" => {
                 self.finished = true;
+                if self.finish_reason.is_none() {
+                    self.finish_reason = Some("message_stop".to_string());
+                }
                 events.extend(self.emit_pending_tools());
                 events.extend(self.emit_usage());
             }
@@ -686,9 +703,11 @@ pub async fn stream_completion(
     let mut acc = SseAccumulator::new(route.protocol);
     let mut stream = response.bytes_stream();
     let mut buf = String::new();
+    let mut chunk_count: u64 = 0;
 
     while let Some(item) = stream.next().await {
         let bytes = item.map_err(|e| format!("读取响应流失败: {}", e))?;
+        chunk_count += 1;
         buf.push_str(&String::from_utf8_lossy(&bytes));
         // SSE 以空行分隔事件，这里按行取 data 即可（多行 data 极少见）
         while let Some(pos) = buf.find('\n') {
@@ -709,6 +728,22 @@ pub async fn stream_completion(
         for event in acc.feed(payload) {
             on_event(event);
         }
+    }
+    // 诊断：短回复（疑似网关提前结束）时记录结束原因与原始响应尾部
+    log::info!(
+        "[assistant] {} 流式完成: chunks={} finish={:?} text_len={} tools={}",
+        route.provider_name,
+        chunk_count,
+        acc.finish_reason(),
+        acc.turn().text.chars().count(),
+        acc.turn().tool_calls.len()
+    );
+    if acc.turn().text.chars().count() < 20 && acc.turn().tool_calls.is_empty() {
+        let raw_tail: String = buf.chars().rev().take(800).collect::<Vec<_>>().into_iter().rev().collect();
+        log::warn!(
+            "[assistant] 疑似短回复/网关提前结束，原始响应尾部（脱敏）: {}",
+            super::safety::redact_text(&raw_tail)
+        );
     }
     // 流在结束标记（finish_reason/[DONE]/message_stop）之前断开：网关连接不稳的典型表现。
     // 不能把半截文本静默当完整回答（用户会看到"说半句就停"还以为模型抽风），必须显式报错。

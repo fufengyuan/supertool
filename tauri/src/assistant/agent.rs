@@ -13,11 +13,26 @@ use supertool_core::logic::CoreService;
 use tauri::{AppHandle, Emitter};
 
 use super::{context, llm, safety, tools};
+use crate::assistant::llm::clip;
 
 /// 单轮对话最多允许模型连续调用几次工具（防止无限打转）
 pub const MAX_TOOL_ROUNDS: usize = 8;
 const DELTA_FLUSH_CHARS: usize = 120;
 const DELTA_FLUSH_MS: u128 = 80;
+/// 一轮输出少于该字符数且无工具调用 → 判定网关抽风（间歇性短回复），静默重试
+const MIN_ANSWER_CHARS: usize = 15;
+/// 网关抽风/请求失败时的自动重试上限（指数退避）
+const MAX_STREAM_RETRIES: usize = 9;
+/// 指数退避基础间隔与单次上限（毫秒）。
+/// 实测：网关对「1 分钟内 9 次密集请求」会触发限流降级（返回 1 chunk 短文本），
+/// 退避必须足够宽，前几次间隔拉大，避免重试反而加剧降级。
+const RETRY_BASE_MS: u64 = 2_000;
+const RETRY_MAX_MS: u64 = 30_000;
+
+/// 第 n 次重试（1 起）前的等待：2s * 2^(n-1)，封顶 30s
+fn retry_delay_ms(n: usize) -> u64 {
+    (RETRY_BASE_MS << (n.saturating_sub(1).min(12))).min(RETRY_MAX_MS)
+}
 
 static RUNNING_TURNS: LazyLock<Mutex<HashMap<String, (tokio::task::JoinHandle<()>, Arc<AtomicBool>)>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -93,7 +108,7 @@ pub fn system_prompt(route: &llm::RouteInfo, tool_names: &[String]) -> String {
         你能用的工具（{count} 个）：{tools}。\n\n\
         【能力边界】\n\
         你能做的只有三件事：\n\
-        · 读配置与状态（服务器/部署配置/数据库连接/部署日志/模型配置），基于真实数据回答；\n\
+        · 读配置与状态（服务器/Git 仓库/部署配置/数据库连接/日志预设/部署日志/模型配置），基于真实数据回答；\n\
         · 查知识：search_usage_guides 内置教学、search_project_guides 本项目文档、\
           search_project_source / read_project_source 只读本项目源码；\n\
         · 调用 propose_config_change 产出变更提案，用户确认后才由界面写入。\n\
@@ -112,7 +127,8 @@ pub fn system_prompt(route: &llm::RouteInfo, tool_names: &[String]) -> String {
         · 值：凭据值永远不写进对话、也不进提案 fields——fields 里放凭据值会被后端直接拒绝；\
           工具返回值里这类字段是 [已隐藏]。你永远看不到用户填的凭据值。\n\
         · 字段名：propose_config_change 的 needUserInput **必须列出**该目标需要的凭据字段名\
-          （新建服务器→password/sshKeyPath、数据库连接→password、AI 提供商→apiKey），\
+          （新建服务器→password/sshKeyPath、数据库连接→password、AI 提供商→apiKey；\
+          日志预设与 Git 仓库没有凭据字段，不要虚构），\
           **即使你判断用户已在表单里填过也要列**——确认卡片靠它渲染凭据槽位，并自动带入用户在表单里填的值；\
           漏列会导致槽位不出现、已填密码带不进去，最终写入空密码。\n\
         · 需要凭据时，引导用户到表单/确认卡片的对应位置自己填，不要索要、猜测或转述。\n\n\
@@ -238,74 +254,140 @@ async fn run_inner(
 
         emit_event(&app, turn_id, json!({"type": "start", "round": round}));
         // 正文与思考分别攒批：混在一个缓冲里会把思考内容当成正文渲染
-        let mut batcher = DeltaBatcher::default();
-        let mut thinking_batcher = DeltaBatcher::default();
-        let mut thinking_open = false;
-        let outcome = llm::stream_completion(&route, &request, &mut |event| {
-            match event {
-                llm::LlmEvent::TextDelta(delta) => {
-                    if let Some(chunk) = batcher.push(&delta) {
-                        emit_event(&app, turn_id, json!({"type": "delta", "text": chunk}));
+        // 网关间歇性短回复防护：输出过短（<15 字）且无工具调用时静默重试，直到拿到有效回复。
+        // 重试成功后的完整文本由 round-text 事件下发，前端按轮补全，覆盖掉之前流式的短开场。
+        let mut retried = 0;
+        let turn = loop {
+            // 首次（retried==0）流式预览发事件；网关抽风重试时静默收集，避免前端文本重复
+            let emit_stream = retried == 0;
+            let mut batcher = DeltaBatcher::default();
+            let mut thinking_batcher = DeltaBatcher::default();
+            let mut thinking_open = false;
+            let outcome = llm::stream_completion(&route, &request, &mut |event| {
+                if !emit_stream {
+                    return;
+                }
+                match event {
+                    llm::LlmEvent::TextDelta(delta) => {
+                        if let Some(chunk) = batcher.push(&delta) {
+                            emit_event(&app, turn_id, json!({"type": "delta", "text": chunk}));
+                        }
+                    }
+                    llm::LlmEvent::ThinkingDelta(delta) => {
+                        if !thinking_open {
+                            thinking_open = true;
+                            emit_event(&app, turn_id, json!({"type": "thinking-start"}));
+                        }
+                        if let Some(chunk) = thinking_batcher.push(&delta) {
+                            emit_event(&app, turn_id, json!({"type": "thinking", "text": chunk}));
+                        }
+                    }
+                    llm::LlmEvent::ToolCall(call) => {
+                        // 工具调用前先把已攒的增量冲出去，保证界面顺序
+                        if let Some(rest) = batcher.take() {
+                            emit_event(&app, turn_id, json!({"type": "delta", "text": rest}));
+                        }
+                        if let Some(rest) = thinking_batcher.take() {
+                            emit_event(&app, turn_id, json!({"type": "thinking", "text": rest}));
+                        }
+                        emit_event(
+                            &app,
+                            turn_id,
+                            json!({
+                                "type": "tool-start",
+                                "callId": call.id,
+                                "name": call.name,
+                                "arguments": call.arguments,
+                            }),
+                        );
+                    }
+                    llm::LlmEvent::Usage { input_tokens, output_tokens } => {
+                        emit_event(
+                            &app,
+                            turn_id,
+                            json!({
+                                "type": "usage", "inputTokens": input_tokens,
+                                "outputTokens": output_tokens, "contextWindow": context_window,
+                            }),
+                        );
                     }
                 }
-                llm::LlmEvent::ThinkingDelta(delta) => {
-                    if !thinking_open {
-                        thinking_open = true;
-                        emit_event(&app, turn_id, json!({"type": "thinking-start"}));
-                    }
-                    if let Some(chunk) = thinking_batcher.push(&delta) {
-                        emit_event(&app, turn_id, json!({"type": "thinking", "text": chunk}));
-                    }
+            })
+            .await;
+
+            if emit_stream {
+                if let Some(rest) = batcher.take() {
+                    emit_event(&app, turn_id, json!({"type": "delta", "text": rest}));
                 }
-                llm::LlmEvent::ToolCall(call) => {
-                    // 工具调用前先把已攒的增量冲出去，保证界面顺序
-                    if let Some(rest) = batcher.take() {
-                        emit_event(&app, turn_id, json!({"type": "delta", "text": rest}));
-                    }
-                    if let Some(rest) = thinking_batcher.take() {
-                        emit_event(&app, turn_id, json!({"type": "thinking", "text": rest}));
-                    }
+                if let Some(rest) = thinking_batcher.take() {
+                    emit_event(&app, turn_id, json!({"type": "thinking", "text": rest}));
+                }
+            }
+
+            let t = match outcome {
+                Err(e) if retried < MAX_STREAM_RETRIES => {
+                    retried += 1;
+                    let wait = retry_delay_ms(retried);
+                    log::warn!(
+                        "[assistant] 第 {round} 轮请求失败（{e}），{wait}ms 后自动重试 {retried}/{MAX_STREAM_RETRIES}"
+                    );
                     emit_event(
                         &app,
                         turn_id,
-                        json!({
-                            "type": "tool-start",
-                            "callId": call.id,
-                            "name": call.name,
-                            "arguments": call.arguments,
-                        }),
+                        json!({"type": "notice", "message": format!("请求失败，{}ms 后自动重试（{retried}/{MAX_STREAM_RETRIES}）…", wait)}),
                     );
+                    if cancel.load(Ordering::SeqCst) {
+                        emit_event(&app, turn_id, json!({"type": "done", "text": "（已停止）", "round": round}));
+                        return;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(wait)).await;
+                    continue; // 回到外层 loop 重新请求
                 }
-                llm::LlmEvent::Usage { input_tokens, output_tokens } => {
+                Err(e) => {
+                    log::warn!("[assistant] 第 {round} 轮失败: {e}");
+                    emit_event(&app, turn_id, json!({"type": "error", "message": e}));
+                    return;
+                }
+                Ok(t) if t.text.chars().count() < MIN_ANSWER_CHARS
+                    && t.tool_calls.is_empty()
+                    && retried < MAX_STREAM_RETRIES =>
+                {
+                    retried += 1;
+                    let wait = retry_delay_ms(retried);
+                    log::warn!(
+                        "[assistant] 第 {round} 轮输出过短（{}字）且无工具调用，疑似网关抽风，{wait}ms 后静默重试 {retried}/{MAX_STREAM_RETRIES}",
+                        t.text.chars().count()
+                    );
                     emit_event(
                         &app,
                         turn_id,
-                        json!({
-                            "type": "usage", "inputTokens": input_tokens,
-                            "outputTokens": output_tokens, "contextWindow": context_window,
-                        }),
+                        json!({"type": "notice", "message": format!("本轮回答异常中断，{}ms 后自动重试（{retried}/{MAX_STREAM_RETRIES}）…", wait)}),
                     );
+                    if cancel.load(Ordering::SeqCst) {
+                        emit_event(&app, turn_id, json!({"type": "done", "text": "（已停止）", "round": round}));
+                        return;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(wait)).await;
+                    continue; // 回到外层 loop 重新请求
                 }
-            }
-        })
-        .await;
-
-        if let Some(rest) = batcher.take() {
-            emit_event(&app, turn_id, json!({"type": "delta", "text": rest}));
-        }
-        if let Some(rest) = thinking_batcher.take() {
-            emit_event(&app, turn_id, json!({"type": "thinking", "text": rest}));
-        }
-
-        let turn = match outcome {
-            Ok(t) => t,
-            Err(e) => {
-                emit_event(&app, turn_id, json!({"type": "error", "message": e}));
-                return;
-            }
+                Ok(t) => t,
+            };
+            break t;
         };
+        log::info!(
+            "[assistant] 第 {round} 轮完成: text_len={} tool_calls={}",
+            turn.text.chars().count(),
+            turn.tool_calls.len()
+        );
+        for call in &turn.tool_calls {
+            log::info!("[assistant] 工具调用: {} args={}", call.name, clip(&call.arguments, 200));
+        }
+        // 本轮完整文本快照：delta 只是流式预览，macOS 事件积压时可能只发到开头（如「我先」），
+        // 前端按 round 用这份权威文本补全本轮缺口，避免「说半句就停」。
+        emit_event(&app, turn_id, json!({"type": "round-text", "round": round, "text": turn.text}));
 
         if turn.tool_calls.is_empty() {
+            log::info!("[assistant] 完成（无工具调用），输出 {text_len} 字", text_len = turn.text.chars().count());
             emit_event(
                 &app,
                 turn_id,
@@ -351,6 +433,12 @@ async fn run_inner(
                 json!({"type": "tool-running", "callId": call.id, "name": call.name}),
             );
             let exec = tools::execute(&core, &call.name, &args).await;
+            log::info!(
+                "[assistant] 执行工具 {}: proposals={} actions={}",
+                call.name,
+                exec.proposals.len(),
+                exec.actions.len()
+            );
             // 深度脱敏：既按字段名抹密钥，也逐个字符串抹形态（内嵌 JSON / 环境变量）
             let cleaned = safety::deep_redact(&exec.payload);
             let shrunk = tools::shrink(cleaned);

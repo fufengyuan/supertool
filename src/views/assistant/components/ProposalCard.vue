@@ -150,6 +150,8 @@ const TARGET_LABELS: Record<string, string> = {
   cicd: 'CI/CD 部署配置',
   dbConnection: '数据库连接',
   aiProvider: 'AI 模型提供商',
+  logPreset: '日志聚合预设',
+  gitRepo: 'Git 仓库',
 }
 /** 界面可识别的「需要凭据」字段名（与后端脱敏清单一致） */
 const SECRET_FIELDS = ['password', 'sshKeyPath', 'apiKey', 'token', 'secret', 'privateKey']

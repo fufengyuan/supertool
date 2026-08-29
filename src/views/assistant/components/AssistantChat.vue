@@ -314,6 +314,8 @@ const capabilitySummary = computed(() => {
     validate_cicd_config: '体检部署配置',
     get_deploy_history: '查部署历史',
     analyze_deploy_error: '分析部署失败原因',
+    list_log_presets: '查日志聚合预设',
+    list_git_repos: '查 Git 仓库',
     search_usage_guides: '解答字段含义与用法',
     get_usage_guide: '给完整操作说明',
     propose_config_change: '生成待确认的变更提案',

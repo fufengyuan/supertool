@@ -87,6 +87,9 @@ export interface AssistantEntry {
   at: string
   /** 界面动作提示（跳转等） */
   actionNote?: string
+  /** 多轮工具循环里每轮 delta 开始前的 text 长度锚点：done 时用后端权威文本补全该轮缺口
+   *  （macOS 事件积压时流式 delta 可能只到开头，如「我先」，完整文本在 done 里） */
+  textAnchors: number[]
 }
 
 const nowTime = () => new Date().toLocaleTimeString('zh-CN', { hour12: false })
@@ -133,6 +136,7 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
     const entry: AssistantEntry = {
       id: uid(), role: 'assistant', text: '', thinking: '', tools: [],
       proposals: [], forms: [], questions: [], streaming: true, at: nowTime(),
+      textAnchors: [0],
     }
     entries.value.push(entry)
     return entry
@@ -164,9 +168,13 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
     const entry = targetEntry(data.type !== 'usage')
     if (!entry) {return}
     switch (data.type) {
-      case 'start':
+      case 'start': {
         entry.streaming = true
+        // 记录本轮 delta 开始前的 text 长度（多轮工具循环每轮一次）
+        const round = data.round ?? 0
+        entry.textAnchors[round] = entry.text.length
         break
+      }
       case 'delta':
         entry.text += data.text || ''
         break
@@ -236,6 +244,7 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
         entries.value.push({
           id: uid(), role: 'note', text: data.message || '', thinking: '', tools: [],
           proposals: [], forms: [], questions: [], streaming: false, at: nowTime(),
+          textAnchors: [],
         })
         break
       case 'error':
@@ -243,10 +252,19 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
         entry.needConfig = !!data.needConfig
         entry.streaming = false
         break
-      case 'done':
-        if (!entry.text && data.text) {entry.text = data.text}
-        entry.streaming = false
+      case 'round-text':
+      case 'done': {
+        // 后端每轮都会发 round-text（权威完整文本，delta 只是流式预览，macOS 事件积压时
+        // 可能只发到开头如「我先」）；done 再补一次收尾。用权威文本补全本轮缺口，避免「说半句就停」。
+        const round = data.round ?? 0
+        const anchor = entry.textAnchors[round] ?? 0
+        const gotRoundText = entry.text.slice(anchor)
+        if (data.text && gotRoundText.length < data.text.length) {
+          entry.text = entry.text.slice(0, anchor) + data.text
+        }
+        if (data.type === 'done') {entry.streaming = false}
         break
+      }
     }
   }
 
@@ -285,6 +303,7 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
       id: uid(), role: 'user', text, thinking: '', tools: [], proposals: [],
       forms: [], questions: [], streaming: false, at: nowTime(),
       images: images && images.length ? [...images] : undefined,
+      textAnchors: [],
     })
     running.value = true
     turnId = uid()
@@ -318,6 +337,7 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
     entries.value.push({
       id: uid(), role: 'note', text: '已停止本次回答', thinking: '', tools: [],
       proposals: [], forms: [], questions: [], streaming: false, at: nowTime(),
+      textAnchors: [],
     })
   }
 
@@ -456,6 +476,28 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
         if (proposal.operation === 'update' && !base) {throw new Error('原模型提供商不存在，可能已被删除')}
         // apiKey 传掩码即代表沿用已存密钥（后端约定），掩码值不会被写回去
         await api.saveAiProvider({ ...(base || {}), ...merged })
+      } else if (proposal.targetType === 'logPreset') {
+        if (proposal.operation === 'update' && proposal.targetId) {
+          // update_log_preset 是全字段 UPDATE，必须先取原记录合并，漏字段会被清空
+          const presets: any[] = (await api.getLogPresets()) || []
+          const base = presets.find(p => p.id === proposal.targetId)
+          if (!base) {throw new Error('原日志预设不存在，可能已被删除')}
+          await api.updateLogPreset(proposal.targetId, { ...base, ...merged })
+        } else {
+          if (!merged.name || !merged.logPath) {throw new Error('新建日志预设至少需要名称与日志路径')}
+          if (!Array.isArray(merged.serverIds) || !merged.serverIds.length) {throw new Error('新建日志预设需要选择目标服务器')}
+          await api.addLogPreset({
+            logType: 'file', maxLines: 100, keywords: [],
+            ...merged,
+          })
+        }
+      } else if (proposal.targetType === 'gitRepo') {
+        if (proposal.operation === 'update' && proposal.targetId) {
+          await api.updateGitRepo(proposal.targetId, merged)
+        } else {
+          if (!merged.name || !merged.path) {throw new Error('新建 Git 仓库至少需要名称与本地路径')}
+          await api.addGitRepo({ id: crypto.randomUUID(), ...merged })
+        }
       } else {
         throw new Error(`暂不支持直接应用 ${proposal.targetType} 类型的提案`)
       }

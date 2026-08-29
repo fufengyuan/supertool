@@ -184,7 +184,7 @@ pub fn tool_specs() -> Vec<ToolSpec> {
         json!({
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "目录/文件名关键词，如 seller-api、mall-h5、mall"},
+                "query": {"type": "string", "description": "目录/文件名关键词，如 seller-api、mall-h5、mall-server"},
                 "within": {"type": "string", "description": "可选：把查找限定在某个目录内（必须在允许范围内）"},
                 "dirsOnly": {"type": "boolean", "default": true},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 25, "default": 15}
@@ -226,6 +226,22 @@ pub fn tool_specs() -> Vec<ToolSpec> {
         }),
     );
     add(
+        "list_log_presets",
+        "列出日志聚合的全部预设（名称、服务器、日志路径、日志类型、最大行数、分组、关键词）。",
+        json!({
+            "type": "object",
+            "properties": {},
+        }),
+    );
+    add(
+        "list_git_repos",
+        "列出已登记的 Git 仓库（名称、本地路径、远端地址、默认分支）。它是 CICD 部署配置的前置项。",
+        json!({
+            "type": "object",
+            "properties": {},
+        }),
+    );
+    add(
         "analyze_deploy_error",
         "分析一次部署失败：取该次部署的日志正文（系统仅允许读部署日志目录内的文件）+ 阶段日志，匹配已知错误特征，返回失败阶段、关键报错行与处理建议。",
         json!({
@@ -263,7 +279,7 @@ pub fn tool_specs() -> Vec<ToolSpec> {
         json!({
             "type": "object",
             "properties": {
-                "targetType": {"type": "string", "enum": ["server", "cicd", "dbConnection", "aiProvider"]},
+                "targetType": {"type": "string", "enum": ["server", "cicd", "dbConnection", "aiProvider", "logPreset", "gitRepo"]},
                 "operation": {"type": "string", "enum": ["create", "update"]},
                 "targetId": {"type": "string", "description": "update 时必填（已有记录 id）；create 留空"},
                 "displayName": {"type": "string", "description": "卡片标题，如「新增服务器：测试机」"},
@@ -453,6 +469,19 @@ const ALLOWED_FIELDS: &[(&str, &[&str])] = &[
         "aiProvider",
         &["name", "protocol", "baseUrl", "models", "enabled"],
     ),
+    (
+        "logPreset",
+        &[
+            "name",
+            "serverIds",
+            "logPath",
+            "logType",
+            "maxLines",
+            "presetGroup",
+            "keywords",
+        ],
+    ),
+    ("gitRepo", &["name", "path", "remote", "branch"]),
 ];
 
 fn allowed_fields(target: &str) -> Option<&'static [&'static str]> {
@@ -490,7 +519,7 @@ pub fn check_proposal(
         return Err("update 必须给 targetId（先用读类工具确认是哪一条）".to_string());
     }
     let allowlist = allowed_fields(target)
-        .ok_or_else(|| format!("不支持的变更目标：{target}（可用：server/cicd/dbConnection/aiProvider）"))?;
+        .ok_or_else(|| format!("不支持的变更目标：{target}（可用：server/cicd/dbConnection/aiProvider/logPreset/gitRepo）"))?;
     let obj = fields
         .as_object()
         .ok_or_else(|| "fields 必须是对象".to_string())?;
@@ -548,6 +577,53 @@ pub fn check_proposal(
     if let Some(protocol) = accepted.get("protocol") {
         if !matches!(protocol.as_str(), Some("openai") | Some("anthropic")) {
             return Err("protocol 只能是 openai 或 anthropic".to_string());
+        }
+    }
+
+    // 日志预设：logPath 必填、logType 枚举、maxLines 合理范围
+    if target == "logPreset" {
+        if let Some(p) = accepted.get("logPath") {
+            if p.as_str().map(str::trim).unwrap_or("").is_empty() {
+                return Err("logPath（服务器上的日志文件路径）不能为空".to_string());
+            }
+        } else if operation == "create" {
+            return Err("logPath 必填：要跟踪服务器上的哪个日志文件".to_string());
+        }
+        if let Some(t) = accepted.get("logType") {
+            if !matches!(t.as_str(), Some("file") | Some("dir")) {
+                return Err("logType 只能是 file 或 dir".to_string());
+            }
+        }
+        if let Some(n) = accepted.get("maxLines") {
+            let lines = n.as_i64().ok_or_else(|| "maxLines 必须是数字".to_string())?;
+            if !(1..=10000).contains(&lines) {
+                return Err(format!("maxLines 超出合理范围（1~10000）: {lines}"));
+            }
+        }
+        if let Some(ids) = accepted.get("serverIds") {
+            if !ids.is_array() {
+                return Err("serverIds 必须是服务器 id 数组（先 list_servers 拿 id）".to_string());
+            }
+        } else if operation == "create" {
+            return Err("serverIds 必填：这个日志预设跟踪哪台（些）服务器，先 list_servers 拿 id".to_string());
+        }
+    }
+
+    // Git 仓库：CICD 的前置项，path（本地路径）必填
+    if target == "gitRepo" {
+        if let Some(p) = accepted.get("path") {
+            if p.as_str().map(str::trim).unwrap_or("").is_empty() {
+                return Err("path（仓库本地路径）不能为空".to_string());
+            }
+        } else if operation == "create" {
+            return Err("path 必填：仓库在本机的绝对路径，可用 find_local_path 先找".to_string());
+        }
+        if let Some(n) = accepted.get("name") {
+            if n.as_str().map(str::trim).unwrap_or("").is_empty() {
+                return Err("name 不能为空".to_string());
+            }
+        } else if operation == "create" {
+            return Err("name 必填：给仓库起个名字（通常用项目名）".to_string());
         }
     }
 
@@ -945,6 +1021,16 @@ pub async fn execute(core: &CoreService, name: &str, args: &Value) -> ToolExec {
         "list_db_connections" => match read_db_connections(core) {
             Ok(rows) => ok(json!(rows)),
             Err(e) => err(format!("读取数据库连接失败: {e}")),
+        },
+        "list_log_presets" => match core.get_log_presets().await {
+            Ok(v) => ok(v),
+            Err(e) => err(format!("读取日志预设失败: {e}")),
+        },
+        "list_git_repos" => match core.db_read(|conn| {
+            supertool_core::db::git_repo::get_all(conn).map_err(|e| e.to_string())
+        }) {
+            Ok(repos) => ok(json!(repos)),
+            Err(e) => err(format!("读取 Git 仓库失败: {e}")),
         },
         "list_cicd_configs" => match read_configs(core) {
             Ok(list) => ok(Value::Array(list.iter().map(cicd_summary).collect())),
@@ -1472,6 +1558,63 @@ mod tests {
     }
 
     #[test]
+    fn log_preset_proposal_validates_fields() {
+        // create 缺 logPath / serverIds 直接拦下
+        let e = check_proposal("logPreset", "create", None, &json!({"name": "网关日志"}))
+            .unwrap_err();
+        assert!(e.contains("logPath"), "{}", e);
+        let e = check_proposal(
+            "logPreset", "create", None,
+            &json!({"name": "网关日志", "logPath": "/var/log/nginx"}),
+        )
+        .unwrap_err();
+        assert!(e.contains("serverIds"), "{}", e);
+        // 枚举与范围
+        let e = check_proposal(
+            "logPreset", "create", None,
+            &json!({"name": "x", "serverIds": ["s1"], "logPath": "/a.log", "logType": "stream"}),
+        )
+        .unwrap_err();
+        assert!(e.contains("logType"), "{}", e);
+        let e = check_proposal(
+            "logPreset", "create", None,
+            &json!({"name": "x", "serverIds": ["s1"], "logPath": "/a.log", "maxLines": 99999}),
+        )
+        .unwrap_err();
+        assert!(e.contains("maxLines"), "{}", e);
+        // 合法归一
+        let okp = check_proposal(
+            "logPreset", "create", None,
+            &json!({"name": "网关访问日志", "serverIds": ["s1", "s2"], "logPath": "/var/log/nginx/access.log",
+                    "logType": "file", "maxLines": 200, "presetGroup": "网关", "keywords": ["ERROR"]}),
+        )
+        .unwrap();
+        assert_eq!(okp["serverIds"].as_array().unwrap().len(), 2);
+        assert_eq!(okp["maxLines"], 200);
+    }
+
+    #[test]
+    fn git_repo_proposal_requires_name_and_path() {
+        let e = check_proposal("gitRepo", "create", None, &json!({"remote": "git@x:y.git"}))
+            .unwrap_err();
+        assert!(e.contains("path"), "{}", e);
+        let e = check_proposal("gitRepo", "create", None, &json!({"path": "/repo/app"}))
+            .unwrap_err();
+        assert!(e.contains("name"), "{}", e);
+        // 白名单外字段（如 url）拒绝，提示先 find_local_path 找路径
+        let e = check_proposal("gitRepo", "update", Some("gr1"), &json!({"url": "x"}))
+            .unwrap_err();
+        assert!(e.contains("url") && e.contains("白名单"), "{}", e);
+        let okp = check_proposal(
+            "gitRepo", "create", None,
+            &json!({"name": "supertool", "path": "/Users/me/WebstormProjects/supertool",
+                    "remote": "git@github.com:me/supertool.git", "branch": "main"}),
+        )
+        .unwrap();
+        assert_eq!(okp["branch"], "main");
+    }
+
+    #[test]
     fn registry_exposes_no_dangerous_capabilities() {
         // 红线：注册表里不得出现文件/命令/SQL/网络/写库类工具
         let names: Vec<String> = tool_specs().iter().map(|t| t.name.clone()).collect();
@@ -1514,6 +1657,10 @@ mod tests {
             "read_project_source",
         ] {
             assert!(names.contains(&needed.to_string()), "缺少项目查阅工具 {needed}");
+        }
+        // 配置读取类：日志预设与 Git 仓库（CICD 前置项）
+        for needed in ["list_log_presets", "list_git_repos"] {
+            assert!(names.contains(&needed.to_string()), "缺少读取工具 {needed}");
         }
         for t in tool_specs() {
             // 路径元信息工具：必须写清拿不到内容
