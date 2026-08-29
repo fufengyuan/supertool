@@ -132,11 +132,9 @@
         <TabBar v-if="tabStore.tabs.length > 0" />
         <main class="flex-1 overflow-y-auto p-4 lg:p-6">
           <router-view v-slot="{ Component }">
-            <Transition name="page" mode="out-in">
-              <keep-alive :max="8" :include="tabStore.includeList">
-                <component :is="Component" :key="$route.path" />
-              </keep-alive>
-            </Transition>
+            <keep-alive :max="8" :include="tabStore.includeList">
+              <component :is="Component" />
+            </keep-alive>
           </router-view>
         </main>
       </div>
@@ -433,14 +431,6 @@ onUnmounted(async () => {
 </script>
 
 <style scoped>
-/* 页面切换过渡：切标签/点菜单时淡入上移，避免整块内容硬切 */
-.page-enter-active { transition: opacity .14s ease, transform .18s cubic-bezier(.32,.72,.35,1); }
-.page-enter-from { opacity: 0; transform: translateY(6px); }
-.page-leave-active { transition: opacity .08s ease; }
-.page-leave-to { opacity: 0; }
-@media (prefers-reduced-motion: reduce) {
-  .page-enter-active, .page-leave-active { transition: none; }
-}
 .sidebar-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
