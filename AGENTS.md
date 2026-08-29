@@ -42,6 +42,8 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 - 教学与报错特征都在 `knowledge.rs` 内置（内容源自本文件与 docs 的结论），不读仓库文件；新增踩坑结论要同时补进 knowledge
 - 详见 [docs/ai-config-assistant.md](docs/ai-config-assistant.md)
 
+**页面边距**：页面级内边距只由 `MainLayout.vue` 的 `<main class="flex-1 overflow-y-auto p-4 lg:p-6">` 提供，**路由页根元素不得再自带 `p-*`/`px-*`/`py-*`**（基准 = 数据库页 `views/db/DBManager.vue`，根元素无 padding）；卡片/面板自身的 padding 不在此限。页面根再叠一层 padding 就是双倍边距——曾有 14 个页面如此（2026-08-29 统一去掉）。
+
 **侧栏/页签图标配色**：`src/features/navIconColors.ts`（viewId → 主色）是侧栏导航与 `TabBar` 图标的唯一配色来源（图标套 tint 底色块，折叠侧栏后靠颜色+形状识别功能）；新增功能页必须在此登记，未登记只是回退继承文本色不会报错，但会「掉色」成与其他项同色。SvgIcon 是 stroke 图标，勿传 `stroke-width="0"`（会整体不可见）。
 
 **新手引导**（前端）：核心功能页首次进入弹「功能介绍/使用方法/前置条件」，注册表在 `src/features/featureIntro.ts`（新增功能页在此登记三要素，prereqs 可带回跳路由）；MainLayout 监听 route.path 首次弹一次（**sessionStorage `feature_intro_seen_v1` 会话级，重启后继续弹**），页面右下角「?」可随时重看。前置资源选择处空态提供「去添加」跳转（服务器选择器 GroupedServerSelector、CICD 向导 Git 仓库选择已内置）。
