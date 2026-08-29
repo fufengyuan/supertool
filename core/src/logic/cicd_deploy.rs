@@ -201,6 +201,27 @@ fn clean_git_index_lock(dir: &Path) {
     }
 }
 
+/// 解析目录所在的 Git 仓库根目录；不在任何 Git 工作区内时返回 None。
+///
+/// 部署根目录常常是仓库的子目录（如 `SRC/mall/seller-api`），那里**没有** `.git` 是正常的，
+/// 因此绝不能用 `path.join(".git").exists()` 判定是否 Git 仓库——那会让这类配置静默跳过
+/// 分支切换与代码拉取，部署到的是本地旧代码。
+fn git_repo_root(path: &Path) -> Option<PathBuf> {
+    let out = user_shell_cmd_sync(&crate::logic::git::find_git())
+        .args(["rev-parse", "--show-toplevel"])
+        .current_dir(path)
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let root = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if root.is_empty() {
+        return None;
+    }
+    Some(PathBuf::from(root))
+}
+
 // =================== Types ===================
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -718,15 +739,21 @@ async fn do_git_sync(
                 return Err(format!("本地路径不存在: {}", local_path));
             }
 
-            // Check if it's a git repo
-            let git_dir = path.join(".git");
-            if !git_dir.exists() {
+            // 判定是否在 Git 工作区内（部署根可能是仓库子目录，那里没有 .git 目录）
+            let Some(repo_root) = git_repo_root(&path) else {
                 emit(
                     "git",
                     "warning",
-                    &format!("使用本地目录: {} (非 Git 仓库，跳过分支切换)", local_path),
+                    &format!("使用本地目录: {} (不在 Git 工作区内，跳过分支切换)", local_path),
                 );
                 return Ok(path);
+            };
+            if repo_root != path {
+                emit(
+                    "git",
+                    "info",
+                    &format!("Git 仓库根目录: {}（部署目录为其子目录）", repo_root.display()),
+                );
             }
 
             // Fetch and pull
@@ -3338,6 +3365,50 @@ fn file_size_mb(path: &str) -> f64 {
 #[cfg(test)]
 mod single_deploy_tests {
     use super::*;
+
+    #[test]
+    fn git_repo_root_recovers_repo_from_subdir() {
+        // git 不可用时跳过（CI 环境差异不应让本用例变红）
+        if std::process::Command::new("git")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            return;
+        }
+        let tmp = std::env::temp_dir().join(format!("supertool_gitroot_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(tmp.join("SRC/mall/seller-api")).unwrap();
+
+        let run = |args: &[&str], cwd: &Path| {
+            std::process::Command::new("git")
+                .args(args)
+                .current_dir(cwd)
+                .output()
+                .unwrap()
+        };
+        assert!(run(&["init", "-q"], &tmp).status.success());
+        run(&["config", "user.email", "test@example.com"], &tmp);
+        run(&["config", "user.name", "test"], &tmp);
+
+        let sub = tmp.join("SRC/mall/seller-api");
+        // 子目录里没有 .git，但仍应解析到仓库根
+        assert!(!sub.join(".git").exists());
+        let got = git_repo_root(&sub).expect("子目录应解析出仓库根");
+        assert_eq!(
+            got.canonicalize().ok(),
+            tmp.canonicalize().ok(),
+            "应解析到仓库根目录"
+        );
+
+        // 非仓库目录应返回 None
+        let plain = tmp.parent().unwrap().join(format!("supertool_plain_{}", std::process::id()));
+        fs::create_dir_all(&plain).unwrap();
+        assert_eq!(git_repo_root(&plain), None);
+
+        let _ = fs::remove_dir_all(&tmp);
+        let _ = fs::remove_dir_all(&plain);
+    }
 
     fn base_config() -> DeployConfig {
         DeployConfig {
