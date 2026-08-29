@@ -222,7 +222,7 @@ pub const ERROR_HINTS: &[ErrorHint] = &[
     ErrorHint { pattern: "健康检查未通过", cause: "服务没起来或健康检查地址/超时不对", fix: "核对健康检查 URL 与端口、加大超时与重试、检查重启脚本是否真正拉起进程", guide: "cicd-health-rollback" },
     ErrorHint { pattern: "start job for unit already queued", cause: "systemd 重启请求排队", fix: "重启脚本里先 stop 再 start，或等待后重试健康检查", guide: "cicd-health-rollback" },
     ErrorHint { pattern: "please commit your changes or stash them", cause: "本地有未提交改动挡住了拉取", fix: "提交或还原本地改动；工具会尝试 stash，冲突时需人工处理", guide: "cicd-single-main-module" },
-    ErrorHint { pattern: "not a git repository", cause: "本地目录不是 git 仓库（或代码在子目录）", fix: "用「选择目录」指向真实代码目录；纯本地目录会跳过分支切换", guide: "cicd-maven-parent-path" },
+    ErrorHint { pattern: "not a git repository", cause: "该目录不在任何 git 工作区内（仓库子目录没有 .git 属正常，不算非仓库）", fix: "确认路径在 git 工作区内即可，部署根可以是子目录；只有真不在工作区内才会跳过分支切换与拉取", guide: "cicd-maven-parent-path" },
     ErrorHint { pattern: "couldn't find remote ref", cause: "部署分支在远端不存在", fix: "改对分支名（区分 release-dev / feat-xxx 等），或先推送该分支", guide: "cicd-multi-env" },
     ErrorHint { pattern: "rolled-back:partial", cause: "自动回滚只恢复了部分文件", fix: "手动核对线上文件版本，必要时用回滚功能重做一次", guide: "cicd-health-rollback" },
     ErrorHint { pattern: "未变更跳过", cause: "增量上传判定无需传输（可能 manifest 与线上不一致）", fix: "回滚/手工替换过文件后删掉远端 .deploy_manifest.json，或先关增量跑一次全量", guide: "cicd-incremental" },
