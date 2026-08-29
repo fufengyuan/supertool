@@ -2,42 +2,42 @@
   <div :class="['h-full flex flex-col bg-base-200 text-base-content', isFullscreen ? 'fixed inset-0 z-[9999] p-2' : '']">
     <div class="flex gap-4 flex-1 min-h-0">
       <!-- 左侧：预设列表（按分组展示）- 全屏时隐藏 -->
-      <div v-show="!isFullscreen" class="w-[260px] flex flex-col gap-4 overflow-y-auto">
-        <div class="bg-base-100 rounded-box p-3">
-          <h3 class="text-sm text-base-content/70 mb-3 font-medium">查询预设</h3>
+      <div v-show="!isFullscreen" class="w-[220px] flex flex-col gap-3 overflow-y-auto">
+        <div class="bg-base-100 rounded-box p-2">
+          <h3 class="text-xs text-base-content/70 mb-2 font-medium">查询预设</h3>
 
           <!-- 分组 -->
           <div
             v-for="groupEntry in groupedPresets"
             :key="groupEntry.presetGroup"
-            class="mb-1"
           >
-            <div class="flex items-center gap-1.5 px-2 py-1.5 cursor-pointer select-none rounded-lg transition-all duration-200"
+            <div class="flex items-center gap-1.5 px-1.5 py-1 cursor-pointer select-none rounded-md transition-all duration-200"
               :class="groupStyle(groupEntry.presetGroup).bg"
               @click="togglePresetGroup(groupEntry.presetGroup)">
-              <span :class="['w-1 h-4 rounded-full shrink-0', groupStyle(groupEntry.presetGroup).dot]"></span>
+              <span :class="['w-1 h-3.5 rounded-full shrink-0', groupStyle(groupEntry.presetGroup).dot]"></span>
               <span class="text-[10px] text-base-content/50 min-w-[10px] inline-flex items-center">
                 <SvgIcon v-if="collapsedPresetGroups.has(groupEntry.presetGroup)" name="chevronRight" size="10" />
                 <SvgIcon v-else name="chevronDown" size="10" />
               </span>
-              <span class="font-bold text-sm text-base-content flex-1 truncate">{{ groupEntry.presetGroup }}</span>
-              <span class="text-[10px] font-semibold text-base-content/70 bg-base-content/10 rounded-full px-1.5 py-0.5 tabular-nums">{{ groupEntry.presets.length }}</span>
+              <span class="font-bold text-xs text-base-content flex-1 truncate">{{ groupEntry.presetGroup }}</span>
+              <span class="text-[10px] font-semibold text-base-content/70 bg-base-content/10 rounded-full px-1 py-px tabular-nums">{{ groupEntry.presets.length }}</span>
             </div>
-            <div v-show="!collapsedPresetGroups.has(groupEntry.presetGroup)" class="pl-1 flex flex-col gap-0.5">
+            <div v-show="!collapsedPresetGroups.has(groupEntry.presetGroup)" class="pl-1.5 flex flex-col">
               <div
                 v-for="preset in groupEntry.presets"
                 :key="preset.id"
-                class="flex justify-between items-center px-2.5 py-2 bg-base-200 rounded-lg cursor-pointer transition-all duration-200 relative"
-                :class="{ 'bg-primary text-primary-content': selectedPreset?.id === preset.id }"
+                class="group flex items-center gap-1 px-1.5 py-1 rounded-md cursor-pointer transition-colors duration-150"
+                :class="selectedPreset?.id === preset.id ? 'bg-primary text-primary-content' : 'hover:bg-base-200'"
+                :title="`${preset.name} · ${preset.serverIds.length} 节点 · ${preset.logType}`"
                 @click="selectAndQuery(preset)"
               >
-                <div class="flex flex-col mr-7">
-                  <span class="font-medium">{{ preset.name }}</span>
-                  <span class="text-xs opacity-70">{{ preset.serverIds.length }} 节点 · {{ preset.logType }}</span>
-                </div>
-                <button @click.stop="editPreset(preset)" class="btn btn-ghost btn-xs opacity-50 hover:opacity-100" title="编辑"><SvgIcon name="pencil" size="14" /></button>
-                <button @click.stop="deletePreset(preset.id)" class="btn btn-ghost btn-xs opacity-50 hover:opacity-100 hover:text-error" title="删除"><SvgIcon name="x" size="14" /></button>
-                <span v-if="isStreaming && selectedPreset?.id === preset.id" class="absolute right-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                <span v-if="isStreaming && selectedPreset?.id === preset.id" class="w-1.5 h-1.5 shrink-0 rounded-full bg-green-400 animate-pulse"></span>
+                <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ preset.name }}</span>
+                <span class="shrink-0 text-[10px] opacity-60 tabular-nums group-hover:hidden">{{ preset.serverIds.length }}节点</span>
+                <span class="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+                  <button @click.stop="editPreset(preset)" class="p-0.5 rounded opacity-60 hover:opacity-100" title="编辑"><SvgIcon name="pencil" size="12" /></button>
+                  <button @click.stop="deletePreset(preset.id)" class="p-0.5 rounded opacity-60 hover:opacity-100 hover:text-error" title="删除"><SvgIcon name="x" size="12" /></button>
+                </span>
               </div>
             </div>
           </div>
