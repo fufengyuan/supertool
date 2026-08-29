@@ -42,10 +42,41 @@ pub enum DbConnection {
 pub static CONNECTION_POOL: LazyLock<TokioMutex<HashMap<String, DbConnection>>> =
     LazyLock::new(|| TokioMutex::new(HashMap::new()));
 
-/// Redis key 树加载串行锁。`MultiplexedConnection` 的 clone 共享同一条连接，而 `SELECT` 是
-/// **连接级**状态：并发的「SELECT dbN + SCAN」会互相串库，表现为某些 db 展开为空、
-/// keys 数与 INFO keyspace 对不上。整段（SELECT + 扫描）串行即可消除。
-static REDIS_TREE_LOCK: LazyLock<TokioMutex<()>> = LazyLock::new(|| TokioMutex::new(()));
+/// Redis 连接配置备份：`db_connect` 时记下，供按 db 单独建连使用。
+static REDIS_CONFIGS: LazyLock<TokioMutex<HashMap<String, DbConnectionConfig>>> =
+    LazyLock::new(|| TokioMutex::new(HashMap::new()));
+
+/// 按 `{id}:{db}` 缓存「URL 已绑定 db」的连接。
+/// redis-rs 的 `MultiplexedConnection` clone 共享同一条连接，而 `SELECT` 是**连接级**状态：
+/// 在共享连接上「SELECT dbN + 后续命令」会被并发请求插队串库（表现为某些 db 展开为空、
+/// 计数对不上、点 key 读不到值）。改成每个 db 一条连接后，根本不再需要 SELECT。
+static REDIS_DB_CONNS: LazyLock<TokioMutex<HashMap<String, RedisConn>>> =
+    LazyLock::new(|| TokioMutex::new(HashMap::new()));
+
+/// 取（必要时建立）指定 db 的 Redis 连接。
+async fn redis_conn_for(id: &str, db_index: i64) -> Result<DbConnection, String> {
+    let key = format!("{id}:{db_index}");
+    if let Some(c) = REDIS_DB_CONNS.lock().await.get(&key).cloned() {
+        return Ok(DbConnection::Redis(c));
+    }
+    let cfg = {
+        let map = REDIS_CONFIGS.lock().await;
+        map.get(id)
+            .cloned()
+            .or_else(|| {
+                // 兼容：连接由更早的路径建立、没备份配置时退回共享连接（仍走 SELECT 语义）
+                None
+            })
+            .ok_or_else(|| "Connection not found".to_string())?
+    };
+    let mut db_cfg = cfg;
+    db_cfg.db_index = Some(db_index);
+    let conn = connect_redis(&db_cfg).await?;
+    if let DbConnection::Redis(ref c) = conn {
+        REDIS_DB_CONNS.lock().await.insert(key, c.clone());
+    }
+    Ok(conn)
+}
 
 // ============ MySQL ============
 
@@ -467,6 +498,11 @@ pub async fn db_connect(config: DbConnectionConfig) -> Result<serde_json::Value,
         "elasticsearch" => DbConnection::Elasticsearch(crate::commands::es::connect_es(&config).await?),
         other => return Err(format!("Unsupported database type: {}", other)),
     };
+    if config.db_type == "redis" {
+        REDIS_CONFIGS.lock().await.insert(config.id.clone(), config.clone());
+        // 配置可能变更（host/密码/默认 db），清掉旧的按 db 缓存的连接
+        REDIS_DB_CONNS.lock().await.retain(|k, _| !k.starts_with(&format!("{}:", config.id)));
+    }
     let mut pool = CONNECTION_POOL.lock().await;
     pool.insert(config.id.clone(), conn);
     Ok(serde_json::json!({ "success": true }))
@@ -476,6 +512,8 @@ pub async fn db_connect(config: DbConnectionConfig) -> Result<serde_json::Value,
 pub async fn db_disconnect(id: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] db_disconnect() called");
     CONNECTION_POOL.lock().await.remove(&id);
+    REDIS_CONFIGS.lock().await.remove(&id);
+    REDIS_DB_CONNS.lock().await.retain(|k, _| !k.starts_with(&format!("{id}:")));
     Ok(serde_json::json!({ "success": true }))
 }
 
@@ -2384,16 +2422,8 @@ pub async fn db_redis_keys(
     db_index: i64,
     pattern: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         // S9: KEYS → SCAN 迭代，避免大 key 空间阻塞 Redis
         let keys = redis_scan_all_keys(&c, &pattern, 100_000).await?;
         Ok(serde_json::json!({ "success": true, "keys": keys }))
@@ -2408,10 +2438,7 @@ pub async fn db_redis_keys_tree(
     db_index: i64,
     pattern: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     let DbConnection::Redis(c) = conn else {
         return Err("Not a Redis connection".to_string());
     };
@@ -2429,12 +2456,6 @@ pub async fn db_redis_keys_tree(
         format!("{}*", prefix)
     };
 
-    let _guard = REDIS_TREE_LOCK.lock().await;
-    redis::cmd("SELECT")
-        .arg(db_index)
-        .query_async::<()>(&mut c.clone())
-        .await
-        .map_err(|e| format!("Redis SELECT failed: {}", e))?;
     let keys = redis_scan_all_keys(&c, &match_pattern, 100_000).await?;
 
     // 按前缀之后的「下一段」分组：还带 `:` 的算文件夹（count = 该前缀下 key 总数），
@@ -2487,16 +2508,8 @@ pub async fn db_redis_keys_by_type(
     db_index: i64,
     pattern: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         // SCAN with MATCH pattern, then group by type
         let mut all_keys: Vec<String> = Vec::new();
         let mut cursor: String = "0".to_string();
@@ -2540,16 +2553,8 @@ pub async fn db_redis_key_info(
     db_index: i64,
     key: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let key_type: String = redis::cmd("TYPE")
             .arg(&key)
             .query_async(&mut c.clone())
@@ -2583,16 +2588,8 @@ pub async fn db_redis_key_value(
     db_index: i64,
     key: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let key_type: String = redis::cmd("TYPE")
             .arg(&key)
             .query_async(&mut c.clone())
@@ -2664,16 +2661,8 @@ pub async fn db_redis_set_key(
     value: String,
     ttl: i64,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         if ttl > 0 {
             redis::cmd("SETEX")
                 .arg(&key)
@@ -2704,16 +2693,8 @@ pub async fn db_redis_add_key(
     key: String,
     value: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         match key_type.as_str() {
             "string" => redis::cmd("SET")
                 .arg(&key)
@@ -2759,16 +2740,8 @@ pub async fn db_redis_delete_key(
     db_index: i64,
     key: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         redis::cmd("DEL")
             .arg(&key)
             .query_async::<()>(&mut c.clone())
@@ -2786,16 +2759,8 @@ pub async fn db_redis_exec(
     db_index: i64,
     command: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let parts: Vec<&str> = command.split_whitespace().collect();
         if parts.is_empty() {
             return Err("Empty command".to_string());
@@ -2823,16 +2788,8 @@ pub async fn db_redis_scan_keys(
     pattern: String,
     type_filter: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         // S9: KEYS → SCAN 迭代，避免大 key 空间阻塞 Redis
         let keys = redis_scan_all_keys(&c, &pattern, 100_000).await?;
         Ok(serde_json::json!({ "success": true, "keys": keys }))
@@ -2876,16 +2833,8 @@ pub async fn db_redis_streams(
     db_index: i64,
     pattern: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         // S9: KEYS → SCAN 迭代，避免大 key 空间阻塞 Redis
         let keys = redis_scan_all_keys(&c, &pattern, 100_000).await?;
         Ok(serde_json::json!({ "success": true, "streams": keys }))
@@ -2900,16 +2849,8 @@ pub async fn db_redis_stream_info(
     db_index: i64,
     stream: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let info: HashMap<String, String> = redis::cmd("XINFO")
             .arg("STREAM")
             .arg(&stream)
@@ -2930,16 +2871,8 @@ pub async fn db_redis_stream_messages(
     count: i64,
     start: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let msgs: Vec<Vec<(String, Vec<(String, String)>)>> = redis::cmd("XRANGE")
             .arg(&stream)
             .arg(&start)
@@ -2962,16 +2895,8 @@ pub async fn db_redis_stream_add(
     stream: String,
     data: HashMap<String, String>,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let mut cmd = redis::Cmd::new();
         cmd.arg("XADD").arg(&stream).arg("*");
         for (k, v) in &data {
@@ -3002,16 +2927,8 @@ pub async fn db_redis_stream_delete(
     db_index: i64,
     stream: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         redis::cmd("DEL")
             .arg(&stream)
             .query_async::<()>(&mut c.clone())
@@ -3030,16 +2947,8 @@ pub async fn db_redis_stream_group_create(
     stream: String,
     group: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         redis::cmd("XGROUP")
             .arg("CREATE")
             .arg(&stream)
@@ -3062,16 +2971,8 @@ pub async fn db_redis_stream_group_destroy(
     stream: String,
     group: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         redis::cmd("XGROUP")
             .arg("DESTROY")
             .arg(&stream)
@@ -3092,16 +2993,8 @@ pub async fn db_redis_stream_consumers(
     stream: String,
     group: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let consumers: Vec<HashMap<String, String>> = redis::cmd("XINFO")
             .arg("CONSUMERS")
             .arg(&stream)
@@ -3122,16 +3015,8 @@ pub async fn db_redis_stream_pending(
     stream: String,
     group: String,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let pending: Vec<Vec<(String, redis::Value)>> = redis::cmd("XPENDING")
             .arg(&stream)
             .arg(&group)
@@ -3155,16 +3040,8 @@ pub async fn db_redis_stream_claim(
     consumer: String,
     msg_ids: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let mut cmd = redis::Cmd::new();
         cmd.arg("XCLAIM")
             .arg(&stream)
@@ -3192,16 +3069,8 @@ pub async fn db_redis_stream_ack(
     group: String,
     msg_ids: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let mut cmd = redis::Cmd::new();
         cmd.arg("XACK").arg(&stream).arg(&group);
         for msg_id in &msg_ids {
@@ -3236,16 +3105,8 @@ pub async fn db_redis_stream_trim(
     stream: String,
     count: i64,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         redis::cmd("XTRIM")
             .arg(&stream)
             .arg("MAXLEN")
@@ -3267,16 +3128,8 @@ pub async fn db_redis_zset_range(
     start: i64,
     stop: i64,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let result: Vec<String> = redis::cmd("ZRANGE")
             .arg(&key)
             .arg(start)
@@ -3298,16 +3151,8 @@ pub async fn db_redis_zset_remove(
     key: String,
     members: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let conn = {
-        let pool = CONNECTION_POOL.lock().await;
-        pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
-    };
+    let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let mut cmd = redis::Cmd::new();
         cmd.arg("ZREM").arg(&key);
         for m in &members {
