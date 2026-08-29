@@ -77,6 +77,12 @@ const items = [
     description: '任务看板视图，拖拽管理任务状态',
   },
   {
+    path: '/projects',
+    icon: '📁',
+    label: '项目',
+    description: '按项目维度组织任务与归档，含项目看板与详情',
+  },
+  {
     path: '/settings',
     icon: '⚙️',
     label: '设置',

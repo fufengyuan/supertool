@@ -307,7 +307,6 @@ const navGroups = {
   business: [
     { path: '/', icon: '📊', label: '综合看板', viewId: 'dashboard' },
     { path: '/todo', icon: '📝', label: '任务', viewId: 'todo' },
-    { path: '/projects', icon: '📁', label: '项目', viewId: 'projects' },
   ],
   ops: [
     { path: '/servers', icon: '🖥️', label: '服务器', viewId: 'servers' },
