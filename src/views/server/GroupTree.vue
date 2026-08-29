@@ -1,8 +1,9 @@
 <template>
   <!-- 一个分组 = 一块中性面板（左侧 2px 分组色条作标识），标题行 + 卡片 + 子分组都嵌在里面 -->
-  <div class="mb-1 rounded-lg border border-base-content/5 border-l-2 bg-base-100/40" :style="{ borderLeftColor: group.color || '#6b7280' }">
-    <!-- 分组标题栏 -->
-    <div class="flex items-center gap-2 px-2 py-1 rounded-lg cursor-pointer select-none transition-colors hover:bg-base-100"
+  <div class="mb-1 rounded-lg border border-base-content/5 border-l-[3px] bg-base-100/50" :style="{ borderLeftColor: group.color || '#6b7280' }">
+    <!-- 分组标题栏：只有标题条涂分组色，面板本体保持中性，嵌套多层也不会叠深 -->
+    <div class="flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer select-none transition-opacity hover:opacity-80"
+      :style="{ backgroundColor: headerBg }"
       @click="toggle">
       <!-- 展开/折叠箭头 -->
       <SvgIcon class="text-base-content/50 transition-transform flex-shrink-0" 
@@ -13,7 +14,7 @@
       <!-- 分组名称 -->
       <span class="font-medium text-[11px] text-base-content">{{ group.name }}</span>
       <!-- 服务器数量（含子分组） -->
-      <span class="text-[10px] px-1.5 py-0 rounded bg-base-content/5 text-base-content/55 leading-tight tabular-nums"
+      <span class="text-[10px] px-1.5 py-0 rounded bg-base-100/70 text-base-content/60 leading-tight tabular-nums"
         :title="`含子分组共 ${allServersInGroup.length} 台`">
         {{ allServersInGroup.length }}
       </span>
@@ -124,6 +125,15 @@ const onlineCount = computed(() => {
 
 const isExpanded = computed(() => {
   return props.expandedGroups.has(props.group.id as string | null);
+});
+
+// 标题条底色：分组色 14% 透明，只涂一行所以不存在逐层叠加
+const headerBg = computed(() => {
+  const hex = props.group.color || '#6b7280';
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, 0.14)`;
 });
 
 function toggle() {
