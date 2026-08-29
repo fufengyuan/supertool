@@ -56,6 +56,7 @@ interface RedisTreeNode {
   key: string | null        // Full Redis key (only for leaf nodes)
   type: string | null       // Redis key type (only for leaf nodes)
   totalCount: number        // Total leaf keys under this node
+  declaredCount?: number    // 后端 SCAN 得到的真实 key 数（未展开时用它，避免显示 0）
 }
 
 // ============ Search State ============
@@ -428,7 +429,8 @@ function mergeKeysIntoTree(
         isLeaf: false,
         key: null,
         type: null,
-        totalCount: folder.count
+        totalCount: folder.count,
+        declaredCount: folder.count
       })
     } else {
       // Update count if it already exists
@@ -436,6 +438,7 @@ function mergeKeysIntoTree(
       if (existing.totalCount < folder.count) {
         existing.totalCount = folder.count
       }
+      existing.declaredCount = Math.max(existing.declaredCount ?? 0, folder.count)
     }
   }
 
@@ -985,12 +988,18 @@ async function loadMoreRedisKeys(connId: string, dbIndex: number) {
 }
 
 function fixTreeCounts(n: RedisTreeNode): number {
-  let total = n.isLeaf ? 1 : 0
-  for (const child of n.children.values()) {
-    total += fixTreeCounts(child)
+  if (n.isLeaf) {
+    n.totalCount = 1
+    return 1
   }
-  n.totalCount = total
-  return total
+  let loaded = 0
+  for (const child of n.children.values()) {
+    loaded += fixTreeCounts(child)
+  }
+  // 目录未展开时 children 为空，loaded=0；此时用后端 SCAN 出的真实数量，
+  // 否则计数要等用户展开后才对（旧行为：一律显示 0）
+  n.totalCount = Math.max(loaded, n.declaredCount ?? 0)
+  return n.totalCount
 }
 
 // ============ Icons ============
