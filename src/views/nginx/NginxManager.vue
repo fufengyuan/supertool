@@ -124,12 +124,14 @@
         </div>
 
         <!-- 选项卡导航 -->
-        <div class="tabs tabs-boxed bg-base-100 border border-base-content/10 p-0.5 gap-0">
+        <div class="flex gap-0.5 items-stretch bg-base-100 border border-base-content/10 rounded-lg p-0.5 overflow-x-auto nginx-tabs">
           <button
             v-for="tab in tabs"
             :key="tab.key"
-            class="tab tab-xs"
-            :class="{ 'tab-active': currentTab === tab.key }"
+            class="flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-xs whitespace-nowrap transition-all duration-150"
+            :class="currentTab === tab.key
+              ? 'bg-primary/15 text-primary font-semibold'
+              : 'text-base-content/55 hover:bg-base-200 hover:text-base-content'"
             :disabled="!currentPreset"
             @click="switchTab(tab.key)"
           >
@@ -154,12 +156,15 @@
           <template v-for="tab in tabs" :key="tab.key">
             <div v-if="currentTab === tab.key" class="p-3">
             <!-- 未选择预设时显示提示 -->
-            <div v-if="!currentPreset" class="flex items-center justify-center h-32 text-base-content/50">
-              <p>请先选择一个预设</p>
+            <div v-if="!currentPreset" class="flex h-64 flex-col items-center justify-center gap-3 text-base-content/50 nginx-fade">
+              <SvgIcon name="settings" size="40" stroke-width="1.4" class="opacity-40" />
+              <p class="text-sm">先在左侧选择一个 Nginx 预设，或新建一个开始配置</p>
+              <button class="btn btn-primary btn-sm" @click="openNewPresetForm"><SvgIcon name="plus" size="14" /> 新增预设</button>
             </div>
             <!-- 组件加载中 -->
-            <div v-else-if="componentStates[tab.key] === 'loading'" class="flex items-center justify-center h-32 text-base-content/50">
-              <p>加载中...</p>
+            <div v-else-if="componentStates[tab.key] === 'loading'" class="flex h-64 flex-col items-center justify-center gap-2 text-base-content/50">
+              <span class="loading loading-spinner loading-md text-primary"></span>
+              <p class="text-xs">正在加载 {{ tab.label }} …</p>
             </div>
             <!-- 组件加载失败 -->
             <div v-else-if="componentStates[tab.key] === 'error'" class="flex flex-col items-center justify-center h-32 text-base-content/50">
@@ -999,4 +1004,11 @@ function formatDate(dateStr: string) {
 .nginx-preview :deep(.hljs-built_in) { color: #a6e3a1; }
 .nginx-preview :deep(.hljs-section) { color: #89b4fa; }
 .nginx-preview code { font-family: inherit; background: transparent; padding: 0; }
+
+/* 选项卡横向滚动时藏掉滚动条，避免多出一行视觉噪音 */
+.nginx-tabs { scrollbar-width: none; }
+.nginx-tabs::-webkit-scrollbar { display: none; }
+.nginx-fade { animation: nginxFade .26s ease both; }
+@keyframes nginxFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .nginx-fade { animation: none; } }
 </style>
