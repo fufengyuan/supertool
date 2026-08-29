@@ -14,7 +14,8 @@
         :is="iconMap[tab.viewId]"
         v-if="tab.viewId && iconMap[tab.viewId]"
         :size="14"
-        class="shrink-0 opacity-60"
+        class="shrink-0"
+        :style="navIconStyle(tab.viewId)"
         stroke-width="2"
       />
       <span class="text-xs truncate max-w-[120px]">{{ tab.label }}</span>
@@ -32,6 +33,7 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
 import { useTabStore, type Tab } from '@/stores/tabStore'
+import { navIconStyle } from '@/features/navIconColors'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import {
   IconDashboard, IconList, IconCalendarWeek, IconFolders, IconCoin,

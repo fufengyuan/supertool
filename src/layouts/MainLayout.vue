@@ -29,10 +29,14 @@
           </div>
           <router-link v-for="item in navGroups.business" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-3 py-2 pl-5 pr-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
-            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
+            class="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content', sidebarCollapsed ? 'justify-center' : '']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
+            <span
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+              :style="navChipStyle(item.viewId, $route.path === item.path)">
+              <component :is="iconMap[item.viewId]" size="17" :style="navIconStyle(item.viewId)" stroke-width="2" />
+            </span>
             <span v-show="!sidebarCollapsed" class="text-sm font-medium">{{ item.label }}</span>
           </router-link>
 
@@ -42,10 +46,14 @@
           </div>
           <router-link v-for="item in navGroups.ops" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-3 py-2 pl-4 pr-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
-            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
+            class="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content', sidebarCollapsed ? 'justify-center' : '']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
+            <span
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+              :style="navChipStyle(item.viewId, $route.path === item.path)">
+              <component :is="iconMap[item.viewId]" size="17" :style="navIconStyle(item.viewId)" stroke-width="2" />
+            </span>
             <span v-show="!sidebarCollapsed" class="text-sm font-medium">{{ item.label }}</span>
           </router-link>
 
@@ -56,10 +64,14 @@
           </div>
           <router-link v-for="item in navGroups.dev" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-3 py-2 pl-4 pr-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
-            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
+            class="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content', sidebarCollapsed ? 'justify-center' : '']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
+            <span
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+              :style="navChipStyle(item.viewId, $route.path === item.path)">
+              <component :is="iconMap[item.viewId]" size="17" :style="navIconStyle(item.viewId)" stroke-width="2" />
+            </span>
             <span v-show="!sidebarCollapsed" class="text-sm font-medium">{{ item.label }}</span>
           </router-link>
 
@@ -69,10 +81,14 @@
           </div>
           <router-link v-for="item in navGroups.security" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-3 py-2 pl-4 pr-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
-            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
+            class="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content', sidebarCollapsed ? 'justify-center' : '']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
+            <span
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+              :style="navChipStyle(item.viewId, $route.path === item.path)">
+              <component :is="iconMap[item.viewId]" size="17" :style="navIconStyle(item.viewId)" stroke-width="2" />
+            </span>
             <span v-show="!sidebarCollapsed" class="text-sm font-medium">{{ item.label }}</span>
           </router-link>
         </nav>
@@ -81,18 +97,25 @@
         <div class="border-t border-base-300 p-2 flex flex-col gap-1">
           <!-- 更多功能（低频页面集中跳转 + 设置 + 悬浮待办开关等） -->
           <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/more')" title="更多功能（含设置）">
-            <SvgIcon name="grid" :size="20" stroke-width="0" />
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+              :style="navChipStyle('more', $route.path === '/more')">
+              <SvgIcon name="grid" :size="17" stroke-width="1.7" :style="navIconStyle('more')" />
+            </span>
             <span v-show="!sidebarCollapsed" class="text-sm">更多功能</span>
           </button>
           <!-- AI 助手（原设置位置） -->
           <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/assistant')" title="AI 配置助手">
-            <SvgIcon name="bot" :size="20" stroke-width="0" />
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+              :style="navChipStyle('assistant', $route.path === '/assistant')">
+              <SvgIcon name="bot" :size="17" stroke-width="1.7" :style="navIconStyle('assistant')" />
+            </span>
             <span v-show="!sidebarCollapsed" class="text-sm">AI 助手</span>
           </button>
           <!-- 局域网 -->
           <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="toggleLan" :class="{ 'text-primary': showLan }" title="局域网协作">
-            <div class="relative inline-flex items-center">
-              <IconNetwork size="20" stroke-width="1.5" />
+            <div class="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+              :style="navChipStyle('lan', showLan)">
+              <IconNetwork size="17" stroke-width="1.7" :style="navIconStyle('lan')" />
               <span v-if="lanStore.totalUnread > 0" class="absolute -top-1.5 -right-2 badge badge-error badge-xs min-w-4 h-4 text-[10px] px-1 shadow-[0_2px_8px_rgba(239,68,68,0.4)]">
                 {{ lanStore.totalUnread > 99 ? '99+' : lanStore.totalUnread }}
               </span>
@@ -152,6 +175,7 @@ import TabBar from '@/components/TabBar.vue'
 import FeatureIntroModal from '@/components/FeatureIntroModal.vue'
 import { useFeatureIntro } from '@/composables/useFeatureIntro'
 import { getIntroForPath } from '@/features/featureIntro'
+import { navChipStyle, navIconStyle } from '@/features/navIconColors'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
