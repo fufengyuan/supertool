@@ -28,11 +28,11 @@
             <template v-for="[groupName, groupItems] in groupedDeployConfigs" :key="groupName">
               <div class="border-b border-base-content/10 last:border-b-0">
                 <div class="flex items-center gap-1.5 px-2.5 py-2 cursor-pointer select-none text-xs font-semibold text-base-content bg-black/5 hover:bg-black/10" @click="toggleDeployGroup(groupName)">
-                  <SvgIcon name="chevronDown" size="14" class="text-base-content/60 transition-transform duration-200" :class="expandedDeployGroups.has(groupName) ? 'rotate-90' : ''" />
+                  <SvgIcon name="chevronDown" size="14" class="text-base-content/60 transition-transform duration-200" :class="collapsedDeployGroups.has(groupName) ? '-rotate-90' : ''" />
                   <span class="flex-1">{{ groupName }}</span>
                   <span class="text-xs font-normal text-base-content/60 bg-black/5 px-1.5 py-0.5 rounded-full">{{ groupItems.length }}</span>
                 </div>
-                <div v-show="expandedDeployGroups.has(groupName)">
+                <div v-show="!collapsedDeployGroups.has(groupName)">
                   <div
                     v-for="cfg in groupItems"
                     :key="cfg.id"
@@ -63,15 +63,15 @@
             <div class="text-sm font-semibold text-base-content mb-3">配置详情</div>
             <div class="flex flex-col gap-2.5">
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="config.name">
-                <span class="text-xs font-medium text-base-content/60">名称</span>
-                <span class="text-sm text-base-content font-medium text-right">{{ config.name }}</span>
+                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">名称</span>
+                <span class="min-w-0 truncate ml-3 text-sm text-base-content font-medium text-right">{{ config.name }}</span>
               </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
-                <span class="text-xs font-medium text-base-content/60">仓库</span>
-                <span class="text-sm text-base-content font-medium text-right">{{ selectedGitRepoObj?.name || '-' }}</span>
+                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">仓库</span>
+                <span class="min-w-0 truncate ml-3 text-sm text-base-content font-medium text-right">{{ selectedGitRepoObj?.name || '-' }}</span>
               </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
-                <span class="text-xs font-medium text-base-content/60">分支</span>
+                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">分支</span>
                 <div class="flex items-center gap-1">
                   <select v-model="selectedBranch"
                     class="select select-bordered select-xs w-28 bg-base-200 text-xs cursor-pointer"
@@ -84,27 +84,27 @@
               </div>
               <!-- 部署环境：仅多环境配置显示 -->
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="configEnvironments.length > 0">
-                <span class="text-xs font-medium text-base-content/60">部署环境</span>
+                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">部署环境</span>
                 <select v-model="selectedEnvironment" class="select select-bordered select-xs w-36 bg-base-200 text-xs cursor-pointer" title="选择本次部署的环境">
                   <option value="">默认（全局配置）</option>
                   <option v-for="env in configEnvironments" :key="env" :value="env">{{ env }}</option>
                 </select>
               </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
-                <span class="text-xs font-medium text-base-content/60">服务器</span>
-                <span class="text-sm text-base-content font-medium text-right">{{ getServersInfo(config) }}</span>
+                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">服务器</span>
+                <span class="min-w-0 truncate ml-3 text-sm text-base-content font-medium text-right">{{ getServersInfo(config) }}</span>
               </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
-                <span class="text-xs font-medium text-base-content/60">构建工具</span>
-                <span class="text-sm text-base-content font-medium text-right">{{ getBuildToolName(config.buildTool) }}</span>
+                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">构建工具</span>
+                <span class="min-w-0 truncate ml-3 text-sm text-base-content font-medium text-right">{{ getBuildToolName(config.buildTool) }}</span>
               </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="config.deployPath">
-                <span class="text-xs font-medium text-base-content/60">部署路径</span>
+                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">部署路径</span>
                 <span class="text-sm font-medium text-right font-mono text-xs bg-base-200 px-2 py-0.5 rounded break-all max-w-[200px] truncate">{{ config.deployPath }}</span>
               </div>
               <!-- 重启脚本：仅 Maven 后端项目显示 -->
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="config.restartScript && config.buildTool === 'maven'">
-                <span class="text-xs font-medium text-base-content/60">重启脚本</span>
+                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">重启脚本</span>
                 <span class="text-sm font-medium text-right font-mono text-xs bg-base-200 px-2 py-0.5 rounded break-all max-w-[200px] truncate">{{ config.restartScript }}</span>
               </div>
             </div>
@@ -469,7 +469,8 @@ const loadedLogContent = ref<Record<string, string>>({});
 const loadingLogContent = ref<Record<string, boolean>>({});
 
 // Tree selector state
-const expandedDeployGroups = ref<Set<string>>(new Set());
+// 默认全部展开，只记录被手动收起的分组（收起状态少，列表一眼能看到配置名）
+const collapsedDeployGroups = ref<Set<string>>(new Set());
 
 // Deploy state — Map 结构支持多配置并行部署
 interface DeployState {
@@ -634,15 +635,14 @@ const groupedDeployConfigs = computed(() => {
   return map;
 });
 
-// 默认所有分组收起，用户手动点击切换
 function toggleDeployGroup(groupName: string) {
-  const set = new Set(expandedDeployGroups.value);
+  const set = new Set(collapsedDeployGroups.value);
   if (set.has(groupName)) {
     set.delete(groupName);
   } else {
     set.add(groupName);
   }
-  expandedDeployGroups.value = set;
+  collapsedDeployGroups.value = set;
 }
 
 const selectedGitRepoObj = computed(() => {
