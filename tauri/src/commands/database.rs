@@ -42,6 +42,11 @@ pub enum DbConnection {
 pub static CONNECTION_POOL: LazyLock<TokioMutex<HashMap<String, DbConnection>>> =
     LazyLock::new(|| TokioMutex::new(HashMap::new()));
 
+/// Redis key 树加载串行锁。`MultiplexedConnection` 的 clone 共享同一条连接，而 `SELECT` 是
+/// **连接级**状态：并发的「SELECT dbN + SCAN」会互相串库，表现为某些 db 展开为空、
+/// keys 数与 INFO keyspace 对不上。整段（SELECT + 扫描）串行即可消除。
+static REDIS_TREE_LOCK: LazyLock<TokioMutex<()>> = LazyLock::new(|| TokioMutex::new(()));
+
 // ============ MySQL ============
 
 pub async fn connect_mysql(config: &DbConnectionConfig) -> Result<DbConnection, String> {
@@ -2407,18 +2412,73 @@ pub async fn db_redis_keys_tree(
         let pool = CONNECTION_POOL.lock().await;
         pool.get(&id).cloned().ok_or_else(|| "Connection not found".to_string())?
     };
-    if let DbConnection::Redis(c) = conn {
-        redis::cmd("SELECT")
-            .arg(db_index)
-            .query_async::<()>(&mut c.clone())
-            .await
-            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
-        // S9: KEYS → SCAN 迭代，避免大 key 空间阻塞 Redis
-        let keys = redis_scan_all_keys(&c, &pattern, 100_000).await?;
-        Ok(serde_json::json!({ "success": true, "keys": keys }))
+    let DbConnection::Redis(c) = conn else {
+        return Err("Not a Redis connection".to_string());
+    };
+
+    // 前端传的是「前缀」（如 `models:`），`*`/空表示整库。SCAN 必须补尾部通配符：
+    // 之前把 `models:` 原样当 pattern，匹配不到任何 key → 二级目录展不开、计数恒为 0。
+    let prefix = if pattern == "*" || pattern.is_empty() {
+        String::new()
     } else {
-        Err("Not a Redis connection".to_string())
+        pattern.clone()
+    };
+    let match_pattern = if prefix.is_empty() {
+        "*".to_string()
+    } else {
+        format!("{}*", prefix)
+    };
+
+    let _guard = REDIS_TREE_LOCK.lock().await;
+    redis::cmd("SELECT")
+        .arg(db_index)
+        .query_async::<()>(&mut c.clone())
+        .await
+        .map_err(|e| format!("Redis SELECT failed: {}", e))?;
+    let keys = redis_scan_all_keys(&c, &match_pattern, 100_000).await?;
+
+    // 按前缀之后的「下一段」分组：还带 `:` 的算文件夹（count = 该前缀下 key 总数），
+    // 其余是当前层叶子。分组在服务端做，前端只需按前缀拼接完整 key。
+    let mut folders: std::collections::BTreeMap<String, u64> = std::collections::BTreeMap::new();
+    let mut leaves: Vec<String> = Vec::new();
+    for k in &keys {
+        let rest = k.strip_prefix(prefix.as_str()).unwrap_or(k.as_str());
+        match rest.find(':') {
+            Some(i) if i > 0 => *folders.entry(rest[..i].to_string()).or_insert(0) += 1,
+            _ => leaves.push(rest.to_string()),
+        }
     }
+
+    // 叶子补真实类型（数量可控才逐个 TYPE，避免大 key 空间下 N 次往返）
+    let probe_types = leaves.len() <= 300;
+    let mut leaf_objs: Vec<serde_json::Value> = Vec::with_capacity(leaves.len());
+    for name in &leaves {
+        let mut key_type = "string".to_string();
+        if probe_types {
+            let full = format!("{}{}", prefix, name);
+            if let Ok(Some(t)) = redis::cmd("TYPE")
+                .arg(&full)
+                .query_async::<Option<String>>(&mut c.clone())
+                .await
+            {
+                key_type = t;
+            }
+        }
+        leaf_objs.push(serde_json::json!({ "name": name, "type": key_type }));
+    }
+
+    let folder_objs: Vec<serde_json::Value> = folders
+        .into_iter()
+        .map(|(name, count)| serde_json::json!({ "name": name, "count": count }))
+        .collect();
+
+    Ok(serde_json::json!({
+        "success": true,
+        "folders": folder_objs,
+        "leaves": leaf_objs,
+        "hasMore": keys.len() >= 100_000,
+        "scanned": keys.len(),
+    }))
 }
 
 #[tauri::command(rename_all = "camelCase")]

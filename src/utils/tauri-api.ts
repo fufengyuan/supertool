@@ -385,30 +385,37 @@ export function useDatabaseAPI() {
     },
     dbRedisKeysTree: async (id: string, dbIndex: number, pattern: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_keys_tree', { id, dbIndex, pattern })
-      if (res.success && res.data) {
-        const keys = res.data.keys || []
-        // 前端期望格式: { success: true, folders: [{name, count}], leaves: [{name, type}], hasMore }
-        // Rust 返回的是全量 keys 数组，这里做兼容转换
-        const folders = new Map<string, number>()
-        const leaves: Array<{ name: string; type: string }> = []
-        for (const k of keys) {
-          const idx = k.indexOf(':')
-          if (idx > 0) {
-            const folder = k.substring(0, idx)
-            folders.set(folder, (folders.get(folder) || 0) + 1)
-          } else {
-            // 无冒号的 key 视为叶子节点（类型未知）
-            leaves.push({ name: k, type: 'string' })
-          }
-        }
+      const data: any = (res as any).data ?? res
+      if (!data?.success) {return { success: false, folders: [], leaves: [], hasMore: false }}
+      // 后端已按「前缀之后的下一段」分好组（pattern 传 `models:` 时返回 models 这一层的子节点）
+      if (Array.isArray(data.folders) || Array.isArray(data.leaves)) {
         return {
           success: true,
-          folders: Array.from(folders.entries()).map(([name, count]) => ({ name, count })),
-          leaves,
-          hasMore: false
+          folders: data.folders || [],
+          leaves: data.leaves || [],
+          hasMore: !!data.hasMore
         }
       }
-      return { success: false, folders: [], leaves: [], hasMore: false }
+      // 兜底：老接口只返回全量 keys，这里做前缀感知的分组（去掉前缀再取下一段）
+      const prefix = !pattern || pattern === '*' ? '' : pattern
+      const folders = new Map<string, number>()
+      const leaves: Array<{ name: string; type: string }> = []
+      for (const k of (data.keys || []) as string[]) {
+        const rest = prefix && k.startsWith(prefix) ? k.slice(prefix.length) : k
+        const idx = rest.indexOf(':')
+        if (idx > 0) {
+          const folder = rest.substring(0, idx)
+          folders.set(folder, (folders.get(folder) || 0) + 1)
+        } else {
+          leaves.push({ name: rest, type: 'string' })
+        }
+      }
+      return {
+        success: true,
+        folders: Array.from(folders.entries()).map(([name, count]) => ({ name, count })),
+        leaves,
+        hasMore: false
+      }
     },
     dbRedisKeysByType: async (id: string, dbIndex: number, pattern: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_keys_by_type', { id, dbIndex, pattern })

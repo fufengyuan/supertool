@@ -893,10 +893,11 @@ watch(redisDbExpansionState, async (items) => {
   logger.info(`[ConnectionTree] redisDbExpansionState watch fired, items: ${items.length}`)
     for (const item of items) {
       const key = redisDbKey(item.connId, item.dbIndex)
-      const treeExists = redisKeyTrees.value[key] !== undefined
+      // 空树视为「没加载成功」，允许再次展开时重试（否则一次失败就永久空白）
+      const treeLoaded = redisKeyTrees.value[key] !== undefined && redisKeyTrees.value[key].children.size > 0
       const isLoading = loadingRedisKeyTrees.value[key]
-      logger.info(`[ConnectionTree] Checking db${item.dbIndex}: expanded=${item.expanded}, treeExists=${treeExists}, isLoading=${isLoading}`)
-      if (item.expanded && redisKeyTrees.value[key] === undefined && !loadingRedisKeyTrees.value[key]) {
+      logger.info(`[ConnectionTree] Checking db${item.dbIndex}: expanded=${item.expanded}, treeLoaded=${treeLoaded}, isLoading=${isLoading}`)
+      if (item.expanded && !treeLoaded && !loadingRedisKeyTrees.value[key]) {
         logger.info(`[ConnectionTree] → Loading keys for ${item.connId}:db${item.dbIndex}...`)
         loadingRedisKeyTrees.value[key] = true
         try {
