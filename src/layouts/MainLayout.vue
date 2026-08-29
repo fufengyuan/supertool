@@ -77,17 +77,17 @@
           </router-link>
         </nav>
 
-        <!-- 侧栏底部操作区（精简：更多功能/设置/局域网） -->
+        <!-- 侧栏底部操作区（精简：更多功能/AI 助手/局域网；设置已并入更多功能） -->
         <div class="border-t border-base-300 p-2 flex flex-col gap-1">
-          <!-- 更多功能（低频页面集中跳转 + 悬浮待办开关等） -->
-          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/more')" title="更多功能">
+          <!-- 更多功能（低频页面集中跳转 + 设置 + 悬浮待办开关等） -->
+          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/more')" title="更多功能（含设置）">
             <SvgIcon name="grid" :size="20" stroke-width="0" />
             <span v-show="!sidebarCollapsed" class="text-sm">更多功能</span>
           </button>
-          <!-- 设置（通用入口，含 AI 模型/数据与维护） -->
-          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/settings')" title="设置（含 AI 模型配置/数据备份/审计）">
-            <SvgIcon name="settings" :size="20" stroke-width="0" />
-            <span v-show="!sidebarCollapsed" class="text-sm">设置</span>
+          <!-- AI 助手（原设置位置） -->
+          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="router.push('/assistant')" title="AI 配置助手">
+            <SvgIcon name="bot" :size="20" stroke-width="0" />
+            <span v-show="!sidebarCollapsed" class="text-sm">AI 助手</span>
           </button>
           <!-- 局域网 -->
           <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="toggleLan" :class="{ 'text-primary': showLan }" title="局域网协作">

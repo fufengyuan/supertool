@@ -76,6 +76,12 @@ const items = [
     label: '看板',
     description: '任务看板视图，拖拽管理任务状态',
   },
+  {
+    path: '/settings',
+    icon: '⚙️',
+    label: '设置',
+    description: 'AI 模型配置、数据备份、磁盘清理与审计日志',
+  },
 ]
 
 /** 打开/关闭待办悬浮球（关闭后同样的入口可重新打开） */
