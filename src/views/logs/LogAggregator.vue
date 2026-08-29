@@ -6,6 +6,17 @@
         <div class="bg-base-100 rounded-box p-2">
           <h3 class="text-xs text-base-content/70 mb-2 font-medium">查询预设</h3>
 
+          <!-- 首屏骨架：与真实分组行同构，避免加载完成瞬间跳动 -->
+          <div v-if="presetsLoading && presets.length === 0" class="flex flex-col gap-2">
+            <template v-for="i in 7" :key="i">
+              <div v-if="i === 3" class="h-3 w-14 rounded bg-base-content/10 animate-pulse" :style="{ animationDelay: `${i * 60}ms` }"></div>
+              <div class="flex items-center gap-2">
+                <span class="w-1 h-3.5 rounded-full bg-base-content/10 animate-pulse" :style="{ animationDelay: `${i * 60}ms` }"></span>
+                <span class="h-3 flex-1 rounded bg-base-content/10 animate-pulse" :style="{ maxWidth: `${42 + ((i * 19) % 44)}%`, animationDelay: `${i * 60}ms` }"></span>
+              </div>
+            </template>
+          </div>
+
           <!-- 分组 -->
           <div
             v-for="groupEntry in groupedPresets"
@@ -42,7 +53,7 @@
             </div>
           </div>
 
-          <div v-if="presets.length === 0" class="text-center text-base-content/60 text-xs p-3">
+          <div v-if="!presetsLoading && presets.length === 0" class="text-center text-base-content/60 text-xs p-3">
             <template v-if="allServers.length === 0">
               <div class="text-center">
                 <p><SvgIcon name="monitor" size="14" class="inline" /> 尚未配置服务器</p>
@@ -188,9 +199,11 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-2 font-mono text-xs leading-relaxed allow-select" ref="logContainer" @scroll="onScroll" style="overflow-anchor: none">
-          <div v-if="displayLines.length === 0 && !isStreaming && !hasSearched" class="flex items-center justify-center h-full text-base-content/60">
-            <p v-if="queryMode === 'stream'">选择左侧预设开始查询日志</p>
-            <p v-else>输入关键字后点击搜索</p>
+          <div v-if="displayLines.length === 0 && !isStreaming && !hasSearched"
+            class="log-empty flex h-full flex-col items-center justify-center gap-2 text-base-content/50">
+            <SvgIcon :name="queryMode === 'stream' ? 'fileText' : 'search'" size="36" stroke-width="1.4" class="opacity-35" />
+            <p class="m-0 text-sm">{{ queryMode === 'stream' ? '选择左侧预设开始查询日志' : '输入关键字后点击搜索' }}</p>
+            <p class="m-0 text-[11px] opacity-70">{{ queryMode === 'stream' ? '流式模式实时追加输出，自动滚到最新' : '搜索模式按时间倒序返回匹配行' }}</p>
           </div>
 
           <div v-if="queryMode === 'search' && searchKeyword.trim() && !isSearching && displayLines.length === 0 && hasSearched" class="flex items-center justify-center h-full text-base-content/60">
@@ -642,6 +655,8 @@ const toast = useToast()
 
 // 状态
 const presets = ref<any[]>([])
+// 首屏预设加载中：左栏显示骨架行而不是空白
+const presetsLoading = ref(true)
 const allServers = ref<Server[]>([])
 const allGroups = ref<ServerGroup[]>([])
 const selectedPreset = ref<any | null>(null)
@@ -2710,6 +2725,8 @@ async function loadPresets() {
     presets.value = await getTauriAPI().logPresetsGetAll()
   } catch (e) {
     console.error('Failed to load presets:', e)
+  } finally {
+    presetsLoading.value = false
   }
 }
 
@@ -2919,4 +2936,9 @@ onActivated(async () => {
   padding: 0 2px;
   border-radius: 2px;
 }
+
+/* 未开始查询时的空态淡入 */
+.log-empty { animation: logEmptyIn .3s ease both; }
+@keyframes logEmptyIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .log-empty { animation: none; } }
 </style>
