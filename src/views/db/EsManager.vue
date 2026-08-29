@@ -167,7 +167,7 @@
           <!-- 文档浏览（Discover 式） -->
           <div v-else class="flex-1 min-h-0 flex flex-col">
             <!-- 过滤条件构建区 -->
-            <div class="bg-base-100 border-b border-base-content/10 p-3 space-y-2">
+            <div class="bg-base-100 border-b border-base-content/10 px-3 py-2 space-y-1.5">
               <div class="flex items-center gap-2 flex-wrap">
                 <div class="flex items-center gap-2 flex-1 min-w-[280px]">
                   <SvgIcon name="search" size="13" class="text-base-content/40" />
@@ -177,6 +177,9 @@
                   <SvgIcon name="search" size="12" /> 搜索
                 </button>
                 <button @click="resetFilters" class="btn btn-ghost btn-xs">重置</button>
+                <span class="w-px h-4 bg-base-content/10"></span>
+                <button @click="addFilter" class="btn btn-outline btn-xs gap-1"><SvgIcon name="plus" size="12" /> 添加过滤条件</button>
+                <button @click="showDsl = !showDsl" class="btn btn-ghost btn-xs">查看 DSL</button>
               </div>
               <div v-for="(f, i) in filters" :key="i" class="flex items-center gap-1.5 flex-wrap">
                 <select v-model="f.field" class="select select-bordered select-xs w-44">
@@ -194,10 +197,6 @@
                 <input v-else v-model="f.value" class="input input-bordered input-xs w-48" placeholder="值" @keydown.enter="search" />
                 <button @click="filters.splice(i, 1)" class="btn btn-ghost btn-xs px-1.5"><SvgIcon name="x" size="12" /></button>
               </div>
-              <div class="flex items-center gap-2">
-                <button @click="addFilter" class="btn btn-outline btn-xs gap-1"><SvgIcon name="plus" size="12" /> 添加过滤条件</button>
-                <button @click="showDsl = !showDsl" class="btn btn-ghost btn-xs">查看 DSL</button>
-              </div>
               <pre v-if="showDsl" class="bg-base-200/60 rounded-lg p-2 font-mono text-[10px] overflow-x-auto max-h-40">{{ dslPreview }}</pre>
             </div>
 
@@ -213,19 +212,19 @@
                 </div>
               </div>
               <div class="flex-1 overflow-auto min-h-0">
-                <table class="table table-xs">
+                <table class="table table-xs table-fixed es-doc-table">
                   <thead class="sticky top-0 bg-base-100 z-10">
                     <tr>
                       <th class="w-10">#</th>
-                      <th>_id</th>
-                      <th v-for="col in resultColumns" :key="col">{{ col }}</th>
+                      <th class="w-[150px]">_id</th>
+                      <th v-for="col in resultColumns" :key="col" class="w-[210px] truncate" :title="col">{{ col }}</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr v-for="(hit, i) in hits" :key="hit._id" class="cursor-pointer hover:bg-base-200" @click="openDocDetail(hit)">
                       <td class="text-base-content/40 tabular-nums">{{ (page - 1) * pageSize + i + 1 }}</td>
-                      <td class="font-mono text-xs max-w-[160px] truncate">{{ hit._id }}</td>
-                      <td v-for="col in resultColumns" :key="col" class="max-w-[220px] truncate text-xs" :title="cellText(hit._source?.[col])">{{ cellText(hit._source?.[col]) }}</td>
+                      <td class="w-[150px] truncate font-mono text-xs" :title="hit._id">{{ hit._id }}</td>
+                      <td v-for="col in resultColumns" :key="col" class="w-[210px] truncate text-xs" :title="cellText(hit._source?.[col])">{{ cellText(hit._source?.[col]) }}</td>
                     </tr>
                     <tr v-if="hits.length === 0 && !searching">
                       <td :colspan="resultColumns.length + 2" class="text-center text-base-content/40 py-8">无匹配文档</td>
