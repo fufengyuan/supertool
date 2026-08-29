@@ -71,6 +71,6 @@ Settings → MCP → Add server：
 > AI：`@stool server_exec`（id=1781071313377, command=`df -h`）→ 返回磁盘使用
 > AI：发现 `/` 使用率 95%，建议清理日志 → `@stool log_search`（preset=9, keyword=ERROR）定位问题
 
-> 用户：帮我部署 topup 服务到 dev
+> 用户：帮我部署 mall-server 服务到 dev
 > AI：`@stool cicd_deploy`（config_id=..., branch=dev）
 > AI：若被审批拦截 → 提示"该配置需要人工审批，请在 SuperTool GUI 的部署页面确认"

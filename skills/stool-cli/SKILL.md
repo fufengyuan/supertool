@@ -187,23 +187,23 @@ stool log delete <id>
 
 **场景：通过追踪号(traceId)还原完整调用链路**
 
-Java 日志通常带 `[traceId]` 前缀（如 `[11091235193656539418624]`），一次请求内所有日志共享同一 traceId。
+Java 日志通常带 `[traceId]` 前缀（如 `[12345678901234567890123]`），一次请求内所有日志共享同一 traceId。
 
 ```bash
 # 1. 先用业务关键词（订单号/交易号）搜到一条日志，拿到 traceId
-stool log search 9 "2026073000152601000000000005" -l 80
+stool log search 9 "2026080100000000000000000001" -l 80
 
 # 2. 用 traceId 搜完整链路（-l 加大确保覆盖全量）
-stool log search 9 "11091235193656539418624" -l 200
+stool log search 9 "12345678901234567890123" -l 200
 
 # 3. 过滤关键行（排除 SQL DEBUG 噪音），快速定位问题
-stool log search 9 "11091235193656539418624" -l 200 | grep -v "Preparing\|Parameters\|<==" | grep -i "ERROR\|核销\|status=\|结果"
+stool log search 9 "12345678901234567890123" -l 200 | grep -v "Preparing\|Parameters\|<==" | grep -i "ERROR\|核销\|status=\|结果"
 ```
 
 **关键词搜索支持 `\|` 多选**（grep 风格）：
 
 ```bash
-stool log search 9 "商城核销失败\|status=5\|支付中\|doPrePay" -l 50
+stool log search 9 "订单核销失败\|status=5\|支付中\|doPrePay" -l 50
 ```
 
 **排查顺序**：

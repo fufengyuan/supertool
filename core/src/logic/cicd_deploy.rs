@@ -1634,7 +1634,7 @@ async fn run_maven_build(
     }
 
     // 稳定构建：覆盖项目级 .mvn/maven.config 的并行与 Maven Build Cache 扩展。
-    // 二者同时启用（如 mall 项目 `-T 1C` + `-Dmaven.build.cache.*`）在多线程写本地仓库时
+    // 二者同时启用（如 mall 这类多模块项目 `-T 1C` + `-Dmaven.build.cache.*`）在多线程写本地仓库时
     // 会触发 "Could not acquire lock(s)"（缓存扩展与并行构建锁竞争，IDE 手动构建不踩）。
     // CICD 部署求稳求一次成功，追加 CLI 参数（优先级高于 maven.config）强制串行并禁用缓存。
     args.push("-T");
@@ -1716,7 +1716,7 @@ async fn run_npm_build(
     // 存量配置的脚本曾存在首个启用模块行的 buildCommand 里（如 "npm run build:h5:staging"），
     // 此处兼容读取并回填到配置级字段，模块行命令不再是权威来源。
     // 模块行命令回退仅用于「逐模块构建」场景（parentBuildMode=false）：单体/父统一模式下
-    // 模块行可能是复制后端配置的残留（如前端配置里带着 "mvn clean package" 的 mall 模块行），
+    // 模块行可能是复制后端配置的残留（如前端配置里带着 "mvn clean package" 的 mall-server 模块行），
     // 拾取其 buildCommand 会把 npm 脚本解析成 "mvn" 直接报错。
     let mut custom = config.npm_custom_script.clone();
     if !config.parent_build_mode
