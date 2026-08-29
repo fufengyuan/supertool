@@ -7,9 +7,10 @@
 
     <div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
       <button
-        v-for="item in items"
+        v-for="(item, i) in items"
         :key="item.path"
-        class="bg-base-100 border border-base-content/10 rounded-xl p-5 text-left hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
+        class="mth-card bg-base-100 border border-base-content/10 rounded-xl p-5 text-left hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 cursor-pointer"
+        :style="{ animationDelay: `${Math.min(i * 45, 360)}ms` }"
         @click="router.push(item.path)"
       >
         <div class="flex items-center gap-2.5 mb-2">
@@ -95,3 +96,9 @@ function toggleFloatingTodo() {
   getTauriAPI().toggleFloatingTodo().catch(() => {})
 }
 </script>
+
+<style scoped>
+.mth-card { animation: mthIn .28s cubic-bezier(.32,.72,.35,1) both; }
+@keyframes mthIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mth-card { animation: none; } }
+</style>
