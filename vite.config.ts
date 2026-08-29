@@ -35,7 +35,9 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
+    // 必须显式绑 IPv4：只绑 localhost 时 Node 会解析成 ::1，而 Tauri 的 devUrl
+    // (http://localhost:1420) 走 127.0.0.1，连不上就回退到内嵌 dist —— dev 改动看不到
+    host: host || '127.0.0.1',
     hmr: host
       ? { protocol: 'ws', host, port: 1421 }
       : undefined,
