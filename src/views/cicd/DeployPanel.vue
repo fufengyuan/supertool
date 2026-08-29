@@ -1,5 +1,5 @@
 <template>
-  <div class="px-5 py-4 w-full min-h-full">
+  <div class="flex h-full min-h-0 w-full flex-col px-5 py-4">
     <!-- Loading skeleton (non-blocking initial render) -->
     <div v-if="initialLoading" class="flex flex-col gap-4">
       <div class="skeleton h-8 w-48 rounded-lg"></div>
@@ -12,15 +12,15 @@
 
     <!-- Header -->
     <template v-else>
-    <div class="mb-4">
+    <div class="mb-4 shrink-0">
       <h2 class="text-xl font-bold m-0 mb-1 text-base-content"><SvgIcon name="rocket" size="16" class="inline-block align-text-bottom" /> 一键部署</h2>
       <p class="text-sm text-base-content/60 m-0">选择部署配置，快速将项目部署到目标服务器</p>
     </div>
 
     <!-- Main Layout: Left Config + Right Log/History -->
-    <div class="grid grid-cols-[340px_1fr] gap-4 items-start w-full" v-if="configs.length > 0">
+    <div class="grid min-h-0 w-full flex-1 grid-cols-[340px_1fr] grid-rows-1 gap-4 overflow-hidden" v-if="configs.length > 0">
       <!-- Left: Config Selector + Info + Actions -->
-      <div class="flex flex-col gap-3 sticky top-0">
+      <div class="flex h-full min-w-0 flex-col gap-3 overflow-y-auto overscroll-contain pr-0.5">
         <!-- Config Selector -->
         <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
           <label class="block mb-2 font-semibold text-base-content text-sm">选择部署配置</label>
@@ -183,7 +183,7 @@
       </div>
 
       <!-- Right: Log + History -->
-      <div class="flex flex-col gap-3 min-w-0">
+      <div class="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-y-auto overscroll-contain pr-0.5">
         <!-- Real-time Log -->
         <div class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden relative" v-if="deploying || realtimeLogs.length > 0">
           <div class="flex justify-between items-center px-4 py-3 bg-base-200 border-b border-base-content/10">
@@ -384,7 +384,7 @@
     </div>
 
     <!-- Empty State -->
-    <div v-else class="p-16 text-center bg-base-100 rounded-xl border border-base-content/10">
+    <div v-else class="shrink-0 p-16 text-center bg-base-100 rounded-xl border border-base-content/10">
       <div class="mb-4"><SvgIcon name="package" size="48" class="text-base-content/30" /></div>
       <h3 class="m-0 mb-2 text-lg text-base-content">暂无 CI/CD 配置</h3>
       <p class="m-0 mb-5 text-sm text-base-content/60">请先在 CI/CD 配置页面创建部署配置</p>
