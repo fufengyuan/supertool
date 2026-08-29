@@ -91,7 +91,7 @@
           <div
             v-for="note in filteredNotes"
             :key="note.id"
-            class="group/card px-3 py-2.5 rounded-xl border border-base-content/10 cursor-pointer transition-all duration-150 hover:border-primary/40 hover:shadow-sm"
+            class="group/card flex h-[78px] flex-col overflow-hidden px-3 py-2.5 rounded-xl border border-base-content/10 cursor-pointer transition-all duration-150 hover:border-primary/40 hover:shadow-sm"
             :class="{ '!border-primary/60 bg-primary/5': selectedNote?.id === note.id }"
             @click="selectNote(note)"
           >
@@ -107,7 +107,7 @@
                 <SvgIcon name="trash" size="11" />
               </button>
             </div>
-            <p class="m-0 text-[11px] text-base-content/50 leading-snug line-clamp-2 break-all">{{ getPreview(note.content) }}</p>
+            <p class="m-0 max-h-[30px] overflow-hidden text-[11px] text-base-content/50 leading-[15px] line-clamp-2 break-all">{{ getPreview(note.content) }}</p>
           </div>
 
           <div v-if="filteredNotes.length === 0" class="flex flex-col items-center justify-center py-16 text-base-content/30 gap-2">
@@ -339,7 +339,7 @@ function getGroupName(groupId: string | null | undefined): string {
 function getPreview(content: string): string {
   if (!content) { return '空笔记' }
   const plain = content.replace(/[#*`>[\](),!_-]/g, ' ').replace(/\s+/g, ' ').trim()
-  return plain.slice(0, 80) + (plain.length > 80 ? '...' : '')
+  return plain.slice(0, 64) + (plain.length > 64 ? '…' : '')
 }
 
 function formatDate(iso: string): string {
