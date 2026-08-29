@@ -3,114 +3,103 @@
     <h2>服务器管理</h2>
 
     <div class="flex gap-1.5 mb-3 items-center flex-wrap">
-      <button @click="showAddServer = true" class="btn btn-primary">+ 添加服务器</button>
-      <button @click="refreshServers" class="btn btn-ghost gap-1.5"><SvgIcon name="refresh" size="14" /> 刷新</button>
-      <button @click="showGroupManager = true" class="btn btn-ghost gap-1.5"><SvgIcon name="folder" size="14" /> 管理分组</button>
-      <div class="w-px h-7 bg-base-content/10 mx-1"></div>
-      <button @click="expandAllGroups" class="btn btn-ghost btn-xs" title="全部展开">
-        <SvgIcon name="chevronDown" size="14" stroke-width="2.5" />
-        全部展开
-      </button>
-      <button @click="collapseAllGroups" class="btn btn-ghost btn-xs" title="全部折叠">
-        <SvgIcon name="chevronUp" size="14" stroke-width="2.5" />
-        全部折叠
+      <button @click="showAddServer = true" class="btn btn-primary btn-sm">+ 添加服务器</button>
+      <button @click="refreshServers" class="btn btn-ghost btn-sm gap-1.5"><SvgIcon name="refresh" size="14" /> 刷新</button>
+      <button @click="showGroupManager = true" class="btn btn-ghost btn-sm gap-1.5"><SvgIcon name="folder" size="14" /> 管理分组</button>
+      <div class="w-px h-6 bg-base-content/10 mx-1"></div>
+      <button @click="viewMode = viewMode === 'card' ? 'list' : 'card'" class="btn btn-ghost btn-sm gap-1.5"
+        :title="viewMode === 'card' ? '切换为列表（更密）' : '切换为卡片'">
+        <SvgIcon :name="viewMode === 'card' ? 'list' : 'grid'" size="14" />
+        {{ viewMode === 'card' ? '列表视图' : '卡片视图' }}
       </button>
     </div>
 
-    <!-- 搜索和分组筛选 -->
-    <div class="flex gap-3 mb-5 items-center">
-      <div class="flex-1 relative flex items-center">
-        <SvgIcon name="search" size="16" class="absolute left-3 text-base-content/60 pointer-events-none" />
-        <input
-          v-model="searchQuery"
-          placeholder="搜索服务器名称或地址..."
-          class="input input-bordered w-full pl-9"
-        />
+    <!-- 环境（顶层分组）作筛选器 + 搜索 -->
+    <div class="flex gap-3 mb-4 items-center flex-wrap">
+      <div class="flex gap-0.5 bg-base-100 border border-base-content/10 rounded-lg p-0.5">
+        <button class="px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5 transition-colors"
+          :class="envFilter === 'all' ? 'bg-base-200 font-semibold text-base-content' : 'text-base-content/55 hover:text-base-content'"
+          @click="envFilter = 'all'">
+          全部 <span class="text-[10px] opacity-70 tabular-nums">{{ servers.length }}</span>
+        </button>
+        <button v-for="root in rootGroups" :key="root.id"
+          class="px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5 transition-colors"
+          :class="envFilter === root.id ? 'bg-base-200 font-semibold text-base-content' : 'text-base-content/55 hover:text-base-content'"
+          @click="envFilter = root.id">
+          <span class="w-1.5 h-1.5 rounded-full shrink-0" :style="{ backgroundColor: root.color || '#6b7280' }"></span>
+          {{ root.name }} <span class="text-[10px] opacity-70 tabular-nums">{{ countByEnv(root.id) }}</span>
+        </button>
       </div>
-      <select v-model="selectedGroup" class="select select-bordered min-w-[150px]">
-        <option value="">全部分组</option>
-        <template v-for="group in groups" :key="group.id">
-          <option v-if="!group.parentId" :value="group.id">
-            {{ group.name }}
-          </option>
-          <option v-else :value="group.id">
-            {{ '  ' + '└ ' + group.name }}
-          </option>
-        </template>
-      </select>
+      <div class="flex-1 relative flex items-center min-w-[220px]">
+        <SvgIcon name="search" size="14" class="absolute left-3 text-base-content/50 pointer-events-none" />
+        <input v-model="searchQuery" placeholder="搜索名称 / 主机 / 用户…" class="input input-bordered input-sm w-full pl-8" />
+      </div>
     </div>
 
-    <!-- 按分组树形折叠显示 -->
-    <template v-if="selectedGroup === ''">
-      <div v-if="getServersByGroup(null).length > 0" class="rounded-xl mb-1" :class="{ 'mb-2': expandedGroups.has(null) }">
-        <div @click="toggleGroup(null)"
-          class="flex items-center justify-between px-3 py-[7px] rounded-lg cursor-pointer select-none transition-all duration-150 bg-base-100 border border-base-content/10 hover:border-primary hover:bg-base-200">
-          <div class="flex items-center gap-2 relative z-[1]">
-            <SvgIcon name="chevronDown" size="14" stroke-width="2.5" class="text-base-content/60 transition-transform duration-200 shrink-0" :class="{ 'rotate-180': expandedGroups.has(null) }" />
-            <SvgIcon name="serverRack" size="14" class="shrink-0" />
-            <span class="text-[13px] font-semibold text-base-content">未分组</span>
-            <span class="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{{ getServersByGroup(null).length }}</span>
-          </div>
-          <div class="flex items-center gap-2 relative z-[1]">
-            <span class="flex items-center gap-1 text-[11px] text-success font-medium" v-if="getOnlineCount(null) > 0">
-              <span class="inline-block w-2 h-2 rounded-full bg-success"></span>
-              {{ getOnlineCount(null) }} 在线
-            </span>
-          </div>
+    <!-- 卡片视图：一层分段（环境 → 业务分组只作小标题，卡片直接平铺） -->
+    <div v-if="viewMode === 'card'" class="flex flex-col gap-4">
+      <section v-for="sec in sections" :key="sec.key">
+        <div class="flex items-center gap-2 mb-1.5">
+          <span class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: sec.color }"></span>
+          <span class="text-[13px] font-semibold text-base-content">{{ sec.name }}</span>
+          <span class="text-[10px] px-1.5 rounded bg-base-content/5 text-base-content/55 tabular-nums">{{ sec.servers.length }}</span>
+          <span v-if="sec.envName && sec.envName !== sec.name" class="text-[10px] text-base-content/40">{{ sec.envName }}</span>
+          <span v-if="sec.online > 0" class="flex items-center gap-1 text-[10px] text-success">
+            <span class="w-1 h-1 rounded-full bg-success"></span>{{ sec.online }} 在线
+          </span>
         </div>
-        <Transition name="drawer-expand">
-          <div v-show="expandedGroups.has(null)" class="mt-1 py-2 px-2.5 rounded-lg bg-base-100 border border-base-content/10 border-t-0">
-            <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
-              <ServerItem
-                v-for="server in getFilteredServers(getServersByGroup(null))"
-                :key="server.id"
-                :server="server"
-                :connection-status="connectionStatusMap[server.id] || 'offline'"
-                @terminal="openTerminal"
-                @sftp="openSftp"
-                @edit="editServer"
-                @delete="deleteServer"
-              />
-            </div>
-          </div>
-        </Transition>
-      </div>
+        <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
+          <ServerItem
+            v-for="server in sec.servers"
+            :key="server.id"
+            :server="server"
+            :connection-status="connectionStatusMap[server.id] || 'offline'"
+            @terminal="openTerminal"
+            @sftp="openSftp"
+            @edit="editServer"
+            @delete="deleteServer"
+          />
+        </div>
+      </section>
+    </div>
 
-      <!-- 分组树（支持多级嵌套） -->
-      <GroupTree
-        v-for="rootGroup in rootGroups"
-        :key="rootGroup.id"
-        :group="rootGroup"
-        :groups="groups"
-        :depth="0"
-        :expanded-groups="expandedGroups"
-        :servers="servers"
-        :connection-status-map="connectionStatusMap"
-        @toggle="toggleGroup"
-        @terminal="openTerminal"
-        @sftp="openSftp"
-        @edit="editServer"
-        @delete="deleteServer"
-      />
-    </template>
+    <!-- 列表视图：一行一台，主机/用户/所属分组/状态同屏可扫 -->
+    <div v-else class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-[11px] text-base-content/50 bg-base-200/60">
+            <th class="text-left font-medium px-3 py-2">名称</th>
+            <th class="text-left font-medium px-3 py-2">主机</th>
+            <th class="text-left font-medium px-3 py-2">用户</th>
+            <th class="text-left font-medium px-3 py-2">分组</th>
+            <th class="text-left font-medium px-3 py-2 w-24">状态</th>
+            <th class="text-right font-medium px-3 py-2 w-40">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="s in visibleServers" :key="s.id" class="border-t border-base-content/5 hover:bg-base-200/50">
+            <td class="px-3 py-1.5 font-medium text-base-content whitespace-nowrap">
+              {{ s.name }}
+              <SvgIcon v-if="s.requiresApproval" name="lock" size="11" class="inline opacity-60" title="执行审核已开启" />
+            </td>
+            <td class="px-3 py-1.5 font-mono text-base-content/65 whitespace-nowrap">{{ s.host }}:{{ s.port }}</td>
+            <td class="px-3 py-1.5 font-mono text-base-content/65">{{ s.username }}</td>
+            <td class="px-3 py-1.5 text-base-content/55 whitespace-nowrap">{{ groupPath(s.groupId) }}</td>
+            <td class="px-3 py-1.5">
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap" :class="statusClass(s)">{{ statusText(s) }}</span>
+            </td>
+            <td class="px-3 py-1.5 text-right whitespace-nowrap">
+              <button @click="openTerminal(s)" class="btn btn-ghost btn-xs gap-1"><SvgIcon name="terminal" size="12" /> 终端</button>
+              <button @click="openSftp(s)" class="btn btn-ghost btn-xs gap-1"><SvgIcon name="download" size="12" /> SFTP</button>
+              <button @click="editServer(s)" class="btn btn-ghost btn-xs px-1" title="编辑"><SvgIcon name="pencil" size="12" /></button>
+              <button @click="deleteServer(s.id)" class="btn btn-ghost btn-xs px-1 hover:text-error" title="删除"><SvgIcon name="trash" size="12" /></button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-    <!-- 单个分组筛选视图 -->
-    <template v-else>
-      <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
-        <ServerItem
-          v-for="server in getFilteredServers(getServersByGroup(selectedGroup))"
-          :key="server.id"
-          :server="server"
-          :connection-status="connectionStatusMap[server.id] || 'offline'"
-          @terminal="openTerminal"
-          @sftp="openSftp"
-          @edit="editServer"
-          @delete="deleteServer"
-        />
-      </div>
-    </template>
-
-    <div v-if="allFilteredServers.length === 0" class="text-center py-10 text-base-content/60 bg-base-100 rounded-xl">
+    <div v-if="visibleServers.length === 0" class="text-center py-10 text-base-content/60 bg-base-100 rounded-xl">
       <template v-if="servers.length === 0 && !searchQuery">
         <!-- 真正空状态 -->
         <SvgIcon class="opacity-20 mb-4" name="serverRack" size="48" stroke-width="1.5" />
@@ -197,7 +186,6 @@ import ServerItem from './ServerItem.vue';
 import ServerForm from './ServerForm.vue';
 import TerminalPanel from './TerminalPanel.vue';
 import SftpPanel from './SftpPanel.vue';
-import GroupTree from './GroupTree.vue';
 import Modal from '../../components/ui/Modal.vue';
 import { useToast } from '../../composables/useToast';
 import { useErrorHandler } from '../../composables/useErrorHandler';
@@ -221,8 +209,9 @@ interface SftpPanelEntry {
 }
 const sftpPanels = ref<SftpPanelEntry[]>([]);
 const searchQuery = ref('');
-const selectedGroup = ref('');
-const expandedGroups = ref(new Set<string | null>([null])); // 默认全部展开 —— onMounted 后会被 expandAllGroups() 覆盖
+// 环境（顶层分组）筛选：'all' 或某个顶层分组 id
+const envFilter = ref<string>('all');
+const viewMode = ref<'card' | 'list'>('card');
 const showGroupManager = ref(false);
 const newGroupName = ref('');
 const newGroupColor = ref('#6c63ff');
@@ -250,10 +239,7 @@ const serverForm = ref(defaultForm());
 
 onMounted(async () => {
   loadServers();
-  loadGroups().then(() => {
-    // 加载完成后默认展开所有分组
-    expandAllGroups();
-  });
+  loadGroups();
 
   getTauriAPI().onServerConnected?.((data) => {
     connectionStatusMap.value[data.serverId] = 'online';
@@ -299,73 +285,129 @@ async function loadGroups(): Promise<void> {
 
 async function refreshServers() {
   await loadServers();
-  await loadGroups().then(() => {
-    // 刷新后保持全展开
-    expandAllGroups();
-  });
+  await loadGroups();
 }
 
-// 搜索过滤
-const allFilteredServers = computed(() => {
-  let filtered = servers.value;
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.trim().toLowerCase();
-    filtered = filtered.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.host.toLowerCase().includes(q)
-    );
-  }
-  return filtered;
-});
+// 搜索：名称 / 主机 / 用户
+const searchLower = computed(() => searchQuery.value.trim().toLowerCase());
+function matchSearch(s: Server) {
+  const q = searchLower.value;
+  if (!q) {return true;}
+  return s.name.toLowerCase().includes(q) || s.host.toLowerCase().includes(q) || (s.username || '').toLowerCase().includes(q);
+}
 
-// 根分组（没有父分组的）
-const rootGroups = computed(() => {
-  return groups.value.filter((g: ServerGroup) => !g.parentId);
-});
+// 根分组（顶层 = 环境）
+const rootGroups = computed(() => groups.value.filter((g: ServerGroup) => !g.parentId));
 
-// 获取子分组
-function getChildGroups(groupId: string) {
+function childGroupsOf(groupId: string) {
   return groups.value.filter((g: ServerGroup) => g.parentId === groupId);
 }
 
+// 某顶层分组下的全部子孙分组（深度优先，保持声明顺序）
+function descendantsOf(root: ServerGroup): ServerGroup[] {
+  const out: ServerGroup[] = [];
+  const seen = new Set<string>();
+  const walk = (g: ServerGroup) => {
+    for (const c of childGroupsOf(g.id)) {
+      if (seen.has(c.id)) {continue;}
+      seen.add(c.id);
+      out.push(c);
+      walk(c);
+    }
+  };
+  walk(root);
+  return out;
+}
+
+// 分组管理弹窗里的直属台数（不做搜索过滤）
 function getServersByGroup(groupId: string | null) {
   return servers.value.filter((s: any) => (s.groupId || null) === (groupId || null));
 }
 
-function getOnlineCount(groupId: string | null) {
-  return getServersByGroup(groupId).filter(s => connectionStatusMap.value[s.id] === 'online').length;
+function serversOfGroup(groupId: string | null) {
+  return servers.value.filter((s: any) => (s.groupId || null) === (groupId || null)).filter(matchSearch);
 }
 
-function getFilteredServers(serverList: any[]) {
-  if (!searchQuery.value.trim()) {return serverList;}
-  const q = searchQuery.value.trim().toLowerCase();
-  return serverList.filter(
-    (s) =>
-      s.name.toLowerCase().includes(q) ||
-      s.host.toLowerCase().includes(q)
-  );
+function onlineOf(list: Server[]) {
+  return list.filter(s => connectionStatusMap.value[s.id] === 'online').length;
 }
 
-function expandAllGroups() {
-  const allIds = new Set<string | null>([null]); // null = 未分组
-  for (const g of groups.value) {
-    allIds.add(g.id);
+// 环境（含子分组）服务器总数，不受搜索影响 —— 用于分段上的计数
+function countByEnv(rootId: string) {
+  const root = groups.value.find(g => g.id === rootId);
+  if (!root) {return 0;}
+  const ids = new Set<string>([root.id, ...descendantsOf(root).map(g => g.id)]);
+  return servers.value.filter(s => s.groupId && ids.has(s.groupId)).length;
+}
+
+interface Section {
+  key: string;
+  name: string;
+  color: string;
+  envName: string;
+  servers: Server[];
+  online: number;
+}
+
+// 一层分段：环境 → 业务分组只作小标题；分组层级再深也不会嵌套出多层盒子
+const sections = computed<Section[]>(() => {
+  const out: Section[] = [];
+  const roots = envFilter.value === 'all'
+    ? rootGroups.value
+    : rootGroups.value.filter(g => g.id === envFilter.value);
+  const assigned = new Set<string>();
+  for (const root of roots) {
+    const own = serversOfGroup(root.id);
+    if (own.length > 0) {
+      out.push({ key: `g-${root.id}`, name: root.name, color: root.color || '#6b7280', envName: root.name, servers: own, online: onlineOf(own) });
+    }
+    for (const g of descendantsOf(root)) {
+      const list = serversOfGroup(g.id);
+      if (list.length > 0) {
+        out.push({ key: `g-${g.id}`, name: g.name, color: g.color || root.color || '#6b7280', envName: root.name, servers: list, online: onlineOf(list) });
+      }
+    }
+    assigned.add(root.id);
+    descendantsOf(root).forEach(g => assigned.add(g.id));
   }
-  expandedGroups.value = allIds;
-}
-
-function collapseAllGroups() {
-  expandedGroups.value = new Set<string | null>();
-}
-
-function toggleGroup(groupId: string | null) {
-  if (expandedGroups.value.has(groupId)) {
-    expandedGroups.value.delete(groupId);
-  } else {
-    expandedGroups.value.add(groupId);
+  // 未分组 + 指向已删除分组的服务器
+  const known = new Set(groups.value.map(g => g.id));
+  const loose = servers.value.filter(s => !s.groupId || !known.has(s.groupId) || !assigned.has(s.groupId)).filter(matchSearch);
+  if (envFilter.value === 'all' && loose.length > 0) {
+    out.push({ key: 'g-none', name: '未分组', color: '#94a3b8', envName: '', servers: loose, online: onlineOf(loose) });
   }
-  expandedGroups.value = new Set(expandedGroups.value);
+  return out;
+});
+
+const visibleServers = computed(() => sections.value.flatMap(sec => sec.servers));
+
+// 列表视图里的「分组」列：完整路径，例如 生产环境 › 卡券集群
+function groupPath(groupId?: string | null) {
+  const chain: string[] = [];
+  let cur = groupId ? groups.value.find(g => g.id === groupId) : undefined;
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    chain.unshift(cur.name);
+    cur = cur.parentId ? groups.value.find(g => g.id === cur!.parentId) : undefined;
+  }
+  return chain.length > 0 ? chain.join(' › ') : '未分组';
+}
+
+function statusText(s: Server) {
+  const st = connectionStatusMap.value[s.id];
+  if (st === 'online') {return '已连接';}
+  if (st === 'connecting') {return '连接中';}
+  if (st === 'heartbeat_failed') {return '心跳失败';}
+  return '未连接';
+}
+
+function statusClass(s: Server) {
+  const st = connectionStatusMap.value[s.id];
+  if (st === 'online') {return 'bg-success/15 text-success';}
+  if (st === 'connecting') {return 'bg-warning/15 text-warning';}
+  if (st === 'heartbeat_failed') {return 'bg-error/15 text-error';}
+  return 'bg-base-content/5 text-base-content/50';
 }
 
 function openTerminal(server: any) {
@@ -501,9 +543,7 @@ async function deleteGroup(groupId: string | null) {
     await getTauriAPI().deleteServerGroup(groupId ?? '');
     await loadGroups();
     await loadServers();
-    if (selectedGroup.value === groupId) {
-      selectedGroup.value = '';
-    }
+    if (envFilter.value === groupId) {envFilter.value = 'all';}
     toast.success('分组已删除');
   } catch (error) {
     handleError(error, { context: 'deleteGroup' });
