@@ -17,3 +17,6 @@ tauri/.sandbox-home/
 .reasonix/
 reasonix.toml
 test_tokenizer
+
+# 本地草稿/演示产物，勿入库
+/outputs/
