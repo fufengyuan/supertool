@@ -2510,36 +2510,24 @@ pub async fn db_redis_keys_by_type(
 ) -> Result<serde_json::Value, String> {
     let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
-        // SCAN with MATCH pattern, then group by type
-        let mut all_keys: Vec<String> = Vec::new();
-        let mut cursor: String = "0".to_string();
-        let match_pattern = if pattern.is_empty() { "*" } else { &pattern };
-        loop {
-            let (new_cursor, batch): (String, Vec<String>) = redis::cmd("SCAN")
-                .arg(&cursor)
-                .arg("MATCH")
-                .arg(match_pattern)
-                .arg("COUNT")
-                .arg(1000)
-                .query_async(&mut c.clone())
-                .await
-                .map_err(|e| format!("Redis SCAN failed: {}", e))?;
-            all_keys.extend(batch);
-            cursor = new_cursor;
-            if cursor == "0" {
-                break;
-            }
-        }
-        // Group by type
+        let match_pattern = if pattern.is_empty() || pattern == "*" { "*" } else { &pattern };
+        let all_keys = redis_scan_all_keys(&c, match_pattern, 100_000).await?;
+
+        // 按类型分组：TYPE 用 pipeline 分批，避免逐键往返（5k 键曾耗时 60s+）
         let mut keys_by_type: std::collections::HashMap<String, Vec<String>> =
             std::collections::HashMap::new();
-        for key in all_keys {
-            let ktype: String = redis::cmd("TYPE")
-                .arg(&key)
+        for chunk in all_keys.chunks(500) {
+            let mut pipe = redis::pipe();
+            for key in chunk {
+                pipe.cmd("TYPE").arg(key);
+            }
+            let types: Vec<String> = pipe
                 .query_async(&mut c.clone())
                 .await
-                .map_err(|e| format!("Redis TYPE failed: {}", e))?;
-            keys_by_type.entry(ktype).or_default().push(key);
+                .map_err(|e| format!("Redis TYPE pipeline failed: {}", e))?;
+            for (key, ktype) in chunk.iter().zip(types.into_iter()) {
+                keys_by_type.entry(ktype).or_default().push(key.clone());
+            }
         }
         Ok(serde_json::json!({ "success": true, "keysByType": keys_by_type }))
     } else {
@@ -2804,10 +2792,13 @@ async fn redis_scan_all_keys(
     pattern: &str,
     max: usize,
 ) -> Result<Vec<String>, String> {
-    let mut keys: Vec<String> = Vec::new();
+    // 键按字节取回：Redis 键是二进制安全的，个别非 UTF-8 键（序列化 blob、protobuf 等）
+    // 若直接反序列化成 Vec<String> 会让整次 SCAN 报
+    // 「Cannot convert from UTF-8」，表现为整个库展开为空。这里统一 lossy 解码。
+    let mut raw: Vec<Vec<u8>> = Vec::new();
     let mut cursor: u64 = 0;
     loop {
-        let (next_cursor, batch): (u64, Vec<String>) = redis::cmd("SCAN")
+        let (next_cursor, batch): (u64, Vec<Vec<u8>>) = redis::cmd("SCAN")
             .arg(cursor)
             .arg("MATCH")
             .arg(pattern)
@@ -2816,14 +2807,14 @@ async fn redis_scan_all_keys(
             .query_async(&mut conn.clone())
             .await
             .map_err(|e| format!("Redis SCAN failed: {}", e))?;
-        keys.extend(batch);
+        raw.extend(batch);
         cursor = next_cursor;
-        if cursor == 0 || keys.len() >= max {
+        if cursor == 0 || raw.len() >= max {
             break;
         }
     }
-    keys.truncate(max);
-    Ok(keys)
+    raw.truncate(max);
+    Ok(raw.iter().map(|k| String::from_utf8_lossy(k).into_owned()).collect())
 }
 
 // Stream commands
