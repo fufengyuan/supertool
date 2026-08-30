@@ -374,7 +374,9 @@
             :class="isDangerItem(item.label) ? 'hover:bg-error/10 text-error' : 'hover:bg-base-200 text-base-content'"
             @click="item.action"
           >
-            <span class="w-4 text-center flex-shrink-0 text-[13px]">{{ item.icon }}</span>
+            <!-- 菜单图标是 SVG 字符串（与 DataGrid 右键菜单一致），必须 v-html 渲染，
+                 用 {{ }} 插值会把整段 <svg …> 当文字显示出来 -->
+            <span class="flex w-4 flex-shrink-0 items-center justify-center" v-html="item.icon"></span>
             <span class="flex-1">{{ item.label }}</span>
           </div>
           <div v-else class="border-t border-base-content/10 my-1 mx-2"></div>
