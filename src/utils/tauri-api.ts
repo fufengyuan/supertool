@@ -88,8 +88,12 @@ async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {
     if (isStandardResponse(raw)) {
       return raw as unknown as TauriResponse
     }
-    // 非标准格式（裸值/扁平对象）→ 包装为统一响应
-    return { success: true, data: raw as unknown as T }
+    // 非标准格式（裸值/扁平对象）→ 包装为统一响应。
+    // 后端大量命令返回扁平结构（如 { success, type, ttl, length }、{ success, rows }），
+    // 调用方既可能读 res.data 也可能直接读 res.type/res.rows —— 这里把扁平字段一并展开，
+    // 否则会出现「后端有数据、前端拿到 undefined、面板永远空白」。
+    const flat = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw as Record<string, unknown> : {}
+    return { success: true, data: raw as unknown as T, ...flat }
   } catch (err: unknown) {
     const elapsed = (performance.now() - t0).toFixed(0)
     const message = err instanceof Error ? err.message : String(err)
