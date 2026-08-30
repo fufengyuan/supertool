@@ -313,6 +313,7 @@ const props = defineProps<{
   connectionName: string
   connection?: DBConnection  // Full config for dbConnect
   initialKey?: string        // Key to auto-select on mount
+  initialKeyB64?: string     // 键名原始字节 base64（非 UTF-8 键必需）
   redisDbIndex?: number      // Redis database index to use
 }>()
 
@@ -338,6 +339,8 @@ const loading = ref(false)
 
 // Selected key state
 const selectedKey = ref<string | null>(null)
+// 当前键名的原始字节 base64：所有键相关命令优先用它，避免非 UTF-8 键名对不上
+const selectedKeyB64 = ref<string | null>(null)
 const keyLoading = ref(false)
 const keyInfo = ref<{ type: string; ttl: number; length: number }>({ type: '', ttl: -1, length: 0 })
 const valueBinary = ref(false)   // 后端标记：值含非 UTF-8 字节
@@ -448,13 +451,14 @@ async function loadKeys() {
 }
 
 // Select key
-async function selectKey(key: string) {
+async function selectKey(key: string, keyB64?: string | null) {
   selectedKey.value = key
+  selectedKeyB64.value = keyB64 || null
   keyLoading.value = true
   try {
     await ensureConnected()
     // Get key info
-    const info = await getTauriAPI().dbRedisKeyInfo(props.connectionId, props.redisDbIndex ?? 0, key)
+    const info = await getTauriAPI().dbRedisKeyInfo(props.connectionId, props.redisDbIndex ?? 0, key, selectedKeyB64.value ?? undefined)
     logger.info('[RedisManager] keyInfo result:', JSON.stringify(info))
     if (info?.success) {
       keyInfo.value = { type: info.type || '', ttl: info.ttl ?? -1, length: info.length ?? 0 }
@@ -466,7 +470,7 @@ async function selectKey(key: string) {
     }
 
     // Get key value
-    const valResult = await getTauriAPI().dbRedisKeyValue(props.connectionId, props.redisDbIndex ?? 0, key)
+    const valResult = await getTauriAPI().dbRedisKeyValue(props.connectionId, props.redisDbIndex ?? 0, key, selectedKeyB64.value ?? undefined)
     logger.info(`[RedisManager] keyValue result: ${valResult?.success ? '(type=' + keyInfo.value.type + ', length=' + keyInfo.value.length + ')' : valResult?.error}`)
     if (valResult?.success) {
       valueBinary.value = !!valResult.binary
@@ -533,7 +537,7 @@ async function saveKey() {
 
     // ⚠️ 剥离 Vue Proxy，否则 Tauri IPC 的 structuredClone 会失败
     const plainValue = JSON.parse(JSON.stringify(value))
-    const result = await getTauriAPI().dbRedisSetKey(props.connectionId, props.redisDbIndex ?? 0, selectedKey.value, plainValue)
+    const result = await getTauriAPI().dbRedisSetKey(props.connectionId, props.redisDbIndex ?? 0, selectedKey.value, plainValue, undefined, selectedKeyB64.value ?? undefined)
     if (result) {
       toast.info('键已保存')
       // Reload key info
@@ -555,7 +559,7 @@ async function deleteSelectedKey() {
   showConfirm('删除确认', `确定要删除键 "${keyToDelete}" 吗？`, async () => {
     deleting.value = true
     try {
-      const result = await getTauriAPI().dbRedisDeleteKey(props.connectionId, props.redisDbIndex ?? 0, keyToDelete)
+      const result = await getTauriAPI().dbRedisDeleteKey(props.connectionId, props.redisDbIndex ?? 0, keyToDelete, selectedKeyB64.value ?? undefined)
       if (result) {
         toast.success('键已删除')
         selectedKey.value = null
@@ -684,16 +688,16 @@ onMounted(async () => {
   // Don't auto-load all keys on mount — user can search explicitly
   // Auto-select the initial key if provided
   if (props.initialKey) {
-    await selectKey(props.initialKey)
+    await selectKey(props.initialKey, props.initialKeyB64)
   }
 })
 
 // Watch for initialKey changes (e.g., when navigating between keys from the tree)
 watch(() => props.initialKey, async (newKey) => {
   logger.info(`[RedisManager] watch initialKey triggered: ${newKey}, selectedKey: ${selectedKey.value}`)
-  if (newKey && newKey !== selectedKey.value) {
+  if (newKey && (newKey !== selectedKey.value || props.initialKeyB64 !== selectedKeyB64.value)) {
     logger.info('[RedisManager] calling selectKey from watch:', newKey)
-    await selectKey(newKey)
+    await selectKey(newKey, props.initialKeyB64)
   } else {
     logger.info('[RedisManager] skipping selectKey from watch (same key or empty)')
   }

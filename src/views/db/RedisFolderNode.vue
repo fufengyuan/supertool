@@ -43,8 +43,8 @@
     <div
       v-else
       class="relative flex items-center gap-[3px] px-1.5 py-[3px] mx-0.5 rounded cursor-pointer font-mono text-[11.5px] leading-5 text-base-content select-none whitespace-nowrap min-h-[22px] transition-[background,color] duration-100 ease-in-out hover:bg-primary/10"
-      @click.stop="$emit('open-key', node.key!)"
-      @contextmenu.prevent="$emit('key-context', $event, conn, dbIndex, node.key!, node.type!)"
+      @click.stop="$emit('open-key', node.key!, node.keyB64)"
+      @contextmenu.prevent="$emit('key-context', $event, conn, dbIndex, node.key!, node.type!, node.keyB64)"
     >
       <span
         class="inline-block w-[7px] h-[7px] rounded-full shrink-0 transition-transform duration-100 ease-in-out group-hover:scale-110"
@@ -73,6 +73,8 @@ interface RedisTreeNode {
   children: Map<string, RedisTreeNode>
   isLeaf: boolean
   key: string | null
+  keyB64?: string | null
+  pathB64?: string | null
   type: string | null
   totalCount: number
 }
@@ -85,9 +87,9 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'open-key': [key: string]
+  'open-key': [key: string, keyB64?: string | null]
   'folder-context': [event: MouseEvent, conn: DBConnection, dbIndex: number, folderPath: string]
-  'key-context': [event: MouseEvent, conn: DBConnection, dbIndex: number, key: string, type: string]
+  'key-context': [event: MouseEvent, conn: DBConnection, dbIndex: number, key: string, type: string, keyB64?: string | null]
   'toggle-folder': [folderPath: string, isExpanded: boolean]
 }>()
 
@@ -112,8 +114,8 @@ function onFolderCtxChild(event: MouseEvent, conn: DBConnection, dbIndex: number
   emit('folder-context', event, conn, dbIndex, folderPath)
 }
 
-function onKeyCtxChild(event: MouseEvent, conn: DBConnection, dbIndex: number, key: string, type: string) {
-  emit('key-context', event, conn, dbIndex, key, type)
+function onKeyCtxChild(event: MouseEvent, conn: DBConnection, dbIndex: number, key: string, type: string, keyB64?: string | null) {
+  emit('key-context', event, conn, dbIndex, key, type, keyB64)
 }
 
 function typeIcon(type: string): string {

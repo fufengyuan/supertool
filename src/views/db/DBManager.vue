@@ -361,6 +361,7 @@
                 :connection-name="activeTab.connectionName"
                 :connection="db.connections.value.find(c => c.id === activeTab!.connectionId)"
                 :initial-key="activeTab.initialKey"
+                :initial-key-b64="activeTab.initialKeyB64"
                 :redis-db-index="activeTab.redisDbIndex"
               />
             </template>
@@ -829,12 +830,12 @@ function handleOpenTableStructure(connId: string, table: string, dbName?: string
   }
 }
 
-function handleOpenRedisKey(connId: string, dbIndex: number, key: string) {
+function handleOpenRedisKey(connId: string, dbIndex: number, key: string, keyB64?: string) {
   logger.info(`[DBManager] handleOpenRedisKey called: ${JSON.stringify({ connId, dbIndex, key })}`)
   const conn = db.connections.value.find(c => c.id === connId)
   logger.info('[DBManager] connection found:', conn ? conn.name : 'NOT FOUND')
   if (conn) {
-    const tab = db.openRedisManagerTab(connId, conn.name, key, dbIndex)
+    const tab = db.openRedisManagerTab(connId, conn.name, key, dbIndex, keyB64)
     logger.info(`[DBManager] tab opened/activated: ${tab ? tab.id : 'null'}, initialKey: ${tab?.initialKey}`)
   }
 }

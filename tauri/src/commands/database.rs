@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -2533,68 +2534,110 @@ pub async fn db_redis_keys_tree(
     id: String,
     db_index: i64,
     pattern: String,
+    prefix_b64: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let conn = redis_conn_for(&id, db_index).await?;
     let DbConnection::Redis(c) = conn else {
         return Err("Not a Redis connection".to_string());
     };
 
-    // 前端传的是「前缀」（如 `models:`），`*`/空表示整库。SCAN 必须补尾部通配符：
-    // 之前把 `models:` 原样当 pattern，匹配不到任何 key → 二级目录展不开、计数恒为 0。
-    let prefix = if pattern == "*" || pattern.is_empty() {
-        String::new()
-    } else {
-        pattern.clone()
+    // 前缀按字节处理：Redis 键二进制安全，非 UTF-8 段用 lossy 文本再拼回 MATCH 会匹配不到。
+    // 前端展开目录时优先传 prefixB64（该目录完整前缀的 base64），旧调用方仍可传 pattern。
+    let prefix_bytes: Vec<u8> = match &prefix_b64 {
+        Some(b) if !b.is_empty() => B64.decode(b).unwrap_or_else(|_| pattern.as_bytes().to_vec()),
+        _ => {
+            if pattern == "*" || pattern.is_empty() {
+                Vec::new()
+            } else {
+                pattern.as_bytes().to_vec()
+            }
+        }
     };
-    let match_pattern = if prefix.is_empty() {
-        "*".to_string()
-    } else {
-        format!("{}*", prefix)
+    // SCAN MATCH = 前缀 + '*'（前缀为空时即 '*'，扫全库）
+    let mut match_bytes = prefix_bytes.clone();
+    match_bytes.push(b'*');
+
+    let raw_keys = {
+        let mut raw: Vec<Vec<u8>> = Vec::new();
+        let mut cursor: u64 = 0;
+        loop {
+            let (next_cursor, batch): (u64, Vec<Vec<u8>>) = redis::cmd("SCAN")
+                .arg(cursor)
+                .arg("MATCH")
+                .arg(&match_bytes)
+                .arg("COUNT")
+                .arg(1000)
+                .query_async(&mut c.clone())
+                .await
+                .map_err(|e| format!("Redis SCAN failed: {}", e))?;
+            raw.extend(batch);
+            cursor = next_cursor;
+            if cursor == 0 || raw.len() >= 100_000 {
+                break;
+            }
+        }
+        raw.truncate(100_000);
+        raw
     };
 
-    let keys = redis_scan_all_keys(&c, &match_pattern, 100_000).await?;
-
-    // 按前缀之后的「下一段」分组：还带 `:` 的算文件夹（count = 该前缀下 key 总数），
-    // 其余是当前层叶子。分组在服务端做，前端只需按前缀拼接完整 key。
-    let mut folders: std::collections::BTreeMap<String, u64> = std::collections::BTreeMap::new();
-    let mut leaves: Vec<String> = Vec::new();
-    for k in &keys {
-        let rest = k.strip_prefix(prefix.as_str()).unwrap_or(k.as_str());
-        match rest.find(':') {
-            Some(i) if i > 0 => *folders.entry(rest[..i].to_string()).or_insert(0) += 1,
-            _ => leaves.push(rest.to_string()),
+    // 按前缀之后的「下一段」分组：还带 `:` 的算文件夹，其余是当前层叶子。
+    // 文件夹带 pathB64（含结尾冒号的完整前缀），叶子带 keyB64（真实键名字节）。
+    let mut folders: std::collections::BTreeMap<String, (u64, String)> =
+        std::collections::BTreeMap::new();
+    let mut leaves: Vec<(String, Vec<u8>)> = Vec::new();
+    for k in &raw_keys {
+        let rest: &[u8] = if !prefix_bytes.is_empty() && k.starts_with(&prefix_bytes) {
+            &k[prefix_bytes.len()..]
+        } else {
+            k.as_slice()
+        };
+        match rest.iter().position(|&b| b == b':') {
+            Some(i) if i > 0 => {
+                let name = String::from_utf8_lossy(&rest[..i]).into_owned();
+                let mut full = prefix_bytes.clone();
+                full.extend_from_slice(&rest[..=i]);
+                let path_b64 = B64.encode(&full);
+                let e = folders.entry(name).or_insert((0, path_b64));
+                e.0 += 1;
+            }
+            _ => leaves.push((String::from_utf8_lossy(rest).into_owned(), k.clone())),
         }
     }
 
-    // 叶子补真实类型（数量可控才逐个 TYPE，避免大 key 空间下 N 次往返）
+    // 叶子补真实类型（数量可控才逐个 TYPE，避免大 key 空间下大量往返）
     let probe_types = leaves.len() <= 300;
     let mut leaf_objs: Vec<serde_json::Value> = Vec::with_capacity(leaves.len());
-    for name in &leaves {
+    for (name, raw) in &leaves {
         let mut key_type = "string".to_string();
         if probe_types {
-            let full = format!("{}{}", prefix, name);
             if let Ok(Some(t)) = redis::cmd("TYPE")
-                .arg(&full)
+                .arg(raw)
                 .query_async::<Option<String>>(&mut c.clone())
                 .await
             {
                 key_type = t;
             }
         }
-        leaf_objs.push(serde_json::json!({ "name": name, "type": key_type }));
+        leaf_objs.push(serde_json::json!({
+            "name": name,
+            "type": key_type,
+            "keyB64": B64.encode(raw),
+        }));
     }
 
     let folder_objs: Vec<serde_json::Value> = folders
         .into_iter()
-        .map(|(name, count)| serde_json::json!({ "name": name, "count": count }))
+        .map(|(name, (count, path_b64))| {
+            serde_json::json!({ "name": name, "count": count, "pathB64": path_b64 })
+        })
         .collect();
 
     Ok(serde_json::json!({
         "success": true,
         "folders": folder_objs,
         "leaves": leaf_objs,
-        "hasMore": keys.len() >= 100_000,
-        "scanned": keys.len(),
+        "hasMore": raw_keys.len() >= 100_000,
+        "scanned": raw_keys.len(),
     }))
 }
 
@@ -2636,27 +2679,29 @@ pub async fn db_redis_key_info(
     id: String,
     db_index: i64,
     key: String,
+    key_b64: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
+        let kb = redis_key_bytes(&key, &key_b64);
         let key_type: String = redis::cmd("TYPE")
-            .arg(&key)
+            .arg(&kb)
             .query_async(&mut c.clone())
             .await
             .map_err(|e| format!("Redis TYPE failed: {}", e))?;
         let ttl: i64 = redis::cmd("TTL")
-            .arg(&key)
+            .arg(&kb)
             .query_async(&mut c.clone())
             .await
             .map_err(|e| format!("Redis TTL failed: {}", e))?;
         // Compute length based on type
         let length: i64 = match key_type.as_str() {
-            "string" => redis::cmd("STRLEN").arg(&key).query_async(&mut c.clone()).await,
-            "hash" => redis::cmd("HLEN").arg(&key).query_async(&mut c.clone()).await,
-            "list" => redis::cmd("LLEN").arg(&key).query_async(&mut c.clone()).await,
-            "set" => redis::cmd("SCARD").arg(&key).query_async(&mut c.clone()).await,
-            "zset" => redis::cmd("ZCARD").arg(&key).query_async(&mut c.clone()).await,
-            "stream" => redis::cmd("XLEN").arg(&key).query_async(&mut c.clone()).await,
+            "string" => redis::cmd("STRLEN").arg(&kb).query_async(&mut c.clone()).await,
+            "hash" => redis::cmd("HLEN").arg(&kb).query_async(&mut c.clone()).await,
+            "list" => redis::cmd("LLEN").arg(&kb).query_async(&mut c.clone()).await,
+            "set" => redis::cmd("SCARD").arg(&kb).query_async(&mut c.clone()).await,
+            "zset" => redis::cmd("ZCARD").arg(&kb).query_async(&mut c.clone()).await,
+            "stream" => redis::cmd("XLEN").arg(&kb).query_async(&mut c.clone()).await,
             _ => Ok(0i64),
         }
         .map_err(|e| format!("Redis length command failed: {}", e))?;
@@ -2745,11 +2790,13 @@ pub async fn db_redis_key_value(
     id: String,
     db_index: i64,
     key: String,
+    key_b64: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
+        let kb = redis_key_bytes(&key, &key_b64);
         let key_type: String = redis::cmd("TYPE")
-            .arg(&key)
+            .arg(&kb)
             .query_async(&mut c.clone())
             .await
             .map_err(|e| format!("Redis TYPE failed: {}", e))?;
@@ -2765,14 +2812,16 @@ pub async fn db_redis_set_key(
     id: String,
     db_index: i64,
     key: String,
+    key_b64: Option<String>,
     value: String,
     ttl: i64,
 ) -> Result<serde_json::Value, String> {
     let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
+        let kb = redis_key_bytes(&key, &key_b64);
         if ttl > 0 {
             redis::cmd("SETEX")
-                .arg(&key)
+                .arg(&kb)
                 .arg(ttl)
                 .arg(&value)
                 .query_async::<()>(&mut c.clone())
@@ -2780,7 +2829,7 @@ pub async fn db_redis_set_key(
                 .map_err(|e| format!("Redis SETEX failed: {}", e))?;
         } else {
             redis::cmd("SET")
-                .arg(&key)
+                .arg(&kb)
                 .arg(&value)
                 .query_async::<()>(&mut c.clone())
                 .await
@@ -2846,11 +2895,13 @@ pub async fn db_redis_delete_key(
     id: String,
     db_index: i64,
     key: String,
+    key_b64: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
+        let kb = redis_key_bytes(&key, &key_b64);
         redis::cmd("DEL")
-            .arg(&key)
+            .arg(&kb)
             .query_async::<()>(&mut c.clone())
             .await
             .map_err(|e| format!("Redis DEL failed: {}", e))?;
@@ -2906,14 +2957,21 @@ pub async fn db_redis_scan_keys(
 }
 
 /// S9: 用 SCAN 迭代替代 KEYS（大 key 空间下 KEYS 会阻塞 Redis 服务端）
-async fn redis_scan_all_keys(
+/// 解析前端传来的键：优先用 `key_b64`（Redis 键二进制安全，非 UTF-8 键的 lossy 文本无法回传），
+/// 没有则退回按 UTF-8 字节取键名，保持对旧调用方（CLI/MCP/其它面板）的兼容。
+fn redis_key_bytes(key: &str, key_b64: &Option<String>) -> Vec<u8> {
+    match key_b64 {
+        Some(b) if !b.is_empty() => B64.decode(b).unwrap_or_else(|_| key.as_bytes().to_vec()),
+        _ => key.as_bytes().to_vec(),
+    }
+}
+
+/// 按字节扫描键（保留原始字节，供需要 base64 回传的路径使用）
+async fn redis_scan_all_keys_raw(
     conn: &RedisConn,
     pattern: &str,
     max: usize,
-) -> Result<Vec<String>, String> {
-    // 键按字节取回：Redis 键是二进制安全的，个别非 UTF-8 键（序列化 blob、protobuf 等）
-    // 若直接反序列化成 Vec<String> 会让整次 SCAN 报
-    // 「Cannot convert from UTF-8」，表现为整个库展开为空。这里统一 lossy 解码。
+) -> Result<Vec<Vec<u8>>, String> {
     let mut raw: Vec<Vec<u8>> = Vec::new();
     let mut cursor: u64 = 0;
     loop {
@@ -2933,6 +2991,17 @@ async fn redis_scan_all_keys(
         }
     }
     raw.truncate(max);
+    Ok(raw)
+}
+
+async fn redis_scan_all_keys(
+    conn: &RedisConn,
+    pattern: &str,
+    max: usize,
+) -> Result<Vec<String>, String> {
+    // 键按字节取回后再 lossy 解码：直接反序列化成 Vec<String> 会让整次 SCAN 因个别
+    // 非 UTF-8 键报「Cannot convert from UTF-8」，表现为整个库展开为空。
+    let raw = redis_scan_all_keys_raw(conn, pattern, max).await?;
     Ok(raw.iter().map(|k| String::from_utf8_lossy(k).into_owned()).collect())
 }
 
@@ -3235,13 +3304,15 @@ pub async fn db_redis_zset_range(
     id: String,
     db_index: i64,
     key: String,
+    key_b64: Option<String>,
     start: i64,
     stop: i64,
 ) -> Result<serde_json::Value, String> {
     let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
+        let kb = redis_key_bytes(&key, &key_b64);
         let result: Vec<String> = redis::cmd("ZRANGE")
-            .arg(&key)
+            .arg(&kb)
             .arg(start)
             .arg(stop)
             .arg("WITHSCORES")
@@ -3259,12 +3330,14 @@ pub async fn db_redis_zset_remove(
     id: String,
     db_index: i64,
     key: String,
+    key_b64: Option<String>,
     members: Vec<String>,
 ) -> Result<serde_json::Value, String> {
     let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
+        let kb = redis_key_bytes(&key, &key_b64);
         let mut cmd = redis::Cmd::new();
-        cmd.arg("ZREM").arg(&key);
+        cmd.arg("ZREM").arg(&kb);
         for m in &members {
             cmd.arg(m);
         }

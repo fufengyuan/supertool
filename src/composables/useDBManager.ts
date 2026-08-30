@@ -57,6 +57,8 @@ export interface WorkspaceTab {
   // Redis tab
   redisDbIndex?: number
   initialKey?: string
+  /** 键名原始字节的 base64：非 UTF-8 键只能用它的值回传给命令 */
+  initialKeyB64?: string
 }
 
 const connections = ref<DBConnection[]>([])
@@ -307,6 +309,7 @@ export function useDBManager() {
       // Update initialKey if provided (for redisManager tabs)
       if (tab.type === 'redisManager' && 'initialKey' in tab && tab.initialKey) {
         existing.initialKey = tab.initialKey
+        existing.initialKeyB64 = tab.initialKeyB64
         existing.redisDbIndex = tab.redisDbIndex
         // Update the tab title to reflect the selected key
         existing.title = `${tab.connectionName} - ${tab.initialKey}`
@@ -390,7 +393,7 @@ export function useDBManager() {
   }
 
   // Convenience: open Redis Manager tab (Navicat-like)
-  const openRedisManagerTab = (connectionId: string, connectionName: string, initialKey?: string, redisDbIndex?: number) => {
+  const openRedisManagerTab = (connectionId: string, connectionName: string, initialKey?: string, redisDbIndex?: number, initialKeyB64?: string) => {
     const tab: Omit<WorkspaceTab, 'id'> = {
       type: 'redisManager',
       title: initialKey ? `${connectionName} - ${initialKey}` : `${connectionName} - Redis`,
@@ -402,6 +405,9 @@ export function useDBManager() {
     }
     if (initialKey) {
       tab.initialKey = initialKey
+    }
+    if (initialKeyB64) {
+      tab.initialKeyB64 = initialKeyB64
     }
     return addTab(tab)
   }

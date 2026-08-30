@@ -387,14 +387,16 @@ export function useDatabaseAPI() {
       const res = await tauriInvoke<any>('db_redis_keys', { id, dbIndex, pattern })
       return !!res.success && res.data ? (res.data.keys ?? []) : []
     },
-    dbRedisKeysTree: async (id: string, dbIndex: number, pattern: string): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_keys_tree', { id, dbIndex, pattern })
+    dbRedisKeysTree: async (id: string, dbIndex: number, pattern: string, prefixB64?: string): Promise<any> => {
+      const res = await tauriInvoke<any>('db_redis_keys_tree', { id, dbIndex, pattern, prefixB64 })
       const data: any = (res as any).data ?? res
       if (!data?.success) {return { success: false, folders: [], leaves: [], hasMore: false }}
       // 后端已按「前缀之后的下一段」分好组（pattern 传 `models:` 时返回 models 这一层的子节点）
       if (Array.isArray(data.folders) || Array.isArray(data.leaves)) {
         return {
           success: true,
+          // folders: {name,count,pathB64} / leaves: {name,type,keyB64}
+          // pathB64/keyB64 是键名的原始字节 base64 —— 非 UTF-8 键只能靠它回传
           folders: data.folders || [],
           leaves: data.leaves || [],
           hasMore: !!data.hasMore
@@ -425,24 +427,24 @@ export function useDatabaseAPI() {
       const res = await tauriInvoke<any>('db_redis_keys_by_type', { id, dbIndex, pattern })
       return res.success ? { success: true, keysByType: res.keysByType || {} } : { success: false, keysByType: {}, error: res.error }
     },
-    dbRedisKeyInfo: async (id: string, dbIndex: number, key: string): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_key_info', { id, dbIndex, key })
+    dbRedisKeyInfo: async (id: string, dbIndex: number, key: string, keyB64?: string): Promise<any> => {
+      const res = await tauriInvoke<any>('db_redis_key_info', { id, dbIndex, key, keyB64 })
       return res.success ? { success: true, type: res.type, ttl: res.ttl, length: res.length } : { success: false, error: res.error || '未知错误' }
     },
-    dbRedisKeyValue: async (id: string, dbIndex: number, key: string): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_key_value', { id, dbIndex, key })
+    dbRedisKeyValue: async (id: string, dbIndex: number, key: string, keyB64?: string): Promise<any> => {
+      const res = await tauriInvoke<any>('db_redis_key_value', { id, dbIndex, key, keyB64 })
       return res.success ? { success: true, value: res.value, type: res.type, binary: !!res.binary } : { success: false, error: res.error || '未知错误' }
     },
-    dbRedisSetKey: async (id: string, dbIndex: number, key: string, value: string, ttl?: number): Promise<boolean> => {
-      const res = await tauriInvoke<any>('db_redis_set_key', { id, dbIndex, key, value, ttl: ttl ?? 0 })
+    dbRedisSetKey: async (id: string, dbIndex: number, key: string, value: string, ttl?: number, keyB64?: string): Promise<boolean> => {
+      const res = await tauriInvoke<any>('db_redis_set_key', { id, dbIndex, key, value, ttl: ttl ?? 0, keyB64 })
       return res.success === true
     },
     dbRedisAddKey: async (id: string, dbIndex: number, keyType: string, key: string, value: any): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_add_key', { id, dbIndex, keyType, key, value })
       return res.success === true
     },
-    dbRedisDeleteKey: async (id: string, dbIndex: number, key: string): Promise<boolean> => {
-      const res = await tauriInvoke<any>('db_redis_delete_key', { id, dbIndex, key })
+    dbRedisDeleteKey: async (id: string, dbIndex: number, key: string, keyB64?: string): Promise<boolean> => {
+      const res = await tauriInvoke<any>('db_redis_delete_key', { id, dbIndex, key, keyB64 })
       return res.success === true
     },
     dbRedisExec: async (id: string, dbIndex: number, command: string): Promise<any> => {
@@ -1525,13 +1527,13 @@ export interface TauriAPI {
   dbBackupRestore: (id: string, file: string) => Promise<any>
   dbBackupDelete: (file: string) => Promise<boolean>
   dbRedisDatabases: (id: string) => Promise<{ success: boolean; databases: Array<{ db: number; keys: number }> }>
-  dbRedisKeysTree: (id: string, dbIndex: number, pattern: string) => Promise<any>
+  dbRedisKeysTree: (id: string, dbIndex: number, pattern: string, prefixB64?: string) => Promise<any>
   dbRedisKeysByType: (id: string, dbIndex: number, type: string) => Promise<any>
-  dbRedisKeyInfo: (id: string, dbIndex: number, key: string) => Promise<any>
-  dbRedisKeyValue: (id: string, dbIndex: number, key: string) => Promise<any>
-  dbRedisSetKey: (id: string, dbIndex: number, key: string, value: string, ttl?: number) => Promise<boolean>
+  dbRedisKeyInfo: (id: string, dbIndex: number, key: string, keyB64?: string) => Promise<any>
+  dbRedisKeyValue: (id: string, dbIndex: number, key: string, keyB64?: string) => Promise<any>
+  dbRedisSetKey: (id: string, dbIndex: number, key: string, value: string, ttl?: number, keyB64?: string) => Promise<boolean>
   dbRedisAddKey: (id: string, dbIndex: number, keyType: string, key: string, value: any) => Promise<boolean>
-  dbRedisDeleteKey: (id: string, dbIndex: number, key: string) => Promise<boolean>
+  dbRedisDeleteKey: (id: string, dbIndex: number, key: string, keyB64?: string) => Promise<boolean>
   dbRedisExec: (id: string, dbIndex: number, command: string) => Promise<any>
   // Elasticsearch
   esClusterHealth: (id: string) => Promise<any>

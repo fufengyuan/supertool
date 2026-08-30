@@ -105,7 +105,7 @@
                         :conn="conn"
                         :db-index="redisDb.db"
                         :parent-path="''"
-                        @open-key="onOpenRedisKey(conn.id, redisDb.db, $event)"
+                        @open-key="(k: string, b?: string | null) => onOpenRedisKey(conn.id, redisDb.db, k, b)"
                         @folder-context="onRedisFolderContext"
                         @key-context="onRedisKeyContext"
                         @toggle-folder="(path, expanded) => onToggleRedisFolder(conn.id, redisDb.db, path, expanded)"
@@ -421,7 +421,7 @@ const emit = defineEmits<{
   'toggle-db-views': [connId: string, dbName: string]
   'toggle-redis-database': [connId: string, dbIndex: number]
   'toggle-redis-folder': [connId: string, dbIndex: number, folderPath: string]
-  'open-redis-key': [connId: string, dbIndex: number, key: string]
+  'open-redis-key': [connId: string, dbIndex: number, key: string, keyB64?: string]
   'open-redis-manager': [connId: string, dbIndex: number]
   'add-connection': []
   edit: [conn: any]

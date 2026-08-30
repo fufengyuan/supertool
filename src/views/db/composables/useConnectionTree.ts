@@ -54,6 +54,8 @@ interface RedisTreeNode {
   children: Map<string, RedisTreeNode>  // Child segments
   isLeaf: boolean           // True if this represents an actual Redis key
   key: string | null        // Full Redis key (only for leaf nodes)
+  keyB64?: string | null    // 键名原始字节的 base64（非 UTF-8 键只能靠它回传）
+  pathB64?: string | null   // 目录完整前缀（含结尾冒号）的字节 base64
   type: string | null       // Redis key type (only for leaf nodes)
   totalCount: number        // Total leaf keys under this node
   declaredCount?: number    // 后端 SCAN 得到的真实 key 数（未展开时用它，避免显示 0）
@@ -394,7 +396,8 @@ async function onToggleRedisFolder(connId: string, dbIndex: number, folderPath: 
     if (conn) {await ensureConnected(conn)}
     
     const prefix = folderPath + ':'
-    const result = await getTauriAPI().dbRedisKeysTree(connId, dbIndex, prefix)
+    // pathB64 存在时按字节匹配前缀，避免非 UTF-8 目录段被 lossy 文本对不上
+    const result = await getTauriAPI().dbRedisKeysTree(connId, dbIndex, prefix, targetNode.pathB64 ?? undefined)
     if (result && result.success) {
       mergeKeysIntoTree(targetNode, result.folders || [], result.leaves || [], prefix)
       fixTreeCounts(targetNode)
@@ -408,16 +411,16 @@ async function onToggleRedisFolder(connId: string, dbIndex: number, folderPath: 
   }
 }
 
-function onOpenRedisKey(connId: string, dbIndex: number, key: string) {
-  emit('open-redis-key', connId, dbIndex, key)
+function onOpenRedisKey(connId: string, dbIndex: number, key: string, keyB64?: string | null) {
+  emit('open-redis-key', connId, dbIndex, key, keyB64 || undefined)
 }
 
 // ============ Build Redis Key Tree ============
 
 function mergeKeysIntoTree(
   tree: RedisTreeNode,
-  folders: Array<{ name: string; count: number }>,
-  leaves: Array<{ name: string; type: string }>,
+  folders: Array<{ name: string; count: number; pathB64?: string }>,
+  leaves: Array<{ name: string; type: string; keyB64?: string }>,
   prefix: string = ''
 ): void {
   // Merge new folders
@@ -428,6 +431,7 @@ function mergeKeysIntoTree(
         children: new Map(),
         isLeaf: false,
         key: null,
+        pathB64: folder.pathB64 ?? null,
         type: null,
         totalCount: folder.count,
         declaredCount: folder.count
@@ -449,7 +453,8 @@ function mergeKeysIntoTree(
         segment: leaf.name,
         children: new Map(),
         isLeaf: true,
-        key: prefix + leaf.name,
+        key: prefix + leaf.name,        // 展示用完整键名（非 UTF-8 时为 lossy 文本）
+        keyB64: leaf.keyB64 ?? null,    // 命令调用一律优先用它
         type: leaf.type,
         totalCount: 1
       })
@@ -531,12 +536,12 @@ function onRedisFolderContext(event: MouseEvent, conn: DBConnection, dbIndex: nu
   showContextMenu(event.clientX, event.clientY, items)
 }
 
-function onRedisKeyContext(event: MouseEvent, conn: DBConnection, dbIndex: number, key: string, _type: string) {
+function onRedisKeyContext(event: MouseEvent, conn: DBConnection, dbIndex: number, key: string, _type: string, keyB64?: string | null) {
   const items: (ContextMenuItem | ContextMenuSeparator)[] = [
     {
       icon: ctxIcon('eye'),
       label: '查看值',
-      action: () => { emit('open-redis-key', conn.id, dbIndex, key); closeContextMenu() }
+      action: () => { emit('open-redis-key', conn.id, dbIndex, key, keyB64 ?? undefined); closeContextMenu() }
     },
     { separator: true },
     {
@@ -552,7 +557,7 @@ function onRedisKeyContext(event: MouseEvent, conn: DBConnection, dbIndex: numbe
       label: '删除',
       action: async () => {
         try {
-          const res = await getTauriAPI().dbRedisDeleteKey(conn.id, conn.dbIndex || 0, key)
+          const res = await getTauriAPI().dbRedisDeleteKey(conn.id, conn.dbIndex || 0, key, keyB64 ?? undefined)
           if (res) {
             // Invalidate cached tree for this db to force reload
             const rk = redisDbKey(conn.id, dbIndex)
