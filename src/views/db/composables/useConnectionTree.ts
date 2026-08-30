@@ -59,6 +59,7 @@ interface RedisTreeNode {
   type: string | null       // Redis key type (only for leaf nodes)
   totalCount: number        // Total leaf keys under this node
   declaredCount?: number    // 后端 SCAN 得到的真实 key 数（未展开时用它，避免显示 0）
+  loading?: boolean         // 该目录子节点正在拉取（展开时立刻给反馈，不再"空一下才有内容"）
 }
 
 // ============ Search State ============
@@ -387,9 +388,10 @@ async function onToggleRedisFolder(connId: string, dbIndex: number, folderPath: 
   // Check if already loaded (children exist or isLeaf)
   if (targetNode.children.size > 0) {return}
   
-  // Load children
+  // Load children —— 把加载态挂在节点上，子组件立即能渲染出占位，而不是空着等数据
   const loadingKey = `loading:${key}:${folderPath}`
   loadingRedisKeyTrees.value[loadingKey] = true
+  targetNode.loading = true
   
   try {
     const conn = props.sortedConnections.find(c => c.id === connId)
@@ -407,6 +409,7 @@ async function onToggleRedisFolder(connId: string, dbIndex: number, folderPath: 
   } catch (e) {
     console.error('[ConnectionTree] Failed to load folder children:', e)
   } finally {
+    targetNode.loading = false
     delete loadingRedisKeyTrees.value[loadingKey]
   }
 }
@@ -431,6 +434,7 @@ function mergeKeysIntoTree(
         children: new Map(),
         isLeaf: false,
         key: null,
+        loading: false,
         pathB64: folder.pathB64 ?? null,
         type: null,
         totalCount: folder.count,

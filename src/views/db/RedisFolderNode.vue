@@ -23,6 +23,21 @@
         leave-to-class="opacity-0 max-h-0"
       >
         <div v-show="isExpanded" class="relative ps-4 before:content-[''] before:absolute before:left-2 before:top-0 before:bottom-0 before:w-px before:bg-base-content/10 before:opacity-60 before:pointer-events-none">
+          <!-- 拉取中：立刻给占位反馈，避免展开后一片空白再突然冒出内容 -->
+          <div v-if="node.loading && node.children.size === 0" class="flex flex-col gap-1 py-1">
+            <div class="flex items-center gap-1.5 px-1.5 text-[11px] text-base-content/50">
+              <span class="loading loading-spinner loading-xs text-primary"></span>
+              正在加载 {{ node.segment }} …
+            </div>
+            <div v-for="i in 4" :key="i" class="flex items-center gap-1.5 px-1.5">
+              <span class="w-[7px] h-[7px] rounded-full bg-base-content/10 animate-pulse" :style="{ animationDelay: `${i * 80}ms` }"></span>
+              <span class="h-3 flex-1 rounded bg-base-content/10 animate-pulse" :style="{ maxWidth: `${35 + ((i * 23) % 45)}%`, animationDelay: `${i * 80}ms` }"></span>
+            </div>
+          </div>
+          <!-- 加载完确实没有键 -->
+          <div v-else-if="!node.loading && node.children.size === 0" class="px-1.5 py-1 text-[11px] text-base-content/40 italic">
+            该目录下无键
+          </div>
           <RedisFolderNode
             v-for="child in node.children.values()"
             :key="child.segment"
@@ -75,6 +90,7 @@ interface RedisTreeNode {
   key: string | null
   keyB64?: string | null
   pathB64?: string | null
+  loading?: boolean
   type: string | null
   totalCount: number
 }
