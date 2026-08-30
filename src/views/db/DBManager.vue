@@ -806,13 +806,13 @@ function handleSelectTable(connId: string, table: string, dbName?: string) {
 
 function handleOpenSql(connId: string, table?: string, dbName?: string) {
   const conn = db.connections.value.find(c => c.id === connId)
-  if (conn) {
-    if (table) {
-      db.openSqlTab(connId, conn.name, `-- ${conn.name} - ${table}\nSELECT * FROM \`${table}\` LIMIT 100;`)
-    } else {
-      db.openSqlTab(connId, conn.name, `-- ${conn.name}\nSELECT * FROM table_name LIMIT 100;`)
-    }
-  }
+  if (!conn) {return}
+  // 表名带库前缀，跨库连接下不会查到错误的 schema
+  const ref = table ? (dbName ? `\`${dbName}\`.\`${table}\`` : `\`${table}\``) : 'table_name'
+  const sql = table
+    ? `-- ${conn.name}${dbName ? ' · ' + dbName : ''} - ${table}\nSELECT * FROM ${ref} LIMIT 100;`
+    : `-- ${conn.name}\nSELECT * FROM ${ref} LIMIT 100;`
+  db.openSqlTab(connId, conn.name, sql, { tableName: table, dbName })
 }
 
 function handleOpenTableData(connId: string, table: string, dbName?: string) {

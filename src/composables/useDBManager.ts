@@ -307,6 +307,11 @@ export function useDBManager() {
       const idx = tabs.value.indexOf(existing)
       activeTabIndex.value = idx
       // Update initialKey if provided (for redisManager tabs)
+      // 复用空白查询页时把新生成的 SQL 填进去，避免「切了个页但什么都没变」
+      if (tab.type === 'sql' && tab.sql && !existing.sql) {
+        existing.sql = tab.sql
+        if (tab.title) {existing.title = tab.title}
+      }
       if (tab.type === 'redisManager' && 'initialKey' in tab && tab.initialKey) {
         existing.initialKey = tab.initialKey
         existing.initialKeyB64 = tab.initialKeyB64
@@ -347,12 +352,25 @@ export function useDBManager() {
   }
 
   // Convenience: open a new SQL query tab
-  const openSqlTab = (connectionId: string, connectionName: string, sql?: string) => {
+  /**
+   * 打开查询标签页。传 tableName/dbName 时按「库+表」独立成页 —— 否则右键
+   * 「生成 SELECT 查询」会和已存在的空白查询页命中同一条去重规则（type+connectionId），
+   * 只是把旧页切到前台、SQL 从不写入，表现为「点了没反应」。
+   */
+  const openSqlTab = (
+    connectionId: string,
+    connectionName: string,
+    sql?: string,
+    opts?: { tableName?: string; dbName?: string }
+  ) => {
+    const tableName = opts?.tableName
     return addTab({
       type: 'sql',
-      title: '查询',
+      title: tableName ? `查询 - ${tableName}` : '查询',
       connectionId,
       connectionName,
+      tableName,
+      dbName: opts?.dbName,
       sql: sql || ''
     })
   }
