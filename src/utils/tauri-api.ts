@@ -431,7 +431,7 @@ export function useDatabaseAPI() {
     },
     dbRedisKeyValue: async (id: string, dbIndex: number, key: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_key_value', { id, dbIndex, key })
-      return res.success ? { success: true, value: res.value, type: res.type } : { success: false, error: res.error || '未知错误' }
+      return res.success ? { success: true, value: res.value, type: res.type, binary: !!res.binary } : { success: false, error: res.error || '未知错误' }
     },
     dbRedisSetKey: async (id: string, dbIndex: number, key: string, value: string, ttl?: number): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_set_key', { id, dbIndex, key, value, ttl: ttl ?? 0 })

@@ -56,6 +56,12 @@
             </div>
           </div>
 
+      <!-- 二进制值提示：后端已按 UTF-8 容错解码，保存会按文本写回 -->
+      <div v-if="valueBinary" class="mx-3 mt-2 flex items-start gap-1.5 rounded-lg border border-warning/30 bg-warning/10 px-3 py-1.5 text-[11px] leading-relaxed text-warning">
+        <SvgIcon name="warning" size="13" class="mt-px shrink-0" />
+        <span>值含非 UTF-8 字节（二进制），已按 UTF-8 容错显示；直接保存会按文本写入，可能破坏原始数据。</span>
+      </div>
+
       <!-- Value Editors by Type -->
       <!-- String -->
       <div v-if="keyInfo.type === 'string'" class="flex-1 overflow-auto p-3">
@@ -180,6 +186,12 @@
             </div>
           </template>
         </div>
+      </div>
+
+      <!-- 键不存在 / 已过期 / 暂不支持的类型：不再留一片空白 -->
+      <div v-else class="flex h-40 flex-col items-center justify-center gap-2 text-xs text-base-content/50">
+        <SvgIcon name="info" size="26" class="opacity-40" />
+        <p class="m-0">{{ keyInfo.type === 'none' ? '键不存在或已过期' : (keyInfo.type ? `暂不支持预览 ${keyInfo.type} 类型` : '未选择键') }}</p>
       </div>
     </template>
     </div>
@@ -328,6 +340,7 @@ const loading = ref(false)
 const selectedKey = ref<string | null>(null)
 const keyLoading = ref(false)
 const keyInfo = ref<{ type: string; ttl: number; length: number }>({ type: '', ttl: -1, length: 0 })
+const valueBinary = ref(false)   // 后端标记：值含非 UTF-8 字节
 const saving = ref(false)
 const deleting = ref(false)
 
@@ -456,6 +469,7 @@ async function selectKey(key: string) {
     const valResult = await getTauriAPI().dbRedisKeyValue(props.connectionId, props.redisDbIndex ?? 0, key)
     logger.info(`[RedisManager] keyValue result: ${valResult?.success ? '(type=' + keyInfo.value.type + ', length=' + keyInfo.value.length + ')' : valResult?.error}`)
     if (valResult?.success) {
+      valueBinary.value = !!valResult.binary
       const val = valResult.value as any
       switch (keyInfo.value.type) {
         case 'string':

@@ -2666,6 +2666,80 @@ pub async fn db_redis_key_info(
     }
 }
 
+/// 按字节读 Redis 值并做 UTF-8 容错解码。
+/// Redis 值是二进制安全的：之前直接反序列化成 String/HashMap<String,String>，
+/// 遇到序列化 blob（protobuf、Java 序列化等）会报「Cannot convert from UTF-8」，
+/// 表现为「获取键值失败」。现在改成 lossy 解码并告诉前端该值不是合法 UTF-8。
+async fn redis_raw_value(c: &RedisConn, key: &str, key_type: &str) -> Result<(serde_json::Value, bool), String> {
+    let mut binary = false;
+    let mut dec = |b: Vec<u8>| match String::from_utf8(b) {
+        Ok(s) => s,
+        Err(e) => {
+            binary = true;
+            String::from_utf8_lossy(e.as_bytes()).into_owned()
+        }
+    };
+    let val = match key_type {
+        "string" => {
+            // Option：键可能在 TYPE 与 GET 之间过期，直接解 String 会报错
+            let v: Option<Vec<u8>> = redis::cmd("GET")
+                .arg(key)
+                .query_async(&mut c.clone())
+                .await
+                .map_err(|e| format!("Redis command failed: {}", e))?;
+            match v {
+                Some(b) => serde_json::Value::String(dec(b)),
+                None => serde_json::Value::Null,
+            }
+        }
+        "hash" => {
+            let flat: Vec<Vec<u8>> = redis::cmd("HGETALL")
+                .arg(key)
+                .query_async(&mut c.clone())
+                .await
+                .map_err(|e| format!("Redis command failed: {}", e))?;
+            let mut obj = serde_json::Map::new();
+            for pair in flat.chunks(2) {
+                let f = dec(pair[0].clone());
+                let v = pair.get(1).map(|b| dec(b.clone())).unwrap_or_default();
+                obj.insert(f, serde_json::Value::String(v));
+            }
+            serde_json::Value::Object(obj)
+        }
+        "list" => {
+            let v: Vec<Vec<u8>> = redis::cmd("LRANGE")
+                .arg(key)
+                .arg(0)
+                .arg(-1)
+                .query_async(&mut c.clone())
+                .await
+                .map_err(|e| format!("Redis command failed: {}", e))?;
+            serde_json::Value::Array(v.into_iter().map(|b| serde_json::Value::String(dec(b))).collect())
+        }
+        "set" => {
+            let v: Vec<Vec<u8>> = redis::cmd("SMEMBERS")
+                .arg(key)
+                .query_async(&mut c.clone())
+                .await
+                .map_err(|e| format!("Redis command failed: {}", e))?;
+            serde_json::Value::Array(v.into_iter().map(|b| serde_json::Value::String(dec(b))).collect())
+        }
+        "zset" => {
+            let v: Vec<Vec<u8>> = redis::cmd("ZRANGE")
+                .arg(key)
+                .arg(0)
+                .arg(-1)
+                .arg("WITHSCORES")
+                .query_async(&mut c.clone())
+                .await
+                .map_err(|e| format!("Redis command failed: {}", e))?;
+            serde_json::Value::Array(v.into_iter().map(|b| serde_json::Value::String(dec(b))).collect())
+        }
+        _ => serde_json::Value::Null,
+    };
+    Ok((val, binary))
+}
+
 #[tauri::command(rename_all = "camelCase")]
 pub async fn db_redis_key_value(
     id: String,
@@ -2679,59 +2753,8 @@ pub async fn db_redis_key_value(
             .query_async(&mut c.clone())
             .await
             .map_err(|e| format!("Redis TYPE failed: {}", e))?;
-        let val = match key_type.as_str() {
-            "string" => {
-                let v: String = redis::cmd("GET")
-                    .arg(&key)
-                    .query_async(&mut c.clone())
-                    .await
-                    .map_err(|e| format!("Redis command failed: {}", e))?;
-                serde_json::Value::String(v)
-            }
-            "hash" => {
-                let v: HashMap<String, String> = redis::cmd("HGETALL")
-                    .arg(&key)
-                    .query_async(&mut c.clone())
-                    .await
-                    .map_err(|e| format!("Redis command failed: {}", e))?;
-                serde_json::Value::Object(
-                    v.into_iter()
-                        .map(|(k, v)| (k, serde_json::Value::String(v)))
-                        .collect(),
-                )
-            }
-            "list" => {
-                let v: Vec<String> = redis::cmd("LRANGE")
-                    .arg(&key)
-                    .arg(0)
-                    .arg(-1)
-                    .query_async(&mut c.clone())
-                    .await
-                    .map_err(|e| format!("Redis command failed: {}", e))?;
-                serde_json::Value::Array(v.into_iter().map(serde_json::Value::String).collect())
-            }
-            "set" => {
-                let v: Vec<String> = redis::cmd("SMEMBERS")
-                    .arg(&key)
-                    .query_async(&mut c.clone())
-                    .await
-                    .map_err(|e| format!("Redis command failed: {}", e))?;
-                serde_json::Value::Array(v.into_iter().map(serde_json::Value::String).collect())
-            }
-            "zset" => {
-                let v: Vec<String> = redis::cmd("ZRANGE")
-                    .arg(&key)
-                    .arg(0)
-                    .arg(-1)
-                    .arg("WITHSCORES")
-                    .query_async(&mut c.clone())
-                    .await
-                    .map_err(|e| format!("Redis command failed: {}", e))?;
-                serde_json::Value::Array(v.into_iter().map(serde_json::Value::String).collect())
-            }
-            _ => serde_json::Value::Null,
-        };
-        Ok(serde_json::json!({ "success": true, "value": val, "type": key_type }))
+        let (val, binary) = redis_raw_value(&c, &key, &key_type).await?;
+        Ok(serde_json::json!({ "success": true, "value": val, "type": key_type, "binary": binary }))
     } else {
         Err("Not a Redis connection".to_string())
     }
