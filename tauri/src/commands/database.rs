@@ -106,6 +106,102 @@ pub async fn connect_mysql(config: &DbConnectionConfig) -> Result<DbConnection, 
     Ok(DbConnection::MySql(pool))
 }
 
+/// 取 MySQL 表的列元数据：列名 → (数据类型, 是否可空)。查不到返回空表（退回原有拼接方式）。
+async fn mysql_column_meta(
+    pool: &MySqlPool,
+    db_name: Option<&str>,
+    table: &str,
+) -> HashMap<String, (String, bool)> {
+    let schema_cond = match db_name.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(s) => format!("TABLE_SCHEMA = '{}'", s.replace('\'', "''")),
+        None => "TABLE_SCHEMA = DATABASE()".to_string(),
+    };
+    let sql = format!(
+        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE FROM information_schema.COLUMNS WHERE {} AND TABLE_NAME = '{}'",
+        schema_cond,
+        table.replace('\'', "''")
+    );
+    let mut meta = HashMap::new();
+    let rows = match execute_mysql_query(pool, &sql).await {
+        Ok(v) => v.get("rows").and_then(|r| r.as_array()).cloned().unwrap_or_default(),
+        Err(e) => {
+            log::warn!("[db] 读取列元数据失败，退回原样拼接: {}", e);
+            return meta;
+        }
+    };
+    // information_schema 列名大小写随 MySQL 版本/配置变化，取值时两种都试
+    let cell = |row: &serde_json::Value, col: &str| -> Option<String> {
+        row.get(col)
+            .or_else(|| row.get(&col.to_lowercase()))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    };
+    for row in rows {
+        let name = match cell(&row, "COLUMN_NAME") {
+            Some(n) => n,
+            None => continue,
+        };
+        let ty = cell(&row, "DATA_TYPE").unwrap_or_default().to_lowercase();
+        let nullable = cell(&row, "IS_NULLABLE")
+            .unwrap_or_else(|| "YES".to_string())
+            .eq_ignore_ascii_case("yes");
+        meta.insert(name, (ty, nullable));
+    }
+    meta
+}
+
+/// 按列类型生成 SQL 字面量。空串写进数值/时间列会被 MySQL 判成
+/// `Truncated incorrect DOUBLE value: ''`（ERROR 1292），这里改成：可空列 → NULL，
+/// 非空列 → 直接给出看得懂的错误。
+fn mysql_literal(
+    col: &str,
+    meta: &HashMap<String, (String, bool)>,
+    v: &serde_json::Value,
+) -> Result<String, String> {
+    if let serde_json::Value::String(s) = v {
+        if s.trim().is_empty() {
+            if let Some((ty, nullable)) = meta.get(col) {
+                let typed = matches!(
+                    ty.as_str(),
+                    "tinyint"
+                        | "smallint"
+                        | "mediumint"
+                        | "int"
+                        | "integer"
+                        | "bigint"
+                        | "decimal"
+                        | "numeric"
+                        | "float"
+                        | "double"
+                        | "real"
+                        | "bit"
+                        | "year"
+                        | "date"
+                        | "datetime"
+                        | "timestamp"
+                        | "time"
+                );
+                if typed {
+                    if *nullable {
+                        return Ok("NULL".to_string());
+                    }
+                    return Err(format!(
+                        "列 `{}` 是 {} 类型且不允许为空，请填写有效值",
+                        col, ty
+                    ));
+                }
+            }
+        }
+    }
+    Ok(match v {
+        serde_json::Value::Null => "NULL".to_string(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
+        _ => v.to_string(),
+    })
+}
+
 async fn execute_mysql_query(pool: &MySqlPool, sql: &str) -> Result<serde_json::Value, String> {
     let mut conn = pool
         .get_conn()
@@ -3179,19 +3275,13 @@ pub async fn db_insert_table_row(
     }
     match &conn {
         DbConnection::MySql(p) => {
-            let (cols, vals): (Vec<String>, Vec<String>) = obj
-                .iter()
-                .map(|(k, v)| {
-                    let val = match v {
-                        serde_json::Value::Null => "NULL".to_string(),
-                        serde_json::Value::Bool(b) => b.to_string(),
-                        serde_json::Value::Number(n) => n.to_string(),
-                        serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
-                        _ => v.to_string(),
-                    };
-                    (format!("`{}`", k), val)
-                })
-                .unzip();
+            let meta = mysql_column_meta(p, db_name.as_deref(), &table_name).await;
+            let mut cols: Vec<String> = Vec::with_capacity(obj.len());
+            let mut vals: Vec<String> = Vec::with_capacity(obj.len());
+            for (k, v) in obj.iter() {
+                cols.push(format!("`{}`", k));
+                vals.push(mysql_literal(k, &meta, v)?);
+            }
             let prefix = db_name
                 .filter(|s| !s.is_empty())
                 .map(|d| format!("`{}`.", d))
@@ -3251,35 +3341,19 @@ pub async fn db_update_table_row(
         .ok_or("values_json must be an object")?;
     match &conn {
         DbConnection::MySql(p) => {
-            let sets: Vec<String> = val_obj
-                .iter()
-                .map(|(k, v)| {
-                    let val = match v {
-                        serde_json::Value::Null => "NULL".to_string(),
-                        serde_json::Value::Bool(b) => b.to_string(),
-                        serde_json::Value::Number(n) => n.to_string(),
-                        serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
-                        _ => v.to_string(),
-                    };
-                    format!("`{}` = {}", k, val)
-                })
-                .collect();
-            let wheres: Vec<String> = pk_obj
-                .iter()
-                .map(|(k, v)| {
-                    if matches!(v, serde_json::Value::Null) {
-                        format!("`{}` IS NULL", k)
-                    } else {
-                        let val = match v {
-                            serde_json::Value::Bool(b) => b.to_string(),
-                            serde_json::Value::Number(n) => n.to_string(),
-                            serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")),
-                            _ => v.to_string(),
-                        };
-                        format!("`{}` = {}", k, val)
-                    }
-                })
-                .collect();
+            let meta = mysql_column_meta(p, db_name.as_deref(), &table_name).await;
+            let mut sets: Vec<String> = Vec::with_capacity(val_obj.len());
+            for (k, v) in val_obj.iter() {
+                sets.push(format!("`{}` = {}", k, mysql_literal(k, &meta, v)?));
+            }
+            let mut wheres: Vec<String> = Vec::with_capacity(pk_obj.len());
+            for (k, v) in pk_obj.iter() {
+                if matches!(v, serde_json::Value::Null) {
+                    wheres.push(format!("`{}` IS NULL", k));
+                } else {
+                    wheres.push(format!("`{}` = {}", k, mysql_literal(k, &meta, v)?));
+                }
+            }
             let prefix = db_name
                 .filter(|s| !s.is_empty())
                 .map(|d| format!("`{}`.", d))
