@@ -10,6 +10,8 @@
       <AboutDialog v-model="showAboutDialog" />
       <QuickSwitch ref="quickSwitchRef" @select="onQuickSwitchSelect" />
       <ToolCommandPalette ref="toolPaletteRef" />
+      <!-- 首次启动：未配置 AI 模型时全屏引导 -->
+      <FirstRunWizard v-if="showFirstRun" @done="onFirstRunDone" />
     </template>
     <!-- 启动过渡页：等 webview 初始化（菜单监听器注册等）完成后淡出 -->
     <Transition name="splash-fade">
@@ -35,6 +37,7 @@ import QuickSwitch from '@/components/QuickSwitch.vue'
 import ToolCommandPalette from '@/components/ToolCommandPalette.vue'
 import FloatingTodoPanel from '@/components/FloatingTodoPanel.vue'
 import FloatingAssistantPanel from '@/components/FloatingAssistantPanel.vue'
+import FirstRunWizard from '@/components/FirstRunWizard.vue'
 import { useAppStore } from '@/stores/appStore'
 import { useLanStore } from '@/stores/lanStore'
 import { useTheme } from '@/utils/theme'
@@ -43,6 +46,9 @@ const isFloatingTodo = ref(false)
 const isFloatingAssistant = ref(false)
 const { toggleTheme: toggleThemeSetting } = useTheme()
 const showAboutDialog = ref(false)
+// 首次启动引导：未配置 AI 模型时全屏弹出，帮助用户快速接入助手
+const showFirstRun = ref(false)
+const FIRST_RUN_SEEN_KEY = 'supertool_first_run_seen_v1'
 // 启动过渡页：floating-todo 窗口不显示
 const showSplash = ref(true)
 const quickSwitchRef = ref<InstanceType<typeof QuickSwitch> | null>(null)
@@ -157,9 +163,25 @@ onMounted(async () => {
   // 保留最小显示时间避免闪烁
   setTimeout(() => { showSplash.value = false }, 300)
 
+  // 首次启动引导：未配置 AI 模型（configured=false）且从未引导过 → 全屏弹向导
+  try {
+    const alreadySeen = localStorage.getItem(FIRST_RUN_SEEN_KEY)
+    if (!alreadySeen) {
+      const state = await api.assistantGetState()
+      if (state?.configured === false) {
+        showFirstRun.value = true
+      }
+    }
+  } catch { /* 非 Tauri 或读取失败时静默，不阻塞启动 */ }
+
   // Initialize frequent menu with stored click data
   setTimeout(() => appStore.updateNativeFrequentMenu(), 500)
 })
+
+function onFirstRunDone() {
+  showFirstRun.value = false
+  try { localStorage.setItem(FIRST_RUN_SEEN_KEY, '1') } catch {}
+}
 
 onUnmounted(async () => {
   document.removeEventListener('dblclick', onDoubleClick)

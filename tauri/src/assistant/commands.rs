@@ -88,6 +88,62 @@ pub async fn test_ai_model(
     }
 }
 
+/// 原始连通性测试：不落库，直接用前端传入的 baseUrl/apiKey/protocol/modelId 现场发一条最小请求。
+/// 用于「首次引导」在保存前先验证连接。apiKey 只用于本次请求，不进日志。
+#[tauri::command(rename_all = "camelCase")]
+pub async fn test_ai_model_raw(
+    base_url: String,
+    api_key: String,
+    protocol: String,
+    model_id: String,
+) -> Result<Value, String> {
+    let protocol = if protocol.trim().eq_ignore_ascii_case("anthropic") {
+        supertool_core::logic::ai_provider::AiProtocol::Anthropic
+    } else {
+        supertool_core::logic::ai_provider::AiProtocol::OpenAi
+    };
+    let base = base_url.trim().trim_end_matches('/').to_string();
+    if base.is_empty() {
+        return Err("缺少接口地址".to_string());
+    }
+    if model_id.trim().is_empty() {
+        return Err("缺少模型 ID".to_string());
+    }
+    let route = supertool_core::logic::ai_provider::AiRoute {
+        provider_name: "临时测试".to_string(),
+        protocol,
+        base_url: base,
+        api_key: api_key.trim().to_string(),
+        model_id: model_id.trim().to_string(),
+        context_window: supertool_core::logic::ai_provider::DEFAULT_CONTEXT_WINDOW,
+        max_output_tokens: 32,
+        vision: false,
+    };
+    let request = super::llm::ChatRequest {
+        model: route.model_id.clone(),
+        messages: vec![super::llm::ChatMessage::user("只回复两个字：可用")],
+        tools: Vec::new(),
+        max_output_tokens: 32,
+        temperature: Some(0.0),
+    };
+    let started = std::time::Instant::now();
+    let mut collector = String::new();
+    let outcome = super::llm::stream_completion(&route, &request, &mut |event| {
+        if let super::llm::LlmEvent::TextDelta(delta) = event {
+            collector.push_str(&delta);
+        }
+    })
+    .await;
+    match outcome {
+        Ok(turn) => Ok(json!({
+            "ok": true,
+            "latencyMs": started.elapsed().as_millis() as u64,
+            "reply": super::llm::clip(&turn.text, 200),
+        })),
+        Err(e) => Ok(json!({ "ok": false, "error": e })),
+    }
+}
+
 // =================== 对话入口 ===================
 
 /// 界面能传回来的历史条数与单条长度上限（防一次请求塞进几十万字）

@@ -1743,6 +1743,7 @@ export interface TauriAPI {
   getActiveAiModel: () => Promise<any>
   setActiveAiModel: (providerId: string, modelId: string) => Promise<any>
   testAiModel: (providerId: string, modelId: string) => Promise<any>
+  testAiModelRaw: (args: { baseUrl: string; apiKey: string; protocol: string; modelId: string }) => Promise<any>
   openFloatingAssistant: () => Promise<any>
   closeFloatingAssistant: () => Promise<any>
   toggleFloatingAssistant: () => Promise<any>
@@ -2579,6 +2580,7 @@ export function getTauriAPI(): TauriAPI {
     getActiveAiModel: async () => tauriCall('get_active_ai_model'),
     setActiveAiModel: async (providerId: string, modelId: string) => { return tauriCall('set_active_ai_model', { providerId, modelId }); },
     testAiModel: async (providerId: string, modelId: string) => { return tauriCall('test_ai_model', { providerId, modelId }); },
+    testAiModelRaw: async (args: { baseUrl: string; apiKey: string; protocol: string; modelId: string }) => { return tauriCall('test_ai_model_raw', args); },
     openFloatingAssistant: async () => tauriCall('open_floating_assistant'),
     closeFloatingAssistant: async () => tauriCall('close_floating_assistant'),
     toggleFloatingAssistant: async () => tauriCall('toggle_floating_assistant'),
