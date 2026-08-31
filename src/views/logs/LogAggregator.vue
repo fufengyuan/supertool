@@ -1870,6 +1870,27 @@ function streamPrefixAt(row: number): number {
   return prefix[Math.min(row, prefix.length - 1)] ?? 0
 }
 
+// 显示的行（过滤）
+// 流式模式：使用 flush 时预计算的 matched 标记，避免每次重扫
+// 优化：当无关键字时直接返回原数组（零拷贝），避免 computed 无谓重建
+// 必须在下方所有引用它的 computed/watch（totalItems/visibleLines/renderedLines 及 watch(renderedLines)）之前定义，
+// 否则 Vue 的 watch 在创建时会立即求值 source，触发 "Cannot access 'displayLines' before initialization"（TDZ）。
+const displayLines = computed(() => {
+  let lines: typeof logLines.value
+  if (queryMode.value === 'search') {
+    lines = logLines.value
+  } else if (!selectedPreset.value?.keywords?.length) {
+    lines = logLines.value
+  } else {
+    lines = logLines.value.filter(line => line.matched !== false)
+  }
+  // 节点筛选：选中某节点时只显示该节点的日志行
+  if (selectedServerFilter.value) {
+    lines = lines.filter(line => line.serverId === selectedServerFilter.value)
+  }
+  return lines
+})
+
 const totalItems = computed(() => displayLines.value.length)
 
 const visibleStart = computed(() => {
@@ -2147,25 +2168,6 @@ const searchPlaceholder = computed(() => {
   const kw = preset?.keywords?.length ? preset.keywords.join(', ') : ''
   if (kw) {return `搜索日志... 预设关键字：${kw}`}
   return '搜索关键字'
-})
-
-// 显示的行（过滤）
-// 流式模式：使用 flush 时预计算的 matched 标记，避免每次重扫
-// 优化：当无关键字时直接返回原数组（零拷贝），避免 computed 无谓重建
-const displayLines = computed(() => {
-  let lines: typeof logLines.value
-  if (queryMode.value === 'search') {
-    lines = logLines.value
-  } else if (!selectedPreset.value?.keywords?.length) {
-    lines = logLines.value
-  } else {
-    lines = logLines.value.filter(line => line.matched !== false)
-  }
-  // 节点筛选：选中某节点时只显示该节点的日志行
-  if (selectedServerFilter.value) {
-    lines = lines.filter(line => line.serverId === selectedServerFilter.value)
-  }
-  return lines
 })
 
 // 当前可选的节点列表（从预设配置 + 实际收到日志的节点合并）
