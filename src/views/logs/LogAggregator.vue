@@ -224,15 +224,21 @@
 
           <!-- 虚拟滚动容器：流式模式用 paddingTop/Bottom 撑起全量滚动空间，只渲染视口附近的行；
                搜索模式全量渲染——日志行 whitespace-pre-wrap 长行会换行，固定行高估算的 spacer
-               与真实内容高度不符，滚动时 scrollHeight 波动导致浏览器把 scrollTop 钳回（无法滑到底部） -->
+               与真实内容高度不符，滚动时 scrollHeight 波动导致浏览器把 scrollTop 钳回（无法滑到底部）。
+               流式模式改用「真实行高前缀和」撑高（streamPrefixAt），逐步贴合实际内容高度，消除反弹 -->
           <div
             v-if="displayLines.length > 0"
-            :style="queryMode === 'stream' ? { paddingTop: (visibleStart * VIRTUAL_LINE_HEIGHT) + 'px', paddingBottom: ((totalItems - visibleEnd) * VIRTUAL_LINE_HEIGHT) + 'px' } : undefined"
+            :style="queryMode === 'stream'
+              ? (streamUseRealHeight
+                  ? { paddingTop: streamPrefixAt(visibleStart) + 'px', paddingBottom: (streamPrefixAt(totalItems) - streamPrefixAt(visibleEnd)) + 'px' }
+                  : { paddingTop: (visibleStart * VIRTUAL_LINE_HEIGHT) + 'px', paddingBottom: ((totalItems - visibleEnd) * VIRTUAL_LINE_HEIGHT) + 'px' })
+              : undefined"
           >
             <div
               v-for="(line, i) in renderedLines"
               :key="line.id"
               :data-log-idx="queryMode === 'search' ? i : undefined"
+              :data-stream-idx="queryMode === 'stream' ? visibleStart + i : undefined"
               class="flex gap-2 py-0.5 hover:bg-white/5"
               :class="{
                 'bg-warning/10 border-l-4 border-warning': line.isMatch,
@@ -1819,19 +1825,79 @@ const MAX_LINES = computed(() => {
   return (typeof v === 'number' && v >= 500 && v <= 50000) ? v : 3000
 })
 
+// ── 流式虚拟滚动「真实行高」支撑（消除固定行高导致的触底反弹） ──
+// 日志长行 whitespace-pre-wrap 会换行，真实行高往往 > VIRTUAL_LINE_HEIGHT(24px)。
+// 固定行高估算的 paddingTop/Bottom spacer 与真实 scrollHeight 不符，浏览器会 clamp
+// scrollTop，导致"拉到底又反弹"。这里用每行实测高度做前缀和，spacer 逐步贴合真实高度
+// （与 fullLog 离线查看的 fullLogHeightPrefix 同款方案）。
+// 流式真实行高优化仅在「无过滤」时启用（此时 displayLines === logLines，下标一致）。
+// 一旦启用关键字过滤或节点筛选，displayLines 是 logLines 子集，高度数组下标会错位，
+// 此时回退固定行高估算（过滤场景是次要路径，准确性优先于流畅度）。
+const streamUseRealHeight = computed(() =>
+  queryMode.value === 'stream'
+  && !(selectedPreset.value?.keywords?.length)
+  && !selectedServerFilter.value
+)
+
+const streamLineHeights = ref<number[]>([])
+const streamHeightPrefix = computed(() => {
+  const total = totalItems.value
+  const heights = streamLineHeights.value
+  const prefix: number[] = new Array(total + 1)
+  prefix[0] = 0
+  for (let i = 0; i < total; i++) {
+    prefix[i + 1] = prefix[i] + (heights[i] ?? VIRTUAL_LINE_HEIGHT)
+  }
+  return prefix
+})
+// 滚到顶部的行号（二分前缀和）
+function streamRowAtScrollTop(): number {
+  const prefix = streamHeightPrefix.value
+  const st = scrollTop.value
+  if (prefix.length === 0) {return 0}
+  if (st <= 0) {return 0}
+  let lo = 0, hi = prefix.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (prefix[mid] <= st) { lo = mid + 1 } else { hi = mid }
+  }
+  if (prefix[lo] <= st) {return Math.max(0, prefix.length - 2)}
+  return Math.max(0, lo - 1)
+}
+function streamPrefixAt(row: number): number {
+  const prefix = streamHeightPrefix.value
+  if (row <= 0) {return 0}
+  return prefix[Math.min(row, prefix.length - 1)] ?? 0
+}
+
 const totalItems = computed(() => displayLines.value.length)
 
 const visibleStart = computed(() => {
-  // 长行换行会使实际内容高度高于「行数 × 行高」的估算值，scrollTop 反推的行号可能
-  // 超出总行数 → slice 返回空数组 → 白屏（初次打开、日志量少时最易触发，滚动后恢复）。
-  // 钳制到 [0, total-1]，保证渲染窗口永远非空。
+  // 用真实行高前缀和反推行号（替代固定行高估算），长行换行时高度也能准确定位，
+  // 避免 slice 空窗白屏；仍钳制到 [0, total-1] 保底。
   const total = totalItems.value
-  const raw = Math.floor(scrollTop.value / VIRTUAL_LINE_HEIGHT) - OVERSCAN
+  const raw = (streamUseRealHeight.value ? streamRowAtScrollTop() : Math.floor(scrollTop.value / VIRTUAL_LINE_HEIGHT)) - OVERSCAN
   return Math.max(0, Math.min(raw, Math.max(0, total - 1)))
 })
 
 const visibleEnd = computed(() => {
-  return Math.min(totalItems.value, Math.ceil((scrollTop.value + containerHeight.value) / VIRTUAL_LINE_HEIGHT) + OVERSCAN)
+  // 视口底边所在行（二分前缀和），再补 overscan
+  const prefix = streamHeightPrefix.value
+  const total = totalItems.value
+  if (prefix.length === 0) {return 0}
+  let endRow
+  if (streamUseRealHeight.value) {
+    const bottom = scrollTop.value + containerHeight.value
+    let lo = 0, hi = prefix.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (prefix[mid] <= bottom) { lo = mid + 1 } else { hi = mid }
+    }
+    endRow = prefix[lo] <= bottom ? prefix.length - 2 : lo - 1
+  } else {
+    endRow = Math.ceil((scrollTop.value + containerHeight.value) / VIRTUAL_LINE_HEIGHT)
+  }
+  return Math.min(total, endRow + OVERSCAN + 1)
 })
 
 // 模板只渲染这部分行，其余行用 paddingTop/paddingBottom 撑开滚动空间
@@ -1843,6 +1909,38 @@ const visibleLines = computed(() => {
 // （搜索结果行数有限，且固定行高虚拟滚动在长行换行时会滚动回弹，全量渲染交给浏览器原生滚动）
 const renderedLines = computed(() => {
   return queryMode.value === 'stream' ? visibleLines.value : displayLines.value
+})
+
+// 流式可见行渲染完成后采样真实行高 → streamLineHeights，前缀和随之精确，
+// spacer 逐步贴合真实内容高度（每行首次进入视口测量一次，滚动中渐进收敛，消除反弹）。
+// 过滤激活时（streamUseRealHeight=false）跳过采样，避免对子集下标写错高度。
+watch(renderedLines, () => {
+  if (queryMode.value !== 'stream' || !streamUseRealHeight.value) {return}
+  nextTick(() => {
+    const container = logContainer.value
+    if (!container) {return}
+    const heights = streamLineHeights.value
+    let changed = false
+    const rows = container.querySelectorAll('[data-stream-idx]')
+    for (const r of rows) {
+      const el = r as HTMLElement
+      const idx = Number(el.dataset.streamIdx)
+      const h = el.offsetHeight
+      if (Number.isFinite(idx) && h > 0 && heights[idx] !== h) {
+        if (!heights[idx]) {
+          // 首次测量直接填
+          heights[idx] = h
+          changed = true
+        } else if (Math.abs(heights[idx] - h) > 1) {
+          heights[idx] = h
+          changed = true
+        }
+      }
+    }
+    if (changed) {
+      streamLineHeights.value = [...heights]
+    }
+  })
 })
 
 // 预设分组折叠状态
@@ -2200,6 +2298,7 @@ async function startQueryFromPreset(preset: any) {
 
   streamId.value = `stream_${Date.now()}`
   logLines.value = []
+  streamLineHeights.value = []
   activeServers.value = new Set<string>()
   followMode.value = true
   userScrolledUp.value = false
@@ -2240,6 +2339,7 @@ async function doSearch() {
   isSearching.value = true
   hasSearched.value = true
   logLines.value = []
+  streamLineHeights.value = []
   // 同步清空导航状态：搜索失败/重新搜索时避免残留旧匹配索引（跳转会指向失效行）
   matchIndices.value = []
   currentMatchIndex.value = -1
@@ -2338,6 +2438,8 @@ function scheduleFlush() {
 
 	    // 批量追加（不排序，按服务器返回的原始顺序显示）
 	    logLines.value.push(...newLines)
+	    // 同步高度数组（新实时行未测量用默认高度兜底）
+	    streamLineHeights.value.push(...new Array(newLines.length).fill(undefined))
 
     // 批量更新 activeServers，避免循环内多次响应式触发
     if (seenServerIds.size > 0) {
@@ -2361,11 +2463,23 @@ function scheduleFlush() {
         const overflow = nonHistoryCount - maxLines
         // 从历史行之后开始删（最早的实时行），保留历史日志与最新日志
         logLines.value.splice(historyCount, overflow)
+        // 同步高度数组
+        streamLineHeights.value.splice(historyCount, overflow)
         // 同步调整虚拟滚动偏移量，避免裁剪后 visibleStart 索引错位（paddingTop 跳跃）
         // 删除点位于历史区（cutPx）之后：仅当视口在删除点下方时才需要前移 scrollTop
-        const cutPx = historyCount * VIRTUAL_LINE_HEIGHT
+        const cutPx = streamUseRealHeight.value ? streamPrefixAt(historyCount) : historyCount * VIRTUAL_LINE_HEIGHT
         if (!followMode.value && logContainer.value && scrollTop.value > cutPx) {
-          const adjustedScroll = Math.max(cutPx, scrollTop.value - overflow * VIRTUAL_LINE_HEIGHT)
+          // 用被删行的真实高度累加（未测量行按默认高度兜底），替代固定行高估算
+          let removedPx = 0
+          if (streamUseRealHeight.value) {
+            const heights = streamLineHeights.value
+            for (let i = historyCount; i < historyCount + overflow && i < heights.length; i++) {
+              removedPx += heights[i] ?? VIRTUAL_LINE_HEIGHT
+            }
+          } else {
+            removedPx = overflow * VIRTUAL_LINE_HEIGHT
+          }
+          const adjustedScroll = Math.max(cutPx, scrollTop.value - removedPx)
           // 标记程序化滚动，避免 onScroll 把 followMode 翻转为 false
           scrollingFromRAFCount++
           logContainer.value.scrollTop = adjustedScroll
@@ -2382,8 +2496,20 @@ function scheduleFlush() {
       if (historyCount > HISTORY_MAX_LINES) {
         const overflow = historyCount - HISTORY_MAX_LINES
         logLines.value.splice(0, overflow)
+        // 同步高度数组
+        streamLineHeights.value.splice(0, overflow)
         if (!followMode.value && logContainer.value && scrollTop.value > 0) {
-          const adjustedScroll = Math.max(0, scrollTop.value - overflow * VIRTUAL_LINE_HEIGHT)
+          // 用被删历史行的真实高度累加
+          let removedPx = 0
+          if (streamUseRealHeight.value) {
+            const heights = streamLineHeights.value
+            for (let i = 0; i < overflow && i < heights.length; i++) {
+              removedPx += heights[i] ?? VIRTUAL_LINE_HEIGHT
+            }
+          } else {
+            removedPx = overflow * VIRTUAL_LINE_HEIGHT
+          }
+          const adjustedScroll = Math.max(0, scrollTop.value - removedPx)
           scrollingFromRAFCount++
           logContainer.value.scrollTop = adjustedScroll
           scrollTop.value = adjustedScroll
@@ -2480,8 +2606,8 @@ function scrollToLineIndex(idx: number) {
     }
     return
   }
-  // 流式模式：虚拟滚动，按估算行高滚动到目标行附近
-  const targetTop = idx * VIRTUAL_LINE_HEIGHT
+  // 流式模式：虚拟滚动，按真实行高前缀和滚动到目标行顶部
+  const targetTop = streamUseRealHeight.value ? streamPrefixAt(idx) : idx * VIRTUAL_LINE_HEIGHT
   const halfVisible = containerHeight.value / 2
   if (logContainer.value) {
     scrollingFromRAFCount++
@@ -2555,8 +2681,9 @@ async function loadMoreHistory() {
       let dupCount = 0
       for (const serverResult of result.results) {
         if (!serverResult.lines || serverResult.lines.length === 0) {continue}
-        // 服务器返回顺序假设是"由新到旧"，倒序插入让最早的在最前
-        for (let i = serverResult.lines.length - 1; i >= 0; i--) {
+        // 后端 `tail -n N | head -n M` 返回正序（旧→新，更早的行在前），
+        // 正序遍历保证 newLines 里最早的历史行在最前，splice 到头部后保持正序。
+        for (let i = 0; i < serverResult.lines.length; i++) {
           const content = serverResult.lines[i]
           if (!content) {continue}
           const dedupKey = `${serverResult.serverId}|${content}`
@@ -2581,8 +2708,21 @@ async function loadMoreHistory() {
       if (addedCount > 0) {
         // 一次性插入，避免多次响应式触发
         logLines.value.splice(0, 0, ...newLines)
-        // Adjust scroll position so the visible content doesn't jump
-        const addedHeight = addedCount * VIRTUAL_LINE_HEIGHT
+        // 同步高度数组：历史行插入到头部，原有行高度整体后移 addedCount 位，
+        // 新历史行未测量用默认高度兜底（渲染后由采样 watch 补测）。
+        streamLineHeights.value = [
+          ...new Array(addedCount).fill(undefined),
+          ...streamLineHeights.value,
+        ]
+        // 新插入的历史行高度：优先用已测量的真实行高，未测量按默认行高兜底
+        // （避免固定 VIRTUAL_LINE_HEIGHT 估算与真实长行高度不符导致 scrollTop 补偿失准）
+        let addedHeight = streamUseRealHeight.value ? 0 : addedCount * VIRTUAL_LINE_HEIGHT
+        if (streamUseRealHeight.value) {
+          for (const nl of newLines) {
+            const idx = displayLines.value.indexOf(nl)
+            addedHeight += idx >= 0 ? (streamLineHeights.value[idx] ?? VIRTUAL_LINE_HEIGHT) : VIRTUAL_LINE_HEIGHT
+          }
+        }
         if (!followMode.value && logContainer.value && scrollTop.value >= 0) {
           scrollingFromRAFCount++
           // 确保加载后 scrollTop 离开触发区（>100），避免 onScroll 立刻再次触发 loadMoreHistory
@@ -2682,6 +2822,7 @@ async function switchQueryMode(mode: 'stream' | 'search') {
   logBuffer.length = 0
   pendingScroll = false
   logLines.value = []
+  streamLineHeights.value = []
   hasSearched.value = false
   // 切换模式时重置节点筛选（搜索/流式共用同一筛选器，切换时清空避免困惑）
   selectedServerFilter.value = null
@@ -2713,6 +2854,7 @@ async function switchQueryMode(mode: 'stream' | 'search') {
 // 清除日志
 function clearLogs() {
   logLines.value = []
+  streamLineHeights.value = []
   hasSearched.value = false
   selectedServerFilter.value = null
 }
