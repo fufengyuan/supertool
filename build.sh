@@ -482,78 +482,42 @@ dispatch_build() {
     esac
 }
 
-case "$MODE" in
-  pre-build)
-    build_cli "$ARCH"
-    ;;
-  dmg)
-    # 只生成 dmg，不生成 pkg
-    build_cli "$ARCH"
+# ═══════════════════════════════════════════
+# macOS: 生成单个架构的增强 .pkg（含 CLI + Skills）
+# 参数: $1=架构(arm64/x64/native), $2=输出目录(可选，默认 PKG_OUTPUT)
+# ═══════════════════════════════════════════
+build_pkg_one() {
+    local arch="$1"
+    local out_dir="${2:-$PKG_OUTPUT}"
+    mkdir -p "$out_dir"
 
-    # 根据 ARCH 确定 Tauri 编译目标
-    target_flag=""
-    if [ "$ARCH" = "x64" ] || [ "$ARCH" = "x86_64" ]; then
+    # 根据 arch 确定 Tauri 编译目标
+    local target_flag=""
+    if [ "$arch" = "x64" ] || [ "$arch" = "x86_64" ]; then
         target_flag="--target x86_64-apple-darwin"
-    elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+    elif [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
         target_flag="--target aarch64-apple-darwin"
     fi
 
-    # shellcheck disable=SC2086
-    pnpm tauri build --bundles dmg,app $target_flag
-    mkdir -p "$PKG_OUTPUT"
-    rm -f target/release/bundle/macos/rw.*.dmg
-    DMG_SRC=""
-    # Tauri 2.x: with --target, bundle goes to target/<triple>/release/bundle/
-    dmg_search_paths="target/release/bundle/dmg/*.dmg target/release/bundle/macos/*.dmg"
-    if [ -n "$target_flag" ]; then
-        target_triple=""
-        case "$ARCH" in
-            x64|x86_64) target_triple="x86_64-apple-darwin" ;;
-            arm64|aarch64) target_triple="aarch64-apple-darwin" ;;
-        esac
-        if [ -n "$target_triple" ]; then
-            dmg_search_paths="target/${target_triple}/release/bundle/dmg/*.dmg target/${target_triple}/release/bundle/macos/*.dmg ${dmg_search_paths}"
-        fi
-    fi
-    for d in $dmg_search_paths; do
-        if [ -f "$d" ]; then DMG_SRC="$d"; break; fi
-    done
-    if [ -n "$DMG_SRC" ]; then
-        cp -f "$DMG_SRC" "$PKG_OUTPUT/"
-        echo "✅ dmg → $PKG_OUTPUT/$(basename "$DMG_SRC")"
-    fi
-    ;;
-  pkg)
-    # 只生成 pkg installer（含 CLI + Skills），跳过 dmg
-    build_cli "$ARCH"
-
-    # 根据 ARCH 确定 Tauri 编译目标
-    target_flag=""
-    if [ "$ARCH" = "x64" ] || [ "$ARCH" = "x86_64" ]; then
-        target_flag="--target x86_64-apple-darwin"
-    elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
-        target_flag="--target aarch64-apple-darwin"
-    fi
+    build_cli "$arch"
 
     # shellcheck disable=SC2086
     pnpm tauri build --bundles app $target_flag
 
-    arch_label=""
-    if [ "$ARCH" = "x64" ] || [ "$ARCH" = "x86_64" ]; then
+    local arch_label=""
+    if [ "$arch" = "x64" ] || [ "$arch" = "x86_64" ]; then
         arch_label="-x64"
-    elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+    elif [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
         arch_label="-arm64"
     fi
 
-    mkdir -p "$PKG_OUTPUT"
-    
-    APP_PATH=""
+    local APP_PATH=""
     # Tauri 2.x: with --target, bundle goes to target/<triple>/release/bundle/
-    bundle_search_paths="target/release/bundle/macos/*.app target/release/bundle/osx/*.app"
+    local bundle_search_paths="target/release/bundle/macos/*.app target/release/bundle/osx/*.app"
     # 检查 target 特定路径
     if [ -n "$target_flag" ]; then
-        target_triple=""
-        case "$ARCH" in
+        local target_triple=""
+        case "$arch" in
             x64|x86_64) target_triple="x86_64-apple-darwin" ;;
             arm64|aarch64) target_triple="aarch64-apple-darwin" ;;
         esac
@@ -568,11 +532,11 @@ case "$MODE" in
         echo "❌ .app bundle not found"; exit 1
     fi
     echo "📱 Found app: $APP_PATH"
-    
-    PKG_DIR="pkg-build"
+
+    local PKG_DIR="pkg-build"
     rm -rf "$PKG_DIR"
     mkdir -p "$PKG_DIR/scripts"
-    
+
     # 创建 component plist：禁止 macOS 26 上 pkgbuild 的自动 bundle relocate
     # 用 --component-plist 显式传递，防止 pkgbuild 忽略
     cat > "$PKG_DIR/component.plist" << 'PLIST'
@@ -702,7 +666,7 @@ echo "✅ SuperTool installation complete!"
 exit 0
 POSTINSTALL
     chmod 755 "$PKG_DIR/scripts/postinstall"
-    
+
     # macOS 26.4.1+: pkgbuild --component 有 bug，改用 --root
     rm -rf "$PKG_DIR/root"
     mkdir -p "$PKG_DIR/root/Applications"
@@ -713,17 +677,78 @@ POSTINSTALL
         --version "$VERSION" \
         --install-location "/" \
         --scripts "$PKG_DIR/scripts" \
-        "$PKG_OUTPUT/SuperTool-${VERSION}${arch_label}.pkg"
-    
+        "$out_dir/SuperTool-${VERSION}${arch_label}.pkg"
+
     rm -rf "$PKG_DIR"
-    echo "✅ pkg → $PKG_OUTPUT/SuperTool-${VERSION}${arch_label}.pkg"
+    echo "✅ pkg → $out_dir/SuperTool-${VERSION}${arch_label}.pkg"
+}
+
+case "$MODE" in
+  pre-build)
+    build_cli "$ARCH"
+    ;;
+  dmg)
+    # 只生成 dmg，不生成 pkg
+    build_cli "$ARCH"
+
+    # 根据 ARCH 确定 Tauri 编译目标
+    target_flag=""
+    if [ "$ARCH" = "x64" ] || [ "$ARCH" = "x86_64" ]; then
+        target_flag="--target x86_64-apple-darwin"
+    elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+        target_flag="--target aarch64-apple-darwin"
+    fi
+
+    # shellcheck disable=SC2086
+    pnpm tauri build --bundles dmg,app $target_flag
+    mkdir -p "$PKG_OUTPUT"
+    rm -f target/release/bundle/macos/rw.*.dmg
+    DMG_SRC=""
+    # Tauri 2.x: with --target, bundle goes to target/<triple>/release/bundle/
+    dmg_search_paths="target/release/bundle/dmg/*.dmg target/release/bundle/macos/*.dmg"
+    if [ -n "$target_flag" ]; then
+        target_triple=""
+        case "$ARCH" in
+            x64|x86_64) target_triple="x86_64-apple-darwin" ;;
+            arm64|aarch64) target_triple="aarch64-apple-darwin" ;;
+        esac
+        if [ -n "$target_triple" ]; then
+            dmg_search_paths="target/${target_triple}/release/bundle/dmg/*.dmg target/${target_triple}/release/bundle/macos/*.dmg ${dmg_search_paths}"
+        fi
+    fi
+    for d in $dmg_search_paths; do
+        if [ -f "$d" ]; then DMG_SRC="$d"; break; fi
+    done
+    if [ -n "$DMG_SRC" ]; then
+        cp -f "$DMG_SRC" "$PKG_OUTPUT/"
+        echo "✅ dmg → $PKG_OUTPUT/$(basename "$DMG_SRC")"
+    fi
+    ;;
+  pkg)
+    # 只生成 pkg installer（含 CLI + Skills），跳过 dmg
+    case "$ARCH" in
+      both|dual|all)
+        # arm64 + x64 分别出包，统一收进一个目录
+        BOTH_DIR="$PKG_OUTPUT/pkg"
+        rm -rf "$BOTH_DIR"
+        mkdir -p "$BOTH_DIR"
+        build_pkg_one arm64 "$BOTH_DIR"
+        build_pkg_one x64 "$BOTH_DIR"
+        echo "✅ 双架构 pkg 已归拢 → $BOTH_DIR/"
+        ls -1 "$BOTH_DIR"/*.pkg
+        ;;
+      *)
+        build_pkg_one "$ARCH"
+        ;;
+    esac
     ;;
   full)
     # 同时生成 dmg + pkg
     dispatch_build "$ARCH"
     ;;
   *)
-    echo "用法: $0 {pre-build|dmg|pkg|full} [native|arm64|x64|all]"
+    echo "用法: $0 {pre-build|dmg|pkg|full} [native|arm64|x64|all|both]"
+    echo "  pkg both  → arm64 + x64 两个 .pkg 归拢到 target/release/pkg/"
     exit 1
     ;;
 esac
