@@ -18,6 +18,14 @@
   <img src="docs/screenshots/database.png" alt="数据库管理" width="49%" />
 </p>
 
+**首次启动引导** —— 全屏分步向导，首次打开引导你接入 AI 模型，几分钟就能用上助手：
+
+<p align="center">
+  <img src="docs/screenshots/onboarding-welcome.png" alt="引导欢迎页" width="32%" />
+  <img src="docs/screenshots/onboarding-configure.png" alt="配置 AI 模型" width="32%" />
+  <img src="docs/screenshots/onboarding-done.png" alt="引导完成页" width="32%" />
+</p>
+
 ## 特性
 
 ### 核心运维

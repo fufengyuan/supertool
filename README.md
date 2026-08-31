@@ -18,6 +18,14 @@ Cross-platform desktop operations management tool — built on Tauri v2 + Vue 3 
   <img src="docs/screenshots/database.png" alt="Database Management" width="49%" />
 </p>
 
+**First-run Onboarding** — a full-screen wizard that walks you through connecting your AI model on first launch, so the assistant is ready in minutes:
+
+<p align="center">
+  <img src="docs/screenshots/onboarding-welcome.png" alt="Onboarding Welcome" width="32%" />
+  <img src="docs/screenshots/onboarding-configure.png" alt="Configure AI Model" width="32%" />
+  <img src="docs/screenshots/onboarding-done.png" alt="Onboarding Done" width="32%" />
+</p>
+
 ## Features
 
 ### Core Operations
