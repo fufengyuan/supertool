@@ -209,7 +209,7 @@ const emit = defineEmits<{ (e: 'done'): void }>()
 
 const router = useRouter()
 const toast = useToast()
-const api = getTauriAPI() as any
+const api = () => getTauriAPI() as any
 
 const step = ref(0)
 const saving = ref(false)
