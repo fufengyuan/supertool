@@ -18,6 +18,7 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 - **加密密钥可在设置页查看/轮换**（EncryptionKeyCard.vue + settings.rs rotate_encryption_key）：自定义密钥存 `.encryption_key`（32 字节 base64），Electron 旧口令存 `.encryption_secret`（勿混淆，否则 Electron 旧密文解不开）。轮换顺序铁律：prepare(旧钥解密)→commit(new_key 显式密钥重加密写回，单事务)→再 set_custom_key 切换——**先写回后切换**，commit 失败则 active key 未变、旧密文仍可解（重试安全）。新增任何用 encrypt_password 入库的列必须同步加进 `TARGETS`。
 - 自动备份：后端 tokio 定时（tauri/src/auto_backup.rs），按 `auto_backup_*` 设置项到点执行 run_auto_backup，保留最近 14 份轮转；读设置用 `get_setting`（前端 set_setting 只存键值，无调度）。
 - **跨库/跨版本导入测试**：`stool backup import <file> --mode replace` 到全新 HOME 下验证；api_requests 旧数据 id 为 TEXT 与 INTEGER 主键冲突属历史数据问题，非引擎缺陷。
+- 完整设计/根因/修复见 [docs/backup-restore.md](docs/backup-restore.md)。
 
 ### CICD 部署
 
