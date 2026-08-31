@@ -19,12 +19,12 @@
 
     <!-- Main Layout: Left Config + Right Log/History -->
     <div class="grid min-h-0 w-full flex-1 grid-cols-[340px_1fr] grid-rows-1 gap-4 overflow-hidden" v-if="configs.length > 0">
-      <!-- Left: Config Selector + Info + Actions -->
-      <div class="flex h-full min-w-0 flex-col gap-3 overflow-y-auto overscroll-contain pr-0.5">
+      <!-- Left: Config Selector + Actions -->
+      <div class="flex h-full min-w-0 flex-col gap-3 overflow-hidden">
         <!-- Config Selector -->
-        <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
-          <label class="block mb-2 font-semibold text-base-content text-sm">选择部署配置</label>
-          <div class="max-h-72 overflow-y-auto border border-base-content/10 rounded-lg bg-base-200">
+        <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 flex flex-col min-h-0 flex-1">
+          <label class="block mb-2 font-semibold text-base-content text-sm shrink-0">选择部署配置</label>
+          <div class="flex-1 min-h-0 overflow-y-auto border border-base-content/10 rounded-lg bg-base-200">
             <template v-for="[groupName, groupItems] in groupedDeployConfigs" :key="groupName">
               <div class="border-b border-base-content/10 last:border-b-0">
                 <div class="flex items-center gap-1.5 px-2.5 py-2 cursor-pointer select-none text-xs font-semibold text-base-content bg-black/5 hover:bg-black/10" @click="toggleDeployGroup(groupName)">
@@ -57,61 +57,9 @@
           </div>
         </div>
 
-        <!-- Config Details Card -->
+        <!-- Deploy Actions -->
         <template v-if="config">
-          <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
-            <div class="text-sm font-semibold text-base-content mb-3">配置详情</div>
-            <div class="flex flex-col gap-2.5">
-              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="config.name">
-                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">名称</span>
-                <span class="min-w-0 truncate ml-3 text-sm text-base-content font-medium text-right">{{ config.name }}</span>
-              </div>
-              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
-                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">仓库</span>
-                <span class="min-w-0 truncate ml-3 text-sm text-base-content font-medium text-right">{{ selectedGitRepoObj?.name || '-' }}</span>
-              </div>
-              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
-                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">分支</span>
-                <div class="flex items-center gap-1">
-                  <select v-model="selectedBranch"
-                    class="select select-bordered select-xs w-28 bg-base-200 text-xs cursor-pointer"
-                    :disabled="!selectedGitRepoObj || loadingBranches"
-                    @click.stop>
-                    <option v-for="b in branches" :key="b" :value="b">{{ b }}</option>
-                  </select>
-                  <button v-if="selectedGitRepoObj" @click.stop="loadBranchesForConfig(config!)" class="btn btn-xs btn-ghost px-1" :class="{ 'loading': loadingBranches }" title="刷新分支列表">⟳</button>
-                </div>
-              </div>
-              <!-- 部署环境：仅多环境配置显示 -->
-              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="configEnvironments.length > 0">
-                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">部署环境</span>
-                <select v-model="selectedEnvironment" class="select select-bordered select-xs w-36 bg-base-200 text-xs cursor-pointer" title="选择本次部署的环境">
-                  <option value="">默认（全局配置）</option>
-                  <option v-for="env in configEnvironments" :key="env" :value="env">{{ env }}</option>
-                </select>
-              </div>
-              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
-                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">服务器</span>
-                <span class="min-w-0 truncate ml-3 text-sm text-base-content font-medium text-right">{{ getServersInfo(config) }}</span>
-              </div>
-              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
-                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">构建工具</span>
-                <span class="min-w-0 truncate ml-3 text-sm text-base-content font-medium text-right">{{ getBuildToolName(config.buildTool) }}</span>
-              </div>
-              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="config.deployPath">
-                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">部署路径</span>
-                <span class="text-sm font-medium text-right font-mono text-xs bg-base-200 px-2 py-0.5 rounded break-all max-w-[200px] truncate">{{ config.deployPath }}</span>
-              </div>
-              <!-- 重启脚本：仅 Maven 后端项目显示 -->
-              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="config.restartScript && config.buildTool === 'maven'">
-                <span class="shrink-0 whitespace-nowrap text-xs font-medium text-base-content/60">重启脚本</span>
-                <span class="text-sm font-medium text-right font-mono text-xs bg-base-200 px-2 py-0.5 rounded break-all max-w-[200px] truncate">{{ config.restartScript }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Deploy Actions -->
-          <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 flex gap-2.5">
+          <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 flex gap-2.5 shrink-0">
             <button @click="runPreflight" :disabled="deploying || preflightRunning" class="btn btn-ghost border border-base-content/10 flex-1 justify-center">
               <span v-if="preflightRunning" class="loading loading-spinner loading-xs" />
               <SvgIcon v-else name="search" size="14" class="inline-block align-text-bottom" /> {{ preflightRunning ? '预检中...' : '部署预检' }}
@@ -129,7 +77,7 @@
           </div>
 
           <!-- Pre-flight Results -->
-          <div v-if="preflightResults.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+          <div v-if="preflightResults.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-4 shrink-0">
             <div class="text-sm font-semibold text-base-content mb-2">预检结果</div>
             <div v-for="(r, i) in preflightResults" :key="i" class="flex items-center gap-2 py-1.5 border-b border-base-content/10 last:border-b-0 text-sm">
               <span><SvgIcon v-if="r.passed" name="check" size="14" class="text-success" /><SvgIcon v-else name="x" size="14" class="text-error" /></span>
@@ -139,7 +87,7 @@
           </div>
 
           <!-- Progress -->
-          <div class="bg-base-100 border border-base-content/10 rounded-xl px-4 py-3.5" v-if="deploying || progress > 0">
+          <div class="bg-base-100 border border-base-content/10 rounded-xl px-4 py-3.5 shrink-0" v-if="deploying || progress > 0">
             <div class="flex justify-between items-center mb-2 gap-2">
               <span class="text-sm text-base-content font-medium flex items-center gap-2 min-w-0">
                 <span v-if="queuedWaiting" class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 border border-amber-500/20 whitespace-nowrap shrink-0" title="同配置有部署正在进行，本任务排队等待">
@@ -182,8 +130,57 @@
         </div>
       </div>
 
-      <!-- Right: Log + History -->
+      <!-- Right: Config Details + Log + History -->
       <div class="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-y-auto overscroll-contain pr-0.5">
+        <!-- Config Details: 横向紧凑条（从左列移入，节省左列空间展示更多配置） -->
+        <div v-if="config" class="bg-base-100 border border-base-content/10 rounded-xl px-4 py-3 shrink-0">
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div class="flex items-center gap-1.5 min-w-0" v-if="config.name">
+              <span class="shrink-0 text-xs font-medium text-base-content/60">名称</span>
+              <span class="text-sm font-semibold text-base-content truncate min-w-0" :title="config.name">{{ config.name }}</span>
+            </div>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="shrink-0 text-xs font-medium text-base-content/60">仓库</span>
+              <span class="text-sm font-medium text-base-content truncate min-w-0" :title="selectedGitRepoObj?.name">{{ selectedGitRepoObj?.name || '-' }}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="shrink-0 text-xs font-medium text-base-content/60">分支</span>
+              <select v-model="selectedBranch"
+                class="select select-bordered select-xs w-28 bg-base-200 text-xs cursor-pointer"
+                :disabled="!selectedGitRepoObj || loadingBranches"
+                @click.stop>
+                <option v-for="b in branches" :key="b" :value="b">{{ b }}</option>
+              </select>
+              <button v-if="selectedGitRepoObj" @click.stop="loadBranchesForConfig(config!)" class="btn btn-xs btn-ghost px-1" :class="{ 'loading': loadingBranches }" title="刷新分支列表">⟳</button>
+            </div>
+            <!-- 部署环境：仅多环境配置显示 -->
+            <div class="flex items-center gap-1.5" v-if="configEnvironments.length > 0">
+              <span class="shrink-0 text-xs font-medium text-base-content/60">部署环境</span>
+              <select v-model="selectedEnvironment" class="select select-bordered select-xs w-36 bg-base-200 text-xs cursor-pointer" title="选择本次部署的环境">
+                <option value="">默认（全局配置）</option>
+                <option v-for="env in configEnvironments" :key="env" :value="env">{{ env }}</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="shrink-0 text-xs font-medium text-base-content/60">服务器</span>
+              <span class="text-sm font-medium text-base-content truncate min-w-0" :title="getServersInfo(config)">{{ getServersInfo(config) }}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="shrink-0 text-xs font-medium text-base-content/60">构建工具</span>
+              <span class="text-sm font-medium text-base-content">{{ getBuildToolName(config.buildTool) }}</span>
+            </div>
+            <div class="flex items-center gap-1.5 min-w-0" v-if="config.deployPath">
+              <span class="shrink-0 text-xs font-medium text-base-content/60">部署路径</span>
+              <span class="font-mono text-xs bg-base-200 px-2 py-0.5 rounded truncate min-w-0 max-w-[260px]" :title="String(config.deployPath)">{{ config.deployPath }}</span>
+            </div>
+            <!-- 重启脚本：仅 Maven 后端项目显示 -->
+            <div class="flex items-center gap-1.5 min-w-0" v-if="config.restartScript && config.buildTool === 'maven'">
+              <span class="shrink-0 text-xs font-medium text-base-content/60">重启脚本</span>
+              <span class="font-mono text-xs bg-base-200 px-2 py-0.5 rounded truncate min-w-0 max-w-[260px]" :title="String(config.restartScript)">{{ config.restartScript }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Real-time Log -->
         <div class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden relative" v-if="deploying || realtimeLogs.length > 0">
           <div class="flex justify-between items-center px-4 py-3 bg-base-200 border-b border-base-content/10">
