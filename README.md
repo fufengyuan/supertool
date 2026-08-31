@@ -4,6 +4,20 @@
 
 Cross-platform desktop operations management tool — built on Tauri v2 + Vue 3 + Rust shared library architecture, unifying server management, CI/CD deployment, databases, logs, Git repositories, and **AI Agent integration**.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="49%" />
+  <img src="docs/screenshots/assistant.png" alt="AI Assistant" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/servers.png" alt="Server Management" width="49%" />
+  <img src="docs/screenshots/cicd.png" alt="CI/CD Deployment" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/database.png" alt="Database Management" width="49%" />
+</p>
+
 ## Features
 
 ### Core Operations
@@ -94,7 +108,7 @@ Both CLI and GUI directly link to `supertool-core`, **zero UDS/HTTP middleware**
 ### Installation
 
 ```bash
-git clone git@git.code.tencent.com:fufengyuan/supertool.git
+git clone git@github.com:fufengyuan/supertool.git
 cd supertool
 pnpm install
 ```

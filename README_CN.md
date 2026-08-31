@@ -4,6 +4,20 @@
 
 跨平台桌面运维管理工具 —— 基于 Tauri v2 + Vue 3 + Rust 共享库架构，统一管理服务器、CI/CD 部署、数据库、日志、Git 仓库，并**集成 AI Agent**。
 
+## 截图
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="综合看板" width="49%" />
+  <img src="docs/screenshots/assistant.png" alt="AI 助手" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/servers.png" alt="服务器管理" width="49%" />
+  <img src="docs/screenshots/cicd.png" alt="CI/CD 部署" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/database.png" alt="数据库管理" width="49%" />
+</p>
+
 ## 特性
 
 ### 核心运维
@@ -94,7 +108,7 @@ CLI 和 GUI 都直连 `supertool-core`，**零 UDS/HTTP 中间层**。
 ### 安装
 
 ```bash
-git clone git@git.code.tencent.com:fufengyuan/supertool.git
+git clone git@github.com:fufengyuan/supertool.git
 cd supertool
 pnpm install
 ```
