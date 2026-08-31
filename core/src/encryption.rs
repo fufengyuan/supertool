@@ -2,16 +2,132 @@ use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use scrypt::Params as ScryptParams;
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex};
 
 /// AES-256-GCM 加密密钥（生产环境应从 keychain/keystore 读取）
 const ENCRYPTION_KEY: [u8; 32] = *b"supertool-encryption-key-32byt!!";
 
+/// 用户自定义密钥缓存（设置页可查看/修改；写入 .encryption_key 文件）
+static CUSTOM_KEY: LazyLock<Mutex<Option<[u8; 32]>>> = LazyLock::new(|| Mutex::new(None));
+
+/// 同步加载用户密钥（应用启动 setup 里调用）
+pub fn load_custom_key_sync(path: &std::path::Path) {
+    if let Ok(content) = std::fs::read_to_string(path) {
+        if let Some(key) = decode_key(content.trim()) {
+            if let Ok(mut g) = CUSTOM_KEY.lock() {
+                *g = Some(key);
+            }
+        }
+    }
+}
+
+/// 从文件加载用户密钥到缓存（异步路径，CLI 等场景用）
+pub async fn load_custom_key() {
+    let path = crate::logic::data_dir::encryption_key_path();
+    load_custom_key_sync(&path);
+}
+
+fn decode_key(s: &str) -> Option<[u8; 32]> {
+    let bytes = BASE64.decode(s).ok()?;
+    if bytes.len() != 32 {
+        return None;
+    }
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&bytes);
+    Some(key)
+}
+
+/// 清除自定义密钥（仅测试用：把全局状态还原为「未设置」）
+#[cfg(test)]
+pub async fn clear_custom_key_for_test() {
+    if let Ok(mut g) = CUSTOM_KEY.lock() {
+        *g = None;
+    }
+}
+
+/// 查看当前加密密钥（base64）。未设置过用户密钥时返回 None（用内置默认密钥）。
+pub async fn get_custom_key() -> Option<String> {
+    let guard = CUSTOM_KEY.lock().ok()?;
+    guard.map(|k| BASE64.encode(k))
+}
+
+/// 设置/修改加密密钥（32 字节随机生成，base64 存储）。只落盘+更新缓存；
+/// 存量密文重加密由 CoreService::rotate_encryption_key 在事务中完成。
+pub async fn set_custom_key(base64_key: &str) -> Result<(), String> {
+    let key = decode_key(base64_key).ok_or("密钥格式错误：需要 32 字节密钥的 base64 编码")?;
+    let path = crate::logic::data_dir::encryption_key_path();
+    std::fs::write(&path, base64_key).map_err(|e| format!("写入密钥文件失败: {}", e))?;
+    if let Ok(mut g) = CUSTOM_KEY.lock() {
+        *g = Some(key);
+    }
+    Ok(())
+}
+
+/// 当前生效密钥：用户自定义优先，否则内置默认
+fn active_key() -> [u8; 32] {
+    CUSTOM_KEY.lock().ok().and_then(|g| *g).unwrap_or(ENCRYPTION_KEY)
+}
+
+/// 供密钥轮换读取当前生效密钥（不泄露到 UI）
+pub async fn peek_active_key() -> [u8; 32] {
+    active_key()
+}
+
+/// 用指定密钥解密（密钥轮换时读旧密文用）
+pub async fn decrypt_password_with_key(encoded: &str, key: &[u8; 32]) -> Result<String, String> {
+    decrypt_password_with_key_sync(encoded, key)
+}
+
+/// 用指定密钥加密（密钥轮换时在切换 active key 之前用新密钥预加密）
+pub async fn encrypt_password_with_key(plaintext: &str, key: &[u8; 32]) -> Result<String, String> {
+    let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| format!("Key error: {}", e))?;
+    let nonce_bytes = rand_nonce();
+    let nonce = Nonce::from_slice(&nonce_bytes);
+    let ciphertext = cipher
+        .encrypt(nonce, plaintext.as_bytes())
+        .map_err(|e| format!("Encrypt error: {}", e))?;
+    let mut combined = Vec::with_capacity(nonce_bytes.len() + ciphertext.len());
+    combined.extend_from_slice(&nonce_bytes);
+    combined.extend_from_slice(&ciphertext);
+    Ok(BASE64.encode(&combined))
+}
+
+fn decrypt_password_with_key_sync(encoded: &str, key: &[u8; 32]) -> Result<String, String> {
+    if encoded.is_empty() {
+        return Ok(String::new());
+    }
+    let combined = BASE64
+        .decode(encoded)
+        .map_err(|e| format!("Decode error: {}", e))?;
+    if combined.len() < 13 {
+        return Ok(encoded.to_string());
+    }
+    let (nonce_bytes, ciphertext) = combined.split_at(12);
+    let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| format!("Key error: {}", e))?;
+    let nonce = Nonce::from_slice(nonce_bytes);
+    let plaintext = cipher
+        .decrypt(nonce, ciphertext)
+        .map_err(|e| format!("Decrypt error: {}", e))?;
+    String::from_utf8(plaintext).map_err(|e| format!("UTF8 error: {}", e))
+}
+
 /// 全局缓存：Electron 版的持久化密钥（只读取一次磁盘）
+///
+/// 注意：Electron 的 secret 是 scrypt 派生的**明文口令**，与自定义 AES 密钥（32 字节 base64）
+/// 是两种完全不同的东西，必须分开存储：
+/// - 自定义 AES 密钥 → `.encryption_key`（32 字节 base64，设置页可查看/轮换）
+/// - Electron 口令   → `.encryption_secret`，回退读旧的 `.encryption_key`（迁移场景）
+/// 早期实现让 ELECTRON_SECRET 直接读 `.encryption_key`，自定义密钥写入后该文件变成 base64
+/// 密钥，导致 Electron 旧密文（salt:iv:tag:data）scrypt 派生错误、全部解不开。
 static ELECTRON_SECRET: LazyLock<Option<String>> = LazyLock::new(|| {
-    std::fs::read_to_string(crate::logic::data_dir::encryption_key_path())
+    let dir = crate::logic::data_dir::resolve_data_dir();
+    std::fs::read_to_string(dir.join(".encryption_secret"))
         .ok()
+        .or_else(|| std::fs::read_to_string(dir.join(".encryption_key")).ok())
         .map(|s| s.trim().to_string())
+        // 自定义密钥是 32 字节 base64（44 字符且解码后正好 32 字节），
+        // 与 Electron 明文口令区分开，避免拿密钥当口令做 scrypt 派生
+        .filter(|s| decode_key(s).is_none())
 });
 
 /// 读取 Electron 版的持久化密钥（数据目录下的 .encryption_key）
@@ -19,9 +135,9 @@ fn get_electron_encryption_secret() -> Option<String> {
     ELECTRON_SECRET.clone()
 }
 
-pub fn encrypt_password(plaintext: &str) -> Result<String, String> {
+pub async fn encrypt_password(plaintext: &str) -> Result<String, String> {
     let cipher =
-        Aes256Gcm::new_from_slice(&ENCRYPTION_KEY).map_err(|e| format!("Key error: {}", e))?;
+        Aes256Gcm::new_from_slice(&active_key()).map_err(|e| format!("Key error: {}", e))?;
     let nonce_bytes = rand_nonce();
     let nonce = Nonce::from_slice(&nonce_bytes);
 
@@ -36,7 +152,7 @@ pub fn encrypt_password(plaintext: &str) -> Result<String, String> {
     Ok(BASE64.encode(&combined))
 }
 
-pub fn decrypt_password(encoded: &str) -> Result<String, String> {
+pub async fn decrypt_password(encoded: &str) -> Result<String, String> {
     if encoded.is_empty() {
         return Ok(String::new());
     }
@@ -50,7 +166,7 @@ pub fn decrypt_password(encoded: &str) -> Result<String, String> {
 
     let (nonce_bytes, ciphertext) = combined.split_at(12);
     let cipher =
-        Aes256Gcm::new_from_slice(&ENCRYPTION_KEY).map_err(|e| format!("Key error: {}", e))?;
+        Aes256Gcm::new_from_slice(&active_key()).map_err(|e| format!("Key error: {}", e))?;
     let nonce = Nonce::from_slice(nonce_bytes);
 
     let plaintext = cipher
@@ -140,8 +256,8 @@ pub fn try_decrypt_password(stored: &str) -> String {
             return decrypted;
         }
     }
-    // 再尝试 Tauri 格式 (BASE64 nonce+ciphertext)
-    if let Ok(decrypted) = decrypt_password(stored) {
+    // 再尝试 Tauri 格式 (BASE64 nonce+ciphertext)，用当前生效密钥同步解密
+    if let Ok(decrypted) = decrypt_password_with_key_sync(stored, &active_key()) {
         return decrypted;
     }
     // 解密失败或已经是明文，原样返回
@@ -152,17 +268,21 @@ pub fn try_decrypt_password(stored: &str) -> String {
 mod tests {
     use super::*;
 
+    fn rt() -> tokio::runtime::Runtime {
+        tokio::runtime::Runtime::new().unwrap()
+    }
+
     #[test]
     fn test_encrypt_decrypt() {
         let password = "my_secret_password_123";
-        let encrypted = encrypt_password(password).unwrap();
-        let decrypted = decrypt_password(&encrypted).unwrap();
+        let encrypted = rt().block_on(async { encrypt_password(password).await.unwrap() });
+        let decrypted = rt().block_on(async { decrypt_password(&encrypted).await.unwrap() });
         assert_eq!(password, decrypted);
     }
 
     #[test]
     fn test_decrypt_empty() {
-        assert_eq!(decrypt_password("").unwrap(), "");
+        assert_eq!(rt().block_on(async { decrypt_password("").await.unwrap() }), "");
     }
 
     #[test]
@@ -175,24 +295,24 @@ mod tests {
             "normal_ascii!@#$%^&*()",
         ];
         for input in inputs {
-            let encrypted = encrypt_password(input).unwrap();
-            let decrypted = decrypt_password(&encrypted).unwrap();
+            let encrypted = rt().block_on(async { encrypt_password(input).await.unwrap() });
+            let decrypted = rt().block_on(async { decrypt_password(&encrypted).await.unwrap() });
             assert_eq!(input, decrypted, "round-trip failed for: {input}");
         }
     }
 
     #[test]
     fn test_encrypt_decrypt_empty_string() {
-        let encrypted = encrypt_password("").unwrap();
-        let decrypted = decrypt_password(&encrypted).unwrap();
+        let encrypted = rt().block_on(async { encrypt_password("").await.unwrap() });
+        let decrypted = rt().block_on(async { decrypt_password(&encrypted).await.unwrap() });
         assert_eq!(decrypted, "");
     }
 
     #[test]
     fn test_encrypt_decrypt_long_string() {
         let long = "a".repeat(10_000);
-        let encrypted = encrypt_password(&long).unwrap();
-        let decrypted = decrypt_password(&encrypted).unwrap();
+        let encrypted = rt().block_on(async { encrypt_password(&long).await.unwrap() });
+        let decrypted = rt().block_on(async { decrypt_password(&encrypted).await.unwrap() });
         assert_eq!(long, decrypted);
     }
 
@@ -200,8 +320,8 @@ mod tests {
     fn test_encrypt_decrypt_various_lengths() {
         for len in [1, 2, 3, 16, 32, 64, 128, 256, 1024, 4096] {
             let input = "x".repeat(len);
-            let encrypted = encrypt_password(&input).unwrap();
-            let decrypted = decrypt_password(&encrypted).unwrap();
+            let encrypted = rt().block_on(async { encrypt_password(&input).await.unwrap() });
+            let decrypted = rt().block_on(async { decrypt_password(&encrypted).await.unwrap() });
             assert_eq!(input, decrypted, "length {len} round-trip failed");
         }
     }
@@ -210,28 +330,28 @@ mod tests {
     fn test_encrypt_produces_different_output_each_time() {
         // Nonce randomness should produce different ciphertext each time
         let input = "same_password";
-        let e1 = encrypt_password(input).unwrap();
-        let e2 = encrypt_password(input).unwrap();
+        let e1 = rt().block_on(async { encrypt_password(input).await.unwrap() });
+        let e2 = rt().block_on(async { encrypt_password(input).await.unwrap() });
         assert_ne!(e1, e2, "encrypted outputs should differ due to random nonce");
     }
 
     #[test]
     fn test_decrypt_invalid_base64() {
-        let result = decrypt_password("not-valid-base64!!");
+        let result = rt().block_on(async { decrypt_password("not-valid-base64!!").await });
         assert!(result.is_err(), "invalid base64 should fail");
     }
 
     #[test]
     fn test_decrypt_corrupted_data() {
         let original = "secret_data";
-        let encrypted = encrypt_password(original).unwrap();
+        let encrypted = rt().block_on(async { encrypt_password(original).await.unwrap() });
         let mut bytes = BASE64.decode(&encrypted).unwrap();
         // Corrupt the last byte of ciphertext
         if let Some(last) = bytes.last_mut() {
             *last ^= 0xFF;
         }
         let corrupted = BASE64.encode(&bytes);
-        let result = decrypt_password(&corrupted);
+        let result = rt().block_on(async { decrypt_password(&corrupted).await });
         assert!(result.is_err(), "corrupted ciphertext should fail");
     }
 
@@ -240,7 +360,7 @@ mod tests {
         // Data shorter than 13 bytes (12 nonce + 1 ciphertext min) should pass through
         // Use valid base64 with decoded length < 13
         let short_b64 = BASE64.encode(&[0u8; 5]); // 8 chars of valid base64, decodes to 5 bytes
-        let result = decrypt_password(&short_b64).unwrap();
+        let result = rt().block_on(async { decrypt_password(&short_b64).await.unwrap() });
         // When combined length < 13, returns original encoded string
         assert_eq!(result, short_b64);
     }
@@ -260,7 +380,7 @@ mod tests {
     #[test]
     fn test_try_decrypt_valid_roundtrip() {
         let input = "valid_password_123";
-        let encrypted = encrypt_password(input).unwrap();
+        let encrypted = rt().block_on(async { encrypt_password(input).await.unwrap() });
         let decrypted = try_decrypt_password(&encrypted);
         assert_eq!(decrypted, input);
     }
@@ -275,8 +395,8 @@ mod tests {
             "{\"json\": \"like\"}",
         ];
         for input in inputs {
-            let encrypted = encrypt_password(input).unwrap();
-            let decrypted = decrypt_password(&encrypted).unwrap();
+            let encrypted = rt().block_on(async { encrypt_password(input).await.unwrap() });
+            let decrypted = rt().block_on(async { decrypt_password(&encrypted).await.unwrap() });
             assert_eq!(input, decrypted, "special chars round-trip failed for: {input:?}");
         }
     }

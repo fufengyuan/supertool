@@ -19,7 +19,7 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
                                 "path": row.get::<_, String>("path")?,
                                 "remote": row.get::<_, Option<String>>("remote")?,
                                 "branch": row.get::<_, Option<String>>("branch")?,
-                                "lastCommit": row.get::<_, Option<String>>("lastCommit")?,
+                                "lastOpened": row.get::<_, Option<String>>("lastOpened")?,
                                 "createdAt": row.get::<_, String>("createdAt")?,
                                 "updatedAt": row.get::<_, String>("updatedAt")?,
                             }))

@@ -1,7 +1,7 @@
 {
   "name": "supertool",
   "private": true,
-  "version": "6.62.3",
+  "version": "6.63.0",
   "type": "module",
   "scripts": {
     "postinstall": "./scripts/init-hooks.sh",
@@ -20,6 +20,7 @@
     "build:pkg": "./build.sh pkg native",
     "build:pkg:arm64": "./build.sh pkg arm64",
     "build:pkg:x64": "./build.sh pkg x64",
+    "build:pkg:both": "./build.sh pkg both",
     "build:pkg:universal": "./build.sh pkg all",
     "build:deb": "pnpm tauri build --bundles deb",
     "build:rpm": "pnpm tauri build --bundles rpm",

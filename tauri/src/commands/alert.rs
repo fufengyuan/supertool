@@ -195,7 +195,7 @@ pub async fn save_email_config(
         let decrypted = try_decrypt_password(&password);
         if decrypted == password {
             // Decryption returned same string → it's plaintext → encrypt it
-            password = encrypt_password(&password).map_err(|e| e.to_string())?;
+            password = encrypt_password(&password).await.map_err(|e| e.to_string())?;
         }
         // else: already encrypted, keep as-is
     }

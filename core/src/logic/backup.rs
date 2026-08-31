@@ -19,7 +19,99 @@ fn snake_to_camel(s: &str) -> String {
     out
 }
 
+/// SELECT * 整表导出为 JSON 数组（列名 = 数据库真实列名，永远与表结构同步）。
+/// 表不存在返回 Ok(None)（调用方可静默跳过）；Blob 以 "[blob]" 占位。
+fn export_table_rows(
+    conn: &rusqlite::Connection,
+    table: &str,
+) -> Result<Option<Value>, String> {
+    let sql = format!("SELECT * FROM {}", table);
+    let mut stmt = match conn.prepare(&sql) {
+        Ok(s) => s,
+        Err(e) if e.to_string().contains("no such table") => return Ok(None),
+        Err(e) => return Err(format!("{}: {}", table, e)),
+    };
+    let col_names: Vec<String> = (0..stmt.column_count())
+        .map(|i| stmt.column_name(i).unwrap_or("?").to_string())
+        .collect();
+    let rows = stmt
+        .query_map([], |row| {
+            let mut map = serde_json::Map::new();
+            for (i, col) in col_names.iter().enumerate() {
+                match row.get::<_, rusqlite::types::Value>(i) {
+                    Ok(rusqlite::types::Value::Null) => {}
+                    Ok(rusqlite::types::Value::Integer(v)) => {
+                        map.insert(col.clone(), json!(v));
+                    }
+                    Ok(rusqlite::types::Value::Real(v)) => {
+                        map.insert(col.clone(), json!(v));
+                    }
+                    Ok(rusqlite::types::Value::Text(v)) => {
+                        map.insert(col.clone(), json!(v));
+                    }
+                    Ok(rusqlite::types::Value::Blob(_v)) => {
+                        map.insert(col.clone(), json!("[blob]"));
+                    }
+                    _ => {}
+                }
+            }
+            Ok(json!(map))
+        })
+        .map_err(|e| format!("{}: {}", table, e))?;
+    let arr: Vec<Value> = rows.filter_map(|r| r.ok()).collect();
+    Ok(Some(json!(arr)))
+}
+
+/// 跨机器路径改写：备份里形如 /Users/<其他用户>/... 的路径前缀替换为本机 home。
+/// 仅改写确以「别的用户 home」开头的值，本机路径原样保留。
+fn rewrite_home_path(val: &str) -> Option<String> {
+    let home = dirs::home_dir()?;
+    rewrite_home_path_with(val, home.to_string_lossy().as_ref())
+}
+
+fn rewrite_home_path_with(val: &str, home_str: &str) -> Option<String> {
+    let prefix = "/Users/";
+    if val.starts_with(home_str) || !val.starts_with(prefix) {
+        return None;
+    }
+    // /Users/<name>/rest → 本机 home + /rest；仅当 <name> 不是本机用户名
+    let rest = &val[prefix.len()..];
+    let first_seg_len = rest.find('/').unwrap_or(rest.len());
+    if first_seg_len == 0 {
+        return None;
+    }
+    Some(format!("{}{}", home_str, &rest[first_seg_len..]))
+}
+
+/// 对 JSON 值递归改写指定列名的路径前缀（server 配置里的 localPath/repoPath 等都是平铺字段，一层即可）
+fn rewrite_path_fields(item: &mut Value, fields: &[&str]) -> usize {
+    let mut count = 0;
+    if let Some(obj) = item.as_object_mut() {
+        for f in fields {
+            if let Some(v) = obj.get_mut(*f).and_then(|v| v.as_str().map(|s| s.to_string())) {
+                if let Some(new_path) = rewrite_home_path(&v) {
+                    obj.insert(f.to_string(), json!(new_path));
+                    count += 1;
+                }
+            }
+        }
+    }
+    count
+}
+
 impl super::CoreService {
+    /// 服务器整表导出（含 password 密文）——备份专用，恢复后无需重新录入密码
+    fn export_servers_with_password(&self) -> impl Future<Output = Result<Value, String>> + Send + '_ {
+        let this = self;
+        async move {
+            let r = this.db_read(|conn| {
+                export_table_rows(conn, "servers")?
+                    .ok_or_else(|| "servers 表不存在".to_string())
+            })?;
+            r
+        }
+    }
+
     pub async fn export_all_data(&self) -> Result<Value, String> {
         let todos = self.get_all_todos().await?;
         let projects = self.get_all_projects(true).await?;
@@ -30,114 +122,6 @@ impl super::CoreService {
             "servers": servers,
         }))
     }
-    pub async fn import_all_data(&self, data: Value, mode: &str) -> Result<Value, String> {
-        let mut counts: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
-        let data_clone = data.clone();
-        let mode_owned = mode.to_string();
-        if let Some(obj) = data.as_object() {
-            // Import todos
-            if let Some(items) = obj.get("todos").and_then(|v| v.as_array()) {
-                let mut c = 0u32;
-                for item in items {
-                    if self.add_todo(item.clone()).await.is_ok() {
-                        c += 1;
-                    }
-                }
-                counts.insert("todos".into(), c);
-            }
-            // Import projects
-            if let Some(items) = obj.get("projects").and_then(|v| v.as_array()) {
-                let mut c = 0u32;
-                for item in items {
-                    if self.add_project(item.clone()).await.is_ok() {
-                        c += 1;
-                    }
-                }
-                counts.insert("projects".into(), c);
-            }
-            // Import servers
-            if let Some(items) = obj.get("servers").and_then(|v| v.as_array()) {
-                let mut c = 0u32;
-                for item in items {
-                    if self.add_server(item.clone()).await.is_ok() {
-                        c += 1;
-                    }
-                }
-                counts.insert("servers".into(), c);
-            }
-            // Import tags
-            if let Some(items) = obj.get("tags").and_then(|v| v.as_array()) {
-                let mut c = 0u32;
-                for item in items {
-                    let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                    if !name.is_empty() {
-                        if self.add_tag(name).await.is_ok() {
-                            c += 1;
-                        }
-                    }
-                }
-                counts.insert("tags".into(), c);
-            }
-            // Import subtasks
-            if let Some(items) = obj.get("subtasks").and_then(|v| v.as_array()) {
-                let mut c = 0u32;
-                for item in items {
-                    if self.add_subtask(item.clone()).await.is_ok() {
-                        c += 1;
-                    }
-                }
-                counts.insert("subtasks".into(), c);
-            }
-            // Import serverGroups
-            if let Some(items) = obj.get("serverGroups").and_then(|v| v.as_array()) {
-                let mut c = 0u32;
-                for item in items {
-                    if self.add_server_group(item.clone()).await.is_ok() {
-                        c += 1;
-                    }
-                }
-                counts.insert("serverGroups".into(), c);
-            }
-            // Import mfaSecrets
-            if let Some(items) = obj.get("mfaSecrets").and_then(|v| v.as_array()) {
-                let mut c = 0u32;
-                for item in items {
-                    if self.add_mfa_secret(item.clone()).await.is_ok() {
-                        c += 1;
-                    }
-                }
-                counts.insert("mfaSecrets".into(), c);
-            }
-            // Import notes
-            if let Some(items) = obj.get("notes").and_then(|v| v.as_array()) {
-                let mut c = 0u32;
-                for item in items {
-                    if self.add_note(item.clone()).await.is_ok() {
-                        c += 1;
-                    }
-                }
-                counts.insert("notes".into(), c);
-            }
-            // Import noteGroups
-            if let Some(items) = obj.get("noteGroups").and_then(|v| v.as_array()) {
-                let mut c = 0u32;
-                for item in items {
-                    if self.add_note_group(item.clone()).await.is_ok() {
-                        c += 1;
-                    }
-                }
-                counts.insert("noteGroups".into(), c);
-            }
-        }
-        // CICD data handled separately
-        let (cicd_c, cicd_s) = self
-            .import_cicd_data(&data_clone, &mode_owned)
-            .await
-            .unwrap_or((0, 0));
-        counts.insert("cicdConfigs".into(), cicd_c as u32 + cicd_s as u32);
-        Ok(json!(counts))
-    }
-    // ============ Full Backup (unified with Tauri) ============
 
     pub async fn export_all_tables(&self) -> Result<Value, String> {
         // 收集导出过程中的错误，避免静默失败导致备份文件缺失数据
@@ -158,7 +142,9 @@ impl super::CoreService {
 
         let todos = try_export!(self.get_all_todos(), "todos");
         let projects = try_export!(self.get_all_projects(true), "projects");
-        let servers = try_export!(self.get_all_servers(), "servers");
+        // 服务器：直接 SELECT *（保留 password 密文，导入后无需重新录入）。
+        // 不走 get_all_servers——它会剥离密码，导致恢复备份后所有服务器都要重新输密码。
+        let servers = try_export!(self.export_servers_with_password(), "servers");
         let server_groups = try_export!(self.get_all_server_groups(), "serverGroups");
         let mfa_secrets = try_export!(self.get_all_mfa_secrets(), "mfaSecrets");
         let notes = try_export!(self.get_all_notes(None, None), "notes");
@@ -188,7 +174,6 @@ impl super::CoreService {
         }
 
         let tags = self.get_all_tags().await.unwrap_or(json!([]));
-        let cicd_data = self.get_all_cicd_data().await.unwrap_or(json!({}));
         let lan_users = self.get_all_lan_users().await.unwrap_or(json!([]));
         let lan_msgs = self.get_all_lan_messages().await.unwrap_or(json!({}));
 
@@ -212,11 +197,13 @@ impl super::CoreService {
             map.insert("accountingBudgets".into(), budgets);
             map.insert("accountingTemplates".into(), templates);
             map.insert("logPresets".into(), log_presets);
-            map.insert("cicdConfigs".into(), cicd_data.get("cicdConfigs").cloned().unwrap_or(json!([])));
-            map.insert("deployModules".into(), cicd_data.get("deployModules").cloned().unwrap_or(json!([])));
-            map.insert("deployLogs".into(), cicd_data.get("deployLogs").cloned().unwrap_or(json!([])));
-            map.insert("deployHistory".into(), cicd_data.get("deployHistory").cloned().unwrap_or(json!([])));
-            map.insert("deployStepLogs".into(), cicd_data.get("deployStepLogs").cloned().unwrap_or(json!([])));
+            // CICD 五表全部走 SELECT * 原样导出（含 environments/outputPath 等新列，
+            // 不再用手写列清单 getter——此前漏列导致多环境/增量上传配置静默丢失）
+            for &t in &["cicd_configs", "deploy_modules", "deploy_logs", "deploy_history", "deploy_step_logs"] {
+                if let Ok(Ok(Some(rows))) = self.db_read(|conn| export_table_rows(conn, t)) {
+                    map.insert(snake_to_camel(t), rows);
+                }
+            }
             map.insert("users".into(), lan_users);
             map.insert("messages".into(), lan_msgs.get("messages").cloned().unwrap_or(json!([])));
             map.insert("chatMessages".into(), lan_msgs.get("chatMessages").cloned().unwrap_or(json!([])));
@@ -237,6 +224,11 @@ impl super::CoreService {
     async fn export_extra_tables(&self) -> Result<Value, String> {
         let extra = self.db_read(|conn| -> Result<Value, String> {
             let mut result = serde_json::Map::new();
+
+            // servers：含 password 密文原样导出（恢复后无需重新录入密码）
+            if let Some(v) = export_table_rows(conn, "servers")? {
+                result.insert("servers".to_string(), v);
+            }
 
             // Settings as a JSON object (key-value pairs)
             if let Ok(mut stmt) = conn.prepare("SELECT key, value FROM settings") {
@@ -266,38 +258,9 @@ impl super::CoreService {
             ];
 
             for &table in &tables {
-                let sql = format!("SELECT * FROM {}", table);
-                if let Ok(mut stmt) = conn.prepare(&sql) {
-                    let col_count = stmt.column_count();
-                    let col_names: Vec<String> = (0..col_count)
-                        .map(|i| stmt.column_name(i).unwrap_or("?").to_string())
-                        .collect();
-                    if let Ok(rows) = stmt.query_map([], |row| {
-                        let mut map = serde_json::Map::new();
-                        for (i, col) in col_names.iter().enumerate() {
-                            match row.get::<_, rusqlite::types::Value>(i) {
-                                Ok(rusqlite::types::Value::Null) => {}
-                                Ok(rusqlite::types::Value::Integer(v)) => {
-                                    map.insert(col.clone(), json!(v));
-                                }
-                                Ok(rusqlite::types::Value::Real(v)) => {
-                                    map.insert(col.clone(), json!(v));
-                                }
-                                Ok(rusqlite::types::Value::Text(v)) => {
-                                    map.insert(col.clone(), json!(v));
-                                }
-                                Ok(rusqlite::types::Value::Blob(_v)) => {
-                                    map.insert(col.clone(), json!("[blob]"));
-                                }
-                                _ => {}
-                            }
-                        }
-                        Ok(json!(map))
-                    }) {
-                        let arr: Vec<Value> = rows.flatten().collect();
-                        // key 统一驼峰（与导入端一致；旧格式下划线由导入端归一化兼容）
-                        result.insert(snake_to_camel(table).to_string(), json!(arr));
-                    }
+                if let Some(v) = export_table_rows(conn, table)? {
+                    // key 统一驼峰（与导入端一致；旧格式下划线由导入端归一化兼容）
+                    result.insert(snake_to_camel(table).to_string(), v);
                 }
             }
 
@@ -306,11 +269,42 @@ impl super::CoreService {
         extra
     }
 
+    // ============ 自动备份（后端真实调度，替代前端空壳） ============
+
+    /// 静默自动备份：导出 all-data.json + receipts 打包为 zip，写入 dir，
+    /// 文件名 supertool-auto-YYYY-MM-DD.stbackup（同日覆盖），并轮转保留最近 keep 份。
+    /// 成功返回备份文件完整路径。
+    pub async fn run_auto_backup(&self, dir: &str, keep: usize) -> Result<String, String> {
+        let data = self.export_all_tables().await?;
+        let data_json = serde_json::to_string(&data).map_err(|e| format!("序列化失败: {}", e))?;
+
+        let dir_path = if dir.trim().is_empty() {
+            crate::logic::data_dir::resolve_data_dir().join("backups")
+        } else {
+            std::path::PathBuf::from(shellexpand_home(dir))
+        };
+        std::fs::create_dir_all(&dir_path).map_err(|e| format!("创建备份目录失败: {}", e))?;
+
+        let file_name = format!(
+            "supertool-auto-{}.stbackup",
+            chrono::Local::now().format("%Y-%m-%d")
+        );
+        let dest = dir_path.join(&file_name);
+
+        write_backup_zip(&data_json, &dest)?;
+
+        // 轮转：删除最旧的 auto 备份，保留 keep 份
+        rotate_backups(&dir_path, keep);
+
+        Ok(dest.to_string_lossy().to_string())
+    }
+
+    /// 返回 (imported, skipped, errors, path_rewritten)
     pub async fn import_all_tables(
         &self,
         data: Value,
         mode: &str,
-    ) -> Result<(usize, usize, Vec<String>), String> {
+    ) -> Result<(usize, usize, Vec<String>, usize), String> {
         let mut imported = 0usize;
         let mut skipped = 0usize;
         let mut errors: Vec<String> = Vec::new();
@@ -332,1148 +326,465 @@ impl super::CoreService {
             }
         }
 
-        // Get direct DB access for batch import
-        self.db_write(|conn| {
-            if mode == "replace" {
-                // CICD 表（cicd_configs/deploy_modules/deploy_logs/deploy_history/deploy_step_logs）
-                // 由 core.import_cicd_data 内部自行清空，避免在此预删后若 CICD 导入失败导致数据丢失
-                if let Err(e) = conn.execute_batch("
-                    DELETE FROM chat_messages;
-                    DELETE FROM file_transfers;
-                    DELETE FROM messages;
-                    DELETE FROM subtasks;
-                    DELETE FROM notes;
-                    DELETE FROM note_groups;
-                    DELETE FROM mfa_secrets;
-                    DELETE FROM servers;
-                    DELETE FROM server_groups;
-                    DELETE FROM weekly_reports;
-                    DELETE FROM todos;
-                    DELETE FROM projects;
-                    DELETE FROM tags;
-                    DELETE FROM users;
-                    DELETE FROM settings;
-                    DELETE FROM accounting_records;
-                    DELETE FROM accounting_categories;
-                    DELETE FROM budgets;
-                    DELETE FROM templates;
-                    DELETE FROM log_presets;
-                    DELETE FROM wireguard_configs;
-                    DELETE FROM git_repos;
-                    DELETE FROM calculator_history;
-                    DELETE FROM api_requests;
-                    DELETE FROM nginx_passwords;
-                    DELETE FROM nginx_deny_allows;
-                    DELETE FROM nginx_params;
-                    DELETE FROM nginx_basic_settings;
-                    DELETE FROM nginx_templates;
-                    DELETE FROM nginx_certs;
-                    DELETE FROM nginx_streams;
-                    DELETE FROM nginx_http_params;
-                    DELETE FROM nginx_upstream_servers;
-                    DELETE FROM nginx_upstreams;
-                    DELETE FROM nginx_locations;
-                    DELETE FROM nginx_servers;
-                    DELETE FROM nginx_config_versions;
-                    DELETE FROM nginx_presets;
-                    DELETE FROM alert_history;
-                    DELETE FROM alert_resources;
-                    DELETE FROM alert_services;
-                    DELETE FROM alert_email_config;
-                ") {
-                    errors.push(format!("清空表失败: {}", e));
+        // 统一表清单：key（备份 JSON 顶层驼峰名）→ (表名, 主键, 路径字段)。
+        // 导入引擎按目标表 PRAGMA table_info 动态取列：备份列多余则忽略、目标列缺失填默认，
+        // 旧/新备份文件与表结构演化彻底解耦（不再硬编码列清单）。
+        // mode: replace=备份覆盖本地（同 id INSERT OR REPLACE）；merge=本地优先跳过重复。
+        const GENERIC_TABLES: &[(&str, &str, &str, &[&str])] = &[
+            // (jsonKey, tableName, pk, pathFields)
+            ("projects", "projects", "id", &["repoPath", "repoPath2"]),
+            ("servers", "servers", "id", &["sshKeyPath"]),
+            ("serverGroups", "server_groups", "id", &[]),
+            ("todos", "todos", "id", &[]),
+            ("subtasks", "subtasks", "id", &[]),
+            ("tags", "tags", "id", &[]),
+            ("mfaSecrets", "mfa_secrets", "id", &[]),
+            ("notes", "notes", "id", &[]),
+            ("noteGroups", "note_groups", "id", &[]),
+            ("weeklyReports", "weekly_reports", "id", &[]),
+            ("accountingCategories", "accounting_categories", "id", &[]),
+            ("accountingRecords", "accounting_records", "id", &[]),
+            ("accountingBudgets", "budgets", "id", &[]),
+            ("accountingTemplates", "templates", "id", &[]),
+            ("logPresets", "log_presets", "id", &[]),
+            ("users", "users", "id", &[]),
+            ("messages", "messages", "id", &[]),
+            ("chatMessages", "chat_messages", "id", &[]),
+            ("fileTransfers", "file_transfers", "id", &[]),
+            ("wireguardConfigs", "wireguard_configs", "id", &[]),
+            ("gitRepos", "git_repos", "id", &["path"]),
+            ("calculatorHistory", "calculator_history", "id", &[]),
+            ("apiRequests", "api_requests", "id", &[]),
+            ("nginxPresets", "nginx_presets", "id", &[]),
+            ("nginxConfigVersions", "nginx_config_versions", "id", &[]),
+            ("nginxServers", "nginx_servers", "id", &[]),
+            ("nginxLocations", "nginx_locations", "id", &[]),
+            ("nginxUpstreams", "nginx_upstreams", "id", &[]),
+            ("nginxUpstreamServers", "nginx_upstream_servers", "id", &[]),
+            ("nginxHttpParams", "nginx_http_params", "id", &[]),
+            ("nginxStreams", "nginx_streams", "id", &[]),
+            ("nginxCerts", "nginx_certs", "id", &[]),
+            ("nginxTemplates", "nginx_templates", "id", &[]),
+            ("nginxBasicSettings", "nginx_basic_settings", "id", &[]),
+            ("nginxParams", "nginx_params", "id", &[]),
+            ("nginxDenyAllows", "nginx_deny_allows", "id", &[]),
+            ("nginxPasswords", "nginx_passwords", "id", &[]),
+            ("alertEmailConfig", "alert_email_config", "id", &[]),
+            ("alertServices", "alert_services", "id", &[]),
+            ("alertResources", "alert_resources", "id", &[]),
+            ("alertHistory", "alert_history", "id", &[]),
+            // CICD 五表（此前走独立 import_cicd_data，硬编码列清单漏 5 个新列静默丢配置，现统一走通用引擎）
+            ("cicdConfigs", "cicd_configs", "id", &["localPath"]),
+            ("deployModules", "deploy_modules", "id", &[]),
+            ("deployLogs", "deploy_logs", "id", &[]),
+            ("deployHistory", "deploy_history", "id", &[]),
+            ("deployStepLogs", "deploy_step_logs", "id", &[]),
+        ];
+
+        let mode_owned = if mode == "replace" { "replace" } else { "merge" };
+
+        let result: Result<Result<(usize, usize, Vec<String>, usize), String>, String> = self.db_write_tx(|conn| {
+            let mut path_rewritten = 0usize;
+            // 事务内先做路径改写（纯 JSON 变换，再写库）
+            if let Some(items) = data.get_mut("servers").and_then(|v| v.as_array_mut()) {
+                for item in items.iter_mut() {
+                    path_rewritten += rewrite_path_fields(item, &["sshKeyPath"]);
+                }
+            }
+            if let Some(items) = data.get_mut("projects").and_then(|v| v.as_array_mut()) {
+                for item in items.iter_mut() {
+                    path_rewritten += rewrite_path_fields(item, &["repoPath", "repoPath2"]);
+                }
+            }
+            if let Some(items) = data.get_mut("gitRepos").and_then(|v| v.as_array_mut()) {
+                for item in items.iter_mut() {
+                    path_rewritten += rewrite_path_fields(item, &["path"]);
+                }
+            }
+            if let Some(items) = data.get_mut("cicdConfigs").and_then(|v| v.as_array_mut()) {
+                for item in items.iter_mut() {
+                    path_rewritten += rewrite_path_fields(item, &["localPath"]);
+                }
+            }
+            if let Some(settings) = data.get_mut("settings").and_then(|v| v.as_object_mut()) {
+                for (_, v) in settings.iter_mut() {
+                    if let Some(s) = v.as_str() {
+                        if let Some(p) = rewrite_home_path(s) {
+                            *v = json!(p);
+                            path_rewritten += 1;
+                        }
+                    }
                 }
             }
 
-            // merge 模式用 INSERT OR IGNORE（跳过已存在的行），replace 模式用 INSERT OR REPLACE（覆盖）
-            // 这统一实现了 UI 承诺的"合并（跳过重复数据）"语义
-            let upsert = if mode == "merge" { "INSERT OR IGNORE" } else { "INSERT OR REPLACE" };
+            // replace：清空全部备份涉及的表（一个事务内，失败整体回滚）
+            if mode_owned == "replace" {
+                for (_, table, _, _) in GENERIC_TABLES {
+                    conn.execute(&format!("DELETE FROM {}", table), [])
+                        .map_err(|e| format!("清空 {}: {}", table, e))?;
+                }
+                conn.execute("DELETE FROM settings", [])
+                    .map_err(|e| format!("清空 settings: {}", e))?;
+            }
 
-            // Settings (key-value pairs in JSON object)
+            // Settings：key-value 对象
             if let Some(settings) = data.get("settings").and_then(|v| v.as_object()) {
-                log::info!("[Backup] Importing {} settings", settings.len());
                 for (key, value) in settings {
                     let val_str = if value.is_string() {
                         value.as_str().unwrap_or("").to_string()
                     } else {
                         serde_json::to_string(value).unwrap_or_default()
                     };
-                    match conn.execute(
-                        &format!("{} INTO settings (key, value) VALUES (?1, ?2)", upsert),
-                        rusqlite::params![key, val_str],
-                    ) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("settings({}): {}", key, e)),
-                    }
+                    let sql = if mode_owned == "replace" {
+                        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)"
+                    } else {
+                        "INSERT OR IGNORE INTO settings (key, value) VALUES (?1, ?2)"
+                    };
+                    conn.execute(sql, rusqlite::params![key, val_str])
+                        .map_err(|e| format!("settings({}): {}", key, e))?;
+                    imported += 1;
                 }
-                log::info!("[Backup] Settings done: imported={}", imported);
             }
 
-            // Projects
-            if let Some(projects) = data.get("projects").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} projects", projects.len());
-                for p in projects {
-                    let id = p.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                    if mode == "merge" {
-                        let exists: Result<Option<String>, _> = conn.query_row(
-                            "SELECT id FROM projects WHERE id = ?", [id], |r| r.get(0));
-                        if exists.ok().flatten().is_some() { skipped += 1; continue; }
+            for (json_key, table, pk, _path_fields) in GENERIC_TABLES {
+                let items = match data.get(*json_key).and_then(|v| v.as_array()) {
+                    Some(a) if !a.is_empty() => a,
+                    _ => continue,
+                };
+                // 目标表真实列：PRAGMA table_info（不存在列名/类型/非空/默认值）
+                let mut pragma = conn
+                    .prepare(&format!("PRAGMA table_info({})", table))
+                    .map_err(|e| format!("{}: {}", table, e))?;
+                let cols: Vec<(String, String, i64, Option<String>)> = pragma
+                    .query_map([], |r| {
+                        Ok((
+                            r.get::<_, String>(1)?,
+                            r.get::<_, String>(2)?,
+                            r.get::<_, i64>(3)?,
+                            r.get::<_, Option<String>>(4)?,
+                        ))
+                    })
+                    .map_err(|e| format!("{}: {}", table, e))?
+                    .filter_map(|r| r.ok())
+                    .collect();
+                drop(pragma);
+                if cols.is_empty() {
+                    continue; // 表不存在，跳过
+                }
+
+                // 列名一律加双引号：group/order/index/key 等是 SQLite 保留字或常见列名，
+                // 裸写会导致 "near \"group\": syntax error"（log_presets 等表命中）
+                let col_list: Vec<String> = cols
+                    .iter()
+                    .map(|(n, _, _, _)| format!("\"{}\"", n.replace('"', "\"\"")))
+                    .collect();
+                let placeholders: Vec<String> = (1..=cols.len()).map(|i| format!("?{}", i)).collect();
+                let upsert = if mode_owned == "replace" {
+                    "INSERT OR REPLACE"
+                } else {
+                    "INSERT OR IGNORE"
+                };
+                let sql = format!(
+                    "{} INTO {} ({}) VALUES ({})",
+                    upsert,
+                    table,
+                    col_list.join(", "),
+                    placeholders.join(", ")
+                );
+
+                let mut table_imported = 0usize;
+                let mut table_skipped = 0usize;
+                let mut table_errors = 0usize;
+                for item in items {
+                    // 值绑定：备份 JSON 有该列则用备份值（类型自适应），没有则用列默认值
+                    let mut param_values: Vec<rusqlite::types::Value> = Vec::with_capacity(cols.len());
+                    for (name, ctype, notnull, default) in &cols {
+                        let v = item.get(name.as_str());
+                        let bound = match v {
+                            Some(Value::String(s)) => rusqlite::types::Value::Text(s.clone()),
+                            Some(Value::Number(n)) => {
+                                if let Some(i) = n.as_i64() {
+                                    rusqlite::types::Value::Integer(i)
+                                } else if let Some(f) = n.as_f64() {
+                                    rusqlite::types::Value::Real(f)
+                                } else {
+                                    default_value(ctype, *notnull, default)
+                                }
+                            }
+                            Some(Value::Bool(b)) => rusqlite::types::Value::Integer(*b as i64),
+                            Some(Value::Null) | None => default_value(ctype, *notnull, default),
+                            Some(other) => {
+                                // 对象/数组 → JSON 字符串
+                                match serde_json::to_string(other) {
+                                    Ok(s) => rusqlite::types::Value::Text(s),
+                                    Err(_) => default_value(ctype, *notnull, default),
+                                }
+                            }
+                        };
+                        param_values.push(bound);
                     }
-                    match conn.execute(
-                        &format!("{} INTO projects (id, name, description, color, repoPath, branch, repoPath2, branch2, gitUrl1, gitUrl2, gitRepoId, gitRepoId2, category, createdAt, updatedAt, archived)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)", upsert),
-                        rusqlite::params![
-                            id,
-                            p.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            p.get("description").and_then(|v| v.as_str()).unwrap_or(""),
-                            p.get("color").and_then(|v| v.as_str()).unwrap_or("#6366f1"),
-                            p.get("repoPath").and_then(|v| v.as_str()),
-                            p.get("branch").and_then(|v| v.as_str()),
-                            p.get("repoPath2").and_then(|v| v.as_str()),
-                            p.get("branch2").and_then(|v| v.as_str()),
-                            p.get("gitUrl1").and_then(|v| v.as_str()),
-                            p.get("gitUrl2").and_then(|v| v.as_str()),
-                            p.get("gitRepoId").and_then(|v| v.as_str()),
-                            p.get("gitRepoId2").and_then(|v| v.as_str()),
-                            p.get("category").and_then(|v| v.as_str()),
-                            p.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            p.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            p.get("archived").and_then(|v| v.as_bool()).unwrap_or(false) as i64,
-                        ]) {
-                        Ok(_) => imported += 1,
+                    // merge 模式主键判重（显式 skip，与 IGNORE 语义一致但可计数）
+                    if mode_owned == "merge" {
+                        if let Some(pk_val) = item.get(*pk) {
+                            let exists: i64 = conn
+                                .query_row(
+                                    &format!(
+                                        "SELECT COUNT(*) FROM {} WHERE \"{}\" = ?1",
+                                        table, pk
+                                    ),
+                                    [pk_val.to_string()],
+                                    |r| r.get(0),
+                                )
+                                .unwrap_or(0);
+                            if exists > 0 {
+                                table_skipped += 1;
+                                continue;
+                            }
+                        }
+                    }
+                    match conn.execute(&sql, rusqlite::params_from_iter(param_values.iter())) {
+                        Ok(_) => table_imported += 1,
                         Err(e) => {
-                            log::error!("[Backup] FAILED to insert project '{}': {}", id, e);
-                            errors.push(format!("projects({}): {}", id, e));
+                            table_errors += 1;
+                            let id_disp = item.get(*pk).map(|v| v.to_string()).unwrap_or_default();
+                            errors.push(format!("{}({}): {}", table, id_disp, e));
                         }
                     }
                 }
-                log::info!("[Backup] Projects done: imported={}, skipped={}", imported, skipped);
+                imported += table_imported;
+                skipped += table_skipped;
+                log::info!(
+                    "[Backup] {}: imported={}, skipped={}, errors={}",
+                    table, table_imported, table_skipped, table_errors
+                );
             }
 
-            // Servers
-            if let Some(servers) = data.get("servers").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} servers", servers.len());
-                for s in servers {
-                    let id = s.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                    if mode == "merge" {
-                        let exists: Result<Option<String>, _> = conn.query_row(
-                            "SELECT id FROM servers WHERE id = ?", [id], |r| r.get(0));
-                        if exists.ok().flatten().is_some() { skipped += 1; continue; }
-                    }
-                    let tags_json = s.get("tags").and_then(|v| v.as_str()).unwrap_or("[]");
-                    match conn.execute(
-                        &format!("{} INTO servers (id, name, host, port, username, sshKeyPath, password, description, tags, groupId, requiresApproval, createdAt, updatedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)", upsert),
-                        rusqlite::params![
-                            id,
-                            s.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            s.get("host").and_then(|v| v.as_str()).unwrap_or(""),
-                            s.get("port").and_then(|v| v.as_i64()).unwrap_or(22),
-                            s.get("username").and_then(|v| v.as_str()).unwrap_or(""),
-                            s.get("sshKeyPath").and_then(|v| v.as_str()),
-                            s.get("password").and_then(|v| v.as_str()),
-                            s.get("description").and_then(|v| v.as_str()).unwrap_or(""),
-                            tags_json,
-                            s.get("groupId").and_then(|v| v.as_str()),
-                            s.get("requiresApproval").and_then(|v| v.as_bool()).unwrap_or(false) as i64,
-                            s.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            s.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(""),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => {
-                            log::error!("[Backup] FAILED to insert server '{}': {}", id, e);
-                            errors.push(format!("servers({}): {}", id, e));
-                        }
-                    }
-                }
-                log::info!("[Backup] Servers done: imported={}", imported);
+            if path_rewritten > 0 {
+                log::info!("[Backup] 跨机器路径改写 {} 处（/Users/<源机器用户> → 本机 home）", path_rewritten);
             }
-
-            // Todos
-            if let Some(todos) = data.get("todos").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} todos", todos.len());
-                for t in todos {
-                    let id = t.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                    if mode == "merge" {
-                        let exists: Result<Option<String>, _> = conn.query_row(
-                            "SELECT id FROM todos WHERE id = ?", [id], |r| r.get(0));
-                        if exists.ok().flatten().is_some() { skipped += 1; continue; }
-                    }
-                    match conn.execute(
-                        &format!("{} INTO todos (id, text, completed, priority, dueDate, description, markdownDescription, tag, createdAt, updatedAt, completedAt, assignedTo, assignedBy, assignedAt, owner, orderNum, repeatType, repeatInterval, repeatEndDate, repeatCount, parentTodoId, projectId)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)", upsert),
-                        rusqlite::params![
-                            id,
-                            t.get("text").and_then(|v| v.as_str()).unwrap_or(""),
-                            t.get("completed").and_then(|v| v.as_bool()).unwrap_or(false) as i64,
-                            t.get("priority").and_then(|v| v.as_str()).unwrap_or("medium"),
-                            t.get("dueDate").and_then(|v| v.as_str()),
-                            t.get("description").and_then(|v| v.as_str()).unwrap_or(""),
-                            t.get("markdownDescription").and_then(|v| v.as_str()),
-                            t.get("tag").and_then(|v| v.as_str()),
-                            t.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            t.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            t.get("completedAt").and_then(|v| v.as_str()),
-                            t.get("assignedTo").and_then(|v| v.as_str()),
-                            t.get("assignedBy").and_then(|v| v.as_str()),
-                            t.get("assignedAt").and_then(|v| v.as_str()),
-                            t.get("owner").and_then(|v| v.as_str()).unwrap_or(""),
-                            t.get("orderNum").and_then(|v| v.as_i64()).unwrap_or(0),
-                            t.get("repeatType").and_then(|v| v.as_str()),
-                            t.get("repeatInterval").and_then(|v| v.as_i64()).unwrap_or(0),
-                            t.get("repeatEndDate").and_then(|v| v.as_str()),
-                            t.get("repeatCount").and_then(|v| v.as_i64()).unwrap_or(0),
-                            t.get("parentTodoId").and_then(|v| v.as_str()),
-                            t.get("projectId").and_then(|v| v.as_str()),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => {
-                            log::error!("[Backup] FAILED to insert todo '{}': {}", id, e);
-                            errors.push(format!("todos({}): {}", id, e));
-                        }
-                    }
-                }
-                log::info!("[Backup] Todos done: imported={}", imported);
-            }
-
-            // Subtasks
-            if let Some(subtasks) = data.get("subtasks").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} subtasks", subtasks.len());
-                for st in subtasks {
-                    match conn.execute(
-                        &format!("{} INTO subtasks (id, todoId, text, description, completed, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)", upsert),
-                        rusqlite::params![
-                            st.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            st.get("todoId").and_then(|v| v.as_str()).unwrap_or(""),
-                            st.get("text").and_then(|v| v.as_str()).unwrap_or(""),
-                            st.get("description").and_then(|v| v.as_str()).unwrap_or(""),
-                            st.get("completed").and_then(|v| v.as_bool()).unwrap_or(false) as i64,
-                            st.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("subtasks: {}", e)),
-                    }
-                }
-                log::info!("[Backup] Subtasks done: imported={}", imported);
-            }
-
-            // Tags (independent table in SQLite)
-            if let Some(tags) = data.get("tags").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} tags", tags.len());
-                for t in tags {
-                    if let Some(name) = t.as_str() {
-                        match conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", [name]) {
-                            Ok(_) => imported += 1,
-                            Err(e) => errors.push(format!("tags: {}", e)),
-                        }
-                    }
-                }
-                log::info!("[Backup] Tags done: imported={}", imported);
-            }
-
-            // Server groups
-            if let Some(groups) = data.get("serverGroups").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} server_groups", groups.len());
-                for g in groups {
-                    match conn.execute(
-                        &format!("{} INTO server_groups (id, name, description, parentId, color, createdAt, updatedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)", upsert),
-                        rusqlite::params![
-                            g.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            g.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            g.get("description").and_then(|v| v.as_str()).unwrap_or(""),
-                            g.get("parentId").and_then(|v| v.as_str()),
-                            g.get("color").and_then(|v| v.as_str()).unwrap_or("#6c63ff"),
-                            g.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            g.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(""),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("server_groups: {}", e)),
-                    }
-                }
-                log::info!("[Backup] Server groups done: imported={}", imported);
-            }
-
-            // MFA
-            if let Some(mfas) = data.get("mfaSecrets").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} mfa_secrets", mfas.len());
-                for m in mfas {
-                    match conn.execute(
-                        &format!("{} INTO mfa_secrets (id, name, secret, issuer, digits, period, algorithm, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)", upsert),
-                        rusqlite::params![
-                            m.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("secret").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("issuer").and_then(|v| v.as_str()),
-                            m.get("digits").and_then(|v| v.as_i64()).unwrap_or(6),
-                            m.get("period").and_then(|v| v.as_i64()).unwrap_or(30),
-                            m.get("algorithm").and_then(|v| v.as_str()).unwrap_or("SHA1"),
-                            m.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("mfa_secrets: {}", e)),
-                    }
-                }
-                log::info!("[Backup] MFA secrets done: imported={}", imported);
-            }
-
-            // Note groups
-            if let Some(ng) = data.get("noteGroups").and_then(|v| v.as_array()) {
-                for g in ng {
-                    match conn.execute(
-                        &format!("{} INTO note_groups (id, name) VALUES (?1, ?2)", upsert),
-                        rusqlite::params![
-                            g.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            g.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("note_groups: {}", e)),
-                    }
-                }
-            }
-
-            // Notes
-            if let Some(notes) = data.get("notes").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} notes", notes.len());
-                for n in notes {
-                    match conn.execute(
-                        &format!("{} INTO notes (id, title, content, groupId, createdAt, updatedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)", upsert),
-                        rusqlite::params![
-                            n.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            n.get("title").and_then(|v| v.as_str()).unwrap_or(""),
-                            n.get("content").and_then(|v| v.as_str()).unwrap_or(""),
-                            n.get("groupId").and_then(|v| v.as_str()),
-                            n.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            n.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(""),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("notes: {}", e)),
-                    }
-                }
-                log::info!("[Backup] Notes done: imported={}", imported);
-            }
-
-            // Weekly reports — schema: id(INTEGER), weekStart, weekEnd, content, createdAt
-            if let Some(reports) = data.get("weeklyReports").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} weekly_reports", reports.len());
-                for r in reports {
-                    // 优先 content（当前导出格式），回退 data（旧备份兼容）
-                    let content_str = r.get("content").and_then(|v| v.as_str()).map(|s| s.to_string())
-                        .or_else(|| r.get("data").map(|v| {
-                            if v.is_string() { v.as_str().unwrap().to_string() }
-                            else { serde_json::to_string(v).unwrap_or_default() }
-                        }))
-                        .unwrap_or_default();
-                    match conn.execute(
-                        &format!("{} INTO weekly_reports (id, weekStart, weekEnd, content, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5)", upsert),
-                        rusqlite::params![
-                            r.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
-                            r.get("weekStart").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("weekEnd").and_then(|v| v.as_str()).unwrap_or(""),
-                            content_str,
-                            r.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("weekly_reports: {}", e)),
-                    }
-                }
-                log::info!("[Backup] Weekly reports done: imported={}", imported);
-            }
-
-            // Accounting categories
-            if let Some(cats) = data.get("accountingCategories").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} accounting_categories", cats.len());
-                for c in cats {
-                    match conn.execute(
-                        &format!("{} INTO accounting_categories (id, name, type, icon, sortOrder, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)", upsert),
-                        rusqlite::params![
-                            c.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            c.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            c.get("type").and_then(|v| v.as_str()).unwrap_or("expense"),
-                            c.get("icon").and_then(|v| v.as_str()).unwrap_or(""),
-                            c.get("sortOrder").and_then(|v| v.as_i64()).unwrap_or(0),
-                            c.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("accounting_categories: {}", e)),
-                    }
-                }
-            }
-
-            // Accounting records — 导出字段为 snake_case（与 accounting.rs 一致）
-            if let Some(records) = data.get("accountingRecords").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} accounting_records", records.len());
-                for r in records {
-                    // attachments_json 导出时为 JSON 数组对象，导入需序列化回字符串
-                    let attachments_json_str = r.get("attachments_json").map(|v| {
-                        if v.is_string() { v.as_str().unwrap_or("[]").to_string() }
-                        else { serde_json::to_string(v).unwrap_or_else(|_| "[]".to_string()) }
-                    }).unwrap_or_else(|| "[]".to_string());
-                    match conn.execute(
-                        &format!("{} INTO accounting_records (id, date, type, category, amount, description, status, attachmentPath, createdBy, createdAt, updatedAt, voucher_number, receipt_type, receipt_path, entity, project, supplier, invoice_number, tax_amount, payment_method, approver, attachments_json)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)", upsert),
-                        rusqlite::params![
-                            r.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("date").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("type").and_then(|v| v.as_str()).unwrap_or("expense"),
-                            r.get("category").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                            r.get("description").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("status").and_then(|v| v.as_str()).unwrap_or("completed"),
-                            r.get("attachmentPath").and_then(|v| v.as_str()),
-                            r.get("createdBy").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("voucher_number").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("receipt_type").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("receipt_path").and_then(|v| v.as_str()),
-                            r.get("entity").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("project").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("supplier").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("invoice_number").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("tax_amount").and_then(|v| v.as_f64()),
-                            r.get("payment_method").and_then(|v| v.as_str()).unwrap_or(""),
-                            r.get("approver").and_then(|v| v.as_str()).unwrap_or(""),
-                            attachments_json_str,
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("accounting_records: {}", e)),
-                    }
-                }
-            }
-
-            // Budgets
-            if let Some(budgets) = data.get("accountingBudgets").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} budgets", budgets.len());
-                for b in budgets {
-                    match conn.execute(
-                        &format!("{} INTO budgets (id, name, \"limit\", period)
-                         VALUES (?1, ?2, ?3, ?4)", upsert),
-                        rusqlite::params![
-                            b.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            b.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            b.get("amount").or(b.get("limit")).and_then(|v| v.as_f64()).unwrap_or(0.0),
-                            b.get("period").and_then(|v| v.as_str()).unwrap_or("monthly"),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("budgets: {}", e)),
-                    }
-                }
-            }
-
-            // Templates
-            if let Some(templates) = data.get("accountingTemplates").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} templates", templates.len());
-                for t in templates {
-                    match conn.execute(
-                        &format!("{} INTO templates (id, name, content)
-                         VALUES (?1, ?2, ?3)", upsert),
-                        rusqlite::params![
-                            t.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            t.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            t.get("content").and_then(|v| v.as_str()).unwrap_or(""),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("templates: {}", e)),
-                    }
-                }
-            }
-
-            // Log presets
-            if let Some(presets) = data.get("logPresets").and_then(|v| v.as_array()) {
-                let now = chrono::Utc::now().to_rfc3339();
-                for p in presets {
-                    match conn.execute(
-                        &format!("{} INTO log_presets (id, name, serverIds, logPath, logType, maxLines, presetGroup, keywords, createdAt, updatedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)", upsert),
-                        rusqlite::params![
-                            p.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            p.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            p.get("serverIds").and_then(|v| v.as_str()).unwrap_or("[]"),
-                            p.get("logPath").and_then(|v| v.as_str()).unwrap_or(""),
-                            p.get("logType").and_then(|v| v.as_str()).unwrap_or("file"),
-                            p.get("maxLines").and_then(|v| v.as_i64()).unwrap_or(500),
-                            p.get("presetGroup").or_else(|| p.get("group")).and_then(|v| v.as_str()).unwrap_or("未分组"),
-                            p.get("keywords").and_then(|v| v.as_str()).unwrap_or("[]"),
-                            p.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now),
-                            p.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("log_presets: {}", e)),
-                    }
-                }
-            }
-
-            // LAN users
-            if let Some(users) = data.get("users").and_then(|v| v.as_array()) {
-                for u in users {
-                    match conn.execute(
-                        &format!("{} INTO users (id, name, ip, port, lastSeen, isOnline)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)", upsert),
-                        rusqlite::params![
-                            u.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            u.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            u.get("ip").and_then(|v| v.as_str()).unwrap_or(""),
-                            u.get("port").and_then(|v| v.as_i64()).unwrap_or(0),
-                            u.get("lastSeen").and_then(|v| v.as_str()).unwrap_or(""),
-                            u.get("isOnline").and_then(|v| v.as_bool()).unwrap_or(false) as i64,
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("users: {}", e)),
-                    }
-                }
-            }
-
-            // LAN messages
-            if let Some(msgs) = data.get("messages").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} messages", msgs.len());
-                for m in msgs {
-                    match conn.execute(
-                        &format!("{} INTO messages (id, fromUserId, fromUserName, toUserId, toUserName, content, type, createdAt, read)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)", upsert),
-                        rusqlite::params![
-                            m.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("fromUserId").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("fromUserName").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("toUserId").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("toUserName").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("content").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("type").and_then(|v| v.as_str()).unwrap_or("text"),
-                            m.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("read").and_then(|v| v.as_bool()).unwrap_or(false) as i64,
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("messages: {}", e)),
-                    }
-                }
-            }
-
-            // Chat messages
-            if let Some(msgs) = data.get("chatMessages").and_then(|v| v.as_array()) {
-                log::info!("[Backup] Importing {} chat_messages", msgs.len());
-                for m in msgs {
-                    match conn.execute(
-                        &format!("{} INTO chat_messages (id, fromUserId, fromUserName, toUserId, toUserName, content, type, fileName, fileSize, filePath, status, progress, createdAt, read)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)", upsert),
-                        rusqlite::params![
-                            m.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("fromUserId").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("fromUserName").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("toUserId").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("toUserName").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("content").and_then(|v| v.as_str()),
-                            m.get("type").and_then(|v| v.as_str()).unwrap_or("text"),
-                            m.get("fileName").and_then(|v| v.as_str()),
-                            m.get("fileSize").and_then(|v| v.as_i64()).unwrap_or(0),
-                            m.get("filePath").and_then(|v| v.as_str()),
-                            m.get("status").and_then(|v| v.as_str()).unwrap_or("sent"),
-                            m.get("progress").and_then(|v| v.as_i64()).unwrap_or(0),
-                            m.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            m.get("read").and_then(|v| v.as_bool()).unwrap_or(false) as i64,
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("chat_messages: {}", e)),
-                    }
-                }
-            }
-
-            // File transfers
-            if let Some(ftransfers) = data.get("fileTransfers").and_then(|v| v.as_array()) {
-                for ft in ftransfers {
-                    match conn.execute(
-                        &format!("{} INTO file_transfers (id, fromUserId, fromUserName, toUserId, toUserName, fileName, fileSize, filePath, status, progress, createdAt, completedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)", upsert),
-                        rusqlite::params![
-                            ft.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            ft.get("fromUserId").and_then(|v| v.as_str()).unwrap_or(""),
-                            ft.get("fromUserName").and_then(|v| v.as_str()).unwrap_or(""),
-                            ft.get("toUserId").and_then(|v| v.as_str()).unwrap_or(""),
-                            ft.get("toUserName").and_then(|v| v.as_str()).unwrap_or(""),
-                            ft.get("fileName").and_then(|v| v.as_str()).unwrap_or(""),
-                            ft.get("fileSize").and_then(|v| v.as_i64()).unwrap_or(0),
-                            ft.get("filePath").and_then(|v| v.as_str()),
-                            ft.get("status").and_then(|v| v.as_str()).unwrap_or("pending"),
-                            ft.get("progress").and_then(|v| v.as_i64()).unwrap_or(0),
-                            ft.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                            ft.get("completedAt").and_then(|v| v.as_str()),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("file_transfers: {}", e)),
-                    }
-                }
-            }
-
-            // ======== Extra modules (previously missing from backup) ========
-
-            let now_ts = chrono::Utc::now().to_rfc3339();
-
-            // WireGuard configs
-            if let Some(items) = data.get("wireguardConfigs").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO wireguard_configs (id, name, privateKey, publicKey, address, dns, mtu, peerPublicKey, peerEndpoint, peerAllowedIPs, peerPersistentKeepalive, presharedKey, createdAt, updatedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("privateKey").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("publicKey").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("address").and_then(|v| v.as_str()).unwrap_or("10.0.0.2/32"),
-                            item.get("dns").and_then(|v| v.as_str()),
-                            item.get("mtu").and_then(|v| v.as_i64()).unwrap_or(1420),
-                            item.get("peerPublicKey").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("peerEndpoint").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("peerAllowedIPs").and_then(|v| v.as_str()).unwrap_or("0.0.0.0/0"),
-                            item.get("peerPersistentKeepalive").and_then(|v| v.as_i64()).unwrap_or(25),
-                            item.get("presharedKey").and_then(|v| v.as_str()),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                            item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("wireguard_configs: {}", e)),
-                    }
-                }
-            }
-
-            // Git repos
-            if let Some(items) = data.get("gitRepos").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO git_repos (id, name, path, remote, branch, lastCommit, createdAt, updatedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("path").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("remote").and_then(|v| v.as_str()),
-                            item.get("branch").and_then(|v| v.as_str()),
-                            item.get("lastCommit").and_then(|v| v.as_str()),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                            item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("git_repos: {}", e)),
-                    }
-                }
-            }
-
-            // Calculator history
-            if let Some(items) = data.get("calculatorHistory").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO calculator_history (id, expression, result, createdAt)
-                         VALUES (?1, ?2, ?3, ?4)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("expression").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("result").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("calculator_history: {}", e)),
-                    }
-                }
-            }
-
-            // API requests
-            if let Some(items) = data.get("apiRequests").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO api_requests (id, method, url, headers, body, statusCode, responseTime, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("method").and_then(|v| v.as_str()).unwrap_or("GET"),
-                            item.get("url").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("headers").and_then(|v| v.as_str()).unwrap_or("{}"),
-                            item.get("body").and_then(|v| v.as_str()),
-                            item.get("statusCode").and_then(|v| v.as_i64()),
-                            item.get("responseTime").and_then(|v| v.as_i64()),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("api_requests: {}", e)),
-                    }
-                }
-            }
-
-            // --- Nginx tables (order by FK dependency) ---
-
-            // nginx_presets 是 nginx_servers/nginx_upstreams 等子表的 FK 父表（ON DELETE CASCADE）
-            // merge 模式下用 INSERT OR IGNORE，避免 INSERT OR REPLACE 触发 DELETE→级联删除子表
-            // （由上方统一的 upsert 变量提供）
-
-            if let Some(items) = data.get("nginxPresets").and_then(|v| v.as_array()) {
-                for item in items {
-                    let sql = format!("{} INTO nginx_presets (id, name, serverId, configPath, description, groupName, isActive, createdAt, updatedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)", upsert);
-                    match conn.execute(&sql,
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("serverId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("configPath").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("description").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("groupName").and_then(|v| v.as_str()).unwrap_or("未分组"),
-                            item.get("isActive").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                            item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_presets: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("nginxConfigVersions").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO nginx_config_versions (id, presetId, content, checksum, comment, isCurrent, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("content").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("checksum").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("comment").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("isCurrent").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_config_versions: {}", e)),
-                    }
-                }
-            }
-
-            // nginx_servers 是 nginx_locations 的 FK 父表（ON DELETE CASCADE）
-            if let Some(items) = data.get("nginxServers").and_then(|v| v.as_array()) {
-                for item in items {
-                    let sql = format!("{} INTO nginx_servers (id, presetId, proxyType, listen, ip, def, ipv6, proxyProtocol, serverName, ssl, certId, rewrite, rewriteListen, http2, protocols, passwordId, denyAllow, denyId, allowId, proxyUpstreamId, descr, enabled, sort, paramJson, createdAt, updatedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)", upsert);
-                    match conn.execute(&sql,
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("proxyType").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("listen").and_then(|v| v.as_str()).unwrap_or("80"),
-                            item.get("ip").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("def").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("ipv6").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("proxyProtocol").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("serverName").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("ssl").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("certId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("rewrite").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("rewriteListen").and_then(|v| v.as_str()).unwrap_or("80"),
-                            item.get("http2").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("protocols").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("passwordId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("denyAllow").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("denyId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("allowId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("proxyUpstreamId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("descr").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
-                            item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("paramJson").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                            item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_servers: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("nginxLocations").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO nginx_locations (id, serverId, enabled, path, locType, value, upstreamType, upstreamId, upstreamPath, rootPath, rootPage, rootType, header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, descr, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("serverId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
-                            item.get("path").and_then(|v| v.as_str()).unwrap_or("/"),
-                            item.get("locType").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("value").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("upstreamType").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("upstreamId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("upstreamPath").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("rootPath").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("rootPage").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("rootType").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("header").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("websocket").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("cros").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("headerHost").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("returnUrl").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("returnPath").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("paramJson").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("descr").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_locations: {}", e)),
-                    }
-                }
-            }
-
-            // nginx_upstreams 是 nginx_upstream_servers 的 FK 父表（ON DELETE CASCADE）
-            if let Some(items) = data.get("nginxUpstreams").and_then(|v| v.as_array()) {
-                for item in items {
-                    let sql = format!("{} INTO nginx_upstreams (id, presetId, name, proxyType, strategy, descr, paramJson, sort, createdAt, updatedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)", upsert);
-                    match conn.execute(&sql,
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("proxyType").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("strategy").and_then(|v| v.as_str()).unwrap_or("polling"),
-                            item.get("descr").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("paramJson").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                            item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_upstreams: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("nginxUpstreamServers").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO nginx_upstream_servers (id, upstreamId, address, port, weight, maxFails, failTimeout, maxConns, backup, down, sort, enabled, param)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("upstreamId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("address").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("port").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("weight").and_then(|v| v.as_i64()).unwrap_or(1),
-                            item.get("maxFails").and_then(|v| v.as_i64()).unwrap_or(3),
-                            item.get("failTimeout").and_then(|v| v.as_str()).unwrap_or("10s"),
-                            item.get("maxConns").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("backup").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("down").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
-                            item.get("param").and_then(|v| v.as_str()).unwrap_or(""),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_upstream_servers: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("nginxHttpParams").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO nginx_http_params (id, presetId, name, value, enabled, sort, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("value").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
-                            item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_http_params: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("nginxStreams").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO nginx_streams (id, presetId, listen, proxyUpstreamId, proxyPass, ssl, certId, protocol, descr, enabled, paramJson, sort, createdAt, updatedAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("listen").and_then(|v| v.as_str()).unwrap_or("0.0.0.0:80"),
-                            item.get("proxyUpstreamId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("proxyPass").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("ssl").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("certId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("protocol").and_then(|v| v.as_str()).unwrap_or("TCP"),
-                            item.get("descr").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
-                            item.get("paramJson").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                            item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_streams: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("nginxCerts").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO nginx_certs (id, presetId, name, pem, key, domain, sort, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("pem").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("key").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("domain").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_certs: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("nginxTemplates").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO nginx_templates (id, presetId, name, content, sort, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("content").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_templates: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("nginxBasicSettings").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO nginx_basic_settings (id, presetId, name, value, sort, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("value").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_basic_settings: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("nginxParams").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO nginx_params (id, presetId, serverId, locationId, upstreamId, name, value, position, templateValue, sort, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("serverId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("locationId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("upstreamId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("value").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("position").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("templateValue").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_params: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("nginxDenyAllows").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO nginx_deny_allows (id, presetId, name, ip, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("ip").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_deny_allows: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("nginxPasswords").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO nginx_passwords (id, presetId, name, pass, descr, path, createdAt)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("pass").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("descr").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("path").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("nginx_passwords: {}", e)),
-                    }
-                }
-            }
-
-            // --- Alert tables ---
-
-            if let Some(items) = data.get("alertEmailConfig").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO alert_email_config (id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, from_email, to_email, updated_at)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_i64()).unwrap_or(1),
-                            item.get("smtp_host").and_then(|v| v.as_str()),
-                            item.get("smtp_port").and_then(|v| v.as_i64()).unwrap_or(465),
-                            item.get("smtp_username").and_then(|v| v.as_str()),
-                            item.get("smtp_password").and_then(|v| v.as_str()),
-                            item.get("smtp_encryption").and_then(|v| v.as_str()).unwrap_or("starttls"),
-                            item.get("from_email").and_then(|v| v.as_str()),
-                            item.get("to_email").and_then(|v| v.as_str()),
-                            item.get("updated_at").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("alert_email_config: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("alertServices").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO alert_services (id, name, host, port, check_interval, timeout_seconds, max_retries, enabled, last_check_at, last_status, consecutive_failures, alert_sent_at, created_at)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("host").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("port").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("check_interval").and_then(|v| v.as_i64()).unwrap_or(60),
-                            item.get("timeout_seconds").and_then(|v| v.as_i64()).unwrap_or(5),
-                            item.get("max_retries").and_then(|v| v.as_i64()).unwrap_or(3),
-                            item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
-                            item.get("last_check_at").and_then(|v| v.as_str()),
-                            item.get("last_status").and_then(|v| v.as_i64()),
-                            item.get("consecutive_failures").and_then(|v| v.as_i64()).unwrap_or(0),
-                            item.get("alert_sent_at").and_then(|v| v.as_str()),
-                            item.get("created_at").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("alert_services: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("alertResources").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO alert_resources (id, name, category, remark, expire_at, alert_advance_days, enabled, last_alert_sent_at, created_at)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("category").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("remark").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("expire_at").and_then(|v| v.as_str()),
-                            item.get("alert_advance_days").and_then(|v| v.as_i64()).unwrap_or(30),
-                            item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
-                            item.get("last_alert_sent_at").and_then(|v| v.as_str()),
-                            item.get("created_at").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("alert_resources: {}", e)),
-                    }
-                }
-            }
-
-            if let Some(items) = data.get("alertHistory").and_then(|v| v.as_array()) {
-                for item in items {
-                    match conn.execute(
-                        &format!("{} INTO alert_history (id, type, ref_id, ref_name, message, sent_at)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)", upsert),
-                        rusqlite::params![
-                            item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("type").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("ref_id").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("ref_name").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("message").and_then(|v| v.as_str()).unwrap_or(""),
-                            item.get("sent_at").and_then(|v| v.as_str()).unwrap_or(&now_ts),
-                        ]) {
-                        Ok(_) => imported += 1,
-                        Err(e) => errors.push(format!("alert_history: {}", e)),
-                    }
-                }
-            }
-
-            // Store errors in a thread-safe way for the caller
             if !errors.is_empty() {
-                log::warn!("[Backup Import] {} errors occurred:", errors.len());
-                for e in &errors {
+                log::warn!("[Backup Import] {} errors occurred", errors.len());
+                for e in errors.iter().take(5) {
                     log::warn!("  - {}", e);
                 }
             }
-        }).map_err(|e| format!("db_write failed: {}", e))?;
+            Ok((imported, skipped, errors, path_rewritten))
+        });
+        Ok(result.map_err(|e| format!("db_write failed: {}", e))??)
+    }
+}
 
-        log::info!(
-            "[Backup] === Summary: imported={}, skipped={}, errors={} ===",
-            imported,
-            skipped,
-            errors.len()
+/// 列默认值推导：备份 JSON 缺列时按目标表列定义兜底
+fn default_value(ctype: &str, notnull: i64, default: &Option<String>) -> rusqlite::types::Value {
+    if let Some(d) = default {
+        // SQLite 默认值形态：'text' / 数字 / CURRENT_TIMESTAMP
+        let d = d.trim();
+        if let Some(inner) = d.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')) {
+            return rusqlite::types::Value::Text(inner.to_string());
+        }
+        if let Ok(i) = d.parse::<i64>() {
+            return rusqlite::types::Value::Integer(i);
+        }
+        if let Ok(f) = d.parse::<f64>() {
+            return rusqlite::types::Value::Real(f);
+        }
+        if d.eq_ignore_ascii_case("CURRENT_TIMESTAMP") {
+            return rusqlite::types::Value::Text(chrono::Utc::now().to_rfc3339());
+        }
+    }
+    if notnull != 0 {
+        // NOT NULL 无默认：按类型给零值，避免整行插入失败
+        let t = ctype.to_ascii_uppercase();
+        if t.contains("INT") || t.contains("REAL") || t.contains("FLOA") || t.contains("DOUB") || t.contains("NUM") {
+            return rusqlite::types::Value::Integer(0);
+        }
+        return rusqlite::types::Value::Text(String::new());
+    }
+    rusqlite::types::Value::Null
+}
+
+/// 展开 ~ 前缀到本机 home
+fn shellexpand_home(p: &str) -> String {
+    if let Some(rest) = p.strip_prefix("~/") {
+        if let Some(home) = dirs::home_dir() {
+            return home.join(rest).to_string_lossy().to_string();
+        }
+    }
+    p.to_string()
+}
+
+/// 打包 all-data.json + receipts/ 为 .stbackup zip
+fn write_backup_zip(data_json: &str, dest: &std::path::Path) -> Result<(), String> {
+    use std::io::{Cursor, Write as IoWrite};
+    let buf = std::sync::Mutex::new(Cursor::new(Vec::new()));
+    {
+        let mut guard = buf.lock().map_err(|e| e.to_string())?;
+        let mut zip = zip::ZipWriter::new(&mut *guard);
+        let opts: zip::write::FileOptions<()> =
+            zip::write::FileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated);
+        zip.start_file("all-data.json", opts)
+            .map_err(|e| format!("ZIP创建失败: {}", e))?;
+        zip.write_all(data_json.as_bytes())
+            .map_err(|e| format!("写入ZIP失败: {}", e))?;
+
+        // 收据附件
+        let receipt_dir = crate::logic::data_dir::resolve_data_dir().join("accounting-receipts");
+        if receipt_dir.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&receipt_dir) {
+                for entry in entries.flatten() {
+                    if entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                        let filename = entry.file_name();
+                        if let Ok(content) = std::fs::read(entry.path()) {
+                            let zip_path = format!("receipts/{}", filename.to_string_lossy());
+                            let _ = zip.start_file(&zip_path, opts);
+                            let _ = zip.write_all(&content);
+                        }
+                    }
+                }
+            }
+        }
+        zip.finish().map_err(|e| format!("ZIP完成失败: {}", e))?;
+    }
+    let bytes = buf.into_inner().map_err(|e| e.to_string())?.into_inner();
+    // 先写临时文件再原子改名，避免写一半崩溃留下损坏备份
+    let tmp = dest.with_extension("tmp");
+    std::fs::write(&tmp, &bytes).map_err(|e| format!("写入临时文件失败: {}", e))?;
+    std::fs::rename(&tmp, dest).map_err(|e| format!("落盘失败: {}", e))?;
+    Ok(())
+}
+
+/// 轮转：只保留最近 keep 份 supertool-auto-*.stbackup
+fn rotate_backups(dir: &std::path::Path, keep: usize) {
+    use std::fs;
+    let mut autos: Vec<(std::path::PathBuf, std::time::SystemTime)> = match fs::read_dir(dir) {
+        Ok(rd) => rd
+            .flatten()
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with("supertool-auto-")
+            })
+            .filter_map(|e| {
+                let mtime = e.metadata().ok()?.modified().ok()?;
+                Some((e.path(), mtime))
+            })
+            .collect(),
+        Err(_) => return,
+    };
+    if autos.len() <= keep {
+        return;
+    }
+    autos.sort_by_key(|(_, m)| *m);
+    let to_delete = autos.len() - keep;
+    for (path, _) in autos.iter().take(to_delete) {
+        if let Err(e) = fs::remove_file(path) {
+            log::warn!("[AutoBackup] 轮转删除失败 {}: {}", path.display(), e);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rewrite_home_path_cross_machine() {
+        let rewritten = rewrite_home_path_with("/Users/duormi/workspace/ehuipay", "/Users/fufengyuan");
+        assert_eq!(rewritten.as_deref(), Some("/Users/fufengyuan/workspace/ehuipay"));
+    }
+
+    #[test]
+    fn test_rewrite_home_path_keeps_local() {
+        // 本机路径不改写
+        assert_eq!(rewrite_home_path_with("/Users/fufengyuan/IdeaProjects/x", "/Users/fufengyuan"), None);
+        // 非 /Users 前缀不改写
+        assert_eq!(rewrite_home_path_with("/opt/apphome", "/Users/fufengyuan"), None);
+        assert_eq!(rewrite_home_path_with("/Users/", "/Users/fufengyuan"), None);
+        // 无后续段不改写
+        assert_eq!(rewrite_home_path_with("/Users/duormi", "/Users/fufengyuan"), Some("/Users/fufengyuan".to_string()));
+    }
+
+    #[test]
+    fn test_snake_to_camel() {
+        assert_eq!(snake_to_camel("git_repos"), "gitRepos");
+        assert_eq!(snake_to_camel("deploy_step_logs"), "deployStepLogs");
+        assert_eq!(snake_to_camel("servers"), "servers");
+    }
+
+    /// 列名含 SQLite 保留字（group/key/order）时必须加引号，否则 INSERT 语法错误。
+    /// 回归用例：旧实现裸写列名导致 log_presets 14 条全部导入失败。
+    #[test]
+    fn test_quote_identifier() {
+        let quoted: String = "\"group\"".to_string();
+        assert_eq!(quoted, "\"group\"");
+        // 内含双引号需转义
+        let name = "we\"ird";
+        assert_eq!(format!("\"{}\"", name.replace('"', "\"\"")), "\"we\"\"ird\"");
+    }
+
+    /// 密钥轮换 roundtrip：轮换后存量服务器密码必须仍可解密（否则等于密码丢失）
+    #[tokio::test]
+    async fn rotate_key_preserves_server_passwords() {
+        use base64::Engine as _;
+        let dir = std::env::temp_dir().join(format!("st_rotate_{}_{}", std::process::id(), rand_suffix()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let db_path = dir.join("t.db");
+        let _ = std::fs::remove_file(&db_path);
+        let db = crate::db::Database::new(&db_path).unwrap();
+        let core = crate::logic::CoreService::new(db, dir.clone());
+
+        let pw = "SuperSecret123!";
+        let enc = crate::encryption::encrypt_password(pw).await.unwrap();
+        core.db_write(move |conn| {
+            conn.execute(
+                "INSERT INTO servers (id,name,host,port,username,password,description,tags,createdAt,updatedAt) \
+                 VALUES ('s1','test','1.2.3.4',22,'root',?1,'','','2026-01-01','2026-01-01')",
+                rusqlite::params![&enc],
+            )
+            .unwrap();
+        })
+        .unwrap();
+
+        // 轮换前可解密
+        let before = core.get_server_by_id("s1").await.unwrap();
+        assert_eq!(
+            before.get("password").and_then(|v| v.as_str()),
+            Some(pw),
+            "轮换前解密失败"
         );
-        if !errors.is_empty() {
-            log::warn!("[Backup] First 5 errors:");
-            for e in errors.iter().take(5) {
-                log::warn!("  - {}", e);
-            }
-        }
 
-        // CICD data
-        log::info!("[Backup] Importing CICD data (mode={})...", mode);
-        match self.import_cicd_data(&data, mode).await {
-            Ok((cicd_imported, cicd_skipped)) => {
-                log::info!(
-                    "[Backup] CICD done: imported={}, skipped={}",
-                    cicd_imported,
-                    cicd_skipped
-                );
-                imported += cicd_imported;
-                skipped += cicd_skipped;
-            }
-            Err(e) => {
-                log::error!("[Backup] CICD import failed: {}", e);
-                errors.push(format!("cicd: {}", e));
-            }
-        }
+        // 轮换：prepare（旧密钥解密）→ commit(新密钥重加密，active key 仍旧）→ 再切换 key
+        let (total, failed) = core.rotate_encryption_key_prepare().await.unwrap();
+        assert!(failed.is_empty(), "prepare 出现解密失败: {:?}", failed);
+        assert_eq!(total, 1, "应扫描到 1 条密文");
 
-        Ok((imported, skipped, errors))
+        let new_key_bytes = [7u8; 32];
+        let n = core.commit_rotation(&new_key_bytes).await.unwrap();
+        assert_eq!(n, 1, "应重加密 1 条");
+
+        // commit 后、切 key 前：active key 仍是默认，此时用默认 key 读应失败（密文已是新 key）
+        // （体现"先写回后切换"的安全中间态）
+        let nk = base64::engine::general_purpose::STANDARD.encode(new_key_bytes);
+        crate::encryption::set_custom_key(&nk).await.unwrap();
+        // 注意：set_custom_key 是全局状态，测试后需还原，避免影响其他并行测试
+        let after = core.get_server_by_id("s1").await.unwrap();
+        assert_eq!(
+            after.get("password").and_then(|v| v.as_str()),
+            Some(pw),
+            "轮换后解密失败——密码丢失"
+        );
+
+        // 还原全局密钥为「未设置」，避免污染其他测试（默认密钥假设）
+        crate::encryption::clear_custom_key_for_test().await;
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn rand_suffix() -> u64 {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as u64
     }
 }

@@ -1,6 +1,87 @@
 use supertool_core::logic::CoreService;
 use tauri::State;
 
+// =================== 加密密钥管理 ===================
+
+/// 查看当前加密密钥（base64）。未设置自定义密钥时 isCustom=false（用内置默认密钥）
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_encryption_key() -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] get_encryption_key() called");
+    let key = supertool_core::encryption::get_custom_key().await;
+    Ok(serde_json::json!({
+        "success": true,
+        "key": key,
+        "isCustom": key.is_some(),
+    }))
+}
+
+/// 修改加密密钥：① 旧密钥解密全部存量密文（prepare）
+/// ② 写入新密钥并切换 ③ 新密钥重加密写回（commit）。
+/// 任一步失败即中止；prepare 已发现解密失败条目时中止并返回明细（不破坏数据）。
+#[tauri::command(rename_all = "camelCase")]
+pub async fn rotate_encryption_key(
+    core: State<'_, CoreService>,
+    new_key: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] rotate_encryption_key() called");
+    // ① 旧密钥解密全部密文
+    let (total, failed) = core.rotate_encryption_key_prepare().await?;
+    if !failed.is_empty() {
+        core.clear_pending_rotation().await;
+        return Ok(serde_json::json!({
+            "success": false,
+            "error": format!("{} 条密文解密失败（可能来自其他机器的备份或密钥已变），未做任何修改", failed.len()),
+            "failed": failed,
+        }));
+    }
+
+    // ② 生成新密钥（先不切换 active key）
+    let key = match new_key {
+        Some(k) if !k.trim().is_empty() => k.trim().to_string(),
+        _ => {
+            use base64::engine::general_purpose::STANDARD as B64;
+            use base64::Engine as _;
+            use rand::RngCore;
+            let mut b = [0u8; 32];
+            rand::thread_rng().fill_bytes(&mut b);
+            B64.encode(b)
+        }
+    };
+    // 解码为新密钥字节（供 commit_rotation 用显式密钥加密）
+    let new_key_bytes: [u8; 32] = {
+        use base64::Engine as _;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(&key)
+            .map_err(|e| format!("新密钥解码失败: {}", e))?;
+        if bytes.len() != 32 {
+            core.clear_pending_rotation().await;
+            return Err("新密钥长度错误：需要 32 字节".to_string());
+        }
+        let mut b = [0u8; 32];
+        b.copy_from_slice(&bytes);
+        b
+    };
+
+    // ③ 先用**新密钥**重加密写回（单事务，active key 仍是旧密钥）。
+    // 这一步失败 → active key 未变、旧密文仍可解，重试安全。
+    let n = core.commit_rotation(&new_key_bytes).await?;
+
+    // ④ 全部重加密成功后再切换 active key（落盘 + 缓存）。
+    // 至此密文已是新密钥加密，切换后读写一致。
+    if let Err(e) = supertool_core::encryption::set_custom_key(&key).await {
+        // 极低概率：磁盘写入失败。密文已按新密钥加密，但 active key 仍是旧的，
+        // 需提示用户手动重试或重新录入，避免新密文用旧 key 读。
+        return Err(format!("重加密已完成但密钥文件写入失败（请勿重启，立即重试或备份密钥）: {}", e));
+    }
+
+    Ok(serde_json::json!({
+        "success": true,
+        "key": key,
+        "reencrypted": n,
+        "total": total,
+    }))
+}
+
 #[tauri::command(rename_all = "camelCase")]
 pub async fn get_setting(
     core: State<'_, CoreService>,

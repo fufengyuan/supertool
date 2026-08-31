@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod assistant;
+mod auto_backup;
 mod commands;
 mod lan;
 mod system_logger;
@@ -249,6 +250,10 @@ fn main() {
             app.manage(core.clone());
             log::info!("[CoreService] 初始化完成");
 
+            // 加载用户自定义加密密钥（设置页可修改；未设置时用内置默认密钥）
+            let key_path = supertool_core::logic::data_dir::encryption_key_path();
+            supertool_core::encryption::load_custom_key_sync(&key_path);
+
 
             // WireGuard
             app.manage(wireguard::WireGuardManager::new());
@@ -259,6 +264,16 @@ fn main() {
             crate::commands::lan::init_lan_service_with_db(&db_path_str);
             // Auto-start LAN service for team collaboration
             crate::commands::lan::auto_start_lan(app.handle());
+
+            // 自动备份调度：每 10 分钟检查一次是否到达设定时间（设置项 auto_backup_*）
+            {
+                let core_for_backup = core.clone();
+                app.manage(crate::auto_backup::AutoBackupState::default());
+                let state = app.state::<crate::auto_backup::AutoBackupState>().inner().clone();
+                tauri::async_runtime::spawn(async move {
+                    crate::auto_backup::auto_backup_loop(core_for_backup, state).await;
+                });
+            }
 
             // Build custom application menu (mirrors Electron version)
             // Note: accelerators removed — on Linux GTK they produce
@@ -541,6 +556,8 @@ fn main() {
             commands::todos::delete_subtask,
             commands::todos::get_subtasks_for_todo,
             // Settings commands
+            commands::settings::get_encryption_key,
+            commands::settings::rotate_encryption_key,
             commands::settings::get_setting,
             commands::settings::set_setting,
             commands::settings::get_db_connections,

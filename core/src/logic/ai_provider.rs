@@ -273,7 +273,7 @@ impl super::CoreService {
             // 沿用旧密文（未配置过则为空）
             existing.as_ref().map(|e| e.api_key.clone()).unwrap_or_default()
         } else {
-            crate::encryption::encrypt_password(&incoming_key)
+            crate::encryption::encrypt_password(&incoming_key).await
                 .map_err(|e| format!("apiKey 加密失败: {}", e))?
         };
 

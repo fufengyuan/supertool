@@ -11,6 +11,14 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 
 ## 模块约定
 
+### 备份 / 恢复（2026-08-31 重写）
+
+- 备份 `.stbackup` = zip（`all-data.json` + `receipts/`）。**导出全走 `SELECT *`（export_table_rows），导入按 `PRAGMA table_info` 动态列映射**（backup.rs）——列名一律加双引号防 SQLite 保留字（group/order/key）；杜绝手写列清单（旧实现漏列导致配置静默丢失）。CICD 五表也走通用引擎，不再有独立 import_cicd_data。
+- **服务器密码以密文（`enc:` 前缀或裸 base64）随备份导出**，恢复后无需重新录入；跨机器导入时 `/Users/<源机器用户>/...` 路径自动改写为本机 home（rewrite_home_path）。git_repos 表结构矛盾已修复：统一 `lastOpened`，迁移把 `lastCommit` 改列（core/src/db/mod.rs）。
+- **加密密钥可在设置页查看/轮换**（EncryptionKeyCard.vue + settings.rs rotate_encryption_key）：自定义密钥存 `.encryption_key`（32 字节 base64），Electron 旧口令存 `.encryption_secret`（勿混淆，否则 Electron 旧密文解不开）。轮换顺序铁律：prepare(旧钥解密)→commit(new_key 显式密钥重加密写回，单事务)→再 set_custom_key 切换——**先写回后切换**，commit 失败则 active key 未变、旧密文仍可解（重试安全）。新增任何用 encrypt_password 入库的列必须同步加进 `TARGETS`。
+- 自动备份：后端 tokio 定时（tauri/src/auto_backup.rs），按 `auto_backup_*` 设置项到点执行 run_auto_backup，保留最近 14 份轮转；读设置用 `get_setting`（前端 set_setting 只存键值，无调度）。
+- **跨库/跨版本导入测试**：`stool backup import <file> --mode replace` 到全新 HOME 下验证；api_requests 旧数据 id 为 TEXT 与 INTEGER 主键冲突属历史数据问题，非引擎缺陷。
+
 ### CICD 部署
 
 - 配置存储在 `cicd_configs` 表；多环境以 JSON 数组存于 `environments` 列（结构见 `core/src/db/cicd_tables.rs`）

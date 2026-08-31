@@ -1663,6 +1663,16 @@ export interface TauriAPI {
   getAppPath: () => Promise<string>
   getDataDir: () => Promise<any>
   setDataDir: (path: string) => Promise<any>
+  // 加密密钥
+  getEncryptionKey: () => Promise<{ success: boolean; key: string | null; isCustom: boolean }>
+  rotateEncryptionKey: (newKey?: string) => Promise<{
+    success: boolean
+    key?: string
+    reencrypted?: number
+    total?: number
+    error?: string
+    failed?: string[]
+  }>
   // WireGuard
   wireguardGetAll: () => Promise<any[]>
   wireguardGetById: (id: string) => Promise<any>
@@ -2274,6 +2284,19 @@ export function getTauriAPI(): TauriAPI {
     logsLoadMore: logs.logsLoadMore,
     // Settings
     getMenuIcon: settings.getMenuIcon,
+    getEncryptionKey: async (): Promise<{ success: boolean; key: string | null; isCustom: boolean }> => {
+      return await tauriCall<any>('get_encryption_key')
+    },
+    rotateEncryptionKey: async (newKey?: string): Promise<{
+      success: boolean
+      key?: string
+      reencrypted?: number
+      total?: number
+      error?: string
+      failed?: string[]
+    }> => {
+      return await tauriCall<any>('rotate_encryption_key', { newKey })
+    },
     getSetting: settings.getSetting,
     setSetting: settings.setSetting,
     getDbConnections: settings.getDbConnections,

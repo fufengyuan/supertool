@@ -301,7 +301,7 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             path TEXT NOT NULL DEFAULT '',
             remote TEXT,
             branch TEXT,
-            lastCommit TEXT,
+            lastOpened TEXT,
             createdAt TEXT NOT NULL,
             updatedAt TEXT NOT NULL
         );
@@ -657,6 +657,24 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         "ALTER TABLE git_repos ADD COLUMN name TEXT NOT NULL DEFAULT ''",
         [],
     );
+    // Migration: git_repos 建表列曾为 lastCommit 而访问层（git_repo.rs）一直用 lastOpened，
+    // 存量库可能出现 lastCommit 形态。统一为 lastOpened：有 lastCommit 无 lastOpened 时改列并搬数据。
+    {
+        let has_last_commit: bool = {
+            let mut stmt = conn.prepare("PRAGMA table_info(git_repos)")?;
+            let names: Vec<String> = stmt
+                .query_map([], |r| r.get::<_, String>(1))?
+                .filter_map(|r| r.ok())
+                .collect();
+            names.iter().any(|n| n == "lastCommit")
+                && !names.iter().any(|n| n == "lastOpened")
+        };
+        if has_last_commit {
+            conn.execute_batch(
+                "ALTER TABLE git_repos RENAME COLUMN lastCommit TO lastOpened",
+            )?;
+        }
+    }
     // Migration: add gitRepoId columns to projects
     let _ = conn.execute(
         "ALTER TABLE projects ADD COLUMN gitRepoId TEXT DEFAULT ''",

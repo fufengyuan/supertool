@@ -123,7 +123,7 @@ pub async fn cmd_backup(
                 }
             }
 
-            let (imported, skipped, import_errors) = runtime
+            let (imported, skipped, import_errors, path_rewritten) = runtime
                 .core
                 .import_all_tables(data, mode)
                 .await
@@ -131,11 +131,11 @@ pub async fn cmd_backup(
 
             if import_errors.is_empty() {
                 if runtime.json_mode {
-                    print_json(&serde_json::json!({"imported": imported, "skipped": skipped, "errors": []}));
+                    print_json(&serde_json::json!({"imported": imported, "skipped": skipped, "pathRewritten": path_rewritten, "errors": []}));
                 } else {
                     print_success(&format!(
-                        "数据导入成功: 导入 {} 条, 跳过 {} 条",
-                        imported, skipped
+                        "数据导入成功: 导入 {} 条, 跳过 {} 条, 路径改写 {} 处",
+                        imported, skipped, path_rewritten
                     ));
                 }
             } else {
@@ -143,14 +143,16 @@ pub async fn cmd_backup(
                     print_json(&serde_json::json!({
                         "imported": imported,
                         "skipped": skipped,
+                        "pathRewritten": path_rewritten,
                         "errors": import_errors.iter().take(10).collect::<Vec<_>>(),
                     }));
                 } else {
                     print_success(&format!(
-                        "数据导入完成（含 {} 个错误）: 导入 {} 条, 跳过 {} 条",
+                        "数据导入完成（含 {} 个错误）: 导入 {} 条, 跳过 {} 条, 路径改写 {} 处",
                         import_errors.len(),
                         imported,
-                        skipped
+                        skipped,
+                        path_rewritten
                     ));
                     for e in import_errors.iter().take(10) {
                         println!("  - {}", e);

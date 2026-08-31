@@ -80,7 +80,7 @@ impl super::CoreService {
         // CLI 发送明文密码，需要加密后存储
         if let Some(ref pwd) = server.password {
             if !pwd.is_empty() && !pwd.starts_with("enc:") {
-                server.password = Some(encrypt_password(pwd).map_err(|e| e.to_string())?);
+                server.password = Some(encrypt_password(pwd).await.map_err(|e| e.to_string())?);
             }
         }
         let result = self.with_db(|db| servers::add_server(db, server));
@@ -96,7 +96,7 @@ impl super::CoreService {
         // 只在明文密码时加密，避免重复加密已加密的密码
         if let Some(ref pwd) = server.password {
             if !pwd.is_empty() && !pwd.starts_with("enc:") {
-                server.password = Some(encrypt_password(pwd).map_err(|e| e.to_string())?);
+                server.password = Some(encrypt_password(pwd).await.map_err(|e| e.to_string())?);
             }
         }
         let result = self.with_db(|db| servers::update_server(db, server));

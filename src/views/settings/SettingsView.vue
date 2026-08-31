@@ -102,6 +102,7 @@
       <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
         <DataBackup />
       </div>
+      <EncryptionKeyCard />
       <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
         <DiskCleaner />
       </div>
@@ -156,6 +157,7 @@ import NotificationSettings from './NotificationSettings.vue'
 import ShortcutSettings from './ShortcutSettings.vue'
 import AiModelSettings from './AiModelSettings.vue'
 import DataBackup from '@/views/backup/DataBackup.vue'
+import EncryptionKeyCard from './EncryptionKeyCard.vue'
 import DiskCleaner from '@/components/DiskCleaner.vue'
 import AuditView from '@/views/audit/AuditView.vue'
 import { ref, watch, onMounted } from 'vue'

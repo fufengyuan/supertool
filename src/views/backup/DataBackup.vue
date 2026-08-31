@@ -11,7 +11,7 @@
         </div>
 
         <div class="text-sm text-base-content/60">
-          导出所有模块数据为压缩包，包含：待办、项目、笔记、服务器、CI/CD、MFA、周报等 22 个表。
+          导出所有模块数据为压缩包，包含：待办、项目、笔记、服务器（<b>含密码密文</b>）、CI/CD、MFA、周报等全部数据表。
         </div>
 
         <button @click="exportFullBackup" class="btn btn-primary" :disabled="isExporting">
@@ -28,14 +28,15 @@
         </div>
 
         <div class="text-sm text-base-content/60">
-          支持从完整备份 (.stbackup) 恢复数据。
+          支持从完整备份 (.stbackup) 恢复数据。同 ID 记录按所选模式处理；跨机器备份的路径（如
+          <code class="bg-base-200 px-1 rounded">/Users/其他人/workspace</code>）会自动改写为本机目录。
         </div>
 
         <div class="flex flex-col gap-1">
           <label class="text-xs text-base-content/60">导入模式</label>
           <select v-model="importMode" class="select select-bordered select-sm">
-            <option value="merge">合并（跳过重复数据）</option>
-            <option value="replace">覆盖（清空现有数据后导入）</option>
+            <option value="replace">覆盖（备份覆盖本地，推荐）</option>
+            <option value="merge">合并（保留本地，跳过重复）</option>
           </select>
         </div>
 
@@ -282,7 +283,7 @@ import { useErrorHandler } from '../../composables/useErrorHandler';
 
 const { handleError } = useErrorHandler();
 
-const importMode = ref('merge');
+const importMode = ref('replace');
 const isExporting = ref(false);
 const isImporting = ref(false);
 const message = ref('');
@@ -377,15 +378,20 @@ const importFullBackup = async () => {
       import_mode: importMode.value,
     }) as any;
 
+    const skippedPart = result.skippedCount
+      ? (importMode.value === 'merge' ? `，跳过 ${result.skippedCount} 条重复数据` : `，跳过 ${result.skippedCount} 条`)
+      : '';
+    const rewrittenPart = result.pathRewritten ? `，跨机器路径改写 ${result.pathRewritten} 处` : '';
+
     if (result.success) {
-      message.value = `成功导入 ${result.importedCount} 条记录，跳过 ${result.skippedCount || 0} 条重复数据`;
+      message.value = `成功导入 ${result.importedCount} 条记录${skippedPart}${rewrittenPart}`;
       messageType.value = 'success';
     } else if (result.importedCount > 0) {
       // 部分成功：有导入记录但也存在错误
       const errSummary = result.errors && result.errors.length
         ? `（${result.errors.length} 条错误：${result.errors.slice(0, 2).join('；')}${result.errors.length > 2 ? '...' : ''}）`
         : '';
-      message.value = `部分导入成功：导入 ${result.importedCount} 条，跳过 ${result.skippedCount || 0} 条${errSummary}`;
+      message.value = `部分导入成功：导入 ${result.importedCount} 条${skippedPart}${rewrittenPart}${errSummary}`;
       messageType.value = 'warning';
     } else {
       const errDetail = result.errors && result.errors.length

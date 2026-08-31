@@ -175,12 +175,13 @@ pub async fn import_json(
         }
     }
 
-    let (imported, skipped, import_errors) = core.import_all_tables(data, &mode).await?;
+    let (imported, skipped, import_errors, path_rewritten) = core.import_all_tables(data, &mode).await?;
 
     log::info!(
-        "[Backup] Import complete: imported={}, skipped={}",
+        "[Backup] Import complete: imported={}, skipped={}, pathRewritten={}",
         imported,
-        skipped
+        skipped,
+        path_rewritten
     );
     if !import_errors.is_empty() {
         log::warn!(
@@ -196,6 +197,7 @@ pub async fn import_json(
         "importedCount": imported,
         "skippedCount": skipped,
         "errors": import_errors,
+        "pathRewritten": path_rewritten,
     }))
 }
 
@@ -206,12 +208,13 @@ pub async fn import_all_data(
     mode: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] import_all_data() called");
-    let (imported, skipped, import_errors) = core.import_all_tables(data, &mode).await?;
+    let (imported, skipped, import_errors, path_rewritten) = core.import_all_tables(data, &mode).await?;
     Ok(json!({
         "success": import_errors.is_empty(),
         "importedCount": imported,
         "skippedCount": skipped,
         "errors": import_errors,
+        "pathRewritten": path_rewritten,
     }))
 }
 
