@@ -16,6 +16,7 @@ pub mod context;
 pub mod knowledge;
 pub mod llm;
 pub mod paths;
+pub mod pi_sse;
 pub mod project_knowledge;
 pub mod safety;
 pub mod source_tools;

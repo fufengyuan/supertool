@@ -485,16 +485,25 @@ impl SseAccumulator {
                     return None;
                 }
                 let args = arguments.trim().to_string();
-                // 空参数补成 {}，非法 JSON 直接丢弃该调用（避免把半个片段喂给工具层）
+                // 空参数补成 {}；非法 JSON 用 pi 的 complete_partial_json 尽力补全
+                // （流式参数常是半截，直接丢弃会丢掉整次工具调用导致回复中断）
                 let normalized = if args.is_empty() {
                     "{}".to_string()
-                } else {
+                } else if serde_json::from_str::<Value>(&args).is_ok() {
                     args
+                } else {
+                    match super::pi_sse::complete_partial_json(&args) {
+                        Some(v) => v.to_string(),
+                        None => {
+                            log::warn!(
+                                "[assistant] 工具 {} 参数 JSON 无法补全，已丢弃: {}",
+                                name,
+                                clip(&args, 200)
+                            );
+                            return None;
+                        }
+                    }
                 };
-                if serde_json::from_str::<Value>(&normalized).is_err() {
-                    log::warn!("[assistant] 工具 {} 参数 JSON 不完整，已丢弃", name);
-                    return None;
-                }
                 let call = ToolCall {
                     id: if id.is_empty() {
                         uuid::Uuid::new_v4().to_string()
@@ -702,56 +711,62 @@ pub async fn stream_completion(
 
     let mut acc = SseAccumulator::new(route.protocol);
     let mut stream = response.bytes_stream();
-    let mut buf = String::new();
     let mut chunk_count: u64 = 0;
+    let mut parsed_events: usize = 0;
 
-    while let Some(item) = stream.next().await {
-        let bytes = item.map_err(|e| format!("读取响应流失败: {}", e))?;
-        chunk_count += 1;
-        buf.push_str(&String::from_utf8_lossy(&bytes));
-        // SSE 以空行分隔事件，这里按行取 data 即可（多行 data 极少见）
-        while let Some(pos) = buf.find('\n') {
-            let line = buf[..pos].to_string();
-            buf.drain(..=pos);
-            if let Some(payload) = sse_data_payload(&line) {
-                for event in acc.feed(payload) {
-                    on_event(event);
-                }
+    // 用 pi 的健壮 SSE 解析器包装字节流：UTF-8 跨 chunk 分片、CR/LF/CRLF、无空行收尾
+    // 全部处理，避免旧实现 from_utf8_lossy 导致的乱码/漏事件/中断。
+    // reqwest 的 bytes_stream 产出 Result<Bytes, reqwest::Error>，映射到 SseStream 需要的
+    // Result<Vec<u8>, std::io::Error>。
+    let byte_stream = stream.map(|item| item.map(|b| b.to_vec()).map_err(|e| std::io::Error::other(e.to_string())));
+    let sse_stream = super::pi_sse::SseStream::new(byte_stream);
+    futures::pin_mut!(sse_stream);
+
+    while let Some(event_res) = sse_stream.next().await {
+        let event = match event_res {
+            Ok(ev) => ev,
+            Err(e) => {
+                // 流层错误（含 EOF 时残留不完整 UTF-8）
+                return Err(format!("读取响应流失败: {}", e));
             }
+        };
+        chunk_count += 1;
+        if event.data.is_empty() {
+            continue;
+        }
+        parsed_events += 1;
+        for inner in acc.feed(&event.data) {
+            on_event(inner);
         }
         if acc.is_finished() {
             break;
         }
     }
-    // 收尾：处理未被换行切断的最后一行
-    if let Some(payload) = sse_data_payload(&buf) {
-        for event in acc.feed(payload) {
-            on_event(event);
-        }
-    }
     // 诊断：短回复（疑似网关提前结束）时记录结束原因与原始响应尾部
     log::info!(
-        "[assistant] {} 流式完成: chunks={} finish={:?} text_len={} tools={}",
+        "[assistant] {} 流式完成: chunks={} events={} finish={:?} text_len={} tools={}",
         route.provider_name,
         chunk_count,
+        parsed_events,
         acc.finish_reason(),
         acc.turn().text.chars().count(),
         acc.turn().tool_calls.len()
     );
     if acc.turn().text.chars().count() < 20 && acc.turn().tool_calls.is_empty() {
-        let raw_tail: String = buf.chars().rev().take(800).collect::<Vec<_>>().into_iter().rev().collect();
         log::warn!(
-            "[assistant] 疑似短回复/网关提前结束，原始响应尾部（脱敏）: {}",
-            super::safety::redact_text(&raw_tail)
+            "[assistant] 疑似短回复/网关提前结束（finish={:?}），累计 {} chunk",
+            acc.finish_reason(),
+            chunk_count
         );
     }
     // 流在结束标记（finish_reason/[DONE]/message_stop）之前断开：网关连接不稳的典型表现。
     // 不能把半截文本静默当完整回答（用户会看到"说半句就停"还以为模型抽风），必须显式报错。
     if !acc.is_finished() {
         log::warn!(
-            "[assistant] {} 的响应流在结束标记前中断，已收到 {} 字符",
+            "[assistant] {} 的响应流在结束标记前中断，已收到 {} 字符（{} chunk）",
             route.provider_name,
-            acc.turn().text.chars().count()
+            acc.turn().text.chars().count(),
+            chunk_count
         );
         return Err(format!(
             "模型响应流中断（未收到正常结束标记），回复可能不完整，请重试。\
@@ -1034,9 +1049,10 @@ mod tests {
         }));
     }
 
-    /// 截断的工具参数不能当合法调用发出（否则会把半个 JSON 塞进工具层）
+    /// 截断的工具参数会被 complete_partial_json 尽力补全（pi 的做法），
+    /// 而不是直接丢弃 —— 补全成功的半截参数应该正常发出调用。
     #[test]
-    fn drops_incomplete_openai_tool_arguments() {
+    fn completes_truncated_openai_tool_arguments() {
         let mut acc = SseAccumulator::new(AiProtocol::OpenAi);
         acc.feed(
             &json!({"choices":[{"delta":{"tool_calls":[
@@ -1046,8 +1062,12 @@ mod tests {
         let events = acc.feed(
             &json!({"choices":[{"delta":{},"finish_reason":"tool_calls"}]}).to_string(),
         );
-        assert!(events.iter().all(|e| !matches!(e, LlmEvent::ToolCall(_))));
-        assert!(acc.turn().tool_calls.is_empty());
+        // {"a": 冒号后无值 → 补全为 {}（悬空 key 被裁剪），而不是被丢弃
+        assert!(events.iter().any(|e| matches!(e, LlmEvent::ToolCall(_))));
+        assert_eq!(acc.turn().tool_calls.len(), 1);
+        let call = &acc.turn().tool_calls[0];
+        let args: serde_json::Value = serde_json::from_str(&call.arguments).unwrap();
+        assert_eq!(args, json!({}));
     }
 
     /// 只给 index 不给名字的占位分片不应被当成调用
