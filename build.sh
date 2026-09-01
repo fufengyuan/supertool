@@ -60,20 +60,64 @@ build_cli() {
         ;;
     esac
 
+    # 注意：这是 cargo **workspace**，产物统一输出到 workspace 根的 target/，
+    # 而不是 cli/target/（本函数开头 cd 进了 cli）。路径必须带 ../ 回到根。
     if [ -n "$target" ]; then
         cargo build --release --target "$target"
+        SRC_DIR="../target/${target}/release"
     else
         cargo build --release
+        SRC_DIR="../target/release"
     fi
 
-    # Copy to workspace target/release
-    mkdir -p ../target/release
-    for dir in target/release target/*/release; do
-        if [ -f "$dir/stool" ] || [ -f "$dir/stool.exe" ]; then
-            cp "$dir/stool"* ../target/release/ 2>/dev/null || true
-            break
+    # 复制到 workspace 根的 target/release —— tauri.conf.json 的 resources
+    # （"../target/release/stool"）正是从这里把 CLI 打进 app bundle。
+    #
+    # 旧实现用 `for dir in target/release target/*/release; do ... break; done`
+    # 遍历猜测，但那两个路径都在 cli/ 下、根本不存在，所以**从未成功复制过**；
+    # 再加上 `2>/dev/null || true` 把错误吞掉，于是根 target/release/stool
+    # 一直是某次手工 native(arm64) 构建的残留 —— 无论打 x64 还是 arm64 包，
+    # 装进去的都是那个陈旧的 arm64 CLI。
+    DEST_DIR="../target/release"
+    mkdir -p "$DEST_DIR"
+
+    # native 构建时源就是目标，无需复制（否则会 cp 到自己）
+    if [ "$SRC_DIR" != "$DEST_DIR" ]; then
+        rm -f "$DEST_DIR/stool" "$DEST_DIR/stool.exe"
+        if [ -f "$SRC_DIR/stool" ]; then
+            cp -f "$SRC_DIR/stool" "$DEST_DIR/stool"
+        elif [ -f "$SRC_DIR/stool.exe" ]; then
+            cp -f "$SRC_DIR/stool.exe" "$DEST_DIR/stool.exe"
+        else
+            echo "❌ 未找到 CLI 产物: $SRC_DIR/stool（构建目标 ${target:-native}）"
+            exit 1
         fi
-    done
+    fi
+
+    # 架构校验：防止再出现「x64 包里装 arm64 CLI」。
+    # （universal 的 lipo 产物含多架构，arch=all 时已提前 return，这里只校验单架构）
+    if [ "$(uname)" = "Darwin" ] && [ -f "$DEST_DIR/stool" ]; then
+        # 用 bash 原生 case 模式匹配判断架构，不依赖 grep 的 ERE/BRE alternation
+        # （某些精简版 grep 不支持 `a\|b`，会静默失配导致校验形同虚设）
+        local file_out file_arch="" expected=""
+        file_out=$(file -b "$DEST_DIR/stool" 2>/dev/null || echo "")
+        case "$file_out" in
+            *x86_64*) file_arch="x86_64" ;;
+            *arm64*)  file_arch="arm64" ;;
+        esac
+        case "$arch" in
+            x64|x86_64) expected="x86_64" ;;
+            arm64|aarch64) expected="arm64" ;;
+        esac
+        if [ -n "$expected" ] && [ "$file_arch" != "$expected" ]; then
+            echo "❌ CLI 架构不符：期望 [$expected]，实际 [${file_arch:-未知}]"
+            echo "   源文件: $SRC_DIR/stool"
+            exit 1
+        fi
+        if [ -n "$expected" ]; then
+            echo "✅ CLI 架构校验通过: [$file_arch]"
+        fi
+    fi
 
     cd ..
     echo "✅ CLI built → target/release/"
@@ -177,6 +221,35 @@ build_macos_all() {
         echo "❌ .app bundle not found"; return
     fi
     echo "📱 Found app: $APP_PATH"
+
+    # 最终交付物校验：app bundle 内嵌的 CLI 必须与目标架构一致。
+    # tauri.conf.json 的 resources 把 ../target/release/stool 打进
+    # Contents/Resources/_up_/target/release/stool，postinstall 再从这里
+    # 装到 /usr/local/bin。若这里架构错了，用户装完就是错的 CLI。
+    local embedded_cli="${APP_PATH}/Contents/Resources/_up_/target/release/stool"
+    if [ -f "$embedded_cli" ]; then
+        local cli_out cli_arch="" want_arch=""
+        cli_out=$(file -b "$embedded_cli" 2>/dev/null || echo "")
+        case "$cli_out" in
+            *x86_64*) cli_arch="x86_64" ;;
+            *arm64*)  cli_arch="arm64" ;;
+        esac
+        case "$arch" in
+            x64|x86_64) want_arch="x86_64" ;;
+            arm64|aarch64) want_arch="arm64" ;;
+        esac
+        if [ -n "$want_arch" ] && [ "$cli_arch" != "$want_arch" ]; then
+            echo "❌ app 内置 CLI 架构不符：期望 [$want_arch]，实际 [${cli_arch:-未知}]"
+            echo "   路径: $embedded_cli"
+            echo "   提示：先跑 ./build.sh pre-build $arch 重建 CLI，再打包"
+            exit 1
+        fi
+        if [ -n "$want_arch" ]; then
+            echo "✅ app 内置 CLI 架构校验通过: [$cli_arch]"
+        fi
+    else
+        echo "⚠️ app 内未找到内置 CLI: $embedded_cli（pkg 安装时会跳过 CLI 分发）"
+    fi
 
     local PKG_DIR="pkg-build"
     rm -rf "$PKG_DIR"
@@ -532,6 +605,35 @@ build_pkg_one() {
         echo "❌ .app bundle not found"; exit 1
     fi
     echo "📱 Found app: $APP_PATH"
+
+    # 最终交付物校验：app bundle 内嵌的 CLI 必须与目标架构一致。
+    # tauri.conf.json 的 resources 把 ../target/release/stool 打进
+    # Contents/Resources/_up_/target/release/stool，postinstall 再从这里
+    # 装到 /usr/local/bin。若这里架构错了，用户装完就是错的 CLI。
+    local embedded_cli="${APP_PATH}/Contents/Resources/_up_/target/release/stool"
+    if [ -f "$embedded_cli" ]; then
+        local cli_out cli_arch="" want_arch=""
+        cli_out=$(file -b "$embedded_cli" 2>/dev/null || echo "")
+        case "$cli_out" in
+            *x86_64*) cli_arch="x86_64" ;;
+            *arm64*)  cli_arch="arm64" ;;
+        esac
+        case "$arch" in
+            x64|x86_64) want_arch="x86_64" ;;
+            arm64|aarch64) want_arch="arm64" ;;
+        esac
+        if [ -n "$want_arch" ] && [ "$cli_arch" != "$want_arch" ]; then
+            echo "❌ app 内置 CLI 架构不符：期望 [$want_arch]，实际 [${cli_arch:-未知}]"
+            echo "   路径: $embedded_cli"
+            echo "   提示：先跑 ./build.sh pre-build $arch 重建 CLI，再打包"
+            exit 1
+        fi
+        if [ -n "$want_arch" ]; then
+            echo "✅ app 内置 CLI 架构校验通过: [$cli_arch]"
+        fi
+    else
+        echo "⚠️ app 内未找到内置 CLI: $embedded_cli（pkg 安装时会跳过 CLI 分发）"
+    fi
 
     local PKG_DIR="pkg-build"
     rm -rf "$PKG_DIR"
