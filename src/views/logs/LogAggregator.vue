@@ -85,7 +85,7 @@
           <button @click="openNewPresetForm" class="btn btn-primary btn-sm">+ 新增预设</button>
 
           <!-- 搜索模式：关键字输入 -->
-          <div v-if="queryMode === 'search'" class="flex items-center gap-2 flex-1">
+          <div v-if="queryMode === 'search'" class="flex items-center gap-2 flex-1 flex-wrap">
             <input
               v-model="searchKeyword"
               :placeholder="searchPlaceholder"
@@ -118,6 +118,36 @@
               </label>
               <span class="text-[11px]">{{ searchContextLines === 0 ? '精确匹配' : `匹配行上下各 ${searchContextLines} 行` }}</span>
             </div>
+            <!-- 历史日志搜索范围：多服务器轮转数量不同，后端按文件名日期后缀通配符匹配，
+                 覆盖各服务器各自的轮转日志数量差异 -->
+            <select
+              v-model="searchScope"
+              class="select select-bordered select-xs h-8 min-h-0 text-xs"
+              title="搜索历史轮转日志的范围"
+            >
+              <option value="current">当前日志</option>
+              <option value="days">最近N天</option>
+              <option value="date">指定日期</option>
+            </select>
+            <template v-if="searchScope === 'days'">
+              <input
+                v-model.number="searchDays"
+                type="number"
+                min="1"
+                max="30"
+                class="input input-bordered w-[58px] h-8 min-h-0 text-xs text-center px-1"
+                title="回溯最近 N 天（含今天，1-30）"
+              />
+              <span class="text-[11px] text-base-content/60">天</span>
+            </template>
+            <template v-else-if="searchScope === 'date'">
+              <input
+                v-model="searchDate"
+                type="date"
+                class="input input-bordered h-8 min-h-0 text-xs"
+                title="搜索指定日期的轮转日志"
+              />
+            </template>
             <button
               @click="doSearch"
               :disabled="!selectedPreset || !searchKeyword.trim() || isSearching"
@@ -715,6 +745,13 @@ const searchKeyword = ref('')
 const searchContextLines = ref(10)
 const isSearching = ref(false)
 const hasSearched = ref(false)
+// 历史日志搜索范围：'current' 当前日志 | 'days' 最近N天 | 'date' 指定日期
+// 多服务器日志轮转数量可能不同（有的一天多份、有的只有一份），后端按文件名
+// 日期后缀通配符匹配（app.log.2026-08-06 / app.log-20260806），天然覆盖各服务器
+// 各自的轮转数量差异，无需在此限定文件数。
+const searchScope = ref<'current' | 'days' | 'date'>('current')
+const searchDays = ref(1)
+const searchDate = ref('')
 // 搜索导航
 const matchIndices = ref<number[]>([])
 const currentMatchIndex = ref(-1)
@@ -2337,6 +2374,19 @@ async function doSearch() {
     toast.warning('请输入搜索关键字')
     return
   }
+  // 历史范围校验
+  let searchDateParam: string | undefined
+  let searchDaysParam: number | undefined
+  if (searchScope.value === 'date') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(searchDate.value)) {
+      toast.warning('请选择搜索日期')
+      return
+    }
+    searchDateParam = searchDate.value
+  } else if (searchScope.value === 'days') {
+    const n = Math.max(1, Math.min(30, Math.floor(searchDays.value || 1)))
+    searchDaysParam = n
+  }
 
   isSearching.value = true
   hasSearched.value = true
@@ -2352,7 +2402,9 @@ async function doSearch() {
     const result = await getTauriAPI().logSearch({
       query: searchKeyword.value.trim(),
       presetId: selectedPreset.value.id,
-      lines: searchContextLines.value
+      lines: searchContextLines.value,
+      date: searchDateParam,
+      days: searchDaysParam
     })
 
     if (result?.matches) {
@@ -2384,7 +2436,12 @@ async function doSearch() {
       }
 
       const totalMatches = result.matches?.reduce((s: number, m: any) => s + (m.matchCount || 0), 0) || 0
-      toast.success(`搜索完成：${totalMatches} 个匹配，${logLines.value.length} 行结果${truncated ? '（结果过多，已截断显示前 ' + SEARCH_MAX_LINES + ' 行）' : ''}`)
+      const scopeLabel = searchScope.value === 'current'
+        ? '当前日志'
+        : searchScope.value === 'days'
+          ? `最近 ${searchDaysParam} 天`
+          : `日期 ${searchDateParam}`
+      toast.success(`搜索完成（${scopeLabel}）：${totalMatches} 个匹配，${logLines.value.length} 行结果${truncated ? '（结果过多，已截断显示前 ' + SEARCH_MAX_LINES + ' 行）' : ''}`)
       // 搜索完成后更新匹配索引
       nextTick(() => updateMatchIndices())
     } else {

@@ -1212,11 +1212,13 @@ export function useLogsAPI() {
       const res = await tauriInvoke<string>('delete_log_preset', { id })
       if (!res.success) {throw new Error(res.error)}
     },
-    logSearch: async (params: { query?: string; presetId?: string; lines?: number }): Promise<any> => {
+    logSearch: async (params: { query?: string; presetId?: string; lines?: number; date?: string; days?: number }): Promise<any> => {
       const res = await tauriCall<any>('log_search', {
         presetId: params.presetId,
         keyword: params.query,
-        lines: params.lines ?? 50
+        lines: params.lines ?? 50,
+        date: params.date || null,
+        days: params.days ?? null,
       })
       return res
     },
@@ -2282,7 +2284,9 @@ export function getTauriAPI(): TauriAPI {
     logSearch: async (params: any): Promise<any> => tauriCall("log_search", {
       presetId: (params as any).preset_id || (params as any).presetId,
       keyword: (params as any).keyword || (params as any).query,
-      lines: (params as any).lines ?? 50
+      lines: (params as any).lines ?? 50,
+      date: (params as any).date ?? null,
+      days: (params as any).days ?? null
     }),
     logTail: logs.logTail,
     logsLoadMore: logs.logsLoadMore,
