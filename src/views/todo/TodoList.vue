@@ -73,7 +73,7 @@
     <div>
       <div>
         <!-- 活跃任务列表（按项目分组） -->
-        <template v-for="group in groupedActiveTodos" :key="group.projectId">
+        <template v-for="group in groupedActiveTodos" :key="group.projectId ?? '__none__'">
           <!-- 项目分组头部 -->
           <div class="flex items-center gap-2 px-1 py-1.5 mt-1 mb-0.5 border-b border-base-content/10 first:mt-0">
             <span

@@ -1,11 +1,12 @@
 #!/bin/bash
-# 自动版本号更新脚本 - 统一更新所有4处版本号
+# 自动版本号更新脚本 - 统一更新所有6处版本号
 # 用法: ./scripts/bump-version.sh [level] [--no-add]
 # level: patch (默认, +0.0.1), minor (+0.1.0), major (+1.0.0)
 # --no-add: 不自动 git add（钩子调用时使用）
 #
 # 更新位置:
 #   - package.json
+#   - Cargo.toml（根 workspace.package.version）
 #   - cli/Cargo.toml
 #   - core/Cargo.toml
 #   - tauri/Cargo.toml
@@ -54,6 +55,7 @@ fi
 # 所有版本号文件
 VERSION_FILES=(
     "$PROJECT_DIR/package.json"
+    "$PROJECT_DIR/Cargo.toml"
     "$PROJECT_DIR/cli/Cargo.toml"
     "$PROJECT_DIR/core/Cargo.toml"
     "$PROJECT_DIR/tauri/Cargo.toml"

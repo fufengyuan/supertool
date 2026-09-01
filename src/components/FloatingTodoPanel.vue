@@ -68,7 +68,7 @@
 
         <!-- Todo list -->
         <div class="todo-list max-h-[350px] overflow-y-auto">
-          <template v-for="group in groupedTodos" :key="group.projectId">
+          <template v-for="group in groupedTodos" :key="group.projectId ?? '__none__'">
             <!-- 分组头部 -->
             <div class="flex items-center gap-2 px-1 py-1.5 mt-1.5 mb-0.5 border-b border-base-content/10 first:mt-0">
               <span
