@@ -242,16 +242,21 @@ fn test_ipc_db_disconnect_returns_success() {
     assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
 }
 #[test]
-fn test_ipc_db_redis_databases_returns_default() {
-        /// db_redis_databases returns a hard-coded default without needing a
-        /// real Redis connection. Verifies IPC routing + return shape.
+fn test_ipc_db_redis_databases_no_connection() {
+        /// 与 db_query / db_get_tables 一致：db_redis_databases 需要先 db_connect，
+        /// 未连接时应返回 "Connection not found"（而不是硬编码默认值 —— 那条兜底分支
+        /// 只在*已连接*且 INFO keyspace 为空时才生效，见 commands/database.rs）。
+        /// 这里验证 IPC 路由与错误路径，不依赖真实 Redis。
     let (_app, ww) = build_test_app();
-    let result: serde_json::Value =
-        invoke_ok(&ww, "db_redis_databases", serde_json::json!({ "id": "any" }));
-    assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
-    let dbs = result.get("databases").and_then(|v| v.as_array());
-    assert!(dbs.is_some(), "response should contain 'databases' array");
-    assert_eq!(dbs.unwrap().len(), 1);
+    let err = invoke_err(
+        &ww,
+        "db_redis_databases",
+        serde_json::json!({ "id": "nonexistent" }),
+    );
+    assert!(
+        err.contains("Connection not found"),
+        "expected 'Connection not found' error, got: {err}"
+    );
 }
 #[test]
 fn test_ipc_db_backup_list_returns_array() {
