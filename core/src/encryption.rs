@@ -45,6 +45,17 @@ pub async fn clear_custom_key_for_test() {
     }
 }
 
+/// 设置自定义密钥（仅测试用：只切内存缓存，**绝不落盘**）。
+/// 生产入口 set_custom_key 会写真实数据目录的 .encryption_key——
+/// 单测若调用它会把测试密钥写进开发者本机，导致真实密文全部解不开（2026-09-01 事故）。
+#[cfg(test)]
+pub async fn set_custom_key_for_test(base64_key: &str) {
+    let key = decode_key(base64_key).expect("测试密钥格式错误");
+    if let Ok(mut g) = CUSTOM_KEY.lock() {
+        *g = Some(key);
+    }
+}
+
 /// 查看当前加密密钥（base64）。未设置过用户密钥时返回 None（用内置默认密钥）。
 pub async fn get_custom_key() -> Option<String> {
     let guard = CUSTOM_KEY.lock().ok()?;

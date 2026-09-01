@@ -766,8 +766,9 @@ mod tests {
         // commit 后、切 key 前：active key 仍是默认，此时用默认 key 读应失败（密文已是新 key）
         // （体现"先写回后切换"的安全中间态）
         let nk = base64::engine::general_purpose::STANDARD.encode(new_key_bytes);
-        crate::encryption::set_custom_key(&nk).await.unwrap();
-        // 注意：set_custom_key 是全局状态，测试后需还原，避免影响其他并行测试
+        // ⚠️ 必须用 _for_test 版本（只切内存缓存）：生产 set_custom_key 会写真实数据目录的
+        // .encryption_key，曾把测试密钥 [7u8;32] 写进开发者本机导致全部真实密文解不开（2026-09-01）
+        crate::encryption::set_custom_key_for_test(&nk).await;
         let after = core.get_server_by_id("s1").await.unwrap();
         assert_eq!(
             after.get("password").and_then(|v| v.as_str()),
@@ -778,6 +779,18 @@ mod tests {
         // 还原全局密钥为「未设置」，避免污染其他测试（默认密钥假设）
         crate::encryption::clear_custom_key_for_test().await;
         let _ = std::fs::remove_dir_all(&dir);
+
+        // 防回归断言：测试绝不能把密钥写进真实数据目录（2026-09-01 事故防线）。
+        // 若真实 .encryption_key 存在，其内容绝不能等于测试密钥 [7u8;32] 的 base64。
+        let real_key = crate::logic::data_dir::encryption_key_path();
+        if let Ok(content) = std::fs::read_to_string(&real_key) {
+            assert_ne!(
+                content.trim(),
+                nk,
+                "测试密钥泄漏到了真实数据目录 {} —— 单测不得调用 set_custom_key",
+                real_key.display()
+            );
+        }
     }
 
     fn rand_suffix() -> u64 {
