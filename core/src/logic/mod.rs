@@ -230,6 +230,7 @@ impl CoreService {
                         ssh_key_path: s
                             .get("sshKeyPath")
                             .and_then(|v| v.as_str())
+                            .filter(|s| !s.is_empty())
                             .map(|s| s.to_string()),
                     };
                     ssh2.disconnect(&sid);

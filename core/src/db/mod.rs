@@ -737,6 +737,16 @@ pub fn init_db(conn: &Connection) -> Result<()> {
     let _ = conn.execute("ALTER TABLE templates ADD COLUMN tax_rate REAL DEFAULT 0", []);
     let _ = conn.execute("ALTER TABLE templates ADD COLUMN use_count INTEGER DEFAULT 0", []);
     let _ = conn.execute("ALTER TABLE templates ADD COLUMN created_at TEXT DEFAULT ''", []);
+
+    // 清理存量脏数据：历史上「未配置密钥」的服务器把 sshKeyPath 存成了空字符串 ''。
+    // 它既不是 NULL 也不是有效路径，会让 CLI 误判为「配了密钥」去打开空路径，
+    // 报 Unable to open private key file，且因密钥认证先于密码认证而永远轮不到密码。
+    // 统一规范成 NULL，与「未设置」语义对齐（幂等，每次启动执行一次）。
+    let _ = conn.execute(
+        "UPDATE servers SET sshKeyPath = NULL WHERE sshKeyPath IS NOT NULL AND TRIM(sshKeyPath) = ''",
+        [],
+    );
+
     cicd_tables::init_cicd_tables(conn)?;
     lan::init_lan_tables(conn)?;
     Ok(())

@@ -121,7 +121,11 @@ fn stream_server_logs(
     let port = server["port"].as_u64().unwrap_or(22) as u32;
     let username = server["username"].as_str().unwrap_or("").to_string();
     let password = server.get("password").and_then(|v| v.as_str()).map(|s| s.to_string());
-    let ssh_key_path = server.get("sshKeyPath").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let ssh_key_path = server
+        .get("sshKeyPath")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
     let server_name = server["name"].as_str().unwrap_or("unknown").to_string();
 
     // 2. TCP 连接

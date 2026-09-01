@@ -50,6 +50,63 @@ pub struct SshServerConfig {
     pub ssh_key_path: Option<String>,
 }
 
+/// 统一的 SSH 认证入口（connect / test_connection / 一次性会话共用）
+///
+/// ## 为什么必须有这个函数
+/// 数据库里 `sshKeyPath` 对「未配置密钥」的服务器存的是**空字符串 `''`**，不是 NULL。
+/// 若照 `if let Some(path) = &config.ssh_key_path` 直接判断，`Some("")` 会被当成有效路径，
+/// ssh2 于是去打开空路径，报 `Unable to open private key file`；
+/// 因为密钥分支在密码分支之前，配了密码的服务器**永远轮不到密码认证**。
+/// 这与 GUI 侧（`tauri/src/commands/logs.rs` 密码优先）行为不一致，
+/// 表现为「GUI 能连、CLI 报私钥打不开」。
+///
+/// ## 策略
+/// 1. 仅当密钥路径非空（去空白后）才尝试密钥认证
+/// 2. 密钥未配置或认证失败时，回退到密码认证
+/// 3. 两者都不可用才报错，并带上密钥失败的原因
+/// 返回应当用于认证的密钥路径，未配置则返回 `None`。
+///
+/// 关键：数据库里「未配置密钥」存的是**空字符串 `''`** 而不是 NULL，
+/// 所以空串（或纯空白）必须视为未配置 —— 否则 ssh2 会去打开空路径并报
+/// `Unable to open private key file`。
+fn usable_key_path(config: &SshServerConfig) -> Option<&str> {
+    config
+        .ssh_key_path
+        .as_deref()
+        .map(|p| p.trim())
+        .filter(|p| !p.is_empty())
+}
+
+fn authenticate_session(session: &Session, config: &SshServerConfig) -> Result<(), String> {
+    let key_path = usable_key_path(config);
+
+    let mut key_error: Option<String> = None;
+    if let Some(path) = key_path {
+        match session.userauth_pubkey_file(&config.username, None, Path::new(path), None) {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                let msg = format!("密钥认证失败({}): {}", path, e);
+                log::warn!("[SSH] {} 将尝试回退密码认证", msg);
+                key_error = Some(msg);
+            }
+        }
+    }
+
+    if let Some(ref password) = config.password {
+        return session
+            .userauth_password(&config.username, password)
+            .map_err(|e| {
+                match key_error {
+                    // 密钥也试过了，把两条信息都带上，便于排查
+                    Some(k) => format!("{}；密码认证也失败: {}", k, e),
+                    None => format!("密码认证失败: {}", e),
+                }
+            });
+    }
+
+    Err(key_error.unwrap_or_else(|| "没有可用的认证方式".to_string()))
+}
+
 /// PTY 终端封装
 pub struct PtyTerminal {
     pub channel: Channel,
@@ -298,18 +355,8 @@ impl SshService {
             .handshake()
             .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
-        // 认证
-        if let Some(ref key_path) = config.ssh_key_path {
-            session
-                .userauth_pubkey_file(&config.username, None, Path::new(key_path), None)
-                .map_err(|e| format!("密钥认证失败: {}", e))?;
-        } else if let Some(ref password) = config.password {
-            session
-                .userauth_password(&config.username, password)
-                .map_err(|e| format!("密码认证失败: {}", e))?;
-        } else {
-            return Err("没有可用的认证方式".to_string());
-        }
+        // 认证（空密钥路径会回退到密码，详见 authenticate_session 注释）
+        authenticate_session(&session, config)?;
 
         if !session.authenticated() {
             return Err("认证失败".to_string());
@@ -351,17 +398,8 @@ impl SshService {
             .handshake()
             .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
-        if let Some(ref key_path) = config.ssh_key_path {
-            session
-                .userauth_pubkey_file(&config.username, None, Path::new(key_path), None)
-                .map_err(|e| format!("密钥认证失败: {}", e))?;
-        } else if let Some(ref password) = config.password {
-            session
-                .userauth_password(&config.username, password)
-                .map_err(|e| format!("密码认证失败: {}", e))?;
-        } else {
-            return Err("没有可用的认证方式".to_string());
-        }
+        // 认证（空密钥路径会回退到密码，详见 authenticate_session 注释）
+        authenticate_session(&session, config)?;
 
         if !session.authenticated() {
             return Err("认证失败".to_string());
@@ -484,18 +522,8 @@ impl SshService {
             .handshake()
             .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
-        // 认证
-        if let Some(ref key_path) = config.ssh_key_path {
-            session
-                .userauth_pubkey_file(&config.username, None, Path::new(key_path), None)
-                .map_err(|e| format!("密钥认证失败: {}", e))?;
-        } else if let Some(ref password) = config.password {
-            session
-                .userauth_password(&config.username, password)
-                .map_err(|e| format!("密码认证失败: {}", e))?;
-        } else {
-            return Err("没有可用的认证方式".to_string());
-        }
+        // 认证（空密钥路径会回退到密码，详见 authenticate_session 注释）
+        authenticate_session(&session, config)?;
 
         if !session.authenticated() {
             return Err("认证失败".to_string());
@@ -961,5 +989,47 @@ impl SshService {
                 Ok(expanded)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config_with_key(key: Option<&str>) -> SshServerConfig {
+        SshServerConfig {
+            id: "s1".to_string(),
+            name: "test".to_string(),
+            host: "127.0.0.1".to_string(),
+            port: 22,
+            username: "root".to_string(),
+            password: Some("pw".to_string()),
+            ssh_key_path: key.map(|s| s.to_string()),
+        }
+    }
+
+    /// 回归用例：数据库里「未配置密钥」存的是空字符串 `''` 而非 NULL。
+    /// 空串绝不能被当成有效密钥路径，否则 ssh2 会去打开空路径而报
+    /// `Unable to open private key file`，且因为密钥认证先于密码认证，
+    /// 配了密码的服务器会永远走不到密码分支。
+    #[test]
+    fn empty_ssh_key_path_is_treated_as_unset() {
+        assert_eq!(usable_key_path(&config_with_key(None)), None);
+        assert_eq!(usable_key_path(&config_with_key(Some(""))), None);
+        assert_eq!(usable_key_path(&config_with_key(Some("   "))), None);
+        assert_eq!(usable_key_path(&config_with_key(Some("\t\n"))), None);
+    }
+
+    #[test]
+    fn real_ssh_key_path_is_preserved() {
+        assert_eq!(
+            usable_key_path(&config_with_key(Some("/Users/me/.ssh/id_ed25519_github"))),
+            Some("/Users/me/.ssh/id_ed25519_github")
+        );
+        // 首尾空白应被去掉，避免把 " /path " 当成一个不存在的相对路径
+        assert_eq!(
+            usable_key_path(&config_with_key(Some("  /Users/me/.ssh/id_rsa  "))),
+            Some("/Users/me/.ssh/id_rsa")
+        );
     }
 }

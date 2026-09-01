@@ -162,6 +162,7 @@ impl super::CoreService {
             let ssh_key_path = s
                 .get("sshKeyPath")
                 .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
                 .map(|s| s.to_string());
 
             // 解密密码
@@ -279,7 +280,11 @@ impl super::CoreService {
             let port = s["port"].as_u64().unwrap_or(22) as u32;
             let username = s["username"].as_str().unwrap_or("").to_string();
             let raw_password = s.get("password").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let ssh_key_path = s.get("sshKeyPath").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let ssh_key_path = s
+                .get("sshKeyPath")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string());
             let password = raw_password.map(|pw| crate::encryption::try_decrypt_password(&pw));
 
             let config = ssh::SshServerConfig {
@@ -419,6 +424,7 @@ impl super::CoreService {
             let ssh_key_path = s
                 .get("sshKeyPath")
                 .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
                 .map(|s| s.to_string());
 
             // 解密密码（与 logs_start_stream 一致）
@@ -550,7 +556,11 @@ impl super::CoreService {
         let port = server["port"].as_u64().unwrap_or(22) as u32;
         let username = server["username"].as_str().unwrap_or("").to_string();
         let raw_password = server.get("password").and_then(|v| v.as_str()).map(|s| s.to_string());
-        let ssh_key_path = server.get("sshKeyPath").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let ssh_key_path = server
+            .get("sshKeyPath")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
         let password = raw_password.map(|pw| crate::encryption::try_decrypt_password(&pw));
 
         let config = ssh::SshServerConfig {

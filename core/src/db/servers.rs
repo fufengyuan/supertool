@@ -16,7 +16,13 @@ pub fn row_to_server(row: &rusqlite::Row<'_>) -> rusqlite::Result<Server> {
         host: row.get("host")?,
         port: row.get("port")?,
         username: row.get("username")?,
-        ssh_key_path: row.get("sshKeyPath").ok(),
+        // 空字符串视为「未配置密钥」：否则下游会把 Some("") 当成有效私钥路径，
+        // 走密钥认证去打开空路径而报 "Unable to open private key file"，
+        // 即使该服务器配置了密码也永远轮不到密码分支（私钥优先于密码）。
+        ssh_key_path: row
+            .get::<_, String>("sshKeyPath")
+            .ok()
+            .filter(|s| !s.is_empty()),
         password: row.get("password").ok(),
         description: row.get("description")?,
         tags,
@@ -120,23 +126,28 @@ pub fn add_server(db: &mut Database, server: Server) -> ApiResponse<Server> {
 }
 
 pub fn update_server(db: &mut Database, server: Server) -> ApiResponse<Server> {
-    // 密码已在 core/mod.rs 中加密，有传就用新的，没传就保留旧的
-    let encrypted_pw = if server.password.as_ref().map_or(false, |p| !p.is_empty()) {
-        server.password.clone()
-    } else {
-        let mut stmt = db
-            .conn()
-            .prepare("SELECT password FROM servers WHERE id = ?1")
-            .ok();
-        if let Some(ref mut s) = stmt {
-            if let Ok(existing) = s.query_row(params![server.id], |r| r.get::<_, Option<String>>(0))
-            {
-                existing
+    // 密码语义（三态，改动前务必看清）：
+    //   Some("")  = 显式清空 → 写 NULL（切换到密钥认证时用，见 logic::server::normalize_server_auth）
+    //   Some(pwd) = 使用新密码（core 层已加密）
+    //   None      = 本次没提交密码 → 保留库中旧值（编辑时用户不改密码的场景）
+    let encrypted_pw = match server.password.as_deref() {
+        Some("") => None,
+        Some(_) => server.password.clone(),
+        None => {
+            let mut stmt = db
+                .conn()
+                .prepare("SELECT password FROM servers WHERE id = ?1")
+                .ok();
+            if let Some(ref mut s) = stmt {
+                if let Ok(existing) = s.query_row(params![server.id], |r| r.get::<_, Option<String>>(0))
+                {
+                    existing
+                } else {
+                    None
+                }
             } else {
                 None
             }
-        } else {
-            None
         }
     };
 
