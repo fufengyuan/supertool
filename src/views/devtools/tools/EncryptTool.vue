@@ -27,6 +27,30 @@
           <button class="btn btn-sm join-item" :class="mode === 'decrypt' ? 'btn-primary' : 'btn-ghost'" @click="mode = 'decrypt'">解密</button>
         </div>
       </div>
+      <!-- SM2 密文排列：业务端（sm-crypto 默认）普遍 C1C3C4 -->
+      <div v-if="algorithm === 'SM2'">
+        <span class="text-[11px] font-medium text-base-content/50 mb-1 block">密文排列</span>
+        <select v-model="sm2CipherMode" class="select select-bordered select-sm w-[150px] bg-base-200/60" title="C1C3C4 为 sm-crypto / 国密标准默认排列">
+          <option value="1">C1C3C4（标准/默认）</option>
+          <option value="0">C1C2C3（旧标准）</option>
+        </select>
+      </div>
+      <!-- SM2 04 前缀：业务端常带 04 未压缩点前缀 -->
+      <div v-if="algorithm === 'SM2'">
+        <span class="text-[11px] font-medium text-base-content/50 mb-1 block">04 前缀</span>
+        <div class="join">
+          <button class="btn btn-sm join-item" :class="sm2Prefix04 ? 'btn-primary' : 'btn-ghost'" @click="sm2Prefix04 = true" title="密文自动加/剥 04 前缀（buyer-mobile smUtil 风格）">带 04</button>
+          <button class="btn btn-sm join-item" :class="!sm2Prefix04 ? 'btn-primary' : 'btn-ghost'" @click="sm2Prefix04 = false" title="纯 C1C3C4/C1C2C3 hex，无前缀">不带</button>
+        </div>
+      </div>
+      <!-- SM4 密钥格式：业务端（sm-crypto sm4）直接吃 32 位 hex；文本密钥需逐字符转 hex -->
+      <div v-if="algorithm === 'SM4'">
+        <span class="text-[11px] font-medium text-base-content/50 mb-1 block">密钥格式</span>
+        <select v-model="sm4KeyStyle" class="select select-bordered select-sm w-[170px] bg-base-200/60" title="16位文本密钥：逐字符 charCodeAt → 2位hex 拼接（buyer-mobile SM4Util.convertKey 语义）">
+          <option value="hex">标准（hex/base64/文本字节）</option>
+          <option value="text16">16位文本密钥 → hex</option>
+        </select>
+      </div>
     </div>
 
     <!-- 对称密钥 -->
@@ -177,6 +201,11 @@ const keyFormat = ref<'hex' | 'base64' | 'utf8'>('hex')
 const ivFormat = ref<'hex' | 'base64' | 'utf8'>('hex')
 const plainFormat = ref<'utf8' | 'hex' | 'base64'>('utf8')
 const cipherFormat = ref<'base64' | 'hex'>('base64')
+// SM2：密文排列（1=C1C3C4 sm-crypto 默认，0=C1C2C3 旧标准）+ 04 未压缩点前缀（buyer-mobile smUtil 风格）
+const sm2CipherMode = ref<'1' | '0'>('1')
+const sm2Prefix04 = ref(true)
+// SM4：密钥格式风格。text16 = 16 位文本密钥逐字符 charCodeAt→2位hex（业务端 SM4Util.convertKey 语义）
+const sm4KeyStyle = ref<'hex' | 'text16'>('hex')
 
 // SM2/RSA keys
 const asymmetricPublicKey = ref('')
@@ -316,6 +345,13 @@ function wordArrayToBytes(wa: WordArrayLike): Uint8Array {
 function generateKey() {
   const cfg = keyConfigs[algorithm.value]
   if (!cfg) {return}
+  if (algorithm.value === 'SM4' && sm4KeyStyle.value === 'text16') {
+    // 16 位文本密钥：生成 16 字符可读串（业务端 generateKey 同款字符集）
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    key.value = Array.from(randomBytes(16), b => chars[b % chars.length]).join('')
+    toast.success('已生成 16 位随机文本密钥（转 hex 后为 32 位）')
+    return
+  }
   if (keyFormat.value === 'utf8') {
     // 文本密钥：生成可读随机串
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
@@ -500,11 +536,22 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 
 function processSM4() {
   try {
-    const keyBytes = parseBytes(key.value.trim(), keyFormat.value)
-    // SM4 密钥/IV 固定 16 字节：补齐 / 截断，gm-crypto 要求 32 位 hex 字符串
-    const key16 = new Uint8Array(16)
-    key16.set(keyBytes.slice(0, 16))
-    const keyHex = bytesToHex(key16)
+    let keyHex: string
+    if (sm4KeyStyle.value === 'text16') {
+      // 业务端 SM4Util.convertKey 语义：16 位文本密钥逐字符 charCodeAt → 2 位 hex 拼接成 32 位 hex
+      const k = key.value.trim()
+      if (k.length !== 16) {
+        toast.warning(`16位文本密钥模式要求密钥恰好 16 个字符，当前 ${k.length} 个`)
+        return
+      }
+      keyHex = Array.from(k, ch => ch.charCodeAt(0).toString(16).padStart(2, '0')).join('')
+    } else {
+      // 标准模式：密钥按所选格式解析为字节，不足 16 字节右侧补 0 / 超出截断
+      const keyBytes = parseBytes(key.value.trim(), keyFormat.value)
+      const key16 = new Uint8Array(16)
+      key16.set(keyBytes.slice(0, 16))
+      keyHex = bytesToHex(key16)
+    }
     let ivBytes: Uint8Array
     if (iv.value.trim()) {
       ivBytes = parseBytes(iv.value.trim(), ivFormat.value)
@@ -568,23 +615,35 @@ function checkAsymmetricPlainFormat() {
 
 function processSM2Internal() {
   if (!checkAsymmetricPlainFormat()) {return}
+  const cipherMode = Number(sm2CipherMode.value) // 1=C1C3C4（sm-crypto/业务端默认），0=C1C2C3
   if (mode.value === 'encrypt') {
     if (!asymmetricPublicKey.value.trim()) {
       toast.warning('加密需要公钥')
       return
     }
-    const encryptedHex = sm2.doEncrypt(inputText.value, asymmetricPublicKey.value.trim(), 0)
-    outputText.value = cipherFormat.value === 'hex' ? encryptedHex : bytesToBase64(hexToBytes(encryptedHex))
+    // 公钥自动补 04 未压缩点前缀（业务端 getSm2DataHexByString 同款容错）
+    let pubKey = asymmetricPublicKey.value.trim().replace(/\s+/g, '')
+    if (!pubKey.startsWith('04')) {pubKey = '04' + pubKey}
+    // doEncrypt 输出不含 04 前缀；带 04 风格时补上
+    const encryptedHex = sm2.doEncrypt(inputText.value, pubKey, cipherMode)
+    const withPrefix = '04' + encryptedHex
+    const finalHex = sm2Prefix04.value ? withPrefix : encryptedHex
+    outputText.value = cipherFormat.value === 'hex' ? finalHex : bytesToBase64(hexToBytes(finalHex))
   } else {
     if (!asymmetricPrivateKey.value.trim()) {
       toast.warning('解密需要私钥')
       return
     }
-    // sm-crypto 输出/接收 hex 密文；选择 base64 时先互转
-    const inputHex = cipherFormat.value === 'hex' ? inputText.value.trim() : bytesToHex(base64ToBytes(inputText.value.trim()))
-    const decrypted = sm2.doDecrypt(inputHex, asymmetricPrivateKey.value.trim(), 0)
+    // sm-crypto 接收无 04 前缀的 hex 密文；输入可能是 base64 / hex，且可能带 04 前缀
+    let inputHex = cipherFormat.value === 'hex'
+      ? inputText.value.trim().replace(/\s+/g, '')
+      : bytesToHex(base64ToBytes(inputText.value.trim()))
+    if (sm2Prefix04.value && inputHex.toLowerCase().startsWith('04')) {
+      inputHex = inputHex.slice(2)
+    }
+    const decrypted = sm2.doDecrypt(inputHex, asymmetricPrivateKey.value.trim(), cipherMode)
     if (!decrypted) {
-      toast.error('解密失败：私钥不匹配或数据已损坏')
+      toast.error('解密失败：私钥不匹配、密文排列/04前缀选项不对或数据已损坏')
       outputText.value = ''
       return
     }
