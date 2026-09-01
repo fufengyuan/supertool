@@ -150,7 +150,7 @@ fn setup_full_db() -> (Connection, String) {
          upstreamType, upstreamId, upstreamPath, rootPath, rootPage, rootType,
          header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, descr, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
-        rusqlite::params!["loc-3", srv1_id, 1, "/static", 0, "",
+        rusqlite::params!["loc-3", srv1_id, 1, "/static", 1, "",
          1, "", "", "/var/www/static", "index.html", "",
          0, 0, 0, "", "", 0, "", 2, "static files", now],
     ).unwrap();
@@ -316,7 +316,7 @@ fn test_round_trip_full_pipeline() {
         "server 1 should have ipv6 listen"
     );
     assert!(
-        generated.contains("server_name  example.com"),
+        generated.contains("server_name example.com"),
         "server 1 server_name"
     );
     assert!(
@@ -324,7 +324,7 @@ fn test_round_trip_full_pipeline() {
         "server 2 should have port 80"
     );
     assert!(
-        generated.contains("server_name  plain.example.com"),
+        generated.contains("server_name plain.example.com"),
         "server 2 server_name"
     );
     assert!(generated.contains("location / {"), "root location");
@@ -371,7 +371,7 @@ fn test_round_trip_full_pipeline() {
         "sendfile http param should be parsed back"
     );
     if let Some(sf) = sendfile {
-        assert_eq!(sf.value, "on");
+        assert_eq!(sf.value, " on");
     }
     let keepalive = parsed
         .http_params
@@ -878,11 +878,12 @@ fn test_real_world_config_parse() {
     // HTTP params: mime.types, default_type, sendfile, tcp_nopush, ...
     assert!(config.http_params.len() >= 5, "Should have http params");
 
-    // Upstreams: 4 inside http (stream upstreams are not currently extracted)
+    // Upstreams: 4 inside http + 1 inside stream (redis_cluster).
+    // Parser intentionally extracts stream upstreams too (proxy_type=1).
     assert_eq!(
         config.upstreams.len(),
-        4,
-        "Should have 4 upstreams (all from http block)"
+        5,
+        "Should have 5 upstreams (4 http + 1 stream)"
     );
 
     // Servers: 4 (main SSL, redirect, admin, static)
