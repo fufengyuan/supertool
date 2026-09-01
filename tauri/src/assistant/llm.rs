@@ -407,6 +407,9 @@ pub struct SseAccumulator {
     finish_reason: Option<String>,
     /// usage 只在收尾时发一次（finish_reason 与 [DONE] 会先后到）
     usage_emitted: bool,
+    /// 是否在 tool_call 完成前被截断（finish_reason=length/max_tokens 且有未完成调用）。
+    /// 在 finish 处理时（emit_pending_tools 清空 partial_tools 之前）置位。
+    truncated_before_tool_call: bool,
 }
 
 impl SseAccumulator {
@@ -427,6 +430,44 @@ impl SseAccumulator {
 
     pub fn finish_reason(&self) -> Option<&str> {
         self.finish_reason.as_deref()
+    }
+
+    /// 是否在 tool_call 完成前被截断（PI 的 is_truncated_before_tool_call）。
+    /// 在 finish 处理时置位，供 stream_completion 决定是否报错重试。
+    pub fn is_truncated_before_tool_call(&self) -> bool {
+        self.truncated_before_tool_call
+    }
+
+    /// 判定「当前 partial_tools 里是否还有未完成的 tool_call」。
+    /// 必须在 emit_pending_tools（清空 partial_tools）之前调用。
+    ///
+    /// 关键区分：
+    /// - 参数串已是合法完整 JSON（如 `{}`、`{"a":1}`）→ 完整的空参/有参调用，**不算截断**
+    /// - 参数串是半截（如 `{`、`{"key":`、`{"a":1,`）→ 被切断，算截断
+    fn has_truncated_tool_call(&self) -> bool {
+        self.partial_tools.iter().any(|(_, name, args)| {
+            if name.is_empty() {
+                return false;
+            }
+            let trimmed = args.trim();
+            if trimmed.is_empty() {
+                // 有名字但参数还没开始发（名字可能也刚发出）→ 工具调用被切断
+                return true;
+            }
+            // 已经是合法完整 JSON → 完整调用，不截断
+            if serde_json::from_str::<Value>(trimmed).is_ok() {
+                return false;
+            }
+            // 半截 JSON：若补全后仍只是空壳（说明真实参数被切断），算截断；
+            // 若补全后是有值对象（如 {"key":"va" → {"key":"va"}），不算截断（能补成有效调用）
+            match super::pi_sse::complete_partial_json(trimmed) {
+                Some(v) => {
+                    (v.is_object() && v.as_object().map_or(false, |o| o.is_empty()))
+                        || (v.is_array() && v.as_array().map_or(false, |a| a.is_empty()))
+                }
+                None => true,
+            }
+        })
     }
 
     /// 输入 SSE 里的 data 载荷（已去掉 `data:` 前缀）。返回本次产生的事件。
@@ -580,6 +621,12 @@ impl SseAccumulator {
                 }
             }
             self.finished = true;
+            // 截断检测必须在 emit_pending_tools 之前（后者会清空 partial_tools）
+            if matches!(self.finish_reason.as_deref(), Some("length") | Some("max_tokens"))
+                && self.has_truncated_tool_call()
+            {
+                self.truncated_before_tool_call = true;
+            }
             events.extend(self.emit_pending_tools());
             events.extend(self.emit_usage());
         }
@@ -649,6 +696,12 @@ impl SseAccumulator {
                 self.finished = true;
                 if self.finish_reason.is_none() {
                     self.finish_reason = Some("message_stop".to_string());
+                }
+                // 截断检测必须在 emit_pending_tools 之前
+                if matches!(self.finish_reason.as_deref(), Some("max_tokens"))
+                    && self.has_truncated_tool_call()
+                {
+                    self.truncated_before_tool_call = true;
                 }
                 events.extend(self.emit_pending_tools());
                 events.extend(self.emit_usage());
@@ -761,16 +814,33 @@ pub async fn stream_completion(
     }
     // 流在结束标记（finish_reason/[DONE]/message_stop）之前断开：网关连接不稳的典型表现。
     // 不能把半截文本静默当完整回答（用户会看到"说半句就停"还以为模型抽风），必须显式报错。
-    if !acc.is_finished() {
+    // 另外：若因 max_tokens 截断且工具调用未完成，也是中断（PI 的 is_truncated_before_tool_call），
+    // 同样要报错让 agent 重试，避免模型拿到残缺 tool_call 后回复中断。
+    if !acc.is_finished() || acc.is_truncated_before_tool_call() {
+        let (kind, reason) = if acc.is_truncated_before_tool_call() {
+            (
+                "工具调用在完成前被截断",
+                acc.finish_reason().unwrap_or("unknown").to_string(),
+            )
+        } else {
+            (
+                "响应流在结束标记前中断",
+                acc.finish_reason().unwrap_or("none").to_string(),
+            )
+        };
         log::warn!(
-            "[assistant] {} 的响应流在结束标记前中断，已收到 {} 字符（{} chunk）",
+            "[assistant] {} 的{}（finish={}），已收到 {} 字符（{} chunk）",
             route.provider_name,
+            kind,
+            reason,
             acc.turn().text.chars().count(),
             chunk_count
         );
         return Err(format!(
-            "模型响应流中断（未收到正常结束标记），回复可能不完整，请重试。\
+            "{}（finish_reason={}），回复可能不完整，请重试。\
              若反复出现，检查 {} 的网络连通性或稍后再试",
+            kind,
+            reason,
             route.provider_name
         ));
     }
@@ -1077,6 +1147,40 @@ mod tests {
         acc.feed(&json!({"choices":[{"delta":{"tool_calls":[{"index":3,"function":{"arguments":"{}"}}]}}]}).to_string());
         let events = acc.feed(&json!({"choices":[{"delta":{},"finish_reason":"tool_calls"}]}).to_string());
         assert!(events.iter().all(|e| !matches!(e, LlmEvent::ToolCall(_))));
+    }
+
+    /// PI 的 is_truncated_before_tool_call：finish_reason=length 且 tool_call 未完成
+    /// → 判定为截断，不能静默结束
+    #[test]
+    fn detects_truncation_before_tool_call() {
+        // 场景 A：max_tokens 耗尽（finish_reason=length），且 tool_call 参数还没发完
+        let mut acc = SseAccumulator::new(AiProtocol::OpenAi);
+        acc.feed(
+            &json!({"choices":[{"delta":{"tool_calls":[
+                {"index":0,"id":"c1","function":{"name":"list_servers","arguments":"{\"group"}}]}}]})
+                .to_string(),
+        );
+        acc.feed(
+            &json!({"choices":[{"delta":{},"finish_reason":"length"}]}).to_string(),
+        );
+        assert!(acc.is_finished());
+        assert!(acc.is_truncated_before_tool_call(), "length 且 tool_call 半截应判定截断");
+
+        // 场景 B：完整 tool_call 后 length 截断 → 不算截断
+        let mut acc2 = SseAccumulator::new(AiProtocol::OpenAi);
+        acc2.feed(
+            &json!({"choices":[{"delta":{"tool_calls":[
+                {"index":0,"id":"c2","function":{"name":"list_servers","arguments":"{}"}}]}}]})
+                .to_string(),
+        );
+        acc2.feed(&json!({"choices":[{"delta":{},"finish_reason":"length"}]}).to_string());
+        assert!(!acc2.is_truncated_before_tool_call(), "完整 tool_call 后 length 不算截断");
+
+        // 场景 C：finish_reason=stop（正常结束）→ 不截断
+        let mut acc3 = SseAccumulator::new(AiProtocol::OpenAi);
+        acc3.feed(&json!({"choices":[{"delta":{"content":"好的"}}]}).to_string());
+        acc3.feed(&json!({"choices":[{"delta":{},"finish_reason":"stop"}]}).to_string());
+        assert!(!acc3.is_truncated_before_tool_call());
     }
 
     /// 录制的 Anthropic 流：text/thinking/input_json 三种增量 + message_stop
