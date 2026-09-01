@@ -75,33 +75,6 @@
               </template>
             </button>
           </div>
-
-          <!-- Pre-flight Results -->
-          <div v-if="preflightResults.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-4 shrink-0">
-            <div class="text-sm font-semibold text-base-content mb-2">预检结果</div>
-            <div v-for="(r, i) in preflightResults" :key="i" class="flex items-center gap-2 py-1.5 border-b border-base-content/10 last:border-b-0 text-sm">
-              <span><SvgIcon v-if="r.passed" name="check" size="14" class="text-success" /><SvgIcon v-else name="x" size="14" class="text-error" /></span>
-              <span :class="r.passed ? 'text-success' : 'text-error'" class="font-medium">{{ r.name }}</span>
-              <span class="ml-auto text-base-content/60 text-xs">{{ r.message }}</span>
-            </div>
-          </div>
-
-          <!-- Progress -->
-          <div class="bg-base-100 border border-base-content/10 rounded-xl px-4 py-3.5 shrink-0" v-if="deploying || progress > 0">
-            <div class="flex justify-between items-center mb-2 gap-2">
-              <span class="text-sm text-base-content font-medium flex items-center gap-2 min-w-0">
-                <span v-if="queuedWaiting" class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 border border-amber-500/20 whitespace-nowrap shrink-0" title="同配置有部署正在进行，本任务排队等待">
-                  <SvgIcon name="clock" size="11" /> 排队中
-                </span>
-                <span class="truncate">{{ currentStep || '准备部署...' }}</span>
-              </span>
-              <button v-if="deploying" @click="cancelDeploy" class="px-2.5 py-1 bg-error text-white border-0 rounded cursor-pointer text-xs font-medium hover:opacity-85 shrink-0"><SvgIcon name="stopSquare" size="14" class="inline-block align-text-bottom" /> 取消</button>
-            </div>
-            <div class="h-1.5 bg-base-content/10 rounded-full overflow-hidden">
-              <div class="h-full transition-all duration-300" :class="queuedWaiting ? 'bg-amber-500 animate-pulse' : 'bg-primary'" :style="{ width: (queuedWaiting ? Math.max(progress, 8) : progress) + '%' }"></div>
-            </div>
-            <span class="text-sm font-semibold" :class="queuedWaiting ? 'text-amber-500' : 'text-primary'">{{ Math.round(progress) }}%</span>
-          </div>
         </template>
       </div>
 
@@ -178,6 +151,33 @@
               <span class="shrink-0 text-xs font-medium text-base-content/60">重启脚本</span>
               <span class="font-mono text-xs bg-base-200 px-2 py-0.5 rounded truncate min-w-0 max-w-[260px]" :title="String(config.restartScript)">{{ config.restartScript }}</span>
             </div>
+          </div>
+
+          <!-- 部署状态行：部署中显示当前步骤 + 取消入口（进度看右侧部署历史的 running 记录） -->
+          <div v-if="deploying || progress > 0" class="flex items-center gap-2 mt-2 pt-2 border-t border-base-content/10">
+            <span v-if="queuedWaiting" class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 border border-amber-500/20 whitespace-nowrap shrink-0" title="同配置有部署正在进行，本任务排队等待">
+              <SvgIcon name="clock" size="11" /> 排队中
+            </span>
+            <span class="text-xs font-medium truncate min-w-0" :class="queuedWaiting ? 'text-amber-500' : 'text-primary'">
+              {{ queuedWaiting ? '' : (currentStep || '准备部署...') }}{{ queuedWaiting ? '' : ` ${Math.round(progress)}%` }}
+            </span>
+            <button v-if="deploying" @click="cancelDeploy" class="ml-auto px-2.5 py-1 bg-error text-white border-0 rounded cursor-pointer text-xs font-medium hover:opacity-85 shrink-0"><SvgIcon name="stopSquare" size="12" class="inline-block align-text-bottom" /> 取消部署</button>
+          </div>
+
+          <!-- 预检结果：紧跟配置详情，横向徽标排布 -->
+          <div v-if="preflightResults.length > 0" class="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-base-content/10">
+            <span class="text-xs font-semibold text-base-content/60 shrink-0">预检结果</span>
+            <span
+              v-for="(r, i) in preflightResults"
+              :key="i"
+              class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border max-w-full"
+              :class="r.passed ? 'bg-success/10 text-success border-success/25' : 'bg-error/10 text-error border-error/25'"
+              :title="r.message"
+            >
+              <SvgIcon :name="r.passed ? 'check' : 'x'" size="11" class="shrink-0" />
+              <span class="font-medium">{{ r.name }}</span>
+              <span class="opacity-70 truncate min-w-0 max-w-[220px]">{{ r.message }}</span>
+            </span>
           </div>
         </div>
 
