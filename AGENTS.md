@@ -13,6 +13,14 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 
 ### 备份 / 恢复（2026-08-31 重写）
 
+### SSH 认证（2026-09-01）
+
+- **密钥与密码二选一**。前端 `ServerForm.vue` 有「密码 / SSH 密钥」切换，提交时带 `authType`（**不落库**，读取时由 `sshKeyPath` 是否有值推导）；后端 `logic/server.rs::normalize_server_auth()` 负责互斥：密钥模式清密码、密码模式把 `sshKeyPath` 写 NULL。选了密钥却没填路径会回退密码模式（不能把密码也清掉）。
+- **`''` 不等于 NULL**。历史上「未配置密钥」存的是空字符串，会被当成有效路径让 ssh2 去打开空路径报 `Unable to open private key file`。凡是读 `sshKeyPath` 的地方都必须 `.filter(|s| !s.is_empty())`；`db/mod.rs::init_db()` 里有幂等迁移把存量 `''` 清成 NULL。
+- **认证统一走 `logic/ssh.rs::authenticate_session()`**（connect / test_connection / 独立会话共用）：密钥路径非空才试密钥，失败且有密码则回退密码。勿再写 `if let Some(key) {...} else if let Some(pw) {...}` 的裸判断。
+- `db/servers.rs::update_server` 的 password 是**三态**：`Some("")`=显式清空写 NULL、`Some(pwd)`=新密码、`None`=保留库中旧值（编辑时用户不改密码）。
+- 完整根因/修复见 [docs/ssh-auth-fix.md](docs/ssh-auth-fix.md)。
+
 - 备份 `.stbackup` = zip（`all-data.json` + `receipts/`）。**导出全走 `SELECT *`（export_table_rows），导入按 `PRAGMA table_info` 动态列映射**（backup.rs）——列名一律加双引号防 SQLite 保留字（group/order/key）；杜绝手写列清单（旧实现漏列导致配置静默丢失）。CICD 五表也走通用引擎，不再有独立 import_cicd_data。
 - **服务器密码以密文（`enc:` 前缀或裸 base64）随备份导出**，恢复后无需重新录入；跨机器导入时 `/Users/<源机器用户>/...` 路径自动改写为本机 home（rewrite_home_path）。git_repos 表结构矛盾已修复：统一 `lastOpened`，迁移把 `lastCommit` 改列（core/src/db/mod.rs）。
 - **加密密钥可在设置页查看/轮换**（EncryptionKeyCard.vue + settings.rs rotate_encryption_key）：自定义密钥存 `.encryption_key`（32 字节 base64），Electron 旧口令存 `.encryption_secret`（勿混淆，否则 Electron 旧密文解不开）。轮换顺序铁律：prepare(旧钥解密)→commit(new_key 显式密钥重加密写回，单事务)→再 set_custom_key 切换——**先写回后切换**，commit 失败则 active key 未变、旧密文仍可解（重试安全）。新增任何用 encrypt_password 入库的列必须同步加进 `TARGETS`。
