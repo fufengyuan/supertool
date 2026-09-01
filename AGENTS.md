@@ -34,6 +34,7 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 - **打包前必须校验 CLI 架构**（`build_cli` 构建后 + app bundle 内嵌 CLI 两道关卡），架构不符即 `exit 1`，绝不把错误产物打进 pkg。
 - **架构校验用 bash 原生 `case` 模式匹配**，不要用 `grep -o 'x86_64\|arm64'` —— 精简版 grep 不支持 BRE alternation，会静默失配让校验形同虚设。
 - 打 x64 包前先 `./build.sh pre-build x64` 重建 CLI（它会自动纠正历史污染）。
+- **Tauri 插件 Rust crate 与 npm 包必须 major/minor 一致**：`tauri build` 会校验并拒绝构建（如 `tauri-plugin-store v2.4.4 : @tauri-apps/plugin-store v2.3.0`）。Rust 侧用宽松范围（`"2"`）会被 `cargo update` 拉到新 minor，而 npm 侧 `~2.3.0` 锁旧版导致错位。**Rust 插件依赖一律用精确版本 `=X.Y.Z` 锁死**，与 package.json 的 npm 端对齐；改任何一侧版本必须同步另一侧。
 - 完整过程见 [docs/build-packaging.md](docs/build-packaging.md)。
 
 ### CICD 部署
