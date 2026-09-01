@@ -614,11 +614,14 @@ impl SseAccumulator {
                 }
             }
         }
-        if choice["finish_reason"].as_str().is_some() {
-            if let Some(fr) = choice["finish_reason"].as_str() {
-                if !fr.is_empty() {
-                    self.finish_reason = Some(fr.to_string());
-                }
+        // 结束判定：只有当 finish_reason **非空**时才算真正结束。
+        // 部分网关（如 duormi）在每个 chunk 都带 `"finish_reason":""`（空字符串而非 null），
+        // 若按 `is_some()` 判定会把首个 chunk 误当结束标记 → 流在第一个事件后就被 break，
+        // 表现为 chunks=1 / finish=None / text_len=0 的"空回复"。
+        let finish_reason = choice["finish_reason"].as_str().filter(|f| !f.is_empty());
+        if finish_reason.is_some() {
+            if let Some(fr) = finish_reason {
+                self.finish_reason = Some(fr.to_string());
             }
             self.finished = true;
             // 截断检测必须在 emit_pending_tools 之前（后者会清空 partial_tools）
@@ -1222,5 +1225,32 @@ mod tests {
         assert!(!acc.is_finished());
         assert_eq!(sse_data_payload("data:{\"a\":1}"), Some(r#"{"a":1}"#));
         assert_eq!(sse_data_payload("event: foo"), None);
+    }
+
+    /// 回归：部分网关（如 duormi）在每个 chunk 都带 `"finish_reason":""`（空字符串而非 null）。
+    /// 若按 `is_some()` 判定会把首个 chunk 误当结束 → 流被 break → 空回复。空 finish_reason 不应结束。
+    #[test]
+    fn empty_finish_reason_does_not_finish_stream() {
+        let mut acc = SseAccumulator::new(AiProtocol::OpenAi);
+        // 首个 chunk：finish_reason 为空字符串 ""（duormi 风格），带正文内容
+        let first = json!({
+            "choices": [{
+                "delta": { "content": "你好" },
+                "finish_reason": ""
+            }]
+        });
+        let events = acc.feed(&first.to_string());
+        assert!(!acc.is_finished(), "空 finish_reason 不应判定为流结束");
+        assert!(events.iter().any(|e| matches!(e, LlmEvent::TextDelta(t) if t == "你好")));
+        // 真正的结束 chunk
+        let last = json!({
+            "choices": [{
+                "delta": {},
+                "finish_reason": "stop"
+            }]
+        });
+        acc.feed(&last.to_string());
+        assert!(acc.is_finished(), "非空 finish_reason=stop 应判定为流结束");
+        assert_eq!(acc.finish_reason(), Some("stop"));
     }
 }
