@@ -46,9 +46,10 @@ const isFloatingTodo = ref(false)
 const isFloatingAssistant = ref(false)
 const { toggleTheme: toggleThemeSetting } = useTheme()
 const showAboutDialog = ref(false)
-// 首次启动引导：未配置 AI 模型时全屏弹出，帮助用户快速接入助手
+// 启动引导：未配置 AI 模型时全屏弹出，帮助用户快速接入助手。
+// 注意：只要模型未配置就**每次启动都弹**，不写 localStorage「已看过」标记 ——
+// 避免用户跳过后再也找不到配置入口（模型配置是助手可用性的前提）。
 const showFirstRun = ref(false)
-const FIRST_RUN_SEEN_KEY = 'supertool_first_run_seen_v1'
 // 启动过渡页：floating-todo 窗口不显示
 const showSplash = ref(true)
 const quickSwitchRef = ref<InstanceType<typeof QuickSwitch> | null>(null)
@@ -163,14 +164,12 @@ onMounted(async () => {
   // 保留最小显示时间避免闪烁
   setTimeout(() => { showSplash.value = false }, 300)
 
-  // 首次启动引导：未配置 AI 模型（configured=false）且从未引导过 → 全屏弹向导
+  // 启动引导：只要未配置 AI 模型（configured=false）就全屏弹向导。
+  // 每次启动都检查当前配置状态，配好模型后自然不再弹出。
   try {
-    const alreadySeen = localStorage.getItem(FIRST_RUN_SEEN_KEY)
-    if (!alreadySeen) {
-      const state = await api.assistantGetState()
-      if (state?.configured === false) {
-        showFirstRun.value = true
-      }
+    const state = await api.assistantGetState()
+    if (state?.configured === false) {
+      showFirstRun.value = true
     }
   } catch { /* 非 Tauri 或读取失败时静默，不阻塞启动 */ }
 
@@ -180,7 +179,6 @@ onMounted(async () => {
 
 function onFirstRunDone() {
   showFirstRun.value = false
-  try { localStorage.setItem(FIRST_RUN_SEEN_KEY, '1') } catch {}
 }
 
 onUnmounted(async () => {
