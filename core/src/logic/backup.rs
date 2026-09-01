@@ -726,6 +726,9 @@ mod tests {
     /// 密钥轮换 roundtrip：轮换后存量服务器密码必须仍可解密（否则等于密码丢失）
     #[tokio::test]
     async fn rotate_key_preserves_server_passwords() {
+        // 本测试会临时切换全局 active key，必须持锁独占，
+        // 否则并行测试可能在窗口内用错密钥（见 encryption::TEST_KEY_LOCK）
+        let _key_guard = crate::encryption::lock_test_key().await;
         use base64::Engine as _;
         let dir = std::env::temp_dir().join(format!("st_rotate_{}_{}", std::process::id(), rand_suffix()));
         std::fs::create_dir_all(&dir).unwrap();

@@ -45,6 +45,24 @@ pub async fn clear_custom_key_for_test() {
     }
 }
 
+/// 测试专用的全局密钥串行锁。
+///
+/// 背景：活跃密钥 `CUSTOM_KEY` 是**全局**状态。轮换类测试（logic/backup.rs）会临时
+/// 把它切成新密钥再还原；这段窗口里并行跑的其它测试若用 `active_key()` 加密、
+/// 还原后再解密，密钥就对不上，`try_decrypt_password` 解密失败会**原样返回密文**，
+/// 表现为偶发失败（典型：ai_provider 的 apiKey 往返测试断言拿到一串 base64 密文）。
+///
+/// 凡涉及 active key 加解密或会修改它的测试，开头都要先取这把锁，让它们串行执行。
+#[cfg(test)]
+pub static TEST_KEY_LOCK: std::sync::LazyLock<tokio::sync::Mutex<()>> =
+    std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
+
+/// 便捷取锁
+#[cfg(test)]
+pub async fn lock_test_key() -> tokio::sync::MutexGuard<'static, ()> {
+    TEST_KEY_LOCK.lock().await
+}
+
 /// 设置自定义密钥（仅测试用：只切内存缓存，**绝不落盘**）。
 /// 生产入口 set_custom_key 会写真实数据目录的 .encryption_key——
 /// 单测若调用它会把测试密钥写进开发者本机，导致真实密文全部解不开（2026-09-01 事故）。

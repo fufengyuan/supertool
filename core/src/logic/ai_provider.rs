@@ -500,6 +500,9 @@ mod tests {
     /// 编辑时不回传明文：空值/掩码都必须沿用旧 key，否则一编辑就丢密钥
     #[tokio::test]
     async fn saving_with_empty_or_masked_key_keeps_existing_secret() {
+        // active key 是全局状态，轮换类测试会临时切换它；持锁保证本测试的
+        // 加密/解密用同一把密钥（否则解密失败会原样返回密文，见 encryption::TEST_KEY_LOCK）
+        let _key_guard = crate::encryption::lock_test_key().await;
         let core = temp_core();
         let saved = core.save_ai_provider(sample("sk-keepme-aaaa")).await.unwrap();
         let id = saved["id"].as_str().unwrap().to_string();
