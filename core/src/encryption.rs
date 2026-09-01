@@ -130,20 +130,30 @@ fn decrypt_password_with_key_sync(encoded: &str, key: &[u8; 32]) -> Result<Strin
 /// - Electron 口令   → `.encryption_secret`，回退读旧的 `.encryption_key`（迁移场景）
 /// 早期实现让 ELECTRON_SECRET 直接读 `.encryption_key`，自定义密钥写入后该文件变成 base64
 /// 密钥，导致 Electron 旧密文（salt:iv:tag:data）scrypt 派生错误、全部解不开。
-static ELECTRON_SECRET: LazyLock<Option<String>> = LazyLock::new(|| {
+static ELECTRON_SECRET: LazyLock<Mutex<Option<String>>> = LazyLock::new(|| {
     let dir = crate::logic::data_dir::resolve_data_dir();
-    std::fs::read_to_string(dir.join(".encryption_secret"))
+    let s = std::fs::read_to_string(dir.join(".encryption_secret"))
         .ok()
         .or_else(|| std::fs::read_to_string(dir.join(".encryption_key")).ok())
         .map(|s| s.trim().to_string())
         // 自定义密钥是 32 字节 base64（44 字符且解码后正好 32 字节），
         // 与 Electron 明文口令区分开，避免拿密钥当口令做 scrypt 派生
-        .filter(|s| decode_key(s).is_none())
+        .filter(|s| decode_key(s).is_none());
+    Mutex::new(s)
 });
+
+/// 测试注入 Electron 口令（settings::tests 需要可控密钥做解密 round-trip）。
+/// 仅测试编译，不影响生产路径。
+#[cfg(test)]
+pub fn set_electron_secret_for_test(secret: Option<String>) {
+    if let Ok(mut g) = ELECTRON_SECRET.lock() {
+        *g = secret;
+    }
+}
 
 /// 读取 Electron 版的持久化密钥（数据目录下的 .encryption_key）
 fn get_electron_encryption_secret() -> Option<String> {
-    ELECTRON_SECRET.clone()
+    ELECTRON_SECRET.lock().ok().and_then(|g| g.clone())
 }
 
 pub async fn encrypt_password(plaintext: &str) -> Result<String, String> {
@@ -254,6 +264,42 @@ pub fn decrypt_password_electron(stored: &str) -> Result<String, String> {
         .map_err(|e| format!("解密失败: {}", e))?;
 
     String::from_utf8(plaintext).map_err(|e| format!("UTF8 转换失败: {}", e))
+}
+
+/// 加密为 Electron 格式: salt:iv:authTag:encryptedData (base64, colon-separated)
+/// 与 decrypt_password_electron 对称，用当前 Electron 口令做 scrypt 派生 + AES-256-GCM。
+/// 目前仅测试用（settings::tests 构造可控 round-trip）；生产写入新密码走 encrypt_password。
+pub fn encrypt_password_electron(plaintext: &str) -> Result<String, String> {
+    let secret =
+        get_electron_encryption_secret().ok_or_else(|| "无法读取加密密钥文件".to_string())?;
+
+    use rand::RngCore;
+    let mut salt = [0u8; 16];
+    rand::thread_rng().fill_bytes(&mut salt);
+    let mut iv = [0u8; 12];
+    rand::thread_rng().fill_bytes(&mut iv);
+
+    let params = ScryptParams::new(14, 8, 1, 32).map_err(|e| format!("scrypt 参数错误: {}", e))?;
+    let mut key = [0u8; 32];
+    scrypt::scrypt(secret.as_bytes(), &salt, &params, &mut key)
+        .map_err(|e| format!("scrypt 派生密钥失败: {}", e))?;
+
+    use aes_gcm::aead::{Aead, KeyInit};
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| format!("创建 cipher 失败: {}", e))?;
+    let nonce = Nonce::from_slice(&iv);
+    let encrypted_data = cipher
+        .encrypt(nonce, plaintext.as_bytes())
+        .map_err(|e| format!("加密失败: {}", e))?;
+
+    // aes-gcm 返回 ciphertext||authTag，需要拆开存成 colon 格式
+    let (ct, tag) = encrypted_data.split_at(encrypted_data.len() - 16);
+    Ok(format!(
+        "{}:{}:{}:{}",
+        BASE64.encode(salt),
+        BASE64.encode(iv),
+        BASE64.encode(tag),
+        BASE64.encode(ct)
+    ))
 }
 
 /// 统一解密：先尝试 Electron 格式，再尝试 Tauri 格式，最后原样返回

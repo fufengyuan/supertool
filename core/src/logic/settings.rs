@@ -355,9 +355,12 @@ mod tests {
 
     #[tokio::test]
     async fn get_decrypts_legacy_electron_ciphertext() {
+        // 注入可控 Electron 口令，让解密逻辑自足（不依赖宿主 ~/.supertool 里的密钥文件）
+        crate::encryption::set_electron_secret_for_test(Some("legacy-passphrase".to_string()));
         let core = temp_db();
-        // 模拟旧版 Electron 遗留密文（salt:iv:authTag:data，含冒号，不应被再次加密）
-        let legacy = "wmVifu6/z6hV2mIquJNA3A==:8It3qFuDuPsDnCo6:J+epAapVg4ivn81fpJFvFg==:20f0Md8yd+ZCfic3eDmIti0=";
+        // 用注入的口令构造 Electron 密文（salt:iv:authTag:data，含冒号，不应被再次加密）
+        let legacy = crate::encryption::encrypt_password_electron("plain-secret").unwrap();
+        assert!(legacy.contains(':'), "Electron 密文应为 colon 分隔，实际: {}", legacy);
         let conns = json!([{"id": "c1", "name": "旧连接", "type": "mysql", "password": legacy}]);
         core.set_setting("db_connections", &serde_json::to_string(&conns).unwrap())
             .await
@@ -368,5 +371,6 @@ mod tests {
         let dec = arr[0]["password"].as_str().unwrap();
         assert_ne!(dec, legacy, "Electron 密文应被解密");
         assert!(!dec.contains(':'), "解密结果不应仍是密文形态，实际: {}", dec);
+        assert_eq!(dec, "plain-secret", "应解回明文");
     }
 }

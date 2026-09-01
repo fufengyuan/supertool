@@ -1227,14 +1227,20 @@ mod tests {
     #[test]
     fn test_tokenize_simple() {
         let tokens = tokenize("worker_processes auto;");
-        assert!(
-            tokens.len() >= 3,
-            "expected at least 3 tokens, got {}",
-            tokens.len()
-        );
-        assert_eq!(tokens[0], Token::Word("worker_processes".to_string()));
-        assert_eq!(tokens[1], Token::Word("auto".to_string()));
-        assert_eq!(tokens[2], Token::Semicolon);
+        // tokenize 会产出 Space token（用于保留多行缩进/对齐），
+        // 所以 worker_processes、auto 不在固定索引位，改为按 Word 过滤断言。
+        let words: Vec<_> = tokens
+            .iter()
+            .filter_map(|t| {
+                if let Token::Word(w) = t {
+                    Some(w.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(words, vec!["worker_processes", "auto"]);
+        assert!(tokens.contains(&Token::Semicolon));
     }
 
     #[test]
@@ -1259,11 +1265,11 @@ mod tests {
     #[test]
     fn test_tokenize_quoted_string() {
         let tokens = tokenize("server_name \"example.com\";");
+        // tokenize 刻意保留引号（供 round-trip 还原，见 tokenize 注释），
+        // 所以这里断言的是带引号的 Word 存在。
         assert!(
-            tokens
-                .iter()
-                .any(|t| t == &Token::Word("example.com".to_string())),
-            "quoted string should produce a Word token without quotes"
+            tokens.iter().any(|t| t == &Token::Word("\"example.com\"".to_string())),
+            "quoted string should produce a Word token preserving quotes"
         );
     }
 
@@ -1918,7 +1924,8 @@ http {
     fn test_quoted_string_values() {
         let text = r#"server_name "example.com";"#;
         let config = parse_nginx_config(text).unwrap();
-        assert_eq!(config.basic_settings[0].value, "example.com");
+        // tokenize 保留引号以支持 round-trip，value 也应保留引号
+        assert_eq!(config.basic_settings[0].value, "\"example.com\"");
     }
 
     #[test]

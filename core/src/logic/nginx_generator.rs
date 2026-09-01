@@ -252,8 +252,15 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
                 // Value contains special chars that need quoting
                 out.push_str(&format!("  {}'{}';\n", p.name, escape_quotes(&p.value.trim())));
             } else {
-                // value already contains spacing before args from join_args_with_spacing
-                out.push_str(&format!("  {}{};\n", p.name, p.value));
+                // name 与 value 之间恰好一个空格。
+                // 注意 value 可能来自 parser 导入（join_args_with_spacing 已带前导空格）
+                // 或手工/DB 录入（裸值，如 "on"、"65"），故 trim_start 后统一补一个空格。
+                let v = p.value.trim_start();
+                if v.is_empty() {
+                    out.push_str(&format!("  {};\n", p.name));
+                } else {
+                    out.push_str(&format!("  {} {};\n", p.name, v));
+                }
             }
         }
     }
@@ -437,8 +444,15 @@ fn append_http_block_decomposed(
                 // Value contains special chars that need quoting
                 out.push_str(&format!("  {}'{}';\n", p.name, escape_quotes(&p.value.trim())));
             } else {
-                // value already contains spacing before args from join_args_with_spacing
-                out.push_str(&format!("  {}{};\n", p.name, p.value));
+                // name 与 value 之间恰好一个空格。
+                // 注意 value 可能来自 parser 导入（join_args_with_spacing 已带前导空格）
+                // 或手工/DB 录入（裸值，如 "on"、"65"），故 trim_start 后统一补一个空格。
+                let v = p.value.trim_start();
+                if v.is_empty() {
+                    out.push_str(&format!("  {};\n", p.name));
+                } else {
+                    out.push_str(&format!("  {} {};\n", p.name, v));
+                }
             }
         }
     }
@@ -1697,7 +1711,7 @@ mod tests {
             "should have listen with default_server"
         );
         assert!(
-            result.contains("server_name  example.com"),
+            result.contains("server_name example.com"),
             "should have server_name"
         );
     }
