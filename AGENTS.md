@@ -13,6 +13,13 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 
 ### 备份 / 恢复（2026-08-31 重写）
 
+- 备份 `.stbackup` = zip（`all-data.json` + `receipts/`）。**导出全走 `SELECT *`（export_table_rows），导入按 `PRAGMA table_info` 动态列映射**（backup.rs）——列名一律加双引号防 SQLite 保留字（group/order/key）；杜绝手写列清单（旧实现漏列导致配置静默丢失）。CICD 五表也走通用引擎，不再有独立 import_cicd_data。
+- **服务器密码以密文（`enc:` 前缀或裸 base64）随备份导出**，恢复后无需重新录入；跨机器导入时 `/Users/<源机器用户>/...` 路径自动改写为本机 home（rewrite_home_path）。git_repos 表结构矛盾已修复：统一 `lastOpened`，迁移把 `lastCommit` 改列（core/src/db/mod.rs）。
+- **加密密钥可在设置页查看/轮换**（EncryptionKeyCard.vue + settings.rs rotate_encryption_key）：自定义密钥存 `.encryption_key`（32 字节 base64），Electron 旧口令存 `.encryption_secret`（勿混淆，否则 Electron 旧密文解不开）。轮换顺序铁律：prepare(旧钥解密)→commit(new_key 显式密钥重加密写回，单事务)→再 set_custom_key 切换——**先写回后切换**，commit 失败则 active key 未变、旧密文仍可解（重试安全）。新增任何用 encrypt_password 入库的列必须同步加进 `TARGETS`。
+- 自动备份：后端 tokio 定时（tauri/src/auto_backup.rs），按 `auto_backup_*` 设置项到点执行 run_auto_backup，保留最近 14 份轮转；读设置用 `get_setting`（前端 set_setting 只存键值，无调度）。
+- **跨库/跨版本导入测试**：`stool backup import <file> --mode replace` 到全新 HOME 下验证；api_requests 旧数据 id 为 TEXT 与 INTEGER 主键冲突属历史数据问题，非引擎缺陷。
+- 完整设计/根因/修复见 [docs/backup-restore.md](docs/backup-restore.md)。
+
 ### SSH 认证（2026-09-01）
 
 - **密钥与密码二选一**。前端 `ServerForm.vue` 有「密码 / SSH 密钥」切换，提交时带 `authType`（**不落库**，读取时由 `sshKeyPath` 是否有值推导）；后端 `logic/server.rs::normalize_server_auth()` 负责互斥：密钥模式清密码、密码模式把 `sshKeyPath` 写 NULL。选了密钥却没填路径会回退密码模式（不能把密码也清掉）。
@@ -21,12 +28,13 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 - `db/servers.rs::update_server` 的 password 是**三态**：`Some("")`=显式清空写 NULL、`Some(pwd)`=新密码、`None`=保留库中旧值（编辑时用户不改密码）。
 - 完整根因/修复见 [docs/ssh-auth-fix.md](docs/ssh-auth-fix.md)。
 
-- 备份 `.stbackup` = zip（`all-data.json` + `receipts/`）。**导出全走 `SELECT *`（export_table_rows），导入按 `PRAGMA table_info` 动态列映射**（backup.rs）——列名一律加双引号防 SQLite 保留字（group/order/key）；杜绝手写列清单（旧实现漏列导致配置静默丢失）。CICD 五表也走通用引擎，不再有独立 import_cicd_data。
-- **服务器密码以密文（`enc:` 前缀或裸 base64）随备份导出**，恢复后无需重新录入；跨机器导入时 `/Users/<源机器用户>/...` 路径自动改写为本机 home（rewrite_home_path）。git_repos 表结构矛盾已修复：统一 `lastOpened`，迁移把 `lastCommit` 改列（core/src/db/mod.rs）。
-- **加密密钥可在设置页查看/轮换**（EncryptionKeyCard.vue + settings.rs rotate_encryption_key）：自定义密钥存 `.encryption_key`（32 字节 base64），Electron 旧口令存 `.encryption_secret`（勿混淆，否则 Electron 旧密文解不开）。轮换顺序铁律：prepare(旧钥解密)→commit(new_key 显式密钥重加密写回，单事务)→再 set_custom_key 切换——**先写回后切换**，commit 失败则 active key 未变、旧密文仍可解（重试安全）。新增任何用 encrypt_password 入库的列必须同步加进 `TARGETS`。
-- 自动备份：后端 tokio 定时（tauri/src/auto_backup.rs），按 `auto_backup_*` 设置项到点执行 run_auto_backup，保留最近 14 份轮转；读设置用 `get_setting`（前端 set_setting 只存键值，无调度）。
-- **跨库/跨版本导入测试**：`stool backup import <file> --mode replace` 到全新 HOME 下验证；api_requests 旧数据 id 为 TEXT 与 INTEGER 主键冲突属历史数据问题，非引擎缺陷。
-- 完整设计/根因/修复见 [docs/backup-restore.md](docs/backup-restore.md)。
+### 打包 / 分发（2026-09-01）
+
+- **CLI 产物在 workspace 根 `target/`，不在 `cli/target/`**：`build.sh` 的 `build_cli()` 会 `cd cli`，但 cargo workspace 产物统一输出到根 `target/`，复制时必须用 `../target/${target}/release`。旧实现遍历 `cli/target/...` 从未命中，叠加 `2>/dev/null || true` 吞错，导致根 `target/release/stool` 长期是某次手工 native(arm64) 残留 —— 被 `tauri.conf.json` 的 resources（`../target/release/stool`）直接打进每个包，**x64 包里装的也是 arm64 CLI**。
+- **打包前必须校验 CLI 架构**（`build_cli` 构建后 + app bundle 内嵌 CLI 两道关卡），架构不符即 `exit 1`，绝不把错误产物打进 pkg。
+- **架构校验用 bash 原生 `case` 模式匹配**，不要用 `grep -o 'x86_64\|arm64'` —— 精简版 grep 不支持 BRE alternation，会静默失配让校验形同虚设。
+- 打 x64 包前先 `./build.sh pre-build x64` 重建 CLI（它会自动纠正历史污染）。
+- 完整过程见 [docs/build-packaging.md](docs/build-packaging.md)。
 
 ### CICD 部署
 
