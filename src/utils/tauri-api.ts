@@ -182,6 +182,8 @@ export function useServersAPI() {
         host: server.host ?? '', port: server.port ?? 22,
         username: server.username ?? '', sshKeyPath: server.sshKeyPath ?? null,
         password: server.password ?? null, description: server.description ?? '',
+        // 认证方式（'password' | 'key'）：后端据此把另一项清成 NULL；不传则由后端按 sshKeyPath 推导
+        authType: server.authType,
         tags: server.tags ?? [], groupId: server.groupId ?? null,
         requiresApproval: server.requiresApproval ?? false,
         createdAt: server.createdAt ?? new Date().toISOString(),
@@ -233,6 +235,7 @@ export function useServersAPI() {
         host: server.host ?? '', port: server.port ?? 22,
         username: server.username ?? '', password: server.password ?? null,
         sshKeyPath: server.sshKeyPath ?? null,
+        authType: server.authType ?? null,
       })
       return { success: !!res.success && res.data === true, error: res.error }
     },

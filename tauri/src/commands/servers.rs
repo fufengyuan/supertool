@@ -97,6 +97,7 @@ pub async fn test_connection(
     password: Option<String>,
     ssh_key_path: Option<String>,
     server_id: Option<String>,
+    auth_type: Option<String>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] test_connection() called");
     let params = serde_json::json!({
@@ -106,6 +107,7 @@ pub async fn test_connection(
         "username": username,
         "password": password,
         "sshKeyPath": ssh_key_path,
+        "authType": auth_type,
     });
     core.ssh_test_connection(params).await
 }

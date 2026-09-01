@@ -310,6 +310,11 @@ export interface Server {
   username: string;
   password?: string;
   sshKeyPath?: string;
+  /**
+   * 认证方式：密码与 SSH 密钥二选一。
+   * 仅用于提交给后端做互斥校验，**不入库**；读取时由 sshKeyPath 是否有值推导。
+   */
+  authType?: 'password' | 'key';
   privateKey?: string;
   protocol?: string;
   tags?: string[];

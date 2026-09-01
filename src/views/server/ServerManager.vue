@@ -225,6 +225,8 @@ const defaultForm = () => ({
   host: '',
   port: 22,
   username: '',
+  // 认证方式：密码 / SSH 密钥 二选一
+  authType: 'password' as 'password' | 'key',
   sshKeyPath: '',
   password: '',
   tagsInput: '',
@@ -458,6 +460,9 @@ async function editServer(server: any) {
   serverForm.value = {
     ...serverWithoutPassword,
     password,
+    // 有密钥路径即视为密钥认证，否则按密码认证
+    // （与后端 normalize_server_auth 的推导规则保持一致）
+    authType: server.sshKeyPath && server.sshKeyPath.trim() ? 'key' : 'password',
     tagsInput: server.tags?.join(',') || '',
   };
 }
@@ -562,6 +567,7 @@ async function testConnection() {
       username: serverForm.value.username,
       sshKeyPath: serverForm.value.sshKeyPath || '',
       password: serverForm.value.password || '',
+      authType: serverForm.value.authType,
       tags: serverForm.value.tagsInput
         .split(',')
         .map((t) => t.trim())
@@ -586,6 +592,8 @@ async function saveServer() {
     port: serverForm.value.port,
     username: serverForm.value.username,
     sshKeyPath: serverForm.value.sshKeyPath,
+    // 认证方式：让后端据此把另一项清成 NULL，避免残留空串
+    authType: serverForm.value.authType,
     // BUG 6/7 FIX: Only include password if user actually entered a new one
     password: serverForm.value.password || undefined,
     tags: serverForm.value.tagsInput

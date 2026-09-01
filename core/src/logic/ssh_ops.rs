@@ -10,11 +10,15 @@ impl super::CoreService {
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
-        let param_key = params
-            .get("sshKeyPath")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
+        // 显式选了「密码」认证时忽略密钥路径（与保存时的互斥规则保持一致）
+        let param_key = match params.get("authType").and_then(|v| v.as_str()) {
+            Some("password") => None,
+            _ => params
+                .get("sshKeyPath")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+        };
         // 如果 params 没传密码也没传密钥，从 DB 查询凭据
         let (password, ssh_key_path) =
             if param_pw.is_none() && param_key.is_none() && !server_id.is_empty() {
@@ -84,11 +88,15 @@ impl super::CoreService {
             .and_then(|v| v.as_str())
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
-        let param_key = params
-            .get("sshKeyPath")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string());
+        // 显式选了「密码」认证时忽略密钥路径（与保存时的互斥规则保持一致）
+        let param_key = match params.get("authType").and_then(|v| v.as_str()) {
+            Some("password") => None,
+            _ => params
+                .get("sshKeyPath")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+        };
         // 如果 params 没传密码也没传密钥，从 DB 查询凭据
         let (password, ssh_key_path) =
             if param_pw.is_none() && param_key.is_none() && !server_id.is_empty() {

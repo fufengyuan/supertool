@@ -33,13 +33,30 @@
             <span>认证方式</span>
           </div>
 
-          <div class="mb-4">
-            <label class="block mb-1.5 text-xs font-medium text-base-content/60">SSH Key 路径</label>
-            <input v-model="localForm.sshKeyPath" class="input input-bordered w-full" placeholder="~/.ssh/id_rsa" />
-            <small class="block mt-1 text-xs text-base-content/40">推荐使用 SSH Key 认证，更安全</small>
+          <!-- 密钥与密码二选一：切换时自动清空另一项，
+               避免库里残留空字符串（'' 会让 CLI 误以为配了密钥而报 Unable to open private key file） -->
+          <div class="join mb-4 w-full">
+            <button
+              type="button"
+              class="btn btn-sm join-item flex-1"
+              :class="authType === 'password' ? 'btn-primary' : ''"
+              @click="authType = 'password'"
+            >密码</button>
+            <button
+              type="button"
+              class="btn btn-sm join-item flex-1"
+              :class="authType === 'key' ? 'btn-primary' : ''"
+              @click="authType = 'key'"
+            >SSH 密钥</button>
           </div>
 
-          <div class="mb-4">
+          <div v-if="authType === 'key'">
+            <label class="block mb-1.5 text-xs font-medium text-base-content/60">SSH Key 路径 <span class="text-error">*</span></label>
+            <input v-model="localForm.sshKeyPath" class="input input-bordered w-full" placeholder="~/.ssh/id_rsa" />
+            <small class="block mt-1 text-xs text-base-content/40">选用密钥认证后，已保存的密码会被清除</small>
+          </div>
+
+          <div v-else>
             <label class="block mb-1.5 text-xs font-medium text-base-content/60">密码</label>
             <div class="relative">
               <input
@@ -47,7 +64,7 @@
                 :type="showPassword ? 'text' : 'password'"
                 class="input input-bordered w-full pr-10"
                 autocomplete="off"
-                :placeholder="isEditing ? '留空则保留原密码' : '留空则使用 Key 认证'"
+                :placeholder="isEditing ? '留空则保留原密码' : '输入 SSH 登录密码'"
               />
               <button
                 type="button"
@@ -58,6 +75,7 @@
                 <SvgIcon :name="showPassword ? 'eyeOff' : 'eye'" :size="16" />
               </button>
             </div>
+            <small class="block mt-1 text-xs text-base-content/40">选用密码认证后，密钥路径会被清空</small>
           </div>
         </div>
 
@@ -168,8 +186,11 @@ interface TestResult {
   error?: string;
 }
 
+/** 认证方式：密码与 SSH 密钥二选一 */
+type AuthType = 'password' | 'key';
+
 const props = defineProps<{
-  form: Record<string, unknown> & { name?: string; host?: string; port?: number; username?: string; password?: string; sshKeyPath?: string; tagsInput?: string; description?: string; groupId?: string | null; tags?: string[]; requiresApproval?: boolean };
+  form: Record<string, unknown> & { name?: string; host?: string; port?: number; username?: string; password?: string; sshKeyPath?: string; authType?: AuthType; tagsInput?: string; description?: string; groupId?: string | null; tags?: string[]; requiresApproval?: boolean };
   isEditing?: boolean;
   testResult: TestResult | null;
   groups: ServerGroup[];
@@ -182,6 +203,21 @@ const localForm = ref({ ...props.form });
 
 // 密码框明文/掩码切换
 const showPassword = ref(false);
+
+// 认证方式：切换时清空另一项，保证密钥与密码互斥
+// （否则库里会留下 '' 这种歧义值，CLI 会误判为「配了密钥」而报 Unable to open private key file）
+const authType = computed<AuthType>({
+  get: () => (localForm.value.authType as AuthType) || 'password',
+  set: (v: AuthType) => {
+    if (localForm.value.authType === v) { return; }
+    localForm.value.authType = v;
+    if (v === 'password') {
+      localForm.value.sshKeyPath = '';
+    } else {
+      localForm.value.password = '';
+    }
+  },
+});
 
 // Sync localForm changes back to parent — batch rapid input events
 let emitTimer: ReturnType<typeof setTimeout> | null = null;
