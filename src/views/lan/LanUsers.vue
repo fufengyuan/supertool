@@ -5,9 +5,8 @@
       <div class="absolute inset-0 bg-gradient-to-br from-[#667eea] to-[#764ba2] opacity-15"></div>
       <div class="relative flex items-center gap-3.5 p-4">
         <div class="relative shrink-0">
-          <div class="size-12 rounded-2xl bg-gradient-to-br from-[#667eea] to-[#764ba2] flex items-center justify-center text-2xl shadow-[0_4px_12px_rgba(102,126,234,0.3)] shrink-0">
-            <img v-if="myAvatarPath && !myAvatarIsEmoji" :src="convertFileSrc(myAvatarPath)" class="size-full rounded-2xl object-cover" />
-            <span v-else>{{ myAvatar }}</span>
+          <div class="size-12 rounded-2xl bg-gradient-to-br from-[#667eea] to-[#764ba2] flex items-center justify-center text-2xl shadow-[0_4px_12px_rgba(102,126,234,0.3)] shrink-0 overflow-hidden">
+            <LanAvatar :avatar="myAvatar" :src="myAvatarPath && !myAvatarIsEmoji ? convertFileSrc(myAvatarPath) : ''" />
           </div>
           <span class="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-[3px] border-base-100 transition-all duration-300"
                 :class="{
@@ -50,11 +49,18 @@
         <div class="p-4">
           <div class="mb-4 last:mb-0">
             <label class="block text-xs font-medium text-base-content/60 mb-2">头像</label>
-            <div class="flex flex-wrap gap-1.5 mb-2">
-              <span v-for="emoji in avatarOptions" :key="emoji"
-                    class="size-[38px] flex items-center justify-center text-xl rounded-xl cursor-pointer transition-all bg-white/3 hover:bg-white/8 hover:scale-110"
-                    :class="{ 'bg-[#667eea]/20 shadow-[inset_0_0_0_2px_#667eea]': editAvatar === emoji && !editAvatarPath }"
-                    @click="editAvatar = emoji; editAvatarPath = ''">{{ emoji }}</span>
+            <div class="grid grid-cols-6 gap-2 mb-2">
+              <button
+                v-for="preset in avatarPresets"
+                :key="preset.key"
+                type="button"
+                class="size-[42px] rounded-xl cursor-pointer transition-all duration-150 overflow-hidden hover:scale-110 hover:shadow-[0_4px_12px_rgba(0,0,0,0.18)]"
+                :class="{ 'ring-2 ring-[#667eea] scale-105': editAvatar === 'av:' + preset.key }"
+                :title="preset.label"
+                @click="editAvatar = 'av:' + preset.key; editAvatarPath = ''"
+              >
+                <LanAvatar :avatar="'av:' + preset.key" />
+              </button>
             </div>
             <!-- 上传图片按钮 -->
             <button class="btn btn-outline btn-sm w-full gap-2" @click="uploadAvatar" :disabled="uploadingAvatar">
@@ -129,8 +135,10 @@
         <div v-if="unreadCounts[peer.id] > 0" class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3/5 rounded-r-sm bg-gradient-to-b from-[#667eea] to-[#764ba2]"></div>
         <div class="relative shrink-0">
           <div class="size-11 rounded-xl bg-gradient-to-br from-[#667eea]/30 to-[#764ba2]/30 flex items-center justify-center text-2xl overflow-hidden">
-            <img v-if="peer.avatar && peer.avatar.startsWith('avatar:') && peer.avatarPath" :src="convertFileSrc(peer.avatarPath)" class="size-full rounded-xl object-cover" />
-            <span v-else>{{ peer.avatar || '😀' }}</span>
+            <LanAvatar
+              :avatar="peer.avatar"
+              :src="peer.avatar && peer.avatar.startsWith('avatar:') && peer.avatarPath ? convertFileSrc(peer.avatarPath) : ''"
+            />
           </div>
           <span class="absolute -bottom-px -right-px size-3 rounded-full border-[2.5px] border-base-100 transition-all duration-300"
                 :class="{
@@ -240,6 +248,9 @@ import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
 
+import LanAvatar from './LanAvatar.vue'
+import { LAN_AVATARS, DEFAULT_LAN_AVATAR } from './avatarPresets'
+
 interface LanPeer {
   id: string;
   name: string;
@@ -271,16 +282,17 @@ const checkingPermission = ref(false)
 // 我的资料
 const myUserId = ref('');
 const myDisplayName = ref('');
-const myAvatar = ref('😀');
+const myAvatar = ref(DEFAULT_LAN_AVATAR);
 const myAvatarPath = ref<string>('');
 const myAvatarIsEmoji = ref(true);
 const currentStatus = ref<'online' | 'busy' | 'away'>('online');
 const showProfileEditor = ref(false);
 const editNickName = ref('');
-const editAvatar = ref('😀');
+const editAvatar = ref(DEFAULT_LAN_AVATAR);
 const editAvatarPath = ref('');
 const uploadingAvatar = ref(false);
-const avatarOptions = ['😀','😎','🤓','👨‍💻','👩‍💻','🐱','🐶','🦊','🐼','🐨','🦁','🐸','🐵','🤖','👾','🎮'];
+/** 内置 SVG 头像预设 */
+const avatarPresets = LAN_AVATARS;
 const emit = defineEmits<{
   'select-peer': [peer: LanPeer];
   'open-chat': [peer: LanPeer];
@@ -622,9 +634,9 @@ async function loadMyProfile() {
     const info = await getTauriAPI().lanGetUserInfo();
     myUserId.value = info.id;
     myDisplayName.value = info.name || info.id;
-    myAvatar.value = info.avatar || '😀';
+    myAvatar.value = info.avatar || DEFAULT_LAN_AVATAR;
     editNickName.value = '';
-    editAvatar.value = info.avatar || '😀';
+    editAvatar.value = info.avatar || DEFAULT_LAN_AVATAR;
     // 解析头像路径
     if (info.avatar && info.avatar.startsWith('avatar:')) {
       const avatarInfo = await getTauriAPI().lanGetAvatarPath(info.avatar);

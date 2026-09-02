@@ -9,8 +9,8 @@
     ]"
   >
     <!-- 接收方头像 -->
-    <div v-if="message.fromUserId !== myUserId" class="w-[34px] h-[34px] rounded-xl bg-white/8 flex items-center justify-center text-[17px] shrink-0 mt-0.5 select-none">
-      {{ avatar }}
+    <div v-if="message.fromUserId !== myUserId" class="w-[34px] h-[34px] rounded-xl bg-white/8 flex items-center justify-center text-[17px] shrink-0 mt-0.5 select-none overflow-hidden">
+      <LanAvatar :avatar="avatar" />
     </div>
 
     <div :class="[
@@ -159,8 +159,8 @@
     </div>
 
     <!-- 发送方头像 -->
-    <div v-if="message.fromUserId === myUserId" class="w-[34px] h-[34px] rounded-xl flex items-center justify-center text-[17px] shrink-0 mt-0.5 select-none bg-gradient-to-br from-[#667eea]/30 to-[#764ba2]/30">
-      {{ avatar }}
+    <div v-if="message.fromUserId === myUserId" class="w-[34px] h-[34px] rounded-xl flex items-center justify-center text-[17px] shrink-0 mt-0.5 select-none bg-gradient-to-br from-[#667eea]/30 to-[#764ba2]/30 overflow-hidden">
+      <LanAvatar :avatar="avatar" />
     </div>
   </div>
   <!-- 图片灯箱（全屏预览） -->
@@ -194,6 +194,7 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import LanAvatar from './LanAvatar.vue'
 import { computed, ref, watch, onMounted } from 'vue';
 import { getTauriAPI, tauriInvoke } from '../../utils/tauri-api'
 

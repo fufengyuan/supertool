@@ -50,7 +50,7 @@
           :format-date="formatDate"
           :format-file-size="formatFileSize"
           :get-file-status="getFileStatus"
-          :avatar="item.message.fromUserId !== myUserInfo.id ? (props.peer?.avatar || '😀') : (myUserInfo.avatar || '😀')"
+          :avatar="item.message.fromUserId !== myUserInfo.id ? (props.peer?.avatar || DEFAULT_LAN_AVATAR) : (myUserInfo.avatar || DEFAULT_LAN_AVATAR)"
           @download="openFileFolder"
           @open-folder="openFileFolder"
           @retry="retryFileTransfer"
@@ -86,6 +86,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import ChatMessage from './ChatMessage.vue';
 import ChatInput from './ChatInput.vue';
 import TaskAssign from './TaskAssign.vue';
+import { DEFAULT_LAN_AVATAR } from './avatarPresets';
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useErrorHandler } from '../../composables/useErrorHandler';
 
@@ -105,7 +106,7 @@ const emit = defineEmits(['close', 'refresh-unread']);
 
 const messages = ref<any[]>([]);
 const newMessage = ref('');
-const myUserInfo = ref<{ id: string; name: string; avatar: string }>({ id: '', name: '', avatar: '😀' });
+const myUserInfo = ref<{ id: string; name: string; avatar: string }>({ id: '', name: '', avatar: DEFAULT_LAN_AVATAR });
 const messagesContainerRef = ref<HTMLElement | null>(null);
 const selectedFiles = ref(new Map<string, string>()); // 保存 fileId → 文件路径映射，用于重试
 
@@ -131,7 +132,7 @@ async function loadUserInfo() {
     myUserInfo.value = await getTauriAPI().getUserInfo();
   } catch (error) {
     handleError(error, { context: '获取用户信息', showToast: true });
-    myUserInfo.value = { id: 'unknown', name: 'Unknown', avatar: '😀' };
+    myUserInfo.value = { id: 'unknown', name: 'Unknown', avatar: DEFAULT_LAN_AVATAR };
   }
 }
 
