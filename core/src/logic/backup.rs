@@ -451,6 +451,50 @@ impl super::CoreService {
             // Settings：key-value 对象
             if let Some(settings) = data.get("settings").and_then(|v| v.as_object()) {
                 for (key, value) in settings {
+                    // db_connections 是「连接数组」存于单个 settings 键。merge 模式下
+                    // 通用 INSERT OR IGNORE 会因本地已存在该键而丢弃备份里的新连接
+                    // （实测：本机已有连接再 merge 导入含 PostgreSQL 的备份，新的 PG
+                    // 连接不会进来，本地旧值保留）。这里按连接 id 做并集合并：
+                    // 备份里的新连接（id 不存在本地）追加，已存在则保留本地。
+                    if mode_owned == "merge" && key == "db_connections" {
+                        // 备份里该键可能是 String（JSON 数组字符串）也可能是 Value 数组，统一解析
+                        let backup_arr: Option<Vec<Value>> = match value {
+                            Value::Array(a) => Some(a.clone()),
+                            Value::String(s) => serde_json::from_str(s).ok(),
+                            _ => None,
+                        };
+                        if let Some(backup_arr) = backup_arr {
+                            let local_raw: String = conn
+                                .query_row(
+                                    "SELECT value FROM settings WHERE key = 'db_connections'",
+                                    [],
+                                    |r| r.get(0),
+                                )
+                                .unwrap_or_default();
+                            let mut merged: Vec<Value> =
+                                serde_json::from_str(&local_raw).unwrap_or_default();
+                            for c in backup_arr {
+                                let id = c.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                                let exists = merged.iter().any(|m| {
+                                    m.get("id").and_then(|v| v.as_str()).unwrap_or("") == id
+                                        && !id.is_empty()
+                                });
+                                if !id.is_empty() && !exists {
+                                    merged.push(c.clone());
+                                }
+                            }
+                            let val_str =
+                                serde_json::to_string(&merged).unwrap_or_else(|_| "[]".to_string());
+                            conn.execute(
+                                "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+                                rusqlite::params!["db_connections", val_str],
+                            )
+                            .map_err(|e| format!("settings(db_connections): {}", e))?;
+                            imported += 1;
+                            continue;
+                        }
+                    }
+
                     let val_str = if value.is_string() {
                         value.as_str().unwrap_or("").to_string()
                     } else {

@@ -188,3 +188,60 @@ fn replace_import_only_clears_tables_present_in_backup() {
     assert_eq!(lan, 0);
     assert_eq!(audit, 0);
 }
+
+/// merge 导入时，settings 里的 db_connections（连接数组存单键）必须按 id 做并集合并，
+/// 否则本地已有连接时 INSERT OR IGNORE 会丢弃备份里的新连接（如新增的 PostgreSQL）。
+#[test]
+fn merge_import_merges_db_connections_in_settings() {
+    let rt = Runtime::new().unwrap();
+    let (dst, _dir) = setup_core(false);
+
+    // 本地已有 1 条连接（settings.db_connections），模拟真实本机
+    let local = serde_json::json!([{ "id": "local-1", "name": "本机MySQL", "type": "mysql",
+        "host": "127.0.0.1", "port": 3306, "user": "root", "password": "", "database": "x" }]);
+    dst.db_write(|c| {
+        c.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES ('db_connections', ?1)",
+            rusqlite::params![local.to_string()],
+        )
+        .map_err(|e| e.to_string())
+    })
+    .unwrap();
+
+    // 备份：settings.db_connections 含 1 条本地已有的 local-1 + 1 条新增 PG
+    let backup = serde_json::json!({
+        "settings": {
+            "db_connections": serde_json::to_string(&serde_json::json!([
+                { "id": "local-1", "name": "本机MySQL", "type": "mysql", "host": "127.0.0.1",
+                  "port": 3306, "user": "root", "password": "", "database": "x" },
+                { "id": "pg-new", "name": "中转站数据库", "type": "postgresql", "host": "203.56.185.41",
+                  "port": 5432, "user": "postgres", "password": "enc:pw", "database": "sub2api" }
+            ])).unwrap()
+        }
+    });
+
+    // merge 导入
+    let res = rt.block_on(dst.import_all_tables(backup, "merge")).unwrap();
+    assert!(res.2.is_empty(), "merge 导入不应报错: {:?}", res.2);
+
+    // 断言 settings.db_connections 合并后 = 2 条：local-1 + pg-new
+    let raw: String = dst
+        .db_read(|c| {
+            c.query_row(
+                "SELECT value FROM settings WHERE key = 'db_connections'",
+                [],
+                |r| r.get::<_, String>(0),
+            )
+            .unwrap_or_default()
+        })
+        .unwrap();
+    let arr: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    let arr = arr.as_array().unwrap();
+    assert_eq!(arr.len(), 2, "合并后应为 2 条，实际 {}: {}", arr.len(), raw);
+    let ids: Vec<&str> = arr
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_str()))
+        .collect();
+    assert!(ids.contains(&"local-1"), "本地连接 local-1 应保留");
+    assert!(ids.contains(&"pg-new"), "备份新增的 PostgreSQL 连接 pg-new 应被合并进来");
+}
