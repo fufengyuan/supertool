@@ -255,6 +255,13 @@ impl super::CoreService {
                 "nginx_templates", "nginx_basic_settings", "nginx_params",
                 "nginx_deny_allows", "nginx_passwords",
                 "alert_email_config", "alert_services", "alert_resources", "alert_history",
+                // 数据库管理连接（遗留表；GUI 实际走 settings.db_connections，但该表仍有
+                // 完整 CRUD，纳入导出以免将来写入了数据却静默丢失）
+                "db_connections",
+                // 局域网设置：含 my_user_id / 同事备注 peer_remark，丢了要重新备注一遍
+                "lan_settings",
+                // 审计日志
+                "audit_logs",
             ];
 
             for &table in &tables {
@@ -373,6 +380,10 @@ impl super::CoreService {
             ("alertServices", "alert_services", "id", &[]),
             ("alertResources", "alert_resources", "id", &[]),
             ("alertHistory", "alert_history", "id", &[]),
+            // 与导出端 export_extra_tables 的 db_connections / lan_settings / audit_logs 对应
+            ("dbConnections", "db_connections", "id", &[]),
+            ("lanSettings", "lan_settings", "key", &[]),
+            ("auditLogs", "audit_logs", "id", &[]),
             // CICD 五表（此前走独立 import_cicd_data，硬编码列清单漏 5 个新列静默丢配置，现统一走通用引擎）
             ("cicdConfigs", "cicd_configs", "id", &["localPath"]),
             ("deployModules", "deploy_modules", "id", &[]),
@@ -417,14 +428,24 @@ impl super::CoreService {
                 }
             }
 
-            // replace：清空全部备份涉及的表（一个事务内，失败整体回滚）
+            // replace：清空备份涉及的表（一个事务内，失败整体回滚）
+            //
+            // 只清空「备份文件里确实带了该键」的表。原先无条件清空 GENERIC_TABLES
+            // 全部表，拿旧版本备份恢复时会把本地后来新增的表（audit_logs /
+            // lan_settings / db_connections 等）清成空表而备份里又没有数据补回，
+            // 属于静默丢数据。
             if mode_owned == "replace" {
-                for (_, table, _, _) in GENERIC_TABLES {
+                for (json_key, table, _, _) in GENERIC_TABLES {
+                    if data.get(*json_key).is_none() {
+                        continue;
+                    }
                     conn.execute(&format!("DELETE FROM {}", table), [])
                         .map_err(|e| format!("清空 {}: {}", table, e))?;
                 }
-                conn.execute("DELETE FROM settings", [])
-                    .map_err(|e| format!("清空 settings: {}", e))?;
+                if data.get("settings").is_some() {
+                    conn.execute("DELETE FROM settings", [])
+                        .map_err(|e| format!("清空 settings: {}", e))?;
+                }
             }
 
             // Settings：key-value 对象

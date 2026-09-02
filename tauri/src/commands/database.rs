@@ -335,9 +335,107 @@ async fn execute_postgres_query(client: &PgClient, sql: &str) -> Result<serde_js
     let rows = client
         .query(sql, &[])
         .await
-        .map_err(|e| format!("PostgreSQL query failed: {}", e))?;
+        .map_err(|e| format!("PostgreSQL query failed: {}", pg_error_detail(&e)))?;
     let result: Vec<serde_json::Value> = rows.iter().map(pg_row_to_json).collect();
     Ok(serde_json::json!({ "success": true, "rows": result }))
+}
+
+/// 展开 tokio_postgres 错误的完整信息。
+///
+/// `Error::Db` 的默认 Display 只输出 "db error"，把 PostgreSQL 返回的 severity /
+/// message / detail / hint 全丢掉——用户看到的就只有「db error」，无法判断到底是
+/// 表不存在、权限不足还是 SQL 语法问题，排查成本极高。
+pub fn pg_error_detail(e: &tokio_postgres::Error) -> String {
+    let Some(db_err) = e.as_db_error() else {
+        return e.to_string();
+    };
+    let mut msg = format!(
+        "{} [{}]: {}",
+        db_err.severity(),
+        db_err.code().code(),
+        db_err.message()
+    );
+    if let Some(d) = db_err.detail() {
+        msg.push_str(&format!(" | 详情: {d}"));
+    }
+    if let Some(h) = db_err.hint() {
+        msg.push_str(&format!(" | 建议: {h}"));
+    }
+    if let (Some(s), Some(t)) = (db_err.schema(), db_err.table()) {
+        msg.push_str(&format!(" | 位置: {s}.{t}"));
+    }
+    msg
+}
+
+/// 把表名解析为 PostgreSQL 的 `"schema"."table"` 限定名。
+///
+/// PG 的层级是 **database → schema → table**，而连接时已通过 `dbname=` 选定 database，
+/// 一条连接无法跨库查询。MySQL 的 `db.table` 语义不能直接套用：把 db_name 拼成
+/// `"db_name"."table"` 时，PG 会把它当成 schema=db_name 去解析，
+/// 除了 schema 恰好与 database 同名的极少数情况，必然报
+/// `relation "xxx.yyy" does not exist`（正是用户看到的 "db error"）。
+///
+/// 这里改为：让 PG 自己按 search_path 解析并回读真实 schema；
+/// 同时兼容调用方传入已限定的 `public.users` / `"public"."users"`。
+pub async fn pg_qualify_table(client: &PgClient, table: &str) -> String {
+    let table = table.trim();
+    if table.is_empty() {
+        return String::new();
+    }
+
+    // 已带 schema 限定：拆开分别加引号（兼容调用方预置的双引号）
+    if let Some((schema, name)) = split_schema_qualified(table) {
+        return format!(
+            "\"{}\".\"{}\"",
+            pg_quote_inner(schema),
+            pg_quote_inner(name)
+        );
+    }
+
+    // 未限定：交给 PG 按 search_path 解析，回读真实 schema。
+    // 表不存在时 to_regclass 返回 NULL（不报错），走下面的回退。
+    let sql = format!(
+        "SELECT n.nspname FROM pg_class c \
+         JOIN pg_namespace n ON n.oid = c.relnamespace \
+         WHERE c.oid = to_regclass('{}')",
+        pg_escape_literal(table)
+    );
+    if let Ok(Some(row)) = client.query_opt(&sql, &[]).await {
+        let schema: String = row.get(0);
+        if !schema.is_empty() {
+            return format!("\"{}\".\"{}\"", pg_quote_inner(&schema), pg_quote_inner(table));
+        }
+    }
+
+    // 解析不到（表不存在 / 无权限 / 大写表名）：不带 schema，让 PG 按 search_path 处理。
+    // 大写表名走这里反而是对的——`"Users"` 保留大小写，能命中 public.Users。
+    format!("\"{}\"", pg_quote_inner(table))
+}
+
+/// 拆分 `schema.table`（取最右侧的点，两侧均非空才算限定名）
+fn split_schema_qualified(name: &str) -> Option<(&str, &str)> {
+    let dot = name.rfind('.')?;
+    let (schema, tbl) = name.split_at(dot);
+    let tbl = &tbl[1..];
+    if schema.is_empty() || tbl.is_empty() {
+        return None;
+    }
+    Some((schema, tbl))
+}
+
+/// 去掉标识符外层的双引号，并把内部的双引号按 SQL 规则转义（`public` / `"public"` → `public`）
+fn pg_quote_inner(ident: &str) -> String {
+    let s = ident.trim();
+    let s = s
+        .strip_prefix('"')
+        .and_then(|r| r.strip_suffix('"'))
+        .unwrap_or(s);
+    s.replace('"', "\"\"")
+}
+
+/// SQL 字符串字面量转义（单引号加倍）
+fn pg_escape_literal(s: &str) -> String {
+    s.replace('\'', "''")
 }
 
 fn pg_row_to_json(row: &tokio_postgres::Row) -> serde_json::Value {
@@ -935,16 +1033,19 @@ pub async fn db_get_table_data(
             Ok(serde_json::Value::Object(obj))
         }
         DbConnection::Postgres(c) => {
+            // PG 的 db_name 是 database（连接时已用 dbname= 选定），不是 schema：
+            // 拼成 "db_name"."table" 会按 schema=db_name 解析，必然 relation does not exist
+            let qualified = pg_qualify_table(c, &table).await;
             let order = safe_order
                 .map(|s| format!(" ORDER BY \"{}\" {}", s, safe_dir))
                 .unwrap_or_default();
             let sql = format!(
-                "SELECT * FROM \"{}\".\"{}\"{} LIMIT {} OFFSET {}",
-                db_name, table, order, limit, offset
+                "SELECT * FROM {}{} LIMIT {} OFFSET {}",
+                qualified, order, limit, offset
             );
             let resp = execute_postgres_query(c, &sql).await?;
             let mut total = 0u64;
-            if let Ok(cv) = execute_postgres_query(c, &format!("SELECT COUNT(*) AS c FROM \"{}\".\"{}\"", db_name, table)).await {
+            if let Ok(cv) = execute_postgres_query(c, &format!("SELECT COUNT(*) AS c FROM {}", qualified)).await {
                 if let Some(rows) = cv.get("rows").and_then(|v| v.as_array()) {
                     total = rows.first().and_then(|r| r.get("c")).and_then(|v| v.as_u64()).unwrap_or(0);
                 }
@@ -2283,11 +2384,9 @@ pub async fn db_backup_create(
                         .await
                 }
                 DbConnection::Postgres(c) => {
-                    execute_postgres_query(
-                        c,
-                        &format!("SELECT * FROM \"{}\".\"{}\"", db_name, table),
-                    )
-                    .await
+                    // db_name 是 database 不是 schema，不能直接当限定前缀
+                    let qualified = pg_qualify_table(c, table).await;
+                    execute_postgres_query(c, &format!("SELECT * FROM {}", qualified)).await
                 }
                 DbConnection::Sqlite(cfg) => {
                     execute_sqlite_query(cfg, &format!("SELECT * FROM \"{}\"", table)).await
@@ -3652,8 +3751,10 @@ pub async fn db_get_table_data_filtered(
             Ok(serde_json::Value::Object(obj))
         }
         DbConnection::Postgres(c) => {
+            // db_name 是 database（连接时已选定）不是 schema，拼成 "db_name"."table" 必然失败
+            let qualified = pg_qualify_table(c, &table_name).await;
             let where_sql = build_where_from_filters(&filters_json, &|c| format!("\"{}\"", c));
-            let mut sql = format!("SELECT * FROM \"{}\".\"{}\"", db_name, table_name);
+            let mut sql = format!("SELECT * FROM {}", qualified);
             if !where_sql.is_empty() {
                 sql.push_str(&format!(" WHERE {}", where_sql));
             }
@@ -3670,7 +3771,7 @@ pub async fn db_get_table_data_filtered(
             let resp = execute_postgres_query(c, &sql).await?;
             let mut total = 0u64;
             if !where_sql.is_empty() {
-                if let Ok(cv) = execute_postgres_query(c, &format!("SELECT COUNT(*) AS c FROM \"{}\".\"{}\" WHERE {}", db_name, table_name, where_sql)).await {
+                if let Ok(cv) = execute_postgres_query(c, &format!("SELECT COUNT(*) AS c FROM {} WHERE {}", qualified, where_sql)).await {
                     if let Some(rows) = cv.get("rows").and_then(|v| v.as_array()) {
                         total = rows.first().and_then(|r| r.get("c")).and_then(|v| v.as_u64()).unwrap_or(0);
                     }
