@@ -1,46 +1,25 @@
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::LazyLock;
 use tauri::Emitter;
 use tokio::sync::Mutex as TokioMutex;
 
-// Native database drivers
-use mysql_async::{Pool as MySqlPool, Row, prelude::Queryable};
+// Native database drivers（本文件 GUI 特有逻辑仍直接使用这些类型）
+use mysql_async::{Pool as MySqlPool, prelude::Queryable};
 use redis::aio::MultiplexedConnection as RedisConn;
-use tokio_postgres::{Client as PgClient, NoTls};
+
+// 连接类型/连接池/建连/查询/行转 JSON 统一来自 core（Phase 2 下沉）：
+// 自曾在 GUI 里维护一整套平行实现（connect_* / execute_* / *_rows_to_json / DbConnection 枚举），
+// 与 core 双轨漂移（core 缺超时/精确类型分支，GUI 缺 core 的修复），现全部收敛到 core。
+use supertool_core::db_pool::{
+    connect_mysql, connect_postgres, connect_redis, execute_mysql_query, execute_postgres_query,
+    execute_redis_command, execute_sqlite_query, pg_qualify_table, redis_value_to_json,
+    DbConnection, DbConnectionConfig, CONNECTION_POOL,
+};
 
 use crate::commands::es::EsClient;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DbConnectionConfig {
-    pub id: String,
-    pub name: String,
-    #[serde(rename = "type")]
-    pub db_type: String,
-    pub host: String,
-    pub port: i64,
-    #[serde(alias = "user")]
-    pub username: String,
-    pub password: Option<String>,
-    #[serde(rename = "dbName", alias = "database")]
-    pub db_name: Option<String>,
-    #[serde(rename = "dbIndex")]
-    pub db_index: Option<i64>,
-    pub path: Option<String>,
-}
-
-/// Native connection pool - stores actual driver connections, not configs
-#[derive(Clone)]
-pub enum DbConnection {
-    MySql(MySqlPool),
-    Postgres(std::sync::Arc<tokio_postgres::Client>),
-    Redis(RedisConn),
-    Sqlite(DbConnectionConfig), // SQLite is file-based, config is enough
-    Elasticsearch(EsClient),    // HTTP REST client
-}
-
-pub static CONNECTION_POOL: LazyLock<TokioMutex<HashMap<String, DbConnection>>> =
+pub static ES_POOL: LazyLock<TokioMutex<HashMap<String, EsClient>>> =
     LazyLock::new(|| TokioMutex::new(HashMap::new()));
 
 /// Redis 连接配置备份：`db_connect` 时记下，供按 db 单独建连使用。
@@ -80,32 +59,7 @@ async fn redis_conn_for(id: &str, db_index: i64) -> Result<DbConnection, String>
 }
 
 // ============ MySQL ============
-
-pub async fn connect_mysql(config: &DbConnectionConfig) -> Result<DbConnection, String> {
-    let decrypted_pw = config
-        .password
-        .as_deref()
-        .map(|pw| supertool_core::encryption::try_decrypt_password(pw));
-    let opts = mysql_async::OptsBuilder::default()
-        .ip_or_hostname(config.host.clone())
-        .tcp_port(config.port as u16)
-        .user(Some(config.username.clone()))
-        .pass(decrypted_pw)
-        .db_name(config.db_name.clone());
-    let pool = MySqlPool::new(opts);
-    // S2: 连接超时（5s），避免主机不可达时 UI 无限转圈
-    let mut conn = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        pool.get_conn(),
-    )
-    .await
-    .map_err(|_| format!("MySQL connect timeout (host: {})", config.host))?
-    .map_err(|e| format!("MySQL connection failed: {}", e))?;
-    conn.ping()
-        .await
-        .map_err(|e| format!("MySQL ping failed: {}", e))?;
-    Ok(DbConnection::MySql(pool))
-}
+// connect_mysql / execute_mysql_query / mysql_rows_to_json 已下沉 core（见文件头 use）。
 
 /// 取 MySQL 表的列元数据：列名 → (数据类型, 是否可空)。查不到返回空表（退回原有拼接方式）。
 async fn mysql_column_meta(
@@ -203,478 +157,16 @@ fn mysql_literal(
     })
 }
 
-async fn execute_mysql_query(pool: &MySqlPool, sql: &str) -> Result<serde_json::Value, String> {
-    let mut conn = pool
-        .get_conn()
-        .await
-        .map_err(|e| format!("MySQL connection failed: {}", e))?;
-    // DDL/DML statements (ALTER, CREATE, DROP, INSERT, UPDATE, DELETE, USE, BEGIN, COMMIT, ROLLBACK) don't return rows
-    let upper = sql.trim().to_uppercase();
-    let first_word = upper.split_whitespace().next().unwrap_or("");
-    let is_ddl = matches!(
-        first_word,
-        "ALTER"
-            | "CREATE"
-            | "DROP"
-            | "INSERT"
-            | "UPDATE"
-            | "DELETE"
-            | "USE"
-            | "BEGIN"
-            | "COMMIT"
-            | "ROLLBACK"
-            | "TRUNCATE"
-            | "RENAME"
-            | "GRANT"
-            | "REVOKE"
-    );
-    if is_ddl {
-        conn.query_drop(sql)
-            .await
-            .map_err(|e| format!("MySQL query failed: {}", e))?;
-        Ok(serde_json::json!({ "success": true, "rows": [] }))
-    } else {
-        let rows: Vec<Row> = conn
-            .query(sql)
-            .await
-            .map_err(|e| format!("MySQL query failed: {}", e))?;
-        let result = mysql_rows_to_json(&rows);
-        Ok(serde_json::json!({ "success": true, "rows": result }))
-    }
-}
-
-fn mysql_rows_to_json(rows: &[Row]) -> Vec<serde_json::Value> {
-    if rows.is_empty() {
-        return vec![];
-    }
-    let columns = rows[0].columns();
-    rows.iter()
-        .map(|row| {
-            let mut obj = serde_json::Map::new();
-            for (i, col) in columns.as_ref().iter().enumerate() {
-                let val = row.as_ref(i);
-                let json_val = match val {
-                    Some(mysql_async::Value::NULL) => serde_json::Value::Null,
-                    Some(mysql_async::Value::Bytes(b)) => {
-                        serde_json::Value::String(String::from_utf8_lossy(b).to_string())
-                    }
-                    Some(mysql_async::Value::Int(n)) => {
-                        serde_json::Value::Number(serde_json::Number::from(*n))
-                    }
-                    Some(mysql_async::Value::UInt(n)) => {
-                        serde_json::Value::Number(serde_json::Number::from(*n))
-                    }
-                    Some(mysql_async::Value::Float(f)) => serde_json::Number::from_f64(*f as f64)
-                        .map(serde_json::Value::Number)
-                        .unwrap_or(serde_json::Value::Null),
-                    Some(mysql_async::Value::Double(f)) => serde_json::Number::from_f64(*f)
-                        .map(serde_json::Value::Number)
-                        .unwrap_or(serde_json::Value::Null),
-                    Some(mysql_async::Value::Date(y, m, d, h, min, s, _)) => {
-                        serde_json::Value::String(format!(
-                            "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
-                            y, m, d, h, min, s
-                        ))
-                    }
-                    Some(mysql_async::Value::Time(neg, d, h, m, s, _)) => {
-                        serde_json::Value::String(format!(
-                            "{}{}d {}:{}:{}",
-                            if *neg { "-" } else { "" },
-                            d,
-                            h,
-                            m,
-                            s
-                        ))
-                    }
-                    _ => serde_json::Value::Null,
-                };
-                obj.insert(col.name_str().to_string(), json_val);
-            }
-            serde_json::Value::Object(obj)
-        })
-        .collect()
-}
-
 // ============ PostgreSQL ============
-
-pub async fn connect_postgres(config: &DbConnectionConfig) -> Result<DbConnection, String> {
-    let decrypted_pw = config
-        .password
-        .as_deref()
-        .map(|pw| supertool_core::encryption::try_decrypt_password(pw))
-        .unwrap_or_default();
-    let conn_str = format!(
-        "host={} port={} user={} password={} dbname={}",
-        config.host,
-        config.port,
-        config.username,
-        decrypted_pw,
-        config.db_name.as_deref().unwrap_or("postgres")
-    );
-    // S2: 连接超时（5s），避免主机不可达时 UI 无限转圈
-    let (client, connection) = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        tokio_postgres::connect(&conn_str, NoTls),
-    )
-    .await
-    .map_err(|_| format!("PostgreSQL connect timeout (host: {})", config.host))?
-    .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            log::error!("PostgreSQL connection error: {}", e);
-        }
-    });
-    client
-        .batch_execute("SELECT 1")
-        .await
-        .map_err(|e| format!("PostgreSQL ping failed: {}", e))?;
-    Ok(DbConnection::Postgres(std::sync::Arc::new(client)))
-}
-
-async fn execute_postgres_query(client: &PgClient, sql: &str) -> Result<serde_json::Value, String> {
-    let rows = client
-        .query(sql, &[])
-        .await
-        .map_err(|e| format!("PostgreSQL query failed: {}", pg_error_detail(&e)))?;
-    let result: Vec<serde_json::Value> = rows.iter().map(pg_row_to_json).collect();
-    Ok(serde_json::json!({ "success": true, "rows": result }))
-}
-
-/// 展开 tokio_postgres 错误的完整信息。
-///
-/// `Error::Db` 的默认 Display 只输出 "db error"，把 PostgreSQL 返回的 severity /
-/// message / detail / hint 全丢掉——用户看到的就只有「db error」，无法判断到底是
-/// 表不存在、权限不足还是 SQL 语法问题，排查成本极高。
-pub fn pg_error_detail(e: &tokio_postgres::Error) -> String {
-    let Some(db_err) = e.as_db_error() else {
-        return e.to_string();
-    };
-    let mut msg = format!(
-        "{} [{}]: {}",
-        db_err.severity(),
-        db_err.code().code(),
-        db_err.message()
-    );
-    if let Some(d) = db_err.detail() {
-        msg.push_str(&format!(" | 详情: {d}"));
-    }
-    if let Some(h) = db_err.hint() {
-        msg.push_str(&format!(" | 建议: {h}"));
-    }
-    if let (Some(s), Some(t)) = (db_err.schema(), db_err.table()) {
-        msg.push_str(&format!(" | 位置: {s}.{t}"));
-    }
-    msg
-}
-
-/// 把表名解析为 PostgreSQL 的 `"schema"."table"` 限定名。
-///
-/// PG 的层级是 **database → schema → table**，而连接时已通过 `dbname=` 选定 database，
-/// 一条连接无法跨库查询。MySQL 的 `db.table` 语义不能直接套用：把 db_name 拼成
-/// `"db_name"."table"` 时，PG 会把它当成 schema=db_name 去解析，
-/// 除了 schema 恰好与 database 同名的极少数情况，必然报
-/// `relation "xxx.yyy" does not exist`（正是用户看到的 "db error"）。
-///
-/// 这里改为：让 PG 自己按 search_path 解析并回读真实 schema；
-/// 同时兼容调用方传入已限定的 `public.users` / `"public"."users"`。
-pub async fn pg_qualify_table(client: &PgClient, table: &str) -> String {
-    let table = table.trim();
-    if table.is_empty() {
-        return String::new();
-    }
-
-    // 已带 schema 限定：拆开分别加引号（兼容调用方预置的双引号）
-    if let Some((schema, name)) = split_schema_qualified(table) {
-        return format!(
-            "\"{}\".\"{}\"",
-            pg_quote_inner(schema),
-            pg_quote_inner(name)
-        );
-    }
-
-    // 未限定：交给 PG 按 search_path 解析，回读真实 schema。
-    // 表不存在时 to_regclass 返回 NULL（不报错），走下面的回退。
-    let sql = format!(
-        "SELECT n.nspname FROM pg_class c \
-         JOIN pg_namespace n ON n.oid = c.relnamespace \
-         WHERE c.oid = to_regclass('{}')",
-        pg_escape_literal(table)
-    );
-    if let Ok(Some(row)) = client.query_opt(&sql, &[]).await {
-        let schema: String = row.get(0);
-        if !schema.is_empty() {
-            return format!("\"{}\".\"{}\"", pg_quote_inner(&schema), pg_quote_inner(table));
-        }
-    }
-
-    // 解析不到（表不存在 / 无权限 / 大写表名）：不带 schema，让 PG 按 search_path 处理。
-    // 大写表名走这里反而是对的——`"Users"` 保留大小写，能命中 public.Users。
-    format!("\"{}\"", pg_quote_inner(table))
-}
-
-/// 拆分 `schema.table`（取最右侧的点，两侧均非空才算限定名）
-fn split_schema_qualified(name: &str) -> Option<(&str, &str)> {
-    let dot = name.rfind('.')?;
-    let (schema, tbl) = name.split_at(dot);
-    let tbl = &tbl[1..];
-    if schema.is_empty() || tbl.is_empty() {
-        return None;
-    }
-    Some((schema, tbl))
-}
-
-/// 去掉标识符外层的双引号，并把内部的双引号按 SQL 规则转义（`public` / `"public"` → `public`）
-fn pg_quote_inner(ident: &str) -> String {
-    let s = ident.trim();
-    let s = s
-        .strip_prefix('"')
-        .and_then(|r| r.strip_suffix('"'))
-        .unwrap_or(s);
-    s.replace('"', "\"\"")
-}
-
-/// SQL 字符串字面量转义（单引号加倍）
-fn pg_escape_literal(s: &str) -> String {
-    s.replace('\'', "''")
-}
-
-fn pg_row_to_json(row: &tokio_postgres::Row) -> serde_json::Value {
-    use tokio_postgres::types::Type;
-    let columns = row.columns();
-    let mut obj = serde_json::Map::new();
-    for (i, col) in columns.iter().enumerate() {
-        let val = match *col.type_() {
-            Type::INT2 => row
-                .try_get::<_, i16>(i)
-                .ok()
-                .map(|v| serde_json::Value::Number(serde_json::Number::from(v))),
-            Type::INT4 => row
-                .try_get::<_, i32>(i)
-                .ok()
-                .map(|v| serde_json::Value::Number(serde_json::Number::from(v))),
-            Type::INT8 => row
-                .try_get::<_, i64>(i)
-                .ok()
-                .map(|v| serde_json::Value::Number(serde_json::Number::from(v))),
-            Type::FLOAT4 => row.try_get::<_, f32>(i).ok().and_then(|v| {
-                serde_json::Number::from_f64(v as f64).map(serde_json::Value::Number)
-            }),
-            Type::FLOAT8 => row
-                .try_get::<_, f64>(i)
-                .ok()
-                .and_then(|v| serde_json::Number::from_f64(v).map(serde_json::Value::Number)),
-            Type::BOOL => row.try_get::<_, bool>(i).ok().map(serde_json::Value::Bool),
-            Type::TEXT | Type::VARCHAR | Type::BPCHAR | Type::NAME | Type::JSON | Type::JSONB => {
-                row.try_get::<_, String>(i)
-                    .ok()
-                    .map(serde_json::Value::String)
-            }
-            // S1 修复：时间类型分别处理，TIMESTAMPTZ/DATE/TIME 与 NaiveDateTime 不兼容会返回 NULL
-            Type::TIMESTAMP => row
-                .try_get::<_, chrono::NaiveDateTime>(i)
-                .ok()
-                .map(|v| serde_json::Value::String(v.to_string())),
-            Type::TIMESTAMPTZ => row
-                .try_get::<_, chrono::DateTime<chrono::Utc>>(i)
-                .ok()
-                .map(|v| serde_json::Value::String(v.to_rfc3339())),
-            Type::DATE => row
-                .try_get::<_, chrono::NaiveDate>(i)
-                .ok()
-                .map(|v| serde_json::Value::String(v.to_string())),
-            Type::TIME => row
-                .try_get::<_, chrono::NaiveTime>(i)
-                .ok()
-                .map(|v| serde_json::Value::String(v.to_string())),
-            _ => row
-                .try_get::<_, String>(i)
-                .ok()
-                .map(serde_json::Value::String)
-                .or_else(|| {
-                    row.try_get::<_, Vec<u8>>(i)
-                        .ok()
-                        .map(|b| serde_json::Value::String(hex_encode(&b)))
-                }),
-        }
-        .unwrap_or(serde_json::Value::Null);
-        obj.insert(col.name().to_string(), val);
-    }
-    serde_json::Value::Object(obj)
-}
-
-fn hex_encode(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{:02x}", b)).collect()
-}
+// connect_postgres / execute_postgres_query / pg_error_detail / pg_qualify_table /
+// pg_row_to_json 已下沉 core（见文件头 use）。
 
 // ============ Redis ============
+// connect_redis / execute_redis_command / redis_value_to_json 已下沉 core。
 
-pub async fn connect_redis(config: &DbConnectionConfig) -> Result<DbConnection, String> {
-    let db_idx = config.db_index.unwrap_or(0);
-    let url = if let Some(ref pw) = config.password {
-        let decrypted = supertool_core::encryption::try_decrypt_password(pw);
-        format!(
-            "redis://:{}@{}:{}/{}",
-            decrypted, config.host, config.port, db_idx
-        )
-    } else {
-        format!("redis://{}:{}/{}", config.host, config.port, db_idx)
-    };
-    let client =
-        redis::Client::open(url.as_str()).map_err(|e| format!("Redis connection failed: {}", e))?;
-    // S2: 连接超时（5s），避免主机不可达时 UI 无限转圈
-    let conn = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        client.get_multiplexed_async_connection(),
-    )
-    .await
-    .map_err(|_| format!("Redis connect timeout (host: {})", config.host))?
-    .map_err(|e| format!("Redis connection failed: {}", e))?;
-    let _: String = redis::cmd("PING")
-        .query_async(&mut conn.clone())
-        .await
-        .map_err(|e| format!("Redis ping failed: {}", e))?;
-    Ok(DbConnection::Redis(conn))
-}
-
-async fn execute_redis_command(
-    conn: &RedisConn,
-    command: &str,
-) -> Result<serde_json::Value, String> {
-    let parts: Vec<&str> = command.split_whitespace().collect();
-    if parts.is_empty() {
-        return Err("Empty Redis command".to_string());
-    }
-    let mut cmd = redis::Cmd::new();
-    cmd.arg(parts[0]);
-    for part in &parts[1..] {
-        cmd.arg(part);
-    }
-    let result: redis::Value = cmd
-        .query_async(&mut conn.clone())
-        .await
-        .map_err(|e| format!("Redis command failed: {}", e))?;
-    Ok(serde_json::json!({ "success": true, "result": redis_value_to_json(&result) }))
-}
-
-fn redis_value_to_json(val: &redis::Value) -> serde_json::Value {
-    match val {
-        redis::Value::Nil => serde_json::Value::Null,
-        redis::Value::Int(n) => serde_json::Value::Number(serde_json::Number::from(*n)),
-        redis::Value::BulkString(b) => {
-            serde_json::Value::String(String::from_utf8_lossy(b).to_string())
-        }
-        redis::Value::Array(items) => {
-            serde_json::Value::Array(items.iter().map(redis_value_to_json).collect())
-        }
-        redis::Value::Okay => serde_json::Value::String("OK".to_string()),
-        redis::Value::SimpleString(s) => serde_json::Value::String(s.clone()),
-        redis::Value::Map(pairs) => {
-            let obj: serde_json::Map<String, serde_json::Value> = pairs
-                .iter()
-                .filter_map(|(k, v)| {
-                    if let redis::Value::BulkString(kb) = k {
-                        Some((
-                            String::from_utf8_lossy(kb).to_string(),
-                            redis_value_to_json(v),
-                        ))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            serde_json::Value::Object(obj)
-        }
-        _ => serde_json::Value::Null,
-    }
-}
-
-// ============ SQLite (rusqlite - sync, wrapped in spawn_blocking) ============
-
-pub(crate) async fn execute_sqlite_query(
-    config: &DbConnectionConfig,
-    sql: &str,
-) -> Result<serde_json::Value, String> {
-    let db_path = config
-        .path
-        .as_deref()
-        .ok_or_else(|| "SQLite database path required".to_string())?;
-    let db_path = db_path.to_string();
-    let sql = sql.to_string();
-    tokio::task::spawn_blocking(move || {
-        let conn = rusqlite::Connection::open_with_flags(
-            &db_path,
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )
-        .map_err(|e| format!("SQLite open failed: {}", e))?;
-        let mut stmt = conn
-            .prepare(&sql)
-            .map_err(|e| format!("SQLite prepare failed: {}", e))?;
-        let column_names: Vec<String> = stmt
-            .column_names()
-            .into_iter()
-            .map(|s| s.to_string())
-            .collect();
-        let rows = stmt
-            .query_map([], |row| {
-                let mut obj = serde_json::Map::new();
-                for (i, name) in column_names.iter().enumerate() {
-                    let val: rusqlite::types::Value = row.get(i).map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(
-                            i,
-                            rusqlite::types::Type::Text,
-                            Box::new(e),
-                        )
-                    })?;
-                    let json_val = match val {
-                        rusqlite::types::Value::Null => serde_json::Value::Null,
-                        rusqlite::types::Value::Integer(n) => {
-                            serde_json::Value::Number(serde_json::Number::from(n))
-                        }
-                        rusqlite::types::Value::Real(f) => serde_json::Number::from_f64(f)
-                            .map(serde_json::Value::Number)
-                            .unwrap_or(serde_json::Value::Null),
-                        rusqlite::types::Value::Text(s) => serde_json::Value::String(s),
-                        rusqlite::types::Value::Blob(b) => {
-                            serde_json::Value::String(hex_encode(&b))
-                        }
-                    };
-                    obj.insert(name.clone(), json_val);
-                }
-                Ok(serde_json::Value::Object(obj))
-            })
-            .map_err(|e| format!("SQLite query failed: {}", e))?;
-        let result: Result<Vec<_>, _> = rows.collect();
-        let rows = result.map_err(|e| format!("SQLite row collect failed: {}", e))?;
-        Ok::<_, String>(serde_json::json!({ "success": true, "rows": rows }))
-    })
-    .await
-    .map_err(|e| format!("SQLite task failed: {}", e))?
-}
-
-/// Execute SQLite write operations (INSERT, UPDATE, DELETE, etc.)
-async fn execute_sqlite_write(
-    config: &DbConnectionConfig,
-    sql: &str,
-) -> Result<serde_json::Value, String> {
-    let db_path = config
-        .path
-        .as_deref()
-        .ok_or_else(|| "SQLite database path required".to_string())?;
-    let db_path = db_path.to_string();
-    let sql = sql.to_string();
-    tokio::task::spawn_blocking(move || {
-        let conn = rusqlite::Connection::open_with_flags(
-            &db_path,
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE,
-        )
-        .map_err(|e| format!("SQLite open failed: {}", e))?;
-        conn.execute(&sql, [])
-            .map_err(|e| format!("SQLite execute failed: {}", e))?;
-        Ok::<_, String>(serde_json::json!({ "success": true, "rows": [] }))
-    })
-    .await
-    .map_err(|e| format!("SQLite task failed: {}", e))?
-}
+// ============ SQLite ============
+// execute_sqlite_query / execute_sqlite_write 已下沉 core（core 自动判读写并选择
+// READ_ONLY / READ_WRITE 连接，spawn_blocking 执行）。
 
 // ============ Tauri Commands ============
 
@@ -690,7 +182,12 @@ pub async fn db_connect(config: DbConnectionConfig) -> Result<serde_json::Value,
         "postgres" => connect_postgres(&config).await?,
         "redis" => connect_redis(&config).await?,
         "sqlite" => DbConnection::Sqlite(config.clone()),
-        "elasticsearch" => DbConnection::Elasticsearch(crate::commands::es::connect_es(&config).await?),
+        // ES 是 GUI 特有能力，client 存独立池（core 的 DbConnection 不含 ES）
+        "elasticsearch" => {
+            let es = crate::commands::es::connect_es(&config).await?;
+            ES_POOL.lock().await.insert(config.id.clone(), es);
+            return Ok(serde_json::json!({ "success": true }));
+        }
         other => return Err(format!("Unsupported database type: {}", other)),
     };
     if config.db_type == "redis" {
@@ -707,6 +204,7 @@ pub async fn db_connect(config: DbConnectionConfig) -> Result<serde_json::Value,
 pub async fn db_disconnect(id: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] db_disconnect() called");
     CONNECTION_POOL.lock().await.remove(&id);
+    ES_POOL.lock().await.remove(&id);
     REDIS_CONFIGS.lock().await.remove(&id);
     REDIS_DB_CONNS.lock().await.retain(|k, _| !k.starts_with(&format!("{id}:")));
     Ok(serde_json::json!({ "success": true }))
@@ -730,10 +228,9 @@ pub async fn db_query(id: String, sql: String) -> Result<serde_json::Value, Stri
     };
     match &conn {
         DbConnection::MySql(p) => execute_mysql_query(p, &sql).await,
-        DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), &sql).await,
+        DbConnection::Postgres(c) => execute_postgres_query(c, &sql).await,
         DbConnection::Redis(c) => execute_redis_command(c, &sql).await,
         DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, &sql).await,
-        DbConnection::Elasticsearch(_) => Err("Elasticsearch 不支持 SQL 查询".to_string()),
     }
 }
 
@@ -748,11 +245,10 @@ pub async fn db_execute_write(id: String, sql: String) -> Result<serde_json::Val
     };
     match &conn {
         DbConnection::MySql(p) => execute_mysql_query(p, &sql).await,
-        DbConnection::Postgres(c) => execute_postgres_query(c.as_ref(), &sql).await,
-        // SQLite 写操作必须用 READ_WRITE 连接（execute_sqlite_query 是只读连接）
-        DbConnection::Sqlite(cfg) => execute_sqlite_write(cfg, &sql).await,
+        DbConnection::Postgres(c) => execute_postgres_query(c, &sql).await,
+        // core 的 execute_sqlite_query 自动判写并使用 READ_WRITE 连接
+        DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, &sql).await,
         DbConnection::Redis(_) => Err("Redis 不支持 SQL 写操作".to_string()),
-        DbConnection::Elasticsearch(_) => Err("Elasticsearch 不支持 SQL 写操作".to_string()),
     }
 }
 
@@ -2523,9 +2019,6 @@ pub async fn db_backup_restore(id: String, file: String) -> Result<serde_json::V
             DbConnection::Redis(_) => {
                 return Err("Redis 不支持备份恢复操作".to_string());
             }
-            DbConnection::Elasticsearch(_) => {
-                return Err("Elasticsearch 不支持备份恢复操作".to_string());
-            }
         }
     }
 
@@ -3510,7 +3003,7 @@ pub async fn db_insert_table_row(
                 cols.join(", "),
                 vals.join(", ")
             );
-            execute_sqlite_write(cfg, &sql).await
+            execute_sqlite_query(cfg, &sql).await
         }
         _ => Err("Only MySQL and SQLite supported for now".to_string()),
     }
@@ -3598,7 +3091,7 @@ pub async fn db_update_table_row(
                 sets.join(", "),
                 wheres.join(" AND ")
             );
-            execute_sqlite_write(cfg, &sql).await
+            execute_sqlite_query(cfg, &sql).await
         }
         _ => Err("Only MySQL and SQLite supported for now".to_string()),
     }
@@ -3670,7 +3163,7 @@ pub async fn db_delete_table_row(
                 table_name,
                 wheres.join(" AND ")
             );
-            execute_sqlite_write(cfg, &sql).await
+            execute_sqlite_query(cfg, &sql).await
         }
         _ => Err("Only MySQL and SQLite supported for now".to_string()),
     }

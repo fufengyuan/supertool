@@ -1,9 +1,10 @@
 // Elasticsearch 管理：HTTP REST 直连（可选 Basic Auth）
-// 连接复用 database.rs 的 CONNECTION_POOL（DbConnection::Elasticsearch variant）
+// ES 连接存 database.rs 的 ES_POOL（GUI 特有能力，core 的 DbConnection 不含 ES）
 use serde_json::{json, Value};
 use std::time::Duration;
 
-use super::database::{DbConnection, CONNECTION_POOL};
+use super::database::ES_POOL;
+use supertool_core::db_pool::DbConnectionConfig;
 
 /// Elasticsearch REST 客户端
 #[derive(Clone)]
@@ -77,7 +78,7 @@ impl EsClient {
 }
 
 /// 建立 ES 连接并校验连通性（5s 连接超时）
-pub async fn connect_es(config: &super::database::DbConnectionConfig) -> Result<EsClient, String> {
+pub async fn connect_es(config: &DbConnectionConfig) -> Result<EsClient, String> {
     let base_url = format!("http://{}:{}", config.host, config.port);
     let auth = if config.username.is_empty() {
         None
@@ -110,10 +111,9 @@ pub async fn connect_es(config: &super::database::DbConnectionConfig) -> Result<
 }
 
 async fn get_es(id: &str) -> Result<EsClient, String> {
-    let pool = CONNECTION_POOL.lock().await;
+    let pool = ES_POOL.lock().await;
     match pool.get(id) {
-        Some(DbConnection::Elasticsearch(c)) => Ok(c.clone()),
-        Some(_) => Err("当前连接不是 Elasticsearch".to_string()),
+        Some(c) => Ok(c.clone()),
         None => Err("Connection not found. Call db:connect first.".to_string()),
     }
 }

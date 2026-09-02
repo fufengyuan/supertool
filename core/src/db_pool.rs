@@ -386,7 +386,8 @@ pub async fn execute_redis_command(conn: &RedisConn, cmd: &str) -> Result<serde_
     Ok(redis_value_to_json(&result))
 }
 
-fn redis_value_to_json(val: &redis::Value) -> serde_json::Value {
+/// redis::Value → JSON（pub：GUI 的 Redis keys/stream 命令在取回原始 Value 后复用此转换）
+pub fn redis_value_to_json(val: &redis::Value) -> serde_json::Value {
     match val {
         redis::Value::Nil => serde_json::Value::Null,
         redis::Value::Int(n) => serde_json::json!(n),
