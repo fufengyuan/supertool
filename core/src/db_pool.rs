@@ -147,15 +147,48 @@ pub async fn connect_sqlite(config: &DbConnectionConfig) -> Result<DbConnection,
 
 // ── PostgreSQL Query ─────────────────────────────────────────────────────────
 
+/// 展开 tokio_postgres 错误的完整信息。
+///
+/// `Error::Db` 的默认 Display 只输出 "db error"，把 PostgreSQL 返回的 severity /
+/// message / detail / hint 全丢掉。统一展开后，GUI 与 CLI 通过 core 都能看到真实
+/// 错误原因（表不存在、权限、SQL 语法等），否则排查只能靠猜。
+pub fn pg_error_detail(e: &tokio_postgres::Error) -> String {
+    let Some(db_err) = e.as_db_error() else {
+        return e.to_string();
+    };
+    let mut msg = format!(
+        "{} [{}]: {}",
+        db_err.severity(),
+        db_err.code().code(),
+        db_err.message()
+    );
+    if let Some(d) = db_err.detail() {
+        msg.push_str(&format!(" | 详情: {d}"));
+    }
+    if let Some(h) = db_err.hint() {
+        msg.push_str(&format!(" | 建议: {h}"));
+    }
+    if let (Some(s), Some(t)) = (db_err.schema(), db_err.table()) {
+        msg.push_str(&format!(" | 位置: {s}.{t}"));
+    }
+    msg
+}
+
 pub async fn execute_postgres_query(client: &PgClient, sql: &str) -> Result<serde_json::Value, String> {
     let upper = sql.trim().to_uppercase();
     let first = upper.split_whitespace().next().unwrap_or("");
     let is_write = matches!(first, "ALTER"|"CREATE"|"DROP"|"INSERT"|"UPDATE"|"DELETE"|"BEGIN"|"COMMIT"|"ROLLBACK"|"TRUNCATE");
     if is_write {
-        client.execute(sql, &[]).await.map_err(|e| e.to_string())?;
+        client
+            .execute(sql, &[])
+            .await
+            .map_err(|e| format!("PostgreSQL query failed: {}", pg_error_detail(&e)))?;
         Ok(serde_json::json!({"success": true}))
     } else {
-        let rows = client.query(sql, &[]).await.map_err(|e| e.to_string())?;
+        let rows = client
+            .query(sql, &[])
+            .await
+            .map_err(|e| format!("PostgreSQL query failed: {}", pg_error_detail(&e)))?;
         let result: Vec<serde_json::Value> = rows.iter().map(|row| {
             let mut obj = serde_json::Map::new();
             for (i, col) in row.columns().iter().enumerate() {
