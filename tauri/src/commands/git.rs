@@ -270,13 +270,23 @@ pub fn validate_repo_path(path: String) -> Result<RepoValidationResult, String> 
         });
     }
 
-    // Check .git directory exists
-    if !path_buf.join(".git").exists() {
+    // 判定是否 Git 仓库：禁止只看 path/.git 是否存在（部署根/模块目录可能是仓库子目录，
+    // 天然没有 .git）。用 git rev-parse 让 git 自己判定（对齐 AGENTS.md 约定）。
+    let _ = path_buf.join(".git");
+    let probe = Command::new(supertool_core::logic::git::find_git())
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .current_dir(&path)
+        .output();
+    let inside = matches!(
+        &probe,
+        Ok(o) if o.status.success() && String::from_utf8_lossy(&o.stdout).trim() == "true"
+    );
+    if !inside {
         return Ok(RepoValidationResult {
             valid: false,
             branch: String::new(),
             remote: String::new(),
-            error: Some("Not a git repository (no .git directory)".to_string()),
+            error: Some("Not a git repository (git rev-parse failed)".to_string()),
         });
     }
 
