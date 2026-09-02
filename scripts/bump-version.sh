@@ -97,23 +97,19 @@ NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
 echo "📦 版本号更新: $CURRENT_VERSION → $NEW_VERSION ($LEVEL)"
 
-# macOS sed 兼容: -i 需要显式传空备份扩展名，-E 表示扩展正则
-SED_INPLACE=(-i '')
-if [[ "$(uname)" == "Darwin" ]]; then
-    SED_INPLACE=(-i '' -E)
-else
-    SED_INPLACE=(-i -E)
-fi
-
+# 版本替换统一用 perl（macOS/Linux 均内置）。
+# 之前用 macOS 自带 BSD sed 的 `-i ''` 在 zsh 下会把正则误当文件报
+# "No such file or directory"，且 `+` 依赖 -E 扩展正则才生效，坑很多。
+# perl 的 -i 原地替换 + -pe 正则里的 + 直接用，跨平台一致、无坑。
 cd "$PROJECT_DIR"
 
 for file in "${VERSION_FILES[@]}"; do
     # JSON 文件用 "version": "x.y.z" 格式
     # Cargo.toml 用 version = "x.y.z" 格式
     if [[ "$file" == *"package.json"* ]] || [[ "$file" == *"tauri.conf.json"* ]]; then
-        sed "${SED_INPLACE[@]}" 's/"version": *"[^"]+"/"version": "'"$NEW_VERSION"'"/' "$file"
+        perl -i -pe 's/"version": *"[^"]+"/"version": "'"$NEW_VERSION"'"/' "$file"
     else
-        sed "${SED_INPLACE[@]}" 's/^version = "[^"]+"/version = "'"$NEW_VERSION"'"/' "$file"
+        perl -i -pe 's/^version = "[^"]+"/version = "'"$NEW_VERSION"'"/' "$file"
     fi
 
     if [[ "$NO_ADD" == "false" ]]; then
@@ -136,9 +132,6 @@ if [[ "$CARGO_AVAILABLE" == "true" ]]; then
 else
     echo "  ⚠️ 未找到 cargo，跳过 Cargo.lock 更新"
 fi
-
-# 清理 macOS sed 备份文件
-rm -f "$PROJECT_DIR"/*-E "$PROJECT_DIR"/cli/*-E "$PROJECT_DIR"/core/*-E "$PROJECT_DIR"/tauri/*-E
 
 if [[ "$NO_ADD" == "false" ]]; then
     echo ""
