@@ -55,3 +55,12 @@
 
 - 旧实现基于手写列 getter，表结构演化后静默漏列丢配置 → 已废弃，勿回退
 - 服务器密码旧备份若为明文/不可解密，需重新录入
+
+## merge 导入 db_connections 语义（2026-09-02）
+
+**稳定约定**：settings 键的 `db_connections`（存连接数组）在 **merge** 导入时必须按连接 `id` 做并集合并——备份里 id 不存在的连接追加，本地已有的保留。曾用通用 `INSERT OR IGNORE`，本地已有该键时整键跳过，导致备份新增的连接（如 PostgreSQL）导入后丢失。
+
+- 修复位置：`core/src/logic/backup.rs::import_all_tables` 的 settings 分支。
+- replace 模式仍整键 `INSERT OR REPLACE` 覆盖。
+- 值可能是 `String`（JSON 数组串）或 `Value::Array`，统一解析。
+- 回归测试：`core/tests/test_backup_new_tables.rs::merge_import_merges_db_connections_in_settings`。
