@@ -59,7 +59,14 @@ pub async fn connect_mysql(config: &DbConnectionConfig) -> Result<DbConnection, 
         .pass(decrypted_pw)
         .db_name(config.db_name.clone());
     let pool = MySqlPool::new(opts);
-    let mut conn = pool.get_conn().await.map_err(|e| format!("MySQL failed: {}", e))?;
+    // 5s 连接超时：主机不可达时快速失败（自 tauri 版吸收）
+    let mut conn = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        pool.get_conn(),
+    )
+    .await
+    .map_err(|_| format!("MySQL connect timeout (host: {})", config.host))?
+    .map_err(|e| format!("MySQL failed: {}", e))?;
     conn.ping().await.map_err(|e| format!("MySQL ping failed: {}", e))?;
     Ok(DbConnection::MySql(pool))
 }
@@ -68,10 +75,10 @@ pub async fn execute_mysql_query(pool: &MySqlPool, sql: &str) -> Result<serde_js
     let mut conn = pool.get_conn().await.map_err(|e| e.to_string())?;
     let upper = sql.trim().to_uppercase();
     let first = upper.split_whitespace().next().unwrap_or("");
-    let is_write = matches!(first, "ALTER"|"CREATE"|"DROP"|"INSERT"|"UPDATE"|"DELETE"|"USE"|"BEGIN"|"COMMIT"|"ROLLBACK"|"TRUNCATE");
+    let is_write = matches!(first, "ALTER"|"CREATE"|"DROP"|"INSERT"|"UPDATE"|"DELETE"|"USE"|"BEGIN"|"COMMIT"|"ROLLBACK"|"TRUNCATE"|"RENAME"|"GRANT"|"REVOKE");
     if is_write {
         conn.query_drop(sql).await.map_err(|e| e.to_string())?;
-        Ok(serde_json::json!({"success": true}))
+        Ok(serde_json::json!({"success": true, "rows": []}))
     } else {
         let rows: Vec<Row> = conn.query(sql).await.map_err(|e| e.to_string())?;
         Ok(serde_json::json!({"success": true, "rows": mysql_rows_to_json(&rows)}))
@@ -93,6 +100,12 @@ fn mysql_rows_to_json(rows: &[Row]) -> Vec<serde_json::Value> {
                 Some(mysql_async::Value::Float(f)) => serde_json::Number::from_f64(*f as f64).map(serde_json::Value::Number).unwrap_or(serde_json::Value::Null),
                 Some(mysql_async::Value::Double(f)) => serde_json::Number::from_f64(*f).map(serde_json::Value::Number).unwrap_or(serde_json::Value::Null),
                 Some(mysql_async::Value::Date(y,m,d,h,min,s,_)) => serde_json::Value::String(format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}",y,m,d,h,min,s)),
+                // TIME 类型（可带天数/负值）：避免落到 Debug 格式（自 tauri 版吸收）
+                Some(mysql_async::Value::Time(neg, d, h, m, s, _)) => serde_json::Value::String(format!(
+                    "{}{}d {:02}:{:02}:{:02}",
+                    if *neg { "-" } else { "" },
+                    d, h, m, s
+                )),
                 _ => serde_json::Value::String(format!("{:?}", val)),
             };
             obj.insert(col.name_str().to_string(), jv);
@@ -147,10 +160,14 @@ pub async fn connect_redis(config: &DbConnectionConfig) -> Result<DbConnection, 
         format!("redis://{}:{}/{}", config.host, config.port, db_idx)
     };
     let client = redis::Client::open(url.as_str()).map_err(|e| format!("Redis URL: {}", e))?;
-    let conn = client
-        .get_multiplexed_async_connection()
-        .await
-        .map_err(|e| format!("Redis connect: {}", e))?;
+    // 5s 连接超时：主机不可达时快速失败（自 tauri 版吸收）
+    let conn = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        client.get_multiplexed_async_connection(),
+    )
+    .await
+    .map_err(|_| format!("Redis connect timeout (host: {})", config.host))?
+    .map_err(|e| format!("Redis connect: {}", e))?;
     let _: String = redis::cmd("PING")
         .query_async(&mut conn.clone())
         .await
@@ -291,70 +308,62 @@ pub async fn execute_postgres_query(client: &PgClient, sql: &str) -> Result<serd
 
 fn pg_value_to_json(row: &tokio_postgres::Row, i: usize) -> serde_json::Value {
     use tokio_postgres::types::Type;
-    let ty = row.columns()[i].type_();
-    match ty {
-        &Type::INT2 | &Type::INT4 | &Type::INT8 => row
-            .try_get::<_, Option<i64>>(i)
+    // 精确类型分支：tokio_postgres 的 try_get 按列类型严格匹配，
+    // 用统一 i64 读 INT2/INT4 列、统一 f64 读 FLOAT4 列都会类型不匹配返回
+    // Null（曾导致 int4 主键列在结果里全部变 null）。时间类型分别处理：
+    // TIMESTAMPTZ/DATE/TIME 与 NaiveDateTime 不兼容（S1 修复）。
+    let val = match row.columns()[i].type_() {
+        &Type::INT2 => row.try_get::<_, i16>(i).ok()
+            .map(|v| serde_json::Value::Number(serde_json::Number::from(v))),
+        &Type::INT4 => row.try_get::<_, i32>(i).ok()
+            .map(|v| serde_json::Value::Number(serde_json::Number::from(v))),
+        &Type::INT8 => row.try_get::<_, i64>(i).ok()
+            .map(|v| serde_json::Value::Number(serde_json::Number::from(v))),
+        &Type::FLOAT4 => row.try_get::<_, f32>(i).ok()
+            .and_then(|v| serde_json::Number::from_f64(v as f64).map(serde_json::Value::Number)),
+        &Type::FLOAT8 => row.try_get::<_, f64>(i).ok()
+            .and_then(|v| serde_json::Number::from_f64(v).map(serde_json::Value::Number)),
+        &Type::BOOL => row.try_get::<_, bool>(i).ok().map(serde_json::Value::Bool),
+        &Type::TEXT | &Type::VARCHAR | &Type::BPCHAR | &Type::NAME => row
+            .try_get::<_, Option<String>>(i)
             .ok()
             .flatten()
-            .map_or(serde_json::Value::Null, |n| serde_json::json!(n)),
-        &Type::FLOAT4 | &Type::FLOAT8 => row
-            .try_get::<_, Option<f64>>(i)
-            .ok()
-            .flatten()
-            .and_then(|n| serde_json::Number::from_f64(n).map(serde_json::Value::Number))
-            .unwrap_or(serde_json::Value::Null),
-        &Type::BOOL => row
-            .try_get::<_, Option<bool>>(i)
-            .ok()
-            .flatten()
-            .map_or(serde_json::Value::Null, |v| serde_json::json!(v)),
-        // 时间类型分别处理：TIMESTAMPTZ 含时区、DATE/TIME 与 NaiveDateTime 不兼容（S1 修复）
+            .map(serde_json::Value::String),
         &Type::TIMESTAMP => row
             .try_get::<_, Option<chrono::NaiveDateTime>>(i)
             .ok()
             .flatten()
-            .map_or(serde_json::Value::Null, |v| serde_json::Value::String(v.to_string())),
+            .map(|v| serde_json::Value::String(v.to_string())),
         &Type::TIMESTAMPTZ => row
             .try_get::<_, Option<chrono::DateTime<chrono::Utc>>>(i)
             .ok()
             .flatten()
-            .map_or(serde_json::Value::Null, |v| {
-                serde_json::Value::String(v.to_rfc3339())
-            }),
+            .map(|v| serde_json::Value::String(v.to_rfc3339())),
         &Type::DATE => row
             .try_get::<_, Option<chrono::NaiveDate>>(i)
             .ok()
             .flatten()
-            .map_or(serde_json::Value::Null, |v| serde_json::Value::String(v.to_string())),
+            .map(|v| serde_json::Value::String(v.to_string())),
         &Type::TIME => row
             .try_get::<_, Option<chrono::NaiveTime>>(i)
             .ok()
             .flatten()
-            .map_or(serde_json::Value::Null, |v| serde_json::Value::String(v.to_string())),
-        &Type::TEXT
-        | &Type::VARCHAR
-        | &Type::BPCHAR
-        | &Type::NAME
-        | &Type::JSON
-        | &Type::JSONB
-        | &Type::UUID => row
-            .try_get::<_, Option<String>>(i)
-            .ok()
-            .flatten()
-            .map_or(serde_json::Value::Null, serde_json::Value::String),
+            .map(|v| serde_json::Value::String(v.to_string())),
         _ => {
-            if let Ok(v) = row.try_get::<_, Option<&[u8]>>(i) {
-                v.map_or(serde_json::Value::Null, |b| {
+            // 其余类型（含 JSON/JSONB/UUID/NUMERIC/bytea…）：先试字符串，失败再试
+            // 字节（bytea → hex）。与 tauri 生产版本行为一致。
+            if let Ok(v) = row.try_get::<_, Option<String>>(i) {
+                Some(v.map_or(serde_json::Value::Null, serde_json::Value::String))
+            } else if let Ok(v) = row.try_get::<_, Option<&[u8]>>(i) {
+                Some(v.map_or(serde_json::Value::Null, |b| {
                     serde_json::Value::String(hex::encode(b))
-                })
-            } else if let Ok(v) = row.try_get::<_, Option<String>>(i) {
-                v.map_or(serde_json::Value::Null, serde_json::Value::String)
+                }))
             } else {
-                serde_json::Value::Null
+                None
             }
         }
-    }
+    };
+    val.unwrap_or(serde_json::Value::Null)
 }
 
 // ── Redis Query ──────────────────────────────────────────────────────────────
@@ -385,6 +394,23 @@ fn redis_value_to_json(val: &redis::Value) -> serde_json::Value {
         redis::Value::Array(items) => serde_json::Value::Array(items.iter().map(redis_value_to_json).collect()),
         redis::Value::Okay => serde_json::Value::String("OK".to_string()),
         redis::Value::SimpleString(s) => serde_json::Value::String(s.clone()),
+        // Map（XINFO 等返回 k-v 对）： BulkString key 解码，非字符串 key 跳过（自 tauri 版吸收）
+        redis::Value::Map(pairs) => {
+            let obj: serde_json::Map<String, serde_json::Value> = pairs
+                .iter()
+                .filter_map(|(k, v)| {
+                    if let redis::Value::BulkString(kb) = k {
+                        Some((
+                            String::from_utf8_lossy(kb).to_string(),
+                            redis_value_to_json(v),
+                        ))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            serde_json::Value::Object(obj)
+        }
         _ => serde_json::Value::Null,
     }
 }
@@ -392,16 +418,25 @@ fn redis_value_to_json(val: &redis::Value) -> serde_json::Value {
 // ── SQLite Query ─────────────────────────────────────────────────────────────
 
 pub async fn execute_sqlite_query(config: &DbConnectionConfig, sql: &str) -> Result<serde_json::Value, String> {
-    let path = config.path.as_ref().ok_or("SQLite path required")?;
-    let conn = rusqlite::Connection::open(path).map_err(|e| e.to_string())?;
+    let path = config.path.as_ref().ok_or("SQLite path required")?.to_string();
+    let sql = sql.to_string();
     let upper = sql.trim().to_uppercase();
     let first = upper.split_whitespace().next().unwrap_or("");
     let is_write = matches!(first, "ALTER"|"CREATE"|"DROP"|"INSERT"|"UPDATE"|"DELETE"|"BEGIN"|"COMMIT"|"ROLLBACK"|"TRUNCATE");
-    if is_write {
-        conn.execute_batch(sql).map_err(|e| e.to_string())?;
-        Ok(serde_json::json!({"success": true}))
-    } else {
-        let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    // spawn_blocking + 读写分离打开：查询 READ_ONLY、写 READ_WRITE，
+    // 避免在 async runtime 里同步阻塞（自 tauri 版吸收）
+    tokio::task::spawn_blocking(move || {
+        let flags = if is_write {
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE
+        } else {
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+        };
+        let conn = rusqlite::Connection::open_with_flags(&path, flags).map_err(|e| e.to_string())?;
+        if is_write {
+            conn.execute_batch(&sql).map_err(|e| e.to_string())?;
+            return Ok(serde_json::json!({"success": true, "rows": []}));
+        }
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
         let col_count = stmt.column_count();
         let col_names: Vec<String> = (0..col_count).map(|i| stmt.column_name(i).unwrap_or("?").to_string()).collect();
         let rows = stmt.query_map([], |row| {
@@ -421,7 +456,9 @@ pub async fn execute_sqlite_query(config: &DbConnectionConfig, sql: &str) -> Res
         }).map_err(|e| e.to_string())?;
         let items: Vec<serde_json::Value> = rows.filter_map(|r| r.ok()).collect();
         Ok(serde_json::json!({"success": true, "rows": items}))
-    }
+    })
+    .await
+    .map_err(|e| format!("SQLite task failed: {}", e))?
 }
 
 // ── Query Dispatcher ─────────────────────────────────────────────────────────
