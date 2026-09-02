@@ -635,7 +635,10 @@ fn shellexpand_home(p: &str) -> String {
 }
 
 /// 打包 all-data.json + receipts/ 为 .stbackup zip
-fn write_backup_zip(data_json: &str, dest: &std::path::Path) -> Result<(), String> {
+///
+/// `pub` 供 GUI/CLI 复用（cli/commands/backup.rs 与 tauri/commands/data_backup.rs
+/// 曾各写一份相同的打包逻辑，格式若漂移会导致备份跨端无法恢复，统一收敛到 core）。
+pub fn write_backup_zip(data_json: &str, dest: &std::path::Path) -> Result<(), String> {
     use std::io::{Cursor, Write as IoWrite};
     let buf = std::sync::Mutex::new(Cursor::new(Vec::new()));
     {
@@ -673,6 +676,42 @@ fn write_backup_zip(data_json: &str, dest: &std::path::Path) -> Result<(), Strin
     std::fs::write(&tmp, &bytes).map_err(|e| format!("写入临时文件失败: {}", e))?;
     std::fs::rename(&tmp, dest).map_err(|e| format!("落盘失败: {}", e))?;
     Ok(())
+}
+
+/// 读取 .stbackup zip：返回 (all-data.json 内容, receipts/[name → bytes])。
+///
+/// 之前 GUI/CLI 各写一份解包逻辑（搜 all-data.json + 按 receipts/ 前缀取出收据），
+/// 统一收敛到 core，避免格式漂移导致备份跨端无法恢复。
+pub fn read_backup_zip(zip_data: &[u8]) -> Result<(String, Vec<(String, Vec<u8>)>), String> {
+    use std::io::{Cursor, Read as _};
+
+    let mut archive = zip::ZipArchive::new(Cursor::new(zip_data))
+        .map_err(|e| format!("ZIP 解析失败: {}", e))?;
+
+    // 读 all-data.json
+    let all_data_json = {
+        let mut zf = archive
+            .by_name("all-data.json")
+            .map_err(|_| "备份文件格式错误：缺少 all-data.json".to_string())?;
+        let mut content = Vec::new();
+        zf.read_to_end(&mut content)
+            .map_err(|e| format!("读取 all-data.json 失败: {}", e))?;
+        String::from_utf8(content).map_err(|e| format!("解码失败: {}", e))?
+    };
+
+    // 取出 receipts/ 下的文件
+    let mut receipts: Vec<(String, Vec<u8>)> = Vec::new();
+    for i in 0..archive.len() {
+        let mut zf = archive.by_index(i).map_err(|e| e.to_string())?;
+        let name = zf.name().to_string();
+        if name.starts_with("receipts/") && !name.ends_with('/') {
+            let mut content = Vec::new();
+            zf.read_to_end(&mut content).map_err(|e| e.to_string())?;
+            receipts.push((name, content));
+        }
+    }
+
+    Ok((all_data_json, receipts))
 }
 
 /// 轮转：只保留最近 keep 份 supertool-auto-*.stbackup

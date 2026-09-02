@@ -1,7 +1,5 @@
 use serde_json::json;
-use std::io::{Cursor, Write};
 use tauri_plugin_dialog::DialogExt;
-use zip::write::FileOptions;
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn export_all_data(
@@ -58,36 +56,8 @@ pub async fn export_all_data(
         .to_string_lossy()
         .to_string();
 
-    let mut zip_buf = Cursor::new(Vec::new());
-    {
-        let mut zip = zip::ZipWriter::new(&mut zip_buf);
-        let opts: FileOptions<()> =
-            FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-        zip.start_file("all-data.json", opts)
-            .map_err(|e| format!("ZIP创建失败: {}", e))?;
-        zip.write_all(data_json.as_bytes())
-            .map_err(|e| format!("写入ZIP失败: {}", e))?;
-
-        let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
-        let receipt_dir = data_dir.join("accounting-receipts");
-        if receipt_dir.is_dir() {
-            if let Ok(entries) = std::fs::read_dir(&receipt_dir) {
-                for entry in entries.flatten() {
-                    if entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
-                        let filename = entry.file_name();
-                        if let Ok(content) = std::fs::read(entry.path()) {
-                            let zip_path = format!("receipts/{}", filename.to_string_lossy());
-                            let _ = zip.start_file(&zip_path, opts);
-                            let _ = zip.write_all(&content);
-                        }
-                    }
-                }
-            }
-        }
-        zip.finish().map_err(|e| format!("ZIP完成失败: {}", e))?;
-    }
-
-    std::fs::write(&path_str, zip_buf.into_inner()).map_err(|e| format!("写入文件失败: {}", e))?;
+    // 打包 all-data.json + receipts/，统一走 core（曾内联一份相同 ZIP 逻辑）
+    supertool_core::logic::backup::write_backup_zip(&data_json, std::path::Path::new(&path_str))?;
 
     Ok(
         json!({ "success": true, "path": path_str, "tableCount": table_count, "totalItems": total_items, "warnings": warnings }),
@@ -133,20 +103,13 @@ pub async fn import_json(
 
     let zip_data = std::fs::read(&path_str).map_err(|e| format!("读取文件失败: {}", e))?;
     log::info!("[Backup] ZIP file size: {} bytes", zip_data.len());
-    let mut archive =
-        zip::ZipArchive::new(Cursor::new(zip_data)).map_err(|e| format!("ZIP解析失败: {}", e))?;
-    log::info!("[Backup] ZIP entries: {}", archive.len());
     log::info!("[Backup] Import mode: {}", mode);
 
-    let all_data_json = {
-        let mut file = archive
-            .by_name("all-data.json")
-            .map_err(|_| "备份文件格式错误：缺少 all-data.json")?;
-        let mut content = Vec::new();
-        std::io::Read::read_to_end(&mut file, &mut content)
-            .map_err(|e| format!("读取all-data.json失败: {}", e))?;
-        String::from_utf8(content).map_err(|e| format!("解码失败: {}", e))?
-    };
+    // 解包 all-data.json + receipts/，统一走 core 的 read_backup_zip
+    let (all_data_json, receipts) =
+        supertool_core::logic::backup::read_backup_zip(&zip_data)
+            .map_err(|e| format!("ZIP解析失败: {}", e))?;
+    log::info!("[Backup] ZIP decode ok, receipts: {}", receipts.len());
 
     let data: serde_json::Value =
         serde_json::from_str(&all_data_json).map_err(|e| format!("JSON解析失败: {}", e))?;
@@ -154,25 +117,16 @@ pub async fn import_json(
     // Extract receipt files
     let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
     let receipt_dir = data_dir.join("accounting-receipts");
-    for i in 0..archive.len() {
-        let mut file = archive
-            .by_index(i)
-            .map_err(|e| format!("ZIP读取失败: {}", e))?;
-        let name = file.name().to_string();
-        if name.starts_with("receipts/") && !name.ends_with("/") {
-            let filename = std::path::Path::new(&name)
-                .file_name()
-                .ok_or("无效的收据文件路径")?;
-            if !receipt_dir.exists() {
-                std::fs::create_dir_all(&receipt_dir)
-                    .map_err(|e| format!("创建收据目录失败: {}", e))?;
-            }
-            let mut content = Vec::new();
-            std::io::Read::read_to_end(&mut file, &mut content)
-                .map_err(|e| format!("读取收据文件失败: {}", e))?;
-            std::fs::write(receipt_dir.join(filename), content)
-                .map_err(|e| format!("写入收据文件失败: {}", e))?;
+    for (name, content) in receipts {
+        let filename = std::path::Path::new(&name)
+            .file_name()
+            .ok_or("无效的收据文件路径")?;
+        if !receipt_dir.exists() {
+            std::fs::create_dir_all(&receipt_dir)
+                .map_err(|e| format!("创建收据目录失败: {}", e))?;
         }
+        std::fs::write(receipt_dir.join(filename), content)
+            .map_err(|e| format!("写入收据文件失败: {}", e))?;
     }
 
     let (imported, skipped, import_errors, path_rewritten) = core.import_all_tables(data, &mode).await?;
@@ -232,28 +186,7 @@ pub async fn export_csv(
     core: tauri::State<'_, supertool_core::logic::CoreService>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] export_csv() called");
-    let result = core.export_all_data().await?;
-    let todos = result
-        .get("todos")
-        .and_then(|t| t.as_array())
-        .cloned()
-        .unwrap_or_default();
-    let mut csv = String::from("id,text,completed,priority,createdAt,dueDate\n");
-    for todo in todos {
-        let id = todo.get("id").and_then(|v| v.as_str()).unwrap_or("");
-        let text = todo.get("text").and_then(|v| v.as_str()).unwrap_or("");
-        let completed = todo
-            .get("completed")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        let priority = todo.get("priority").and_then(|v| v.as_str()).unwrap_or("");
-        let created = todo.get("createdAt").and_then(|v| v.as_str()).unwrap_or("");
-        let due = todo.get("dueDate").and_then(|v| v.as_str()).unwrap_or("");
-        let text_escaped = text.replace('"', "\"\"");
-        csv.push_str(&format!(
-            "{},\"{}\",{},{},{},{}\n",
-            id, text_escaped, completed, priority, created, due
-        ));
-    }
+    // 统一走 core 的 export_todos_csv（GUI/CLI 曾各写一份相同的待办 CSV 拼接逻辑）
+    let csv = core.export_todos_csv().await?;
     Ok(json!({ "success": true, "csv": csv }))
 }

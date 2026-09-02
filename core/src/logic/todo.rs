@@ -258,6 +258,80 @@ impl super::CoreService {
         Ok(json!({"id": id}))
     }
 
+    /// 批量删除多条待办。`ids` 为空时返回 0。
+    /// 下沉自 tauri/todos.rs::delete_many（原为 GUI 内联 SQL，批量能力本应属于 core）。
+    pub async fn delete_todos_many(&self, ids: Vec<String>) -> Result<Value, String> {
+        if ids.is_empty() {
+            return Ok(json!({"deleted": 0}));
+        }
+        let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
+        let sql = format!("DELETE FROM todos WHERE id IN ({})", placeholders.join(","));
+        let deleted = self
+            .with_db(|db| {
+                db.conn_mut()
+                    .execute(&sql, rusqlite::params_from_iter(&ids))
+                    .map_err(|e| e.to_string())
+            })
+            .map_err(|e| e.to_string())?;
+        Ok(json!({"deleted": deleted}))
+    }
+
+    /// 批量更新待办排序：每项取 `id` + `orderNum`，逐条 `UPDATE ... SET orderNum, updatedAt`。
+    /// 下沉自 tauri/todos.rs::update_order（原为 GUI 内联 SQL，批量排序本应属于 core）。
+    pub async fn update_todos_order(&self, items: Vec<Value>) -> Result<Value, String> {
+        if items.is_empty() {
+            return Ok(json!({"updated": 0}));
+        }
+        let now = chrono::Utc::now().to_rfc3339();
+        let mut count = 0;
+        for item in &items {
+            let id = item["id"].as_str().unwrap_or("").to_string();
+            if id.is_empty() {
+                continue;
+            }
+            let order_num = item["orderNum"].as_i64().unwrap_or(0);
+            let affected = self
+                .with_db(|db| {
+                    db.conn_mut()
+                        .execute(
+                            "UPDATE todos SET orderNum = ?1, updatedAt = ?2 WHERE id = ?3",
+                            params![order_num, now, id],
+                        )
+                        .map_err(|e| e.to_string())
+                })
+                .map_err(|e| e.to_string())?;
+            count += affected;
+        }
+        Ok(json!({"updated": count}))
+    }
+
+    /// 导出待办为 CSV 文本（表头：id,text,completed,priority,createdAt,dueDate）。
+    ///
+    /// GUI(tauri/commands/data_backup.rs::export_csv) 与 CLI(cli/commands/backup.rs::ExportCsv)
+    /// 曾各写一份完全相同的拼接逻辑，统一收敛到 core。
+    pub async fn export_todos_csv(&self) -> Result<String, String> {
+        let todos = self.get_all_todos().await?;
+        let todos = todos.as_array().cloned().unwrap_or_default();
+        let mut csv = String::from("id,text,completed,priority,createdAt,dueDate\n");
+        for todo in &todos {
+            let id = todo.get("id").and_then(|v| v.as_str()).unwrap_or("");
+            let text = todo.get("text").and_then(|v| v.as_str()).unwrap_or("");
+            let completed = todo
+                .get("completed")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let priority = todo.get("priority").and_then(|v| v.as_str()).unwrap_or("");
+            let created = todo.get("createdAt").and_then(|v| v.as_str()).unwrap_or("");
+            let due = todo.get("dueDate").and_then(|v| v.as_str()).unwrap_or("");
+            let text_escaped = text.replace('"', "\"\"");
+            csv.push_str(&format!(
+                "{},\"{}\",{},{},{},{}\n",
+                id, text_escaped, completed, priority, created, due
+            ));
+        }
+        Ok(csv)
+    }
+
     // ============ Subtasks ============
 
     pub async fn get_subtasks_for_todo(&self, todo_id: &str) -> Result<Value, String> {
