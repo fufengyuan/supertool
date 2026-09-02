@@ -32,9 +32,13 @@ pub struct DbConnectionConfig {
 }
 
 /// Native connection pool - stores actual driver connections
+///
+/// `Clone` 供 GUI 连接池在锁内取出连接后解锁执行（PG 的 Client 不是 Clone，
+/// 用 `Arc<PgClient>` 包装；deref coercion 保证所有 `&PgClient` 调用点无需改动）。
+#[derive(Clone)]
 pub enum DbConnection {
     MySql(MySqlPool),
-    Postgres(PgClient),
+    Postgres(std::sync::Arc<PgClient>),
     Redis(RedisConn),
     Sqlite(DbConnectionConfig),
 }
@@ -108,10 +112,25 @@ pub async fn connect_postgres(config: &DbConnectionConfig) -> Result<DbConnectio
         decrypted_pw.unwrap_or_default(),
         config.db_name.as_deref().unwrap_or("postgres"),
     );
-    let (client, connection) = tokio_postgres::connect(&conn_str, NoTls)
-        .await.map_err(|e| format!("Postgres failed: {}", e))?;
-    tokio::spawn(async move { connection.await.ok(); });
-    Ok(DbConnection::Postgres(client))
+    // 5s 连接超时：主机不可达时快速失败，避免调用方无限等待（自 tauri 版吸收）
+    let (client, connection) = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        tokio_postgres::connect(&conn_str, NoTls),
+    )
+    .await
+    .map_err(|_| format!("PostgreSQL connect timeout (host: {})", config.host))?
+    .map_err(|e| format!("PostgreSQL failed: {}", e))?;
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            log::error!("PostgreSQL connection error: {}", e);
+        }
+    });
+    // ping 校验：确认连接真正可用（自 tauri 版吸收）
+    client
+        .batch_execute("SELECT 1")
+        .await
+        .map_err(|e| format!("PostgreSQL ping failed: {}", e))?;
+    Ok(DbConnection::Postgres(std::sync::Arc::new(client)))
 }
 
 // ── Redis ───────────────────────────────────────────────────────────────────
@@ -172,6 +191,75 @@ pub fn pg_error_detail(e: &tokio_postgres::Error) -> String {
         msg.push_str(&format!(" | 位置: {s}.{t}"));
     }
     msg
+}
+
+/// 把表名解析为 PostgreSQL 的 `"schema"."table"` 限定名。
+///
+/// PG 的层级是 **database → schema → table**，而连接时已通过 `dbname=` 选定 database，
+/// 一条连接无法跨库查询。MySQL 的 `db.table` 语义不能直接套用：把 db_name 拼成
+/// `"db_name"."table"` 时，PG 会把它当成 schema=db_name 去解析，必然报
+/// `relation "xxx.yyy" does not exist`。这里让 PG 自己按 search_path 解析并回读真实
+/// schema；同时兼容调用方传入已限定的 `public.users` / `"public"."users"`。
+/// （自 tauri 版下沉，GUI/CLI 共用同一 PG 表名解析逻辑）
+pub async fn pg_qualify_table(client: &PgClient, table: &str) -> String {
+    let table = table.trim();
+    if table.is_empty() {
+        return String::new();
+    }
+
+    // 已带 schema 限定：拆开分别加引号（兼容调用方预置的双引号）
+    if let Some((schema, name)) = split_schema_qualified(table) {
+        return format!(
+            "\"{}\".\"{}\"",
+            pg_quote_inner(schema),
+            pg_quote_inner(name)
+        );
+    }
+
+    // 未限定：交给 PG 按 search_path 解析，回读真实 schema。
+    // 表不存在时 to_regclass 返回 NULL（不报错），走下面的回退。
+    let sql = format!(
+        "SELECT n.nspname FROM pg_class c \
+         JOIN pg_namespace n ON n.oid = c.relnamespace \
+         WHERE c.oid = to_regclass('{}')",
+        pg_escape_literal(table)
+    );
+    if let Ok(Some(row)) = client.query_opt(&sql, &[]).await {
+        let schema: String = row.get(0);
+        if !schema.is_empty() {
+            return format!("\"{}\".\"{}\"", pg_quote_inner(&schema), pg_quote_inner(table));
+        }
+    }
+
+    // 解析不到（表不存在 / 无权限 / 大写表名）：不带 schema，让 PG 按 search_path 处理。
+    // 大写表名走这里反而是对的——`"Users"` 保留大小写，能命中 public.Users。
+    format!("\"{}\"", pg_quote_inner(table))
+}
+
+/// 拆分 `schema.table`（rfind 最后一个点；两侧都不能为空）
+fn split_schema_qualified(name: &str) -> Option<(&str, &str)> {
+    let dot = name.rfind('.')?;
+    let (schema, tbl) = name.split_at(dot);
+    let tbl = &tbl[1..];
+    if schema.is_empty() || tbl.is_empty() {
+        return None;
+    }
+    Some((schema, tbl))
+}
+
+/// 去掉标识符外层的双引号，并把内部的双引号按 SQL 规则转义（`public` / `"public"` → `public`）
+fn pg_quote_inner(ident: &str) -> String {
+    let s = ident.trim();
+    let s = s
+        .strip_prefix('"')
+        .and_then(|r| r.strip_suffix('"'))
+        .unwrap_or(s);
+    s.replace('"', "\"\"")
+}
+
+/// SQL 字符串字面量转义（单引号加倍）
+fn pg_escape_literal(s: &str) -> String {
+    s.replace('\'', "''")
 }
 
 pub async fn execute_postgres_query(client: &PgClient, sql: &str) -> Result<serde_json::Value, String> {
@@ -365,4 +453,36 @@ pub async fn get_connection(id: &str) -> Option<String> {
 pub async fn list_connections() -> Vec<(String, String)> {
     let pool = CONNECTION_POOL.lock().await;
     pool.keys().map(|k| (k.clone(), String::new())).collect()
+}
+
+#[cfg(test)]
+mod pg_qualify_tests {
+    use super::*;
+
+    #[test]
+    fn split_schema_qualified_basic() {
+        assert_eq!(split_schema_qualified("public.users"), Some(("public", "users")));
+        assert_eq!(split_schema_qualified("app.v2.events"), Some(("app.v2", "events")));
+        // 已带引号的整段视为 schema 部分（调用方预置限定）
+        assert_eq!(split_schema_qualified("\"public\".users"), Some(("\"public\"", "users")));
+        // 无点 / 空段 → None
+        assert_eq!(split_schema_qualified("users"), None);
+        assert_eq!(split_schema_qualified(".users"), None);
+        assert_eq!(split_schema_qualified("users."), None);
+    }
+
+    #[test]
+    fn pg_quote_inner_strips_and_escapes() {
+        assert_eq!(pg_quote_inner("public"), "public");
+        assert_eq!(pg_quote_inner("\"public\""), "public");
+        // 内部双引号按 SQL 规则加倍
+        assert_eq!(pg_quote_inner("he\"llo"), "he\"\"llo");
+        assert_eq!(pg_quote_inner("  Users  "), "Users");
+    }
+
+    #[test]
+    fn pg_escape_literal_doubles_quotes() {
+        assert_eq!(pg_escape_literal("it's"), "it''s");
+        assert_eq!(pg_escape_literal("plain"), "plain");
+    }
 }
