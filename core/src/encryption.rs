@@ -21,10 +21,29 @@ pub fn load_custom_key_sync(path: &std::path::Path) {
     }
 }
 
+/// 幂等加载用户密钥（任何入口构造 CoreService 时调用）。
+///
+/// 与 load_custom_key_sync 不同：已加载过自定义密钥就跳过，避免每个入口反复读盘。
+/// GUI / stool CLI / MCP 服务统一经 CoreService::new 触发，无需各自记住调用。
+pub fn load_custom_key_once() {
+    let mut guard = match CUSTOM_KEY.lock() {
+        Ok(g) => g,
+        Err(_) => return,
+    };
+    if guard.is_some() {
+        return; // 已有自定义密钥，不重复读盘
+    }
+    let path = crate::logic::data_dir::encryption_key_path();
+    if let Ok(content) = std::fs::read_to_string(path) {
+        if let Some(key) = decode_key(content.trim()) {
+            *guard = Some(key);
+        }
+    }
+}
+
 /// 从文件加载用户密钥到缓存（异步路径，CLI 等场景用）
 pub async fn load_custom_key() {
-    let path = crate::logic::data_dir::encryption_key_path();
-    load_custom_key_sync(&path);
+    load_custom_key_once();
 }
 
 fn decode_key(s: &str) -> Option<[u8; 32]> {

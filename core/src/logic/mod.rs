@@ -64,6 +64,20 @@ impl Clone for CoreService {
 
 impl CoreService {
     pub fn new(db: Database, app_dir: PathBuf) -> Self {
+        // 加载用户自定义加密密钥到全局缓存（幂等：已加载则跳过）。
+        //
+        // 密钥加载下沉到这里，任何入口（GUI / stool CLI / MCP 服务）只要构造
+        // CoreService 就自动生效，无需各自记得调用。曾经只在 tauri/main.rs 调用
+        // load_custom_key_sync，导致 stool CLI 的密钥缓存恒为 None、try_decrypt_password
+        // 回退内置默认密钥解不开更换后的密文，SSH 等用密文当密码 → 认证失败。
+        //
+        // cfg(test) 下不自动加载：单测通过 set_custom_key_for_test 注入可控密钥做
+        // 加解密 round-trip，若 new 每次都读真实数据目录的 .encryption_key，会把开发机
+        // 密钥塞进缓存、污染「默认密钥」假设（2026-09-01 曾因测试密钥写盘导致真实密文
+        // 全部解不开）。生产路径不受影响。
+        #[cfg(not(test))]
+        crate::encryption::load_custom_key_once();
+
         Self {
             db: Arc::new(Mutex::new(db)),
             ssh: Arc::new(ssh::SshService::new()),

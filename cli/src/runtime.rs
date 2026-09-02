@@ -17,6 +17,7 @@ impl CliRuntime {
 
         let db_path = data_dir.join("supertool.db");
         let database = Database::new(&db_path)?;
+        // CoreService::new 会加载用户自定义加密密钥（GUI/CLI/MCP 统一入口）
         let core = CoreService::new(database, data_dir.clone());
 
         Ok(Self {
