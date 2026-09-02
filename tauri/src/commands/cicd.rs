@@ -1047,8 +1047,9 @@ pub async fn rollback(
                     .map(|pw| supertool_core::encryption::try_decrypt_password(&pw));
                 let ssh_key = server.ssh_key_path.clone();
 
-                // Execute restart script via SSH
+                // Execute restart script via SSH（走 core SshService，认证/连接统一在 core）
                 match execute_remote_restart(
+                    &core,
                     host.clone(),
                     port,
                     username,
@@ -1115,9 +1116,14 @@ pub async fn rollback(
     }))
 }
 
-/// Execute a restart command on a remote server via SSH
-/// 使用 spawn_blocking 避免阻塞 tokio async 运行时
+/// Execute a restart command on a remote server via SSH.
+///
+/// 统一走 core 的 `SshService::exec_commands_independent`（连接/认证/通道/输出收集全在
+/// core）。曾在这里手工 new `ssh2::Session` + `TcpStream::connect` + `userauth_*` +
+/// `channel.exec`，与 core 重复实现 SSH 全链路；且认证逻辑(密码/密钥优先级)与 core
+/// 不一致，易出现「GUI 能连、此处报私钥打不开」的分叉。现已下沉。
 async fn execute_remote_restart(
+    core: &CoreService,
     host: String,
     port: u16,
     username: String,
@@ -1125,38 +1131,8 @@ async fn execute_remote_restart(
     private_key: Option<String>,
     restart_script: String,
 ) -> Result<(), String> {
+    let ssh = core.clone_ssh();
     tokio::task::spawn_blocking(move || {
-        use ssh2::Session;
-        use std::net::TcpStream;
-
-        let addr = format!("{}:{}", host, port);
-        let tcp = TcpStream::connect(&addr).map_err(|e| format!("连接 {} 失败: {}", addr, e))?;
-
-        let mut sess = Session::new().map_err(|e| format!("创建 SSH session 失败: {}", e))?;
-        sess.set_tcp_stream(tcp);
-        sess.set_timeout(30_000);
-        sess.handshake()
-            .map_err(|e| format!("SSH 握手失败: {}", e))?;
-
-        if let Some(key_path) = private_key {
-            sess.userauth_pubkey_file(
-                &username,
-                None,
-                std::path::Path::new(&key_path),
-                password.as_deref(),
-            )
-            .map_err(|e| format!("SSH 密钥认证失败: {}", e))?;
-        } else if let Some(ref pw) = password {
-            sess.userauth_password(&username, pw)
-                .map_err(|e| format!("SSH 密码认证失败: {}", e))?;
-        } else {
-            return Err("缺少认证信息".to_string());
-        }
-
-        if !sess.authenticated() {
-            return Err("SSH 认证失败".to_string());
-        }
-
         // 对齐 core/src/logic/cicd_deploy.rs execute_restart 的修复
         // 使用 bash -l -c 加载用户环境变量（JAVA_HOME 等）
         let exec_cmd = if restart_script.starts_with('/') {
@@ -1171,36 +1147,49 @@ async fn execute_remote_restart(
                 restart_script, restart_script
             )
         };
-        let mut channel = sess
-            .channel_session()
-            .map_err(|e| format!("创建 SSH channel 失败: {}", e))?;
-        channel
-            .exec(&exec_cmd)
-            .map_err(|e| format!("执行重启命令失败: {}", e))?;
 
-        // 收集输出
-        let mut output = String::new();
-        use std::io::Read;
-        channel.read_to_string(&mut output).ok();
-        channel.wait_close().ok();
+        let config = supertool_core::logic::ssh::SshServerConfig {
+            id: format!("{host}:{port}"),
+            name: String::new(),
+            host: host.clone(),
+            port: port as u32,
+            username,
+            password,
+            ssh_key_path: private_key,
+        };
 
-        let exit_status = channel.exit_status().unwrap_or(-1);
-        if exit_status != 0 {
+        let results = ssh
+            .exec_commands_independent(&config, std::slice::from_ref(&exec_cmd))
+            .map_err(|e| format!("SSH 执行重启命令失败: {e}"))?;
+
+        let result = results
+            .get(&exec_cmd)
+            .cloned()
+            .unwrap_or(supertool_core::logic::ssh::ExecResult {
+                success: false,
+                output: String::new(),
+                error_output: "未返回结果".to_string(),
+                exit_code: None,
+            });
+
+        if !result.success {
+            let output = if result.output.trim().is_empty() {
+                result.error_output.trim().to_string()
+            } else {
+                result.output.trim().to_string()
+            };
             log::error!(
-                "[rollback] restart failed (exit {}): {}",
-                exit_status,
-                output.trim()
+                "[rollback] restart failed (exit {:?}): {}",
+                result.exit_code,
+                output.chars().take(200).collect::<String>()
             );
             return Err(format!(
-                "重启脚本退出码 {}: {}",
-                exit_status,
-                output.trim().chars().take(200).collect::<String>()
+                "重启脚本失败（exit {:?}）: {}",
+                result.exit_code,
+                output.chars().take(200).collect::<String>()
             ));
-        } else {
-            log::info!("[rollback] restart success: {}", output.trim());
         }
-        sess.disconnect(None, "", None).ok();
-
+        log::info!("[rollback] restart success: {}", result.output.trim());
         Ok(())
     })
     .await

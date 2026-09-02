@@ -589,6 +589,98 @@ impl SshService {
         Ok(results)
     }
 
+    /// 在独立连接上**流式**执行单条命令，逐行回调输出（非阻塞轮询）。
+    ///
+    /// 这是 `exec_commands_independent` 的流式版本：GUI 实时日志（tail/搜索）需要
+    /// 逐步把输出推给前端，而不是一次性收集。SSH 的「连接 + 认证 + 通道 + 非阻塞读」
+    /// 完整链路收敛在 core，GUI 只需提供「收到一行做什么」的回调与取消判断，不再手工
+    /// new `ssh2::Session`（曾有两份手工复制品：tauri/logs.rs::stream_server_logs 与
+    /// tauri/cicd.rs::execute_remote_restart）。
+    ///
+    /// - `config`：目标服务器连接信息（密码/密钥认证策略与 core 其它入口一致）
+    /// - `on_line`：每收到一行（按 `\n` 切分，剔除 `\r`）调用一次；末尾残留也补一次
+    /// - `should_cancel`：返回 true 时尽快中断读取（GUI 停止按钮）
+    ///
+    /// 返回 `Err` 仅代表连接/认证/建通道失败或执行时致命错误；取消或正常 EOF 返回 `Ok`。
+    pub fn stream_command_independent(
+        &self,
+        config: &SshServerConfig,
+        command: &str,
+        on_line: &mut dyn FnMut(&str),
+        should_cancel: &dyn Fn() -> bool,
+    ) -> Result<(), String> {
+        // 创建临时 TCP 连接
+        let tcp = TcpStream::connect(format!("{}:{}", config.host, config.port))
+            .map_err(|e| format!("TCP 连接失败: {}", e))?;
+        let _ = tcp.set_read_timeout(Some(std::time::Duration::from_secs(15)));
+        let _ = tcp.set_write_timeout(Some(std::time::Duration::from_secs(10)));
+
+        let mut session = Session::new().map_err(|e| format!("创建 SSH 会话失败: {}", e))?;
+        session.set_tcp_stream(tcp.try_clone().map_err(|e| e.to_string())?);
+        session.set_timeout(20_000);
+        session
+            .handshake()
+            .map_err(|e| format!("SSH 握手失败: {}", e))?;
+
+        // 认证（空密钥路径会回退到密码，策略与其它入口一致）
+        authenticate_session(&session, config)?;
+        if !session.authenticated() {
+            return Err("认证失败".to_string());
+        }
+
+        let mut channel = session
+            .channel_session()
+            .map_err(|e| format!("打开通道失败: {}", e))?;
+        if let Err(e) = channel.exec(command) {
+            return Err(format!("执行命令失败: {}", e));
+        }
+
+        // 执行后切非阻塞，配合 should_cancel 轮询
+        session.set_blocking(false);
+
+        let mut buf = [0u8; 8192];
+        let mut leftover = String::new();
+        loop {
+            if should_cancel() {
+                break;
+            }
+            match channel.read(&mut buf) {
+                Ok(0) => {
+                    if channel.eof() {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                    continue;
+                }
+                Ok(n) => {
+                    leftover.push_str(&String::from_utf8_lossy(&buf[..n]));
+                    while let Some(pos) = leftover.find('\n') {
+                        let line = leftover[..pos].trim_end_matches('\r').to_string();
+                        leftover = leftover[pos + 1..].to_string();
+                        on_line(&line);
+                    }
+                }
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::WouldBlock {
+                        std::thread::sleep(std::time::Duration::from_millis(50));
+                        continue;
+                    }
+                    break;
+                }
+            }
+        }
+
+        // 末尾残留
+        if !leftover.trim().is_empty() {
+            on_line(leftover.trim());
+        }
+
+        let _ = channel.close();
+        let _ = channel.wait_close();
+        drop(session);
+        Ok(())
+    }
+
     /// 创建 SFTP 会话并列出目录
     pub fn list_remote_dir(
         &self,

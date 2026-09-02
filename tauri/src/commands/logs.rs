@@ -189,8 +189,6 @@ fn stream_server_logs(
     command: &str,
     cancel_flag: Arc<Mutex<bool>>,
 ) {
-    use std::io::Read;
-
     // Get server info (with password decryption)
     let server = match core.db_read(|conn| {
         conn.query_row(
@@ -240,145 +238,35 @@ fn stream_server_logs(
         password: password.map(|s| s.to_string()),
         ssh_key_path: ssh_key_path.map(|s| s.to_string()),
     };
+    let server_name = server["name"].as_str().unwrap_or("").to_string();
 
-    // 独立SSH连接，避免污染全局连接池
-    let tcp = match std::net::TcpStream::connect((host, port as u16)) {
-        Ok(t) => t,
-        Err(e) => {
-            let _ = app.emit("logs:error", serde_json::json!({
-                "streamId": stream_id, "serverId": server_id, "error": format!("TCP连接失败: {}", e)
-            }));
-            return;
-        }
-    };
-    let mut sess = match ssh2::Session::new() {
-        Ok(s) => s,
-        Err(e) => {
-            let _ = app.emit("logs:error", serde_json::json!({
-                "streamId": stream_id, "serverId": server_id, "error": format!("创建SSH会话失败: {}", e)
-            }));
-            return;
-        }
-    };
-    sess.set_tcp_stream(tcp);
-    // handshake 和 auth 必须阻塞模式，否则直接报 operation would block
-    if let Err(e) = sess.handshake() {
-        let _ = app.emit(
-            "logs:error",
-            serde_json::json!({
-                "streamId": stream_id, "serverId": server_id, "error": format!("SSH握手失败: {}", e)
-            }),
-        );
-        return;
-    }
-
-    if let Some(pw) = &config.password {
-        if let Err(e) = sess.userauth_password(&config.username, pw) {
-            let _ = app.emit("logs:error", serde_json::json!({
-                "streamId": stream_id, "serverId": server_id, "error": format!("SSH认证失败: {}", e)
-            }));
-            return;
-        }
-    } else if let Some(key_path) = &config.ssh_key_path {
-        if let Err(e) =
-            sess.userauth_pubkey_file(&config.username, None, std::path::Path::new(key_path), None)
-        {
-            let _ = app.emit("logs:error", serde_json::json!({
-                "streamId": stream_id, "serverId": server_id, "error": format!("SSH密钥认证失败: {}", e)
-            }));
-            return;
-        }
-    } else {
-        let _ = app.emit(
-            "logs:error",
-            serde_json::json!({
-                "streamId": stream_id, "serverId": server_id, "error": "没有密码或密钥"
-            }),
-        );
-        return;
-    }
-
-    let mut channel = match sess.channel_session() {
-        Ok(c) => c,
-        Err(e) => {
-            let _ = app.emit("logs:error", serde_json::json!({
-                "streamId": stream_id, "serverId": server_id, "error": format!("创建通道失败: {}", e)
-            }));
-            return;
-        }
-    };
-
-    if let Err(e) = channel.exec(command) {
-        let _ = app.emit("logs:error", serde_json::json!({
-            "streamId": stream_id, "serverId": server_id, "error": format!("执行命令失败: {}", e)
-        }));
-        return;
-    }
-
-    // 命令执行后切换到非阻塞模式，配合cancel_flag轮询
-    sess.set_blocking(false);
-
-    // 读取日志（非阻塞轮询）
-    let mut buf = [0u8; 4096];
-    let mut leftover = String::new();
-    let server_name = server["name"].as_str().unwrap_or("");
-
-    loop {
-        if *cancel_flag.lock().unwrap() {
-            break;
-        }
-        match channel.read(&mut buf) {
-            Ok(0) => {
-                // 0字节：可能是EOF也可能是非阻塞下暂时无数据
-                if channel.eof() {
-                    break;
-                }
-                // 非阻塞下暂时无数据，短暂休眠避免CPU空转
-                std::thread::sleep(std::time::Duration::from_millis(50));
-                continue;
-            }
-            Ok(n) => {
-                leftover.push_str(&String::from_utf8_lossy(&buf[..n]));
-                while let Some(pos) = leftover.find('\n') {
-                    let line = leftover[..pos].trim_end_matches('\r').to_string();
-                    leftover = leftover[pos + 1..].to_string();
-                    let _ = app.emit(
-                        "logs:line",
-                        serde_json::json!({
-                            "streamId": stream_id,
-                            "serverId": server_id,
-                            "serverName": server_name,
-                            "line": line,
-                        }),
-                    );
-                }
-            }
-            Err(e) => {
-                // 非阻塞模式下会返回 WouldBlock，这是正常的
-                if e.kind() == std::io::ErrorKind::WouldBlock {
-                    std::thread::sleep(std::time::Duration::from_millis(50));
-                    continue;
-                }
-                // 其他错误：退出
-                break;
-            }
-        }
-    }
-
-    if !leftover.trim().is_empty() {
+    // 独立 SSH 流式执行，统一走 core 的 SshService（连接/认证/通道/非阻塞读都在 core）。
+    // 曾在这里手工 new ssh2::Session + userauth + channel.exec + 非阻塞读循环，
+    // 与 core 重复实现 SSH 全链路且认证策略不一致；现改为逐行回调 + 事件推送。
+    let ssh = core.ssh();
+    let mut on_line = |line: &str| {
         let _ = app.emit(
             "logs:line",
             serde_json::json!({
                 "streamId": stream_id,
                 "serverId": server_id,
                 "serverName": server_name,
-                "line": leftover.trim().to_string(),
+                "line": line,
+            }),
+        );
+    };
+    let should_cancel = || *cancel_flag.lock().unwrap();
+
+    let result = ssh.stream_command_independent(&config, command, &mut on_line, &should_cancel);
+
+    if let Err(e) = result {
+        let _ = app.emit(
+            "logs:error",
+            serde_json::json!({
+                "streamId": stream_id, "serverId": server_id, "error": e
             }),
         );
     }
-
-    let _ = channel.close();
-    let _ = channel.wait_close();
 
     let _ = app.emit(
         "logs:server-end",

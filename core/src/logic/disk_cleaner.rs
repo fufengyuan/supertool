@@ -257,33 +257,45 @@ fn get_cache_paths_impl() -> Vec<CachePath> {
     // macOS specific
     #[cfg(target_os = "macos")]
     {
-        paths.push(CachePath { path: format!("{}/Library/Caches", home), name: "System Caches".into(), description: "macOS 系统缓存".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: format!("{}/Library/Logs", home), name: "System Logs".into(), description: "macOS 系统日志".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: format!("{}/Library/Developer/Xcode/DerivedData", home), name: "Xcode DerivedData".into(), description: "Xcode 编译缓存".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: format!("{}/Library/Caches/Google/Chrome", home), name: "Chrome Cache".into(), description: "Chrome 浏览器缓存".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: format!("{}/Library/Application Support/Code/CachedData", home), name: "VS Code CachedData".into(), description: "VS Code 缓存数据".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: format!("{}/Library/Caches/com.spotify.client", home), name: "Spotify Cache".into(), description: "Spotify 音乐缓存".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: format!("{}/Library/Caches/Safari", home), name: "Safari Cache".into(), description: "Safari 浏览器缓存".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: format!("{}/Library/Caches/com.apple.AppStore", home), name: "AppStore Cache".into(), description: "App Store 缓存".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: format!("{}/Library/Caches/Homebrew", home), name: "Homebrew Cache".into(), description: "Homebrew 缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Caches", home), name: "系统缓存".into(), description: "macOS 应用程序缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Logs", home), name: "系统日志".into(), description: "应用日志文件".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Developer/Xcode/DerivedData", home), name: "Xcode 构建缓存".into(), description: "Xcode 编译产物".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Caches/Google/Chrome", home), name: "Chrome 缓存".into(), description: "浏览器缓存数据".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Application Support/Code/CachedData", home), name: "VS Code 缓存".into(), description: "编辑器缓存数据".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Caches/com.spotify.client", home), name: "Spotify 缓存".into(), description: "音乐缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Caches/Safari", home), name: "Safari 缓存".into(), description: "浏览器缓存数据".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Caches/com.apple.AppStore", home), name: "App Store 缓存".into(), description: "应用商店缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Caches/Homebrew", home), name: "Homebrew 缓存".into(), description: "包管理器缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Caches/com.apple.Safari", home), name: "Safari 缓存".into(), description: "浏览器缓存数据".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Developer/Xcode/iOS DeviceSupport", home), name: "Xcode 设备支持".into(), description: "iOS 设备符号表".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Caches/pip", home), name: "pip 缓存".into(), description: "Python 包缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Caches/CocoaPods", home), name: "CocoaPods 缓存".into(), description: "iOS 依赖缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Caches/com.microsoft.VSCode", home), name: "VS Code 缓存".into(), description: "编辑器缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/Library/Caches/WebKit", home), name: "WebKit 缓存".into(), description: "Web 渲染引擎缓存".into(), size: 0, safe_to_clean: true });
     }
     // Linux specific
     #[cfg(target_os = "linux")]
     {
-        paths.push(CachePath { path: format!("{}/.cache", home), name: "User Cache".into(), description: "用户缓存目录".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: "/tmp".to_string(), name: "Temp Files".into(), description: "系统临时文件".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: "/var/tmp".to_string(), name: "Persistent Temp".into(), description: "持久化临时文件".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: format!("{}/.npm", home), name: "npm Cache".into(), description: "npm 包缓存".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: format!("{}/.cache/chromium", home), name: "Chromium Cache".into(), description: "Chromium 缓存".into(), size: 0, safe_to_clean: true });
-        paths.push(CachePath { path: format!("{}/.thumbnails", home), name: "Thumbnails".into(), description: "缩略图缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/.cache", home), name: "用户缓存".into(), description: "XDG 缓存目录".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/.cache/thumbnails", home), name: "缩略图缓存".into(), description: "文件管理器缩略图".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/.cache/pip", home), name: "pip 缓存".into(), description: "Python 包缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/.local/share/Trash", home), name: "回收站".into(), description: "已删除文件".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/.mozilla/firefox", home), name: "Firefox 缓存".into(), description: "浏览器缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/.config/google-chrome", home), name: "Chrome 缓存".into(), description: "浏览器缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/.cache/v8-compile-cache", home), name: "V8 编译缓存".into(), description: "Node.js/V8 缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/.npm", home), name: "npm 缓存".into(), description: "Node.js 包缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: format!("{}/.cache/chromium", home), name: "Chromium 缓存".into(), description: "Chromium 缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: "/var/cache/apt".into(), name: "APT 缓存".into(), description: "Debian/Ubuntu 包缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: "/var/cache/yum".into(), name: "YUM 缓存".into(), description: "CentOS/RHEL 包缓存".into(), size: 0, safe_to_clean: true });
+        paths.push(CachePath { path: "/tmp".into(), name: "临时文件".into(), description: "系统临时目录".into(), size: 0, safe_to_clean: false });
     }
     // Common
-    paths.push(CachePath { path: format!("{}/.cargo/registry/cache", home), name: "Cargo Cache".into(), description: "Rust 包缓存".into(), size: 0, safe_to_clean: true });
-    paths.push(CachePath { path: format!("{}/.npm/_cacache", home), name: "npm Cache".into(), description: "npm 包缓存".into(), size: 0, safe_to_clean: true });
-    paths.push(CachePath { path: format!("{}/.yarn/berry/cache", home), name: "Yarn Cache".into(), description: "Yarn 包缓存".into(), size: 0, safe_to_clean: true });
-    paths.push(CachePath { path: format!("{}/.nvm/versions", home), name: "NVM Versions".into(), description: "Node 版本".into(), size: 0, safe_to_clean: false });
+    paths.push(CachePath { path: format!("{}/.cargo/registry/cache", home), name: "Cargo 缓存".into(), description: "Rust 包缓存".into(), size: 0, safe_to_clean: true });
+    paths.push(CachePath { path: format!("{}/.npm/_cacache", home), name: "npm 缓存".into(), description: "npm 包缓存".into(), size: 0, safe_to_clean: true });
+    paths.push(CachePath { path: format!("{}/.yarn/berry/cache", home), name: "Yarn 缓存".into(), description: "Yarn 包缓存".into(), size: 0, safe_to_clean: true });
+    paths.push(CachePath { path: format!("{}/.nvm/versions", home), name: "NVM 版本".into(), description: "Node 版本".into(), size: 0, safe_to_clean: false });
     paths.push(CachePath { path: format!("{}/.sdkman", home), name: "SDKMAN".into(), description: "SDK 管理器".into(), size: 0, safe_to_clean: false });
-    paths.push(CachePath { path: format!("{}/Downloads", home), name: "Downloads".into(), description: "下载文件夹".into(), size: 0, safe_to_clean: false });
+    paths.push(CachePath { path: format!("{}/Downloads", home), name: "下载文件夹".into(), description: "下载文件夹".into(), size: 0, safe_to_clean: false });
 
     // Estimate sizes
     for p in &mut paths {
