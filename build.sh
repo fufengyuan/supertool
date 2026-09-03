@@ -307,9 +307,9 @@ if [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "root" ]; then
         fi
 
         # 分发 skills 到各编程工具的用户级技能目录（统一 ~/.X/skills 结构）
-        # Hermes / Claw / Trae(国内+国际) / WorkBuddy / Reasonix / Claude Code / Codex / zcode 等（~/.agents）
+        # Hermes / QClaw / Trae(国内+国际) / WorkBuddy / Reasonix / Claude Code / Codex / zcode 等（~/.agents）
         for SKILL_TARGET in "${USER_HOME}/.hermes/skills" \
-                            "${USER_HOME}/.claw/skills" \
+                            "${USER_HOME}/.qclaw/skills" \
                             "${USER_HOME}/.trae-cn/skills" \
                             "${USER_HOME}/.trae/skills" \
                             "${USER_HOME}/.workbuddy/skills" \
@@ -427,9 +427,9 @@ if [ -n "$LOGGED_IN_USER" ]; then
 
         SKILLS_SRC="/usr/local/share/supertool/skills"
         # 分发 skills 到各编程工具的用户级技能目录（统一 ~/.X/skills 结构）
-        # Hermes / Claw / Trae(国内+国际) / WorkBuddy / Reasonix / Claude Code / Codex / zcode 等（~/.agents）
+        # Hermes / QClaw / Trae(国内+国际) / WorkBuddy / Reasonix / Claude Code / Codex / zcode 等（~/.agents）
         for SKILL_TARGET in "${USER_HOME}/.hermes/skills" \
-                            "${USER_HOME}/.claw/skills" \
+                            "${USER_HOME}/.qclaw/skills" \
                             "${USER_HOME}/.trae-cn/skills" \
                             "${USER_HOME}/.trae/skills" \
                             "${USER_HOME}/.workbuddy/skills" \
@@ -678,9 +678,9 @@ if [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "root" ]; then
         fi
 
         # 分发 skills 到各编程工具的用户级技能目录（统一 ~/.X/skills 结构）
-        # Hermes / Claw / Trae(国内+国际) / WorkBuddy / Reasonix / Claude Code / Codex / zcode 等（~/.agents）
+        # Hermes / QClaw / Trae(国内+国际) / WorkBuddy / Reasonix / Claude Code / Codex / zcode 等（~/.agents）
         for SKILL_TARGET in "${USER_HOME}/.hermes/skills" \
-                            "${USER_HOME}/.claw/skills" \
+                            "${USER_HOME}/.qclaw/skills" \
                             "${USER_HOME}/.trae-cn/skills" \
                             "${USER_HOME}/.trae/skills" \
                             "${USER_HOME}/.workbuddy/skills" \
