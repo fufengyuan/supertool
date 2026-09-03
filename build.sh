@@ -306,59 +306,34 @@ if [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "root" ]; then
             echo "✅ Symlink: ${USER_SKILLS} -> /usr/local/share/supertool/skills"
         fi
 
-        # ~/.hermes/skills/
-        HERMES_SKILLS="${USER_HOME}/.hermes/skills"
-        if [ -d "$SKILLS_SRC" ]; then
-            mkdir -p "${HERMES_SKILLS}"
-            for skill_dir in "$SKILLS_SRC"/*/; do
-                [ -d "$skill_dir" ] || continue
-                skill_name=$(basename "$skill_dir")
-                [ -n "$skill_name" ] || continue
-                skill_file="${skill_dir}SKILL.md"
-                [ -f "$skill_file" ] || continue
-                target_dir="${HERMES_SKILLS}/${skill_name}"
-                mkdir -p "${target_dir}"
-                cp -f "$skill_file" "${target_dir}/SKILL.md"
-            done
-            chown -R "${LOGGED_IN_USER}" "${HERMES_SKILLS}" 2>/dev/null || true
-            echo "✅ skills → ${HERMES_SKILLS}"
-        fi
+        # 分发 skills 到各编程工具的用户级技能目录（统一 ~/.X/skills 结构）
+        # Hermes / Claw / Trae(国内+国际) / WorkBuddy / Reasonix / Claude Code / Codex / zcode 等（~/.agents）
+        for SKILL_TARGET in "${USER_HOME}/.hermes/skills" \
+                            "${USER_HOME}/.claw/skills" \
+                            "${USER_HOME}/.trae-cn/skills" \
+                            "${USER_HOME}/.trae/skills" \
+                            "${USER_HOME}/.workbuddy/skills" \
+                            "${USER_HOME}/.reasonix/skills" \
+                            "${USER_HOME}/.claude/skills" \
+                            "${USER_HOME}/.codex/skills" \
+                            "${USER_HOME}/.agents/skills"; do
+            if [ -d "$SKILLS_SRC" ]; then
+                mkdir -p "${SKILL_TARGET}"
+                for skill_dir in "$SKILLS_SRC"/*/; do
+                    [ -d "$skill_dir" ] || continue
+                    skill_name=$(basename "$skill_dir")
+                    [ -n "$skill_name" ] || continue
+                    skill_file="${skill_dir}SKILL.md"
+                    [ -f "$skill_file" ] || continue
+                    target_dir="${SKILL_TARGET}/${skill_name}"
+                    mkdir -p "${target_dir}"
+                    cp -f "$skill_file" "${target_dir}/SKILL.md"
+                done
+                chown -R "${LOGGED_IN_USER}" "${SKILL_TARGET}" 2>/dev/null || true
+                echo "✅ skills → ${SKILL_TARGET}"
+            fi
+        done
 
-        # ~/.claw/skills/
-        CLAW_SKILLS="${USER_HOME}/.claw/skills"
-        if [ -d "$SKILLS_SRC" ]; then
-            mkdir -p "${CLAW_SKILLS}"
-            for skill_dir in "$SKILLS_SRC"/*/; do
-                [ -d "$skill_dir" ] || continue
-                skill_name=$(basename "$skill_dir")
-                [ -n "$skill_name" ] || continue
-                skill_file="${skill_dir}SKILL.md"
-                [ -f "$skill_file" ] || continue
-                target_dir="${CLAW_SKILLS}/${skill_name}"
-                mkdir -p "${target_dir}"
-                cp -f "$skill_file" "${target_dir}/SKILL.md"
-            done
-            chown -R "${LOGGED_IN_USER}" "${CLAW_SKILLS}" 2>/dev/null || true
-            echo "✅ skills → ${CLAW_SKILLS}"
-        fi
-
-        # ~/.trae-cn/skills/ (Trae IDE)
-        TRAE_SKILLS="${USER_HOME}/.trae-cn/skills"
-        if [ -d "$SKILLS_SRC" ]; then
-            mkdir -p "${TRAE_SKILLS}"
-            for skill_dir in "$SKILLS_SRC"/*/; do
-                [ -d "$skill_dir" ] || continue
-                skill_name=$(basename "$skill_dir")
-                [ -n "$skill_name" ] || continue
-                skill_file="${skill_dir}SKILL.md"
-                [ -f "$skill_file" ] || continue
-                target_dir="${TRAE_SKILLS}/${skill_name}"
-                mkdir -p "${target_dir}"
-                cp -f "$skill_file" "${target_dir}/SKILL.md"
-            done
-            chown -R "${LOGGED_IN_USER}" "${TRAE_SKILLS}" 2>/dev/null || true
-            echo "✅ skills → ${TRAE_SKILLS}"
-        fi
     fi
 fi
 echo "✅ SuperTool installation complete!"
@@ -451,39 +426,32 @@ if [ -n "$LOGGED_IN_USER" ]; then
         fi
 
         SKILLS_SRC="/usr/local/share/supertool/skills"
-        # ~/.hermes/skills/
-        HERMES_SKILLS="${USER_HOME}/.hermes/skills"
-        if [ -d "$SKILLS_SRC" ]; then
-            mkdir -p "${HERMES_SKILLS}"
-            for skill_dir in "$SKILLS_SRC"/*/; do
-                [ -d "$skill_dir" ] || continue
-                skill_name=$(basename "$skill_dir")
-                [ -n "$skill_name" ] || continue
-                skill_file="${skill_dir}SKILL.md"
-                [ -f "$skill_file" ] || continue
-                target_dir="${HERMES_SKILLS}/${skill_name}"
-                mkdir -p "${target_dir}"
-                cp -f "$skill_file" "${target_dir}/SKILL.md"
-            done
-            chown -R "${LOGGED_IN_USER}" "${HERMES_SKILLS}" 2>/dev/null || true
-        fi
-
-        # ~/.claw/skills/
-        CLAW_SKILLS="${USER_HOME}/.claw/skills"
-        if [ -d "$SKILLS_SRC" ]; then
-            mkdir -p "${CLAW_SKILLS}"
-            for skill_dir in "$SKILLS_SRC"/*/; do
-                [ -d "$skill_dir" ] || continue
-                skill_name=$(basename "$skill_dir")
-                [ -n "$skill_name" ] || continue
-                skill_file="${skill_dir}SKILL.md"
-                [ -f "$skill_file" ] || continue
-                target_dir="${CLAW_SKILLS}/${skill_name}"
-                mkdir -p "${target_dir}"
-                cp -f "$skill_file" "${target_dir}/SKILL.md"
-            done
-            chown -R "${LOGGED_IN_USER}" "${CLAW_SKILLS}" 2>/dev/null || true
-        fi
+        # 分发 skills 到各编程工具的用户级技能目录（统一 ~/.X/skills 结构）
+        # Hermes / Claw / Trae(国内+国际) / WorkBuddy / Reasonix / Claude Code / Codex / zcode 等（~/.agents）
+        for SKILL_TARGET in "${USER_HOME}/.hermes/skills" \
+                            "${USER_HOME}/.claw/skills" \
+                            "${USER_HOME}/.trae-cn/skills" \
+                            "${USER_HOME}/.trae/skills" \
+                            "${USER_HOME}/.workbuddy/skills" \
+                            "${USER_HOME}/.reasonix/skills" \
+                            "${USER_HOME}/.claude/skills" \
+                            "${USER_HOME}/.codex/skills" \
+                            "${USER_HOME}/.agents/skills"; do
+            if [ -d "$SKILLS_SRC" ]; then
+                mkdir -p "${SKILL_TARGET}"
+                for skill_dir in "$SKILLS_SRC"/*/; do
+                    [ -d "$skill_dir" ] || continue
+                    skill_name=$(basename "$skill_dir")
+                    [ -n "$skill_name" ] || continue
+                    skill_file="${skill_dir}SKILL.md"
+                    [ -f "$skill_file" ] || continue
+                    target_dir="${SKILL_TARGET}/${skill_name}"
+                    mkdir -p "${target_dir}"
+                    cp -f "$skill_file" "${target_dir}/SKILL.md"
+                done
+                chown -R "${LOGGED_IN_USER}" "${SKILL_TARGET}" 2>/dev/null || true
+            fi
+        done
     fi
 fi
 echo "✅ SuperTool installed successfully"
@@ -709,59 +677,33 @@ if [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "root" ]; then
             echo "✅ Symlink: ${USER_SKILLS} -> /usr/local/share/supertool/skills"
         fi
 
-        # ~/.hermes/skills/
-        HERMES_SKILLS="${USER_HOME}/.hermes/skills"
-        if [ -d "$SKILLS_SRC" ]; then
-            mkdir -p "${HERMES_SKILLS}"
-            for skill_dir in "$SKILLS_SRC"/*/; do
-                [ -d "$skill_dir" ] || continue
-                skill_name=$(basename "$skill_dir")
-                [ -n "$skill_name" ] || continue
-                skill_file="${skill_dir}SKILL.md"
-                [ -f "$skill_file" ] || continue
-                target_dir="${HERMES_SKILLS}/${skill_name}"
-                mkdir -p "${target_dir}"
-                cp -f "$skill_file" "${target_dir}/SKILL.md"
-            done
-            chown -R "${LOGGED_IN_USER}" "${HERMES_SKILLS}" 2>/dev/null || true
-            echo "✅ skills → ${HERMES_SKILLS}"
-        fi
-
-        # ~/.claw/skills/
-        CLAW_SKILLS="${USER_HOME}/.claw/skills"
-        if [ -d "$SKILLS_SRC" ]; then
-            mkdir -p "${CLAW_SKILLS}"
-            for skill_dir in "$SKILLS_SRC"/*/; do
-                [ -d "$skill_dir" ] || continue
-                skill_name=$(basename "$skill_dir")
-                [ -n "$skill_name" ] || continue
-                skill_file="${skill_dir}SKILL.md"
-                [ -f "$skill_file" ] || continue
-                target_dir="${CLAW_SKILLS}/${skill_name}"
-                mkdir -p "${target_dir}"
-                cp -f "$skill_file" "${target_dir}/SKILL.md"
-            done
-            chown -R "${LOGGED_IN_USER}" "${CLAW_SKILLS}" 2>/dev/null || true
-            echo "✅ skills → ${CLAW_SKILLS}"
-        fi
-
-        # ~/.trae-cn/skills/ (Trae IDE)
-        TRAE_SKILLS="${USER_HOME}/.trae-cn/skills"
-        if [ -d "$SKILLS_SRC" ]; then
-            mkdir -p "${TRAE_SKILLS}"
-            for skill_dir in "$SKILLS_SRC"/*/; do
-                [ -d "$skill_dir" ] || continue
-                skill_name=$(basename "$skill_dir")
-                [ -n "$skill_name" ] || continue
-                skill_file="${skill_dir}SKILL.md"
-                [ -f "$skill_file" ] || continue
-                target_dir="${TRAE_SKILLS}/${skill_name}"
-                mkdir -p "${target_dir}"
-                cp -f "$skill_file" "${target_dir}/SKILL.md"
-            done
-            chown -R "${LOGGED_IN_USER}" "${TRAE_SKILLS}" 2>/dev/null || true
-            echo "✅ skills → ${TRAE_SKILLS}"
-        fi
+        # 分发 skills 到各编程工具的用户级技能目录（统一 ~/.X/skills 结构）
+        # Hermes / Claw / Trae(国内+国际) / WorkBuddy / Reasonix / Claude Code / Codex / zcode 等（~/.agents）
+        for SKILL_TARGET in "${USER_HOME}/.hermes/skills" \
+                            "${USER_HOME}/.claw/skills" \
+                            "${USER_HOME}/.trae-cn/skills" \
+                            "${USER_HOME}/.trae/skills" \
+                            "${USER_HOME}/.workbuddy/skills" \
+                            "${USER_HOME}/.reasonix/skills" \
+                            "${USER_HOME}/.claude/skills" \
+                            "${USER_HOME}/.codex/skills" \
+                            "${USER_HOME}/.agents/skills"; do
+            if [ -d "$SKILLS_SRC" ]; then
+                mkdir -p "${SKILL_TARGET}"
+                for skill_dir in "$SKILLS_SRC"/*/; do
+                    [ -d "$skill_dir" ] || continue
+                    skill_name=$(basename "$skill_dir")
+                    [ -n "$skill_name" ] || continue
+                    skill_file="${skill_dir}SKILL.md"
+                    [ -f "$skill_file" ] || continue
+                    target_dir="${SKILL_TARGET}/${skill_name}"
+                    mkdir -p "${target_dir}"
+                    cp -f "$skill_file" "${target_dir}/SKILL.md"
+                done
+                chown -R "${LOGGED_IN_USER}" "${SKILL_TARGET}" 2>/dev/null || true
+                echo "✅ skills → ${SKILL_TARGET}"
+            fi
+        done
     fi
 fi
 echo "✅ SuperTool installation complete!"

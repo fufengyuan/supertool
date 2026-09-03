@@ -83,8 +83,9 @@ pub async fn install_cli(app: tauri::AppHandle) -> Result<Value, String> {
     Ok(json!({ "ok": true, "installed": new_ver }))
 }
 
-/// 同步内置 skills 到用户技能目录（App 以用户身份运行，无需提权）
-/// 目录：~/.supertool/skills、~/.hermes/skills、~/.claw/skills、~/.trae-cn/skills
+/// 同步内置 skills 到用户各技能目录（App 以用户身份运行，无需提权）
+/// 目录：~/.supertool、~/.hermes、~/.claw、~/.trae-cn、~/.trae、~/.workbuddy、
+/// ~/.reasonix、~/.claude、~/.codex、~/.agents（zcode 等共享工具）
 #[tauri::command(rename_all = "camelCase")]
 pub fn sync_user_skills(app: tauri::AppHandle) -> Result<Value, String> {
     log::info!("[Tauri CMD] sync_user_skills() called");
@@ -99,11 +100,19 @@ pub fn sync_user_skills(app: tauri::AppHandle) -> Result<Value, String> {
 
     let home = dirs::home_dir().ok_or("解析用户目录失败")?;
     // 技能目录 → 目标根（保留 skill 子目录结构）
+    // 覆盖主流编程工具/IDE 的用户级 skill 加载目录：
+    // supertool 门户 / Hermes / Claw / Trae(国内+国际) / WorkBuddy / Reasonix / Claude Code / Codex / zcode 等（~/.agents）
     let targets = [
         home.join(".supertool/skills"),
         home.join(".hermes/skills"),
         home.join(".claw/skills"),
         home.join(".trae-cn/skills"),
+        home.join(".trae/skills"),
+        home.join(".workbuddy/skills"),
+        home.join(".reasonix/skills"),
+        home.join(".claude/skills"),
+        home.join(".codex/skills"),
+        home.join(".agents/skills"),
     ];
     let mut copied = 0usize;
     for target_root in &targets {

@@ -1,11 +1,11 @@
 ---
 name: stool-cli
 category: devops
-description: SuperTool `stool` CLI v6.11+ — AI Agent 专属运维工具。直连 `supertool-core` 共享库，零 UDS/HTTP 依赖。支持服务器管理、CI/CD、数据库、Git、日志（含历史轮转搜索）、MFA、审计、笔记、记账、周报、Nginx、备份、MCP 接入。
+description: SuperTool `stool` CLI v6.69+ — AI Agent 专属运维工具。直连 `supertool-core` 共享库，零 UDS/HTTP 依赖。支持服务器管理、CI/CD、数据库、Git、日志（含历史轮转搜索、上下文查看）、MFA、审计、笔记、记账、周报、Nginx、备份、MCP 接入。
 trigger: 使用 stool 命令、排查 CLI 失败、添加新 CLI 命令、AI 运维操作
 ---
 
-# SuperTool `stool` CLI v6.11+
+# SuperTool `stool` CLI v6.69+
 
 > AI Agent 专属运维工具 —— 直连 `supertool-core` 共享库，零 UDS/HTTP 依赖，完全独立运行。
 
@@ -372,6 +372,7 @@ systemctl restart myapp"
 
 ## ⚠️ 关键陷阱
 
+0. **报错先核对 id，别乱绕路** — 带 id 参数（server/cicd/db/log）且 id 写错或目标没在 GUI 配置时，统一报「未找到 X」并附 `（可用 stool X list 核对 id）`，exit code 均为业务错误 1。遇到这类报错：① 先 `stool server|db|cicd|log list` 按分组核对 id；② 目标确实没配 → 到 GUI 对应页面配好再继续（服务器页/数据库页/CICD 向导/日志聚合页），绝不改走其它路子；③ 写操作会自动进审计，用 `stool audit list` 回查（参数已脱敏）。
 1. **`-j` 是 JSON 别名** — 所有 list/status 命令都支持
 2. **UUID 不可截断** — 所有 list 输出完整 36 位 UUID
 3. **高危命令拦截** — `server exec` / `exec-batch` 拦截 `rm -rf`、`kill -9`、`shutdown`、`curl|sh` 等
