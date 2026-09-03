@@ -105,7 +105,7 @@ impl super::CoreService {
                         }))
                     },
                 )
-                .map_err(|e| e.to_string())
+                .map_err(preset_not_found_err(preset_id))
         })?;
 
         let server_ids: Vec<String> = match &preset["serverIds"] {
@@ -369,7 +369,7 @@ impl super::CoreService {
                         }))
                     },
                 )
-                .map_err(|e| e.to_string())
+                .map_err(preset_not_found_err(preset_id))
         })?;
 
         let server_ids: Vec<String> = match &preset["serverIds"] {
@@ -526,7 +526,7 @@ impl super::CoreService {
                         }))
                     },
                 )
-                .map_err(|e| e.to_string())
+                .map_err(preset_not_found_err(preset_id))
         })?;
 
         let log_type = preset["logType"].as_str().unwrap_or("file");
@@ -592,6 +592,19 @@ impl super::CoreService {
             "start": start,
             "end": end,
         }))
+    }
+}
+
+/// Map a SQLite "no rows" error into a clear "preset not found" hint,
+/// so callers (GUI/CLI) can tell the user to re-check the preset id.
+fn preset_not_found_err(preset_id: &str) -> impl Fn(rusqlite::Error) -> String {
+    let id = preset_id.to_string();
+    move |e: rusqlite::Error| {
+        if matches!(e, rusqlite::Error::QueryReturnedNoRows) {
+            format!("日志预设 {} 不存在（可用 stool log list 核对 id）", id)
+        } else {
+            e.to_string()
+        }
     }
 }
 

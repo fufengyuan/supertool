@@ -6,7 +6,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "6.69.6"
+version = "6.69.7"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/fufengyuan/supertool"
