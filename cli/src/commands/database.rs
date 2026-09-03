@@ -397,7 +397,7 @@ async fn get_db_config(rt: &mut CliRuntime, db_id: &str) -> Result<DbConnectionC
     let conn = connections
         .iter()
         .find(|c| c.get("id").and_then(|v| v.as_str()) == Some(db_id))
-        .ok_or_else(|| anyhow::anyhow!("未找到数据库连接: {}", db_id))?;
+        .ok_or_else(|| anyhow::anyhow!("未找到数据库连接: {}（可用 stool db list 核对 id）", db_id))?;
     serde_json::from_value(conn.clone())
         .map_err(|e| anyhow::anyhow!("解析连接配置失败: {}", e))
 }
@@ -417,7 +417,7 @@ async fn check_db_connection_write(rt: &mut CliRuntime, db_id: &str) -> Result<(
     let conn = connections
         .iter()
         .find(|c| c.get("id").and_then(|v| v.as_str()) == Some(db_id))
-        .ok_or_else(|| anyhow::anyhow!("未找到数据库连接: {}", db_id))?;
+        .ok_or_else(|| anyhow::anyhow!("未找到数据库连接: {}（可用 stool db list 核对 id）", db_id))?;
     if conn
         .get("requiresApproval")
         .and_then(|v| v.as_bool())

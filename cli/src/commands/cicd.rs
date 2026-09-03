@@ -88,7 +88,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                     }
                 }
             } else {
-                anyhow::bail!("未找到配置: {}", project_id);
+                anyhow::bail!("未找到配置: {}（可用 stool cicd list 核对 id）", project_id);
             }
         }
         CicdCommands::Deploy {

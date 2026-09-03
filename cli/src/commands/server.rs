@@ -168,7 +168,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                     ));
                 }
             } else {
-                anyhow::bail!("未找到服务器: {}", id);
+                anyhow::bail!("未找到服务器: {}（可用 stool server list 核对 id）", id);
             }
         }
         ServerCommands::Exec {
