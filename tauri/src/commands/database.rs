@@ -2641,13 +2641,15 @@ pub async fn db_redis_stream_messages(
     stream: String,
     count: i64,
     start: String,
+    end: String,
 ) -> Result<serde_json::Value, String> {
     let conn = redis_conn_for(&id, db_index).await?;
     if let DbConnection::Redis(c) = conn {
+        let end_arg = if end.is_empty() { "+" } else { &end };
         let msgs: Vec<Vec<(String, Vec<(String, String)>)>> = redis::cmd("XRANGE")
             .arg(&stream)
             .arg(&start)
-            .arg("+")
+            .arg(end_arg)
             .arg("COUNT")
             .arg(count)
             .query_async(&mut c.clone())
@@ -2688,8 +2690,20 @@ pub async fn db_redis_stream_del(
     id: String,
     db_index: i64,
     stream: String,
+    msg_id: String,
 ) -> Result<serde_json::Value, String> {
-    db_redis_stream_delete(id, db_index, stream).await
+    let conn = redis_conn_for(&id, db_index).await?;
+    if let DbConnection::Redis(c) = conn {
+        let removed: i64 = redis::cmd("XDEL")
+            .arg(&stream)
+            .arg(&msg_id)
+            .query_async(&mut c.clone())
+            .await
+            .map_err(|e| format!("Redis XDEL failed: {}", e))?;
+        Ok(serde_json::json!({ "success": true, "removed": removed }))
+    } else {
+        Err("Not a Redis connection".to_string())
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
