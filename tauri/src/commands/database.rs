@@ -2880,7 +2880,57 @@ pub async fn db_redis_stream_retry(
     consumer: String,
     msg_ids: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    db_redis_stream_claim(id, db_index, stream, group, consumer, msg_ids).await
+    let conn = redis_conn_for(&id, db_index).await?;
+    if let DbConnection::Redis(c) = conn {
+        let mut new_ids = Vec::new();
+        for msg_id in &msg_ids {
+            // 1. 读取原消息内容（XRANGE stream <id> <id>）
+            let orig: Vec<Vec<(String, Vec<(String, String)>)>> = redis::cmd("XRANGE")
+                .arg(&stream)
+                .arg(msg_id)
+                .arg(msg_id)
+                .query_async(&mut c.clone())
+                .await
+                .map_err(|e| format!("Redis XRANGE failed: {}", e))?;
+            let (_, fields) = match orig.first() {
+                Some(entry) => {
+                    let eid = entry.first().map(|(id, _)| id.clone()).unwrap_or_default();
+                    let f = entry
+                        .iter()
+                        .find_map(|(_, vals)| Some(vals.clone()))
+                        .unwrap_or_default();
+                    (eid, f)
+                }
+                None => return Err(format!("消息 {} 不存在", msg_id)),
+            };
+            // 2. 重新投递（XADD stream * field value ...）
+            let mut cmd = redis::Cmd::new();
+            cmd.arg("XADD").arg(&stream).arg("*");
+            for (k, v) in &fields {
+                cmd.arg(k).arg(v);
+            }
+            let new_id: String = cmd
+                .query_async(&mut c.clone())
+                .await
+                .map_err(|e| format!("Redis XADD failed: {}", e))?;
+            // 3. 确认旧消息（XACK stream group <msg_id>）
+            let _: i64 = redis::cmd("XACK")
+                .arg(&stream)
+                .arg(&group)
+                .arg(msg_id)
+                .query_async(&mut c.clone())
+                .await
+                .map_err(|e| format!("Redis XACK failed: {}", e))?;
+            new_ids.push(new_id);
+        }
+        Ok(serde_json::json!({
+            "success": true,
+            "newMessageId": new_ids.first().cloned().unwrap_or_default(),
+            "newMessageIds": new_ids,
+        }))
+    } else {
+        Err("Not a Redis connection".to_string())
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
