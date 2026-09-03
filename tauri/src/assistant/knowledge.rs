@@ -199,6 +199,17 @@ pub const GUIDES: &[Guide] = &[
         body: "构建日志逐行推送会在 macOS 上打满主线程导致窗口无响应，6.50.6 起后端已按 200ms 攒批发送。\n\
                若仍感觉卡顿：减少同时部署的配置数、或把只关心结果的构建改成静默模式。",
     },
+    Guide {
+        id: "cli-id-verify",
+        title: "CLI 命令报「未找到」先 list 核对 id、别改走其它路子",
+        module: "运维",
+        route: "/",
+        keywords: &[":未找到服务器", ":未找到数据库连接", ":未找到配置", "日志预设不存在", "核对 id", "stool list"],
+        body: "stool 命令带 id 参数时（server/cicd/db/log），id 写错或目标没在 GUI 配置会报「未找到 X」。\n\
+               exit code 统一为业务错误 1，报错文案末尾都带「（可用 stool X list 核对 id）」。\n\
+               处理次序：① 先 stool server/db/cicd/log list 按分组核对 id；② 目标若根本没配，就到对应 GUI 页配好再继续，\n\
+               绝不改走其它路子（如绕开 stool 直连）；③ 所有写操作都会自动进审计，可用 stool audit list 回查。",
+    },
 ];
 
 /// 报错特征 → 原因 + 处理办法（pattern 一律小写子串匹配）
@@ -212,6 +223,10 @@ pub const ERROR_HINTS: &[ErrorHint] = &[
     ErrorHint { pattern: "command not found", cause: "构建工具不在子进程 PATH 里（nvm/homebrew 安装）", fix: "在高级设置里填 javaHome / mavenHome / nodeHome 等绝对路径", guide: "cicd-build-vs-output-dir" },
     ErrorHint { pattern: "java_home", cause: "JAVA_HOME 配置无效或不存在", fix: "填真实 JDK 目录（注意 sdkman 的实际版本号），或清空让子进程继承", guide: "cicd-build-vs-output-dir" },
     ErrorHint { pattern: "未找到产物", cause: "构建成功但产物目录没对上", fix: "显式填写产物目录（maven 填 xxx/target；uni-app h5 填 dist/build/h5）", guide: "cicd-build-vs-output-dir" },
+    ErrorHint { pattern: "未找到服务器", cause: "server id 写错或目标机未在 GUI 配置", fix: "先用 stool server list 核对 id，若目标未配置则到 GUI「服务器」页配好后再继续，别改走其它路子", guide: "cli-id-verify" },
+    ErrorHint { pattern: "未找到数据库连接", cause: "db id 写错或连接未在 GUI 配置", fix: "先用 stool db list 核对 id，缺配置就到 GUI「数据库」页加好连接", guide: "cli-id-verify" },
+    ErrorHint { pattern: "未找到配置", cause: "cicd 配置 id 写错或未在 GUI 创建", fix: "先用 stool cicd list 核对 id，缺配置到 GUI 向导新建", guide: "cli-id-verify" },
+    ErrorHint { pattern: "日志预设", cause: "log preset id 写错或未在 GUI 配置", fix: "先用 stool log list 核对 id，缺预设到 GUI「日志聚合」页新建", guide: "cli-id-verify" },
     ErrorHint { pattern: "已回退自动扫描", cause: "配置的产物目录不存在（不是错误，是提示）", fix: "把产物目录改成实际存在的相对路径；uni-app 注意是 dist/build/h5", guide: "cicd-npm-single" },
     ErrorHint { pattern: "permission denied (publickey", cause: "SSH 认证方式不对（用户名/密钥/密码）", fix: "核对登录用户名，并在服务器上补密钥或密码（凭据需你自己在表单填写）", guide: "server-fields" },
     ErrorHint { pattern: "unable to authenticate", cause: "凭据被服务端拒绝", fix: "同上，确认用户名与认证方式；生产机常禁用密码登录只允许密钥", guide: "server-fields" },
