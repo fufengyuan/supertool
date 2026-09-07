@@ -28,6 +28,13 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 - `db/servers.rs::update_server` 的 password 是**三态**：`Some("")`=显式清空写 NULL、`Some(pwd)`=新密码、`None`=保留库中旧值（编辑时用户不改密码）。
 - 完整根因/修复见 [docs/ssh-auth-fix.md](docs/ssh-auth-fix.md)。
 
+### 日志搜索关键字（2026-09-07）
+
+- 匹配语义统一由 `core/src/logic/log_presets.rs::LogKeywordSpec` 决定，CLI / 桌面端 GUI / MCP **共用同一套行为**：单关键词 → `grep -F` 字面量；含 `|` 或 shell 转义的 `\|`（如 `购卡\|buy-card\|PrepaidCard`）→ 拆多支走 `grep -E`，**每支内仍按字面量转义**（`/ - .` 无需用户转义）；`-E/--regex`（MCP 为 `regex: true`）→ 整串原样 ERE。
+- 改关键字解析逻辑只动 `LogKeywordSpec::parse` 与 `escape_ere_literal`，勿在 `build_grep_command` 里散落拼接——现有 `grep` / gz 轮转 `find -exec sh -c` / docker / journalctl `--grep` 四条分支都吃同一个 `spec`。
+- **空模式必须短路**：关键字只有分隔符（`|`）时 `spec.is_empty()` 返回 true，直接返回空结果，否则空模式会让 grep 匹配所有行。
+- grep 模式统一用 `-e 'pat'` 下发（避免 `-` 开头的关键字被当成选项）；本地 `isMatch` 判定按分支子串命中，regex 模式下 Rust `Regex` 编译失败不拦截下发、退回子串包含。
+
 ### 打包 / 分发（2026-09-01）
 
 - **CLI 产物在 workspace 根 `target/`，不在 `cli/target/`**：`build.sh` 的 `build_cli()` 会 `cd cli`，但 cargo workspace 产物统一输出到根 `target/`，复制时必须用 `../target/${target}/release`。旧实现遍历 `cli/target/...` 从未命中，叠加 `2>/dev/null || true` 吞错，导致根 `target/release/stool` 长期是某次手工 native(arm64) 残留 —— 被 `tauri.conf.json` 的 resources（`../target/release/stool`）直接打进每个包，**x64 包里装的也是 arm64 CLI**。
