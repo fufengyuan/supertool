@@ -527,6 +527,9 @@ pub enum LogCommands {
         /// 搜索最近 N 天（含今天）的日志（1=仅今天）；默认只查当前日志文件
         #[arg(long)]
         days: Option<u64>,
+        /// 整串按 ERE 正则匹配（默认按字面量；关键字含 | 时自动按多关键词 OR 拆分）
+        #[arg(short = 'E', long)]
+        regex: bool,
         #[arg(short, long)]
         json: bool,
     },

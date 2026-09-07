@@ -30,6 +30,8 @@ pub fn print_guide() {
     println!("    stool log list [-j]                 stool log search <id> 'keyword'");
     println!("    stool log search <id> 'kw' --date 2026-08-06   历史轮转日志");
     println!("    stool log search <id> 'kw' --days 7            最近 7 天");
+    println!("    stool log search <id> '购卡|PrepaidCard'        多关键词 OR");
+    println!("    stool log search <id> 'ERROR.*timeout' -E      正则匹配");
     println!("    stool log tail <id> [-l 100]");
     println!("  MFA 管理:");
     println!("    stool mfa list [-j]                 stool mfa add '名称' <secret>");

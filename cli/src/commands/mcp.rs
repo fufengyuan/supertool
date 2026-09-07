@@ -199,8 +199,9 @@ fn list_tools() -> Value {
             "在日志预设中搜索关键字（grep，支持 | 多选）",
             json!({
                 "preset": { "type": "string", "description": "预设 ID 或序号" },
-                "keyword": { "type": "string", "description": "搜索关键字，支持 | 多选" },
+                "keyword": { "type": "string", "description": "搜索关键字，支持 | 多选（如 购卡|PrepaidCard）" },
                 "lines": { "type": "integer", "description": "搜索行数范围，默认 50" },
+                "regex": { "type": "boolean", "description": "为 true 时整串按 ERE 正则匹配，默认按字面量" },
             }),
             &["preset", "keyword"],
         ),
@@ -498,8 +499,9 @@ async fn log_search(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> 
     let preset = req_str(args, "preset")?;
     let keyword = req_str(args, "keyword")?;
     let lines = args.get("lines").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
+    let regex = args.get("regex").and_then(|v| v.as_bool()).unwrap_or(false);
     let id = resolve_preset(rt, preset).await?;
-    rt.core.log_search(&id, &keyword, lines, None, None).await
+    rt.core.log_search(&id, &keyword, lines, None, None, regex).await
 }
 
 async fn log_tail(rt: &mut CliRuntime, args: &Value) -> Result<Value, String> {

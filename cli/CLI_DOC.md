@@ -141,6 +141,8 @@ stool log delete <id>
 stool log search <preset_id> "keyword" [-l 50]              # Current log file
 stool log search <preset_id> "keyword" --date 2026-08-06    # History: rotated files written on that day
 stool log search <preset_id> "keyword" --days 7             # History: last N days (incl. today)
+stool log search <preset_id> "购卡|buy-card/cards|PrepaidCard"  # Multi-keyword OR (each branch literal)
+stool log search <preset_id> 'ERROR.*timeout' -E            # Full ERE regex match
 stool log tail <preset_id> [-l 100]                # Static tail (not streaming)
 stool log context <preset_id> <server_id> <line_num> [-c 20]  # View context lines around line_num
 ```
@@ -149,6 +151,7 @@ stool log context <preset_id> <server_id> <line_num> [-c 20]  # View context lin
 - `preset_id` can be a numeric index (1-based) — CLI auto-resolves to actual ID.
 - `log context`: Shows `context_lines` lines centered around `line_num` (half before, half after). Target line marked with `▶`.
 - **Historical search** (`--date` / `--days`, mutually exclusive): runs `find` by mtime over all rotated files in the log dir (`app.log.1`, `app.log-20260806`, `app.log.2026-08-06`, ...) then greps each. `docker`/`journalctl` types not supported for history yet. Without either flag, only the current file is searched.
+- **Keyword matching**: by default the keyword is matched literally (`grep -F`). If it contains `|` (or the shell-escaped `\|`, e.g. `购卡\|buy-card\|PrepaidCard`), it is split into an OR set and matched with `grep -E` — each branch stays literal, so `/`, `-`, `.` need no escaping. Pass `-E/--regex` to treat the whole keyword as an ERE regex (`ERROR.*timeout`). Matching is always case-insensitive. Same semantics apply to the desktop GUI and the MCP `log_search` tool (which also accepts an optional `regex: true`).
 
 ---
 

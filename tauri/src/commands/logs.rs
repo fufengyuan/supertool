@@ -55,9 +55,12 @@ pub async fn log_search(
     lines: usize,
     date: Option<String>,
     days: Option<u64>,
+    regex: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] log_search() called");
-    let result = core.log_search(&preset_id, &keyword, lines, date.as_deref(), days).await?;
+    let result = core
+        .log_search(&preset_id, &keyword, lines, date.as_deref(), days, regex.unwrap_or(false))
+        .await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 

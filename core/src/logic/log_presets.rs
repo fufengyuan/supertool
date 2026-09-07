@@ -1,4 +1,5 @@
 use super::ssh;
+use regex::Regex;
 use rusqlite::params;
 use serde_json::{Value, json};
 
@@ -348,8 +349,10 @@ impl super::CoreService {
         lines: usize,
         date: Option<&str>,
         days: Option<u64>,
+        regex_mode: bool,
     ) -> Result<Value, String> {
-        if keyword.trim().is_empty() {
+        let spec = LogKeywordSpec::parse(keyword, regex_mode);
+        if spec.is_empty() {
             return Ok(json!({"presetId": preset_id, "keyword": keyword, "matches": []}));
         }
 
@@ -386,7 +389,7 @@ impl super::CoreService {
             return Err(format!("预设 {} 没有配置日志路径", preset_id));
         }
 
-        let cmd = build_grep_command(&preset, keyword, lines, date, days);
+        let cmd = build_grep_command(&preset, keyword, lines, date, days, regex_mode);
         let mut matches = Vec::new();
 
         for server_id in &server_ids {
@@ -473,7 +476,7 @@ impl super::CoreService {
             };
             match output {
                 Ok(exec_result) => {
-                    let lines = parse_grep_output(&exec_result.output, keyword);
+                    let lines = parse_grep_output(&exec_result.output, &spec);
                     let match_count = lines
                         .iter()
                         .filter(|l| l["isMatch"].as_bool().unwrap_or(false))
@@ -720,25 +723,163 @@ fn date_name_filters(date: Option<&str>, days: Option<u64>) -> String {
     }
 }
 
+/// 搜索关键字的匹配规格：把用户输入的单个 keyword 编译成两份东西
+///   1. 远端 grep 表达式（`grep_flag` + `pattern`）
+///   2. 本地判定器（`is_match`），用于给上下文行回填 `isMatch`
+///
+/// 语义：
+///   - 默认整串字面量匹配（`grep -F`），与历史行为一致
+///   - 含 `|`（或 shell 转义写法 `\|`）时按 OR 拆分，每支仍按字面量处理（`grep -E`）
+///   - `--regex/-E` 时整串作为 ERE 正则原样下传
+pub struct LogKeywordSpec {
+    /// grep 选项：`-F` 字面量 / `-E` 扩展正则
+    pub grep_flag: &'static str,
+    /// 交给 grep 的模式串（**未做** shell 单引号转义）
+    pub pattern: String,
+    /// 字面量判定分支（已小写），多关键词时为拆分后的各支
+    branches: Vec<String>,
+    /// `--regex` 模式下的已编译正则；编译失败为 None（退化为子串包含）
+    regex: Option<Regex>,
+}
+
+impl LogKeywordSpec {
+    pub fn parse(keyword: &str, regex_mode: bool) -> Self {
+        if regex_mode {
+            let regex = Regex::new(keyword).ok();
+            // Rust regex 与远端 GNU/BSD grep 的 ERE 语法并非完全等价，编译失败时
+            // 不拦截（仍原样下发给 grep），本地判定退回子串包含，避免所有行都丢高亮
+            let branches = if regex.is_some() {
+                Vec::new()
+            } else {
+                vec![keyword.to_lowercase()]
+            };
+            return Self {
+                grep_flag: "-E",
+                pattern: keyword.to_string(),
+                branches,
+                regex,
+            };
+        }
+        let parts = split_alternatives_raw(keyword);
+        if parts.len() > 1 {
+            let branches: Vec<String> = parts
+                .iter()
+                .map(|p| p.trim().to_string())
+                .filter(|p| !p.is_empty())
+                .collect();
+            // 只有分隔符（如 `|`）：空模式会匹配所有行，直接置空让调用方短路返回
+            if branches.is_empty() {
+                return Self {
+                    grep_flag: "-F",
+                    pattern: String::new(),
+                    branches: Vec::new(),
+                    regex: None,
+                };
+            }
+            let pattern = branches
+                .iter()
+                .map(|b| escape_ere_literal(b))
+                .collect::<Vec<_>>()
+                .join("|");
+            return Self {
+                grep_flag: "-E",
+                pattern,
+                branches: branches.iter().map(|b| b.to_lowercase()).collect(),
+                regex: None,
+            };
+        }
+        Self {
+            grep_flag: "-F",
+            pattern: keyword.to_string(),
+            branches: vec![keyword.to_lowercase()],
+            regex: None,
+        }
+    }
+
+    /// 空模式（如输入只有分隔符）不应下发 grep——空模式会匹配所有行
+    pub fn is_empty(&self) -> bool {
+        self.pattern.is_empty()
+    }
+
+    pub fn is_match(&self, content: &str) -> bool {
+        if let Some(re) = &self.regex {
+            return re.is_match(content);
+        }
+        let lower = content.to_lowercase();
+        self.branches
+            .iter()
+            .any(|b| !b.is_empty() && lower.contains(b))
+    }
+}
+
+/// 按 OR 分隔符拆分关键字（未做 trim / 空支过滤）。`|` 与 shell 常见的 `\|`
+/// 写法都视为分隔符，`\\` 折叠为单个字面反斜杠。
+fn split_alternatives_raw(keyword: &str) -> Vec<String> {
+    let mut parts: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    let mut chars = keyword.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => match chars.peek() {
+                Some('|') => {
+                    chars.next();
+                    parts.push(std::mem::take(&mut cur));
+                }
+                Some('\\') => {
+                    chars.next();
+                    cur.push('\\');
+                }
+                _ => cur.push('\\'),
+            },
+            '|' => parts.push(std::mem::take(&mut cur)),
+            _ => cur.push(c),
+        }
+    }
+    parts.push(std::mem::take(&mut cur));
+    parts
+}
+
+/// 把一个分支转义成 ERE 字面量：只转义真正的 ERE 元字符，
+/// 保留 `/`、`-` 等普通字符的原样写法（GNU grep 对未知转义会告警）。
+fn escape_ere_literal(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        if matches!(
+            c,
+            '\\' | '.' | '[' | ']' | '^' | '$' | '*' | '+' | '?' | '(' | ')' | '{' | '}' | '|'
+        ) {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
+}
+
 fn build_grep_command(
     preset: &Value,
     keyword: &str,
     context_lines: usize,
     date: Option<&str>,
     days: Option<u64>,
+    regex_mode: bool,
 ) -> String {
     let log_type = preset["logType"].as_str().unwrap_or("file");
     let log_path = preset["logPath"].as_str().unwrap_or("");
-    let escaped_kw = keyword.replace('\'', "'\\''");
+    let spec = LogKeywordSpec::parse(keyword, regex_mode);
+    let escaped_kw = spec.pattern.replace('\'', "'\\''");
     let grep_ctx = if context_lines > 0 {
         format!(" -C {}", context_lines)
     } else {
         String::new()
     };
-    // 用 -F 固定字符串匹配：traceId / 完整关键字原样按字面子串匹配，
+    // 默认 `-F` 固定字符串匹配：traceId / 完整关键字原样按字面子串匹配，
     // 避免 grep 把关键字当作 BRE 正则（如 traceId 含 `.`/`-` 等元字符时
-    // 用完整 traceId 搜不到，而后缀纯数字能搜到——正是正则解析差异导致）
-    let grep = format!("grep{} -i -F -n '{}'", grep_ctx, escaped_kw);
+    // 用完整 traceId 搜不到，而后缀纯数字能搜到——正是正则解析差异导致）。
+    // 多关键词（`a|b`）或 --regex 时切 `-E`，各分支已按字面量转义。
+    let grep = format!(
+        "grep{} -i {} -n -e '{}'",
+        grep_ctx, spec.grep_flag, escaped_kw
+    );
     // 历史轮转日志多为 gzip，按扩展名分支解压：
     //   *.gz  → gzip -cd | grep（管道自动解压，不依赖 `zgrep`——部分服务器 zgrep
     //            对非 gzip 文件静默不出结果，与 gzip 版本相关）
@@ -747,14 +888,19 @@ fn build_grep_command(
     //   $1 = 关键字；$2 = 当前文件名。用 $2 定位文件，避免 `$@` 把 $1 关键字也带进循环，
     //   导致对不存在的"名为关键字的路径"多做一次无效 grep。
     let gz_grep_script = format!(
-        "case \"$2\" in *.gz) gzip -cd -- \"$2\" 2>/dev/null | grep{} -i -F -n -- \"$1\" ;; *) grep{} -i -F -n -- \"$1\" \"$2\" 2>/dev/null ;; esac",
-        grep_ctx, grep_ctx,
+        "case \"$2\" in *.gz) gzip -cd -- \"$2\" 2>/dev/null | grep{} -i {} -n -e \"$1\" ;; *) grep{} -i {} -n -e \"$1\" -- \"$2\" 2>/dev/null ;; esac",
+        grep_ctx, spec.grep_flag, grep_ctx, spec.grep_flag,
     );
     // 关键字以位置参数 "$1" 传入（脚本内除 "$1"/"$2" 外不含任何 shell 元字符引用，规避嵌套引号）
     // 用 `\;`（每文件一次 sh）而非 `+`（批量）：busybox find/sh 对 `-exec ... +` 支持不完整
     let gz_exec = format!("-exec sh -c '{}' sh '{}' {{}} \\;", gz_grep_script, escaped_kw);
-    // journalctl --grep 走 ERE 正则，需把关键字转义为字面量后再加 shell 单引号转义
-    let journal_kw = regex::escape(keyword).replace('\'', "'\\''");
+    // journalctl --grep 走 ERE：字面量模式需整体正则转义，多关键词/--regex 直接下传
+    let journal_kw = if spec.grep_flag == "-E" {
+        spec.pattern.clone()
+    } else {
+        regex::escape(&spec.pattern)
+    }
+    .replace('\'', "'\\''");
 
     // 历史查询目前仅支持 file 类型（docker/journalctl 的历史时间范围语法差异大）
     if (date.is_some() || days.is_some()) && (log_type == "docker" || log_type == "journalctl") {
@@ -776,8 +922,7 @@ fn build_grep_command(
                 .map(|c| {
                     format!(
                         "docker logs '{}' 2>&1 | {} 2>/dev/null",
-                        c,
-                        format!("grep{} -i -F -n '{}'", grep_ctx, escaped_kw)
+                        c, grep
                     )
                 })
                 .collect::<Vec<_>>()
@@ -890,9 +1035,7 @@ fn build_context_command(log_type: &str, log_path: &str, start: usize, end: usiz
     }
 }
 
-fn parse_grep_output(output: &str, keyword: &str) -> Vec<Value> {
-    let kw_lower = keyword.to_lowercase();
-
+fn parse_grep_output(output: &str, spec: &LogKeywordSpec) -> Vec<Value> {
     // 按 lineNum 去重：grep -C 上下文行在多匹配邻近时会重叠，且 docker 多容器/多文件
     // 场景同一物理行可能被多个 grep 重复匹配。同一 lineNum 只保留一条，
     // 匹配行(isMatch=true)优先于上下文行。
@@ -912,7 +1055,7 @@ fn parse_grep_output(output: &str, keyword: &str) -> Vec<Value> {
                 .replace("\x1b[0m", "")
                 .replace("\x1b[31m", "")
                 .replace("\x1b[32m", "");
-            let is_match = content.to_lowercase().contains(&kw_lower);
+            let is_match = spec.is_match(&content);
             if let Some(existing) = seen.get(&line_num) {
                 // 已存在：仅当新行是匹配行、旧行不是时才替换（匹配行优先）
                 let existing_match = existing["isMatch"].as_bool().unwrap_or(false);
@@ -1005,7 +1148,7 @@ mod tests {
 13-after line 13
 14-after line 14
 ";
-        let lines = parse_grep_output(output, "keyword");
+        let lines = parse_grep_output(output, &LogKeywordSpec::parse("keyword", false));
         let nums: Vec<String> = lines
             .iter()
             .map(|l| l["lineNum"].as_str().unwrap_or("").to_string())
@@ -1031,7 +1174,7 @@ mod tests {
 --
 5-context only line
 ";
-        let lines = parse_grep_output(output, "keyword");
+        let lines = parse_grep_output(output, &LogKeywordSpec::parse("keyword", false));
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0]["lineNum"], "5");
         assert_eq!(lines[0]["isMatch"], true);
@@ -1076,7 +1219,7 @@ mod tests {
             "logType": "file",
             "logPath": "/opt/logs/mall-server.log",
         });
-        let cmd = build_grep_command(&preset, "支付下单", 0, Some("2026-08-18"), None);
+        let cmd = build_grep_command(&preset, "支付下单", 0, Some("2026-08-18"), None, false);
         assert!(!cmd.contains("newermt"), "不应再按 mtime 匹配: {}", cmd);
         assert!(cmd.contains("gzip -cd"), "应含 gz 解压分支: {}", cmd);
         assert!(cmd.contains("-name \"*2026-08-18*\"") || cmd.contains("-name \"*20260818*\""),
@@ -1084,5 +1227,107 @@ mod tests {
         // 关键字以位置参数 "$1" 传入（历史分支脚本内不直接内嵌关键字）
         assert!(cmd.contains("sh -c ") && cmd.contains("'支付下单'"),
             "应使用 sh -c 分支且关键字以位置参数传入: {}", cmd);
+    }
+
+    #[test]
+    fn keyword_spec_single_keyword_stays_fixed_string() {
+        // 单关键词保持历史行为：-F 字面量，不做任何正则解析
+        let spec = LogKeywordSpec::parse("trace-1.2.3", false);
+        assert_eq!(spec.grep_flag, "-F");
+        assert_eq!(spec.pattern, "trace-1.2.3");
+        assert!(spec.is_match("xx trace-1.2.3 yy"));
+    }
+
+    #[test]
+    fn keyword_spec_splits_escaped_pipe_into_or() {
+        // shell 里常见的 `购卡\|buy-card\|PrepaidCard` 写法（反斜杠保留）应拆成多支 OR
+        let spec = LogKeywordSpec::parse(r"购卡\|buy-card\|buy-card/cards\|生成卡\|面值\|PrepaidCard", false);
+        assert_eq!(spec.grep_flag, "-E", "多关键词应切 -E: {}", spec.pattern);
+        assert_eq!(
+            spec.pattern,
+            "购卡|buy-card|buy-card/cards|生成卡|面值|PrepaidCard"
+        );
+        assert!(spec.is_match("用户 buy-card/cards 请求"));
+        assert!(spec.is_match("PrepaidCard 面值不足"));
+        assert!(!spec.is_match("无关日志一行"));
+    }
+
+    #[test]
+    fn keyword_spec_splits_bare_pipe_into_or() {
+        // 未转义的 `|` 同样按 OR 处理
+        let spec = LogKeywordSpec::parse("ERROR|WARN", false);
+        assert_eq!(spec.grep_flag, "-E");
+        assert_eq!(spec.pattern, "ERROR|WARN");
+    }
+
+    #[test]
+    fn keyword_spec_branch_keeps_literal_semantics() {
+        // 分支内的正则元字符按字面量转义：a.b 不应匹配 axb
+        let spec = LogKeywordSpec::parse("a.b|c+d", false);
+        assert_eq!(spec.pattern, r"a\.b|c\+d", "分支内应转义元字符: {}", spec.pattern);
+        assert!(spec.is_match("xx a.b yy"));
+        assert!(!spec.is_match("xx axb yy"), "分支内不应按正则解析");
+    }
+
+    #[test]
+    fn keyword_spec_regex_mode_passes_pattern_through() {
+        let spec = LogKeywordSpec::parse(r"ERROR.*timeout|panic", true);
+        assert_eq!(spec.grep_flag, "-E");
+        assert_eq!(spec.pattern, r"ERROR.*timeout|panic");
+        assert!(spec.is_match("ERROR connect timeout"));
+        assert!(!spec.is_match("ERROR ok"));
+    }
+
+    #[test]
+    fn keyword_spec_regex_mode_falls_back_when_rust_regex_rejects() {
+        // Rust regex 与远端 grep 的 ERE 语法不完全等价：编译失败不应拦截下发，
+        // 但本地判定需退回子串包含，否则匹配行全部丢失高亮
+        let spec = LogKeywordSpec::parse(r"a\{2\}", true);
+        assert_eq!(spec.grep_flag, "-E");
+        assert_eq!(spec.pattern, r"a\{2\}", "模式串应原样下发给 grep");
+        assert!(spec.is_match("xx a{2} yy"), "编译失败时应退回子串包含判定");
+    }
+
+    #[test]
+    fn keyword_spec_is_empty_for_separator_only_input() {
+        // 只有分隔符时不应下发 grep（空模式会匹配所有行）
+        assert!(LogKeywordSpec::parse("|", false).is_empty());
+        assert!(LogKeywordSpec::parse(r"\|", false).is_empty());
+        assert!(!LogKeywordSpec::parse("a", false).is_empty());
+    }
+
+    #[test]
+    fn build_grep_command_multi_keyword_uses_extended_regex() {
+        let preset = serde_json::json!({"logType": "file", "logPath": "/opt/logs/app.log"});
+        let cmd = build_grep_command(&preset, "购卡|PrepaidCard", 5, None, None, false);
+        assert!(cmd.contains("grep -C 5 -i -E -n -e '购卡|PrepaidCard'"),
+            "多关键词应走 -E 并保留上下文行数: {}", cmd);
+        assert!(!cmd.contains(" -F "), "不应再用 -F: {}", cmd);
+    }
+
+    #[test]
+    fn build_grep_command_single_keyword_uses_fixed_string() {
+        let preset = serde_json::json!({"logType": "file", "logPath": "/opt/logs/app.log"});
+        let cmd = build_grep_command(&preset, "购卡", 0, None, None, false);
+        assert!(cmd.contains("grep -i -F -n -e '购卡'"), "单关键词应保持 -F: {}", cmd);
+    }
+
+    #[test]
+    fn parse_grep_output_marks_match_when_any_branch_hits() {
+        let output = "\
+10-上下文行
+11:用户 购卡 请求
+12:PrepaidCard 面值不足
+13:无关行
+";
+        let lines = parse_grep_output(output, &LogKeywordSpec::parse("购卡|PrepaidCard", false));
+        let l11 = lines.iter().find(|l| l["lineNum"] == "11").unwrap();
+        let l12 = lines.iter().find(|l| l["lineNum"] == "12").unwrap();
+        assert_eq!(l11["isMatch"], true, "命中任一分支应标记匹配行");
+        assert_eq!(l12["isMatch"], true, "命中第二分支也应标记匹配行");
+        let l10 = lines.iter().find(|l| l["lineNum"] == "10").unwrap();
+        let l13 = lines.iter().find(|l| l["lineNum"] == "13").unwrap();
+        assert_eq!(l10["isMatch"], false, "上下文行不应标记匹配");
+        assert_eq!(l13["isMatch"], false, "未命中行不应标记匹配");
     }
 }
