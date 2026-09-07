@@ -695,6 +695,11 @@ fn main() {
             assistant::floating::close_floating_assistant,
             assistant::floating::toggle_floating_assistant,
             assistant::floating::set_floating_assistant_pinned,
+            // AI 配置助手：历史会话
+            commands::assistant_sessions::list_assistant_sessions,
+            commands::assistant_sessions::get_assistant_session,
+            commands::assistant_sessions::save_assistant_session,
+            commands::assistant_sessions::delete_assistant_session,
             // Database additional commands
             commands::database::db_get_table_structure,
             commands::database::db_get_table_primary_keys,

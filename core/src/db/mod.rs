@@ -612,6 +612,15 @@ pub fn init_db(conn: &Connection) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
 
+        -- AI 配置助手：历史会话（消息 JSON 整体落库；敏感字段在写入前已由前端脱敏）
+        CREATE TABLE IF NOT EXISTS assistant_sessions (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL DEFAULT '新会话',
+            messages TEXT NOT NULL DEFAULT '[]',
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL
+        );
+
         "#,
     )?;
     // Migration: add keywords column for databases created before v3.1.9

@@ -26,3 +26,4 @@ pub mod terminal;
 pub mod todos;
 pub mod weekly;
 pub mod wireguard;
+pub mod assistant_sessions;

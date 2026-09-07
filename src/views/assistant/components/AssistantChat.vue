@@ -1,5 +1,18 @@
 <template>
-  <div class="flex flex-col min-h-0 flex-1">
+  <div class="flex min-h-0 flex-1">
+    <!-- 历史会话侧边栏（仅主界面显示） -->
+    <AssistantSessionSidebar
+      v-if="showSidebar"
+      :sessions="sessions"
+      :current-id="currentId"
+      :collapsed="sidebarCollapsed"
+      @update:collapsed="sidebarCollapsed = $event"
+      @new="onNewSession"
+      @select="onSelectSession"
+      @delete="onDeleteSession"
+    />
+
+    <div class="flex flex-col min-h-0 flex-1">
     <!-- 模型状态条 -->
     <div
       class="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-base-content/10 text-[11px]"
@@ -25,8 +38,8 @@
       <button
         v-if="entries.length"
         class="btn btn-ghost btn-xs shrink-0 text-base-content/50"
-        title="清空当前对话"
-        @click="clear"
+        title="清空当前对话并新开会话"
+        @click="onNewSession"
       >
         <SvgIcon name="trash" size="12" />
       </button>
@@ -218,6 +231,7 @@
         能帮你：{{ capabilitySummary }}
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -227,13 +241,17 @@ import type { RouteLocationRaw } from 'vue-router'
 import { useRouter } from 'vue-router'
 import SvgIcon from '../../../components/ui/SvgIcon.vue'
 import { renderMarkdown } from '../../../composables/useMarkdownRenderer'
+import AssistantSessionSidebar from './AssistantSessionSidebar.vue'
 import { useAssistantChat } from '../../../composables/useAssistantChat'
 import { useToast } from '../../../composables/useToast'
 import FormCard from './FormCard.vue'
 import AskCard from './AskCard.vue'
 import ProposalCard from './ProposalCard.vue'
 
-const props = withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
+const props = withDefaults(defineProps<{ compact?: boolean; showSidebar?: boolean }>(), {
+  compact: false,
+  showSidebar: false,
+})
 
 const router = useRouter()
 const toast = useToast()
@@ -241,7 +259,19 @@ const {
   entries, running, ready, modelInfo, capabilities, stateError,
   refreshState, start, send, stop, clear, applyProposal, dismissProposal,
   submitForm, submitAsk, proposalSecrets,
-} = useAssistantChat((to: RouteLocationRaw) => router.push(to))
+  sessions, currentId, openNewSession, loadSession, removeSession,
+} = useAssistantChat((to: RouteLocationRaw) => router.push(to), { persist: props.showSidebar })
+
+const sidebarCollapsed = ref(false)
+function onNewSession() {
+  openNewSession()
+}
+async function onSelectSession(id: string) {
+  await loadSession(id)
+}
+async function onDeleteSession(id: string) {
+  await removeSession(id)
+}
 
 const listRef = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)

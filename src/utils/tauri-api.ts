@@ -1753,6 +1753,11 @@ export interface TauriAPI {
   closeFloatingAssistant: () => Promise<any>
   toggleFloatingAssistant: () => Promise<any>
   setFloatingAssistantPinned: (pinned: boolean) => Promise<any>
+  // AI 配置助手历史会话
+  listAssistantSessions: (withMessages?: boolean) => Promise<any[]>
+  getAssistantSession: (id: string) => Promise<any>
+  saveAssistantSession: (id: string, title: string, messages: string) => Promise<any>
+  deleteAssistantSession: (id: string) => Promise<any>
   onDeployProgress: (callback: (data: any) => void) => Promise<UnlistenFn>
   onDeployNotification: (callback: (data: any) => void) => Promise<UnlistenFn>
   onDeployLogIdCreated: (callback: (data: any) => void) => Promise<UnlistenFn>
@@ -2592,6 +2597,10 @@ export function getTauriAPI(): TauriAPI {
     closeFloatingAssistant: async () => tauriCall('close_floating_assistant'),
     toggleFloatingAssistant: async () => tauriCall('toggle_floating_assistant'),
     setFloatingAssistantPinned: async (pinned: boolean) => { return tauriCall('set_floating_assistant_pinned', { pinned }); },
+    listAssistantSessions: async (withMessages?: boolean) => { return (await tauriCall('list_assistant_sessions', { withMessages })) as any[]; },
+    getAssistantSession: async (id: string) => tauriCall('get_assistant_session', { id }),
+    saveAssistantSession: async (id: string, title: string, messages: string) => { return tauriCall('save_assistant_session', { id, title, messages }); },
+    deleteAssistantSession: async (id: string) => tauriCall('delete_assistant_session', { id }),
     onDeployProgress: (callback: (data: any) => void) => { return listen('deploy-progress', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onDeployNotification: (callback: (data: any) => void) => { return listen('deploy-notification', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onDeployLogIdCreated: (callback: (data: any) => void) => { return listen('deploy-log-id-created', (e) => callback(e.payload)) as Promise<UnlistenFn> },

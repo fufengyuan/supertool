@@ -14,6 +14,7 @@ import { computed, onUnmounted, ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import { getTauriAPI } from '../utils/tauri-api'
 import { useToast } from './useToast'
+import { useAssistantSessions } from './useAssistantSessions'
 
 export interface ToolRun {
   callId: string
@@ -110,8 +111,15 @@ const SECRET_PLACEHOLDER = '已填写（保存在本地，确认提案时自动�
 /** 送给后端的历史：只要 user/assistant 正文，最多 20 条（后端还会再裁一次） */
 const HISTORY_LIMIT = 20
 
-export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
+export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void, opts?: { persist?: boolean }) {
   const toast = useToast()
+  // persist=false（默认）：不落库，保持原有「每次独立会话」行为（悬浮窗用，避免与主界面
+  // 共享会话 id 时互相覆盖）。persist=true：主界面，启用历史会话保存/切换侧边栏。
+  const persist = !!opts?.persist
+  const {
+    sessions, currentId, loadSessions, newSession: storeNewSession,
+    switchSession, saveCurrent, deleteSession,
+  } = useAssistantSessions()
   const entries = ref<AssistantEntry[]>([])
   const running = ref(false)
   const ready = ref(false)
@@ -322,11 +330,14 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
     }
   }
 
-  /** done/error 之后收尾：关掉光标动画并释放输入 */
+  /** done/error 之后收尾：关掉光标动画并释放输入；把本轮会话落库，便于侧边栏切换/继续 */
   function settle() {
     const entry = lastAssistant()
     if (entry) {entry.streaming = false}
     running.value = false
+    if (persist && currentId.value && entries.value.some(e => e.role === 'user' && e.text.trim())) {
+      void saveCurrent(entries.value)
+    }
   }
 
   async function stop() {
@@ -344,6 +355,19 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
   async function start() {
     const api = getTauriAPI() as any
     await refreshState()
+    if (persist) {
+      // 确保会话列表已加载；恢复最近一次会话继续（满足「接着上次聊」），没有任何会话才新建
+      await loadSessions()
+      if (!currentId.value) {
+        const latest = sessions.value[0]
+        if (latest) {
+          const loaded = await switchSession(latest.id)
+          if (loaded) {entries.value = loaded.messages}
+        } else {
+          storeNewSession()
+        }
+      }
+    }
     unlisten = await api.onAssistantEvent?.((data: any) => {
       onEvent(data)
       if (data?.type === 'done' || data?.type === 'error') {settle()}
@@ -401,6 +425,39 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
     entries.value = []
     secretVault.value = {}
     settle()
+  }
+
+  /** 新建一个空会话并置为当前（旧会话已由 settle 落库，无需再存） */
+  function openNewSession() {
+    entries.value = []
+    secretVault.value = {}
+    if (persist) {storeNewSession()}
+    settle()
+  }
+
+  /** 切换会话：先保存当前，再加载目标会话（恢复渲染，可继续对话） */
+  async function loadSession(id: string): Promise<boolean> {
+    if (!persist || running.value) {return false}
+    await saveCurrent(entries.value)
+    const loaded = await switchSession(id)
+    if (loaded) {
+      entries.value = loaded.messages
+      secretVault.value = {}
+      return true
+    }
+    entries.value = []
+    return false
+  }
+
+  /** 删除会话并返回是否删的是当前会话 */
+  async function removeSession(id: string): Promise<boolean> {
+    const wasCurrent = await deleteSession(id)
+    if (persist && wasCurrent) {
+      entries.value = []
+      secretVault.value = {}
+      storeNewSession()
+    }
+    return wasCurrent
   }
 
   onUnmounted(() => {
@@ -519,5 +576,7 @@ export function useAssistantChat(navigate?: (to: RouteLocationRaw) => void) {
     entries, running, ready, modelInfo, capabilities, stateError,
     pendingProposals, refreshState, start, send, stop, clear,
     applyProposal, dismissProposal, submitForm, submitAsk, proposalSecrets,
+    // 历史会话
+    sessions, currentId, loadSessions, openNewSession, loadSession, removeSession,
   }
 }

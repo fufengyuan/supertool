@@ -38,6 +38,7 @@ pub mod ssh_ops;
 pub mod todo;
 pub mod weekly;
 pub mod audit;
+pub mod assistant_sessions;
 
 use crate::db::{ApiResponse, Database};
 use serde_json::{Value, json};
