@@ -14,6 +14,7 @@ export const DEV_TOOL_REGISTRY: DevTool[] = [
   { id: 'crypto', name: '哈希计算', icon: 'lock', category: 'crypto', description: 'MD5, SHA1, SHA256, SHA512, SM3, 批量处理, 文件哈希', offline: true, keywords: 'hash md5 sha sm3 sj hh' },
   { id: 'encrypt', name: '加密/解密', icon: 'key', category: 'crypto', description: 'AES, DES, RC4, Rabbit, TripleDES, SM2, SM4, Bcrypt', offline: true, keywords: 'encrypt decrypt aes des rc4 sm2 sm4 bcrypt jiami jiemi' },
   { id: 'openapi', name: 'OpenAPI签名', icon: 'zap', category: 'crypto', description: '开放接口 MD5 签名/验签 + AES-ECB 字段加解密', offline: true, keywords: 'openapi sign md5 aes ecb qianming yanqian openapiqm' },
+  { id: 'smpacket', name: '国密报文', icon: 'key', category: 'crypto', description: '国密接口报文加解密：SM4-ECB 密文（补零 / PKCS7）+ SM3 排序签名，可自定义协议参数', offline: true, keywords: '国密 报文 接口 sm4 sm3 ecb 补零 签名 验签 envelope jiami jiemi bw' },
   { id: 'navicat', name: 'Navicat密码', icon: 'database', category: 'crypto', description: 'Navicat 12+ 保存的数据库密码加解密（.ncx）', offline: true, keywords: 'navicat password ncx 数据库 密码 jiemi jiami' },
 
   // === 编码/转换 ===
