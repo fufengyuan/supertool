@@ -74,6 +74,7 @@ Tauri 2 桌面运维工具（Rust + Vue 3 + TS）。
 - 助手事件（`assistant-event` 的文本/思考增量）与部署进度事件一样必须**后端攒批**（≥120 字或 ≥80ms），逐 token emit 会重演窗口卡死
 - 上下文窗口按模型配置（`AiModel.contextWindow`），裁剪在 `context::trim_to_budget`（CJK 1 字≈1 token 的保守估算）；Anthropic 侧要求角色严格交替且首条为 user，`llm::anthropic_messages` 已处理，改消息结构时要同步
 - 教学与报错特征都在 `knowledge.rs` 内置（内容源自本文件与 docs 的结论），不读仓库文件；新增踩坑结论要同时补进 knowledge
+- **历史会话持久化（2026-09-03，2026-09-07 修复加载为空）**：会话存 `assistant_sessions` 表（id/title/messages JSON/时间戳），core 逻辑在 `core/src/logic/assistant_sessions.rs`，tauri 命令在 `commands/assistant_sessions.rs`（list/get/save/delete）；前端 `src/composables/useAssistantSessions.ts` 是模块级单例，`useAssistantChat` 通过 `opts.persist` 开关（主界面 `showSidebar` 才为 true，悬浮窗保持独立会话）。**坑（已修）**：core 的 `get_assistant_session` 已把 messages 列反序列化成**数组**下发，前端反序列化必须同时接受数组与字符串——早期只按字符串 `JSON.parse`，数组会被 toString 成 `"[object Object]"` 抛错并被 catch 吞掉，表现为「历史会话加载不出来」，随后落库还会把真实消息覆盖成 `[]`；因此 `saveCurrent` 也增加了「空消息不落库」的兜底（UPSERT 不得抹掉已有会话），`renameSession` 在会话不存在时直接放弃
 - 详见 [docs/ai-config-assistant.md](docs/ai-config-assistant.md)
 
 **页面边距**：页面级内边距只由 `MainLayout.vue` 的 `<main class="flex-1 overflow-y-auto p-4 lg:p-6">` 提供，**路由页根元素不得再自带 `p-*`/`px-*`/`py-*`**（基准 = 数据库页 `views/db/DBManager.vue`，根元素无 padding）；卡片/面板自身的 padding 不在此限。页面根再叠一层 padding 就是双倍边距——曾有 14 个页面如此（2026-08-29 统一去掉）。
