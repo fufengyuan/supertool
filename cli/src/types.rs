@@ -384,7 +384,6 @@ pub enum ServerCommands {
         #[arg(short, long)]
         json: bool,
     },
-    /// 下载远程文件
     /// 下载远程文件到本地（--output 指定本地路径，默认取远程文件名）
     Download {
         /// 记录 ID
