@@ -116,3 +116,106 @@ function customToString(num: bigint, base: number): string {
  * Styles are now defined directly in each component's <style scoped> block.
  * Previously, v-bind: toolStyles caused postcss parsing errors (ENOENT on data:text/css).
  */
+
+/* ─── 报文格式化 ─── */
+/** 工具页支持的报文格式；auto 表示按内容自动识别 */
+export type TextFormat = 'auto' | 'json' | 'xml' | 'query' | 'text'
+
+export const FORMAT_OPTIONS: { value: TextFormat; label: string }[] = [
+  { value: 'auto', label: '自动识别' },
+  { value: 'json', label: 'JSON' },
+  { value: 'xml', label: 'XML' },
+  { value: 'query', label: 'Query/表单' },
+  { value: 'text', label: '纯文本' },
+]
+
+/** 自动识别报文格式：JSON / XML / Query(URL 查询串或 k=v& 表单) / 纯文本 */
+export function detectFormat(text: string): Exclude<TextFormat, 'auto'> {
+  const s = text.trim()
+  if (!s) {return 'text'}
+  if (s.startsWith('{') || s.startsWith('[')) {
+    try {
+      JSON.parse(s)
+      return 'json'
+    } catch {/* 长得像 JSON 但解析失败，继续按其他格式判断 */}
+  }
+  if (s.startsWith('<')) {return 'xml'}
+  // a=1&b=2 表单串 / URL 查询串：每组都是 k=v，且至少一组的值非空
+  // （避免把 base64 结尾的 "abc=" 这类纯文本误判成表单串）
+  if (s.includes('=') && !/\s/.test(s) && !s.includes('{') && !s.includes('<')) {
+    const pairs = s.split('&')
+    if (pairs.every(p => /^[^=]+=/.test(p)) && pairs.some(p => p.slice(p.indexOf('=') + 1) !== '')) {
+      return 'query'
+    }
+  }
+  return 'text'
+}
+
+function decodeSafe(v: string): string {
+  try {
+    return decodeURIComponent(v.replace(/\+/g, ' '))
+  } catch {
+    return v
+  }
+}
+
+/** 简易 XML 缩进（不引入额外依赖）：按标签换行 + 两空格缩进 */
+function formatXml(raw: string): string {
+  const oneLine = raw.replace(/>\s*</g, '><').trim()
+  const reg = /(>)(<)(\/*)/g
+  const xmlStr = oneLine.replace(reg, '$1\n$2$3')
+  let pad = 0
+  return xmlStr
+    .split('\n')
+    .map((line) => {
+      let indent = 0
+      if (/^<\/\w/.test(line)) {
+        if (pad !== 0) {pad -= 1}
+      } else if (/^<\w[^>]*[^/]>.*$/.test(line) && !/<\/\w[^>]*>$/.test(line)) {
+        indent = 1
+      }
+      const out = '  '.repeat(pad) + line
+      pad += indent
+      return out
+    })
+    .join('\n')
+}
+
+/** 查询串/表单串：每项一行，值做 URL 解码；完整 URL 只取 ? 之后的部分 */
+function formatQuery(raw: string): string {
+  const s = raw.trim()
+  const q = s.includes('?') ? s.slice(s.indexOf('?') + 1) : s
+  return q
+    .split('&')
+    .filter(kv => kv.length > 0)
+    .map((kv) => {
+      const i = kv.indexOf('=')
+      if (i < 0) {return decodeSafe(kv)}
+      return `${decodeSafe(kv.slice(0, i))} = ${decodeSafe(kv.slice(i + 1))}`
+    })
+    .join('\n')
+}
+
+/**
+ * 格式化报文。pretty=true 美化（缩进/换行），false 压缩成单行。
+ * 解析失败时抛错，由调用方决定提示或原样展示。
+ */
+export function formatText(text: string, format: TextFormat = 'auto', pretty = true): string {
+  const raw = text ?? ''
+  const fmt = format === 'auto' ? detectFormat(raw) : format
+  switch (fmt) {
+    case 'json': {
+      const obj = JSON.parse(raw.trim())
+      return pretty ? JSON.stringify(obj, null, 2) : JSON.stringify(obj)
+    }
+    case 'xml':
+      return pretty ? formatXml(raw) : raw.replace(/>\s*</g, '><').trim()
+    case 'query':
+      // 压缩时要去掉美化时加的 " = " 两侧空格，否则拼回去不是合法查询串
+      return pretty
+        ? formatQuery(raw)
+        : raw.trim().replace(/\s*\n\s*/g, '&').replace(/\s*=\s*/g, '=')
+    default:
+      return pretty ? raw : raw.replace(/\s*\n\s*/g, '')
+  }
+}

@@ -54,16 +54,13 @@
           <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4">
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-semibold text-base-content/70">报文（完整 JSON 或仅 biz_content 密文）</span>
+              <button class="btn btn-ghost btn-xs" @click="formatInput('dec')" title="按 JSON/XML/Query 自动美化">格式化</button>
             </div>
             <textarea v-model="decInput" class="textarea textarea-bordered w-full font-mono text-xs bg-base-200/60 min-h-[160px] resize-none flex-1" placeholder='{"biz_content":"35474249...","charset":"UTF-8","method":"api.xxx",...}'></textarea>
           </div>
-          <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-semibold text-base-content/70">biz_content 明文</span>
-              <button class="btn btn-primary btn-xs" @click="copyDec" :disabled="!decOutput"><SvgIcon name="copy" size="11" /> 复制</button>
-            </div>
-            <div class="flex-1 p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all overflow-y-auto min-h-[160px]">{{ decOutput || '结果将显示在这里...' }}</div>
-          </div>
+          <FormattedOutput :content="decOutput">
+            <template #title>biz_content 明文</template>
+          </FormattedOutput>
         </div>
         <div v-if="decVerify" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
           <div class="text-xs font-semibold text-base-content/70 mb-2">验签</div>
@@ -81,6 +78,7 @@
           <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4">
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-semibold text-base-content/70">biz_content 明文（JSON）</span>
+              <button class="btn btn-ghost btn-xs" @click="formatInput('enc')" title="按 JSON/XML/Query 自动美化">格式化</button>
             </div>
             <textarea v-model="encInput" class="textarea textarea-bordered w-full font-mono text-xs bg-base-200/60 min-h-[160px] resize-none flex-1" placeholder='{"orderNo":"202609070001","amt":1}'></textarea>
             <div class="grid grid-cols-2 gap-2 mt-2">
@@ -94,13 +92,9 @@
               </div>
             </div>
           </div>
-          <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-semibold text-base-content/70">完整请求报文（含 sign）</span>
-              <button class="btn btn-primary btn-xs" @click="copyEnc" :disabled="!encOutput"><SvgIcon name="copy" size="11" /> 复制</button>
-            </div>
-            <div class="flex-1 p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all overflow-y-auto min-h-[160px]">{{ encOutput || '结果将显示在这里...' }}</div>
-          </div>
+          <FormattedOutput :content="encOutput">
+            <template #title>完整请求报文（含 sign）</template>
+          </FormattedOutput>
         </div>
         <div class="flex gap-2 bg-base-100 border border-base-content/10 rounded-xl px-4 py-3">
           <button class="btn btn-primary btn-sm flex-1 max-w-[160px]" @click="doEncrypt">加密并签名</button>
@@ -114,16 +108,13 @@
           <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4">
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-semibold text-base-content/70">报文 JSON（含 sign 则验签，不含则算签）</span>
+              <button class="btn btn-ghost btn-xs" @click="formatInput('sign')" title="按 JSON/XML/Query 自动美化">格式化</button>
             </div>
             <textarea v-model="signInput" class="textarea textarea-bordered w-full font-mono text-xs bg-base-200/60 min-h-[160px] resize-none flex-1" placeholder='{"biz_content":"...","charset":"UTF-8","sign":"..."}'></textarea>
           </div>
-          <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-semibold text-base-content/70">结果</span>
-              <button class="btn btn-primary btn-xs" @click="copySign" :disabled="!signOutput"><SvgIcon name="copy" size="11" /> 复制</button>
-            </div>
-            <div class="flex-1 p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all overflow-y-auto min-h-[160px]">{{ signOutput || '结果将显示在这里...' }}</div>
-          </div>
+          <FormattedOutput :content="signOutput">
+            <template #title>结果</template>
+          </FormattedOutput>
         </div>
         <div v-if="signDataPreview" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
           <div class="text-xs font-semibold text-base-content/70 mb-2">待签名串</div>
@@ -157,16 +148,13 @@
         <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4">
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-semibold text-base-content/70">{{ webMode === 'encrypt' ? '明文（请求/响应 JSON）' : '密文（hex）' }}</span>
+            <button class="btn btn-ghost btn-xs" @click="formatInput('web')" title="按 JSON/XML/Query 自动美化">格式化</button>
           </div>
           <textarea v-model="webInput" class="textarea textarea-bordered w-full font-mono text-xs bg-base-200/60 min-h-[180px] resize-none flex-1" :placeholder="webMode === 'encrypt' ? '明文 JSON，如 {orderNo:123}' : '密文 hex，如 35474249A1C65E9C...'"></textarea>
         </div>
-        <div class="flex flex-col bg-base-100 border border-base-content/10 rounded-xl p-4">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-semibold text-base-content/70">{{ webMode === 'encrypt' ? '密文（hex）' : '明文' }}</span>
-            <button class="btn btn-primary btn-xs" @click="copyWeb" :disabled="!webOutput"><SvgIcon name="copy" size="11" /> 复制</button>
-          </div>
-          <div class="flex-1 p-3 bg-base-200/60 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all overflow-y-auto min-h-[180px]">{{ webOutput || '结果将显示在这里...' }}</div>
-        </div>
+        <FormattedOutput :content="webOutput">
+          <template #title>{{ webMode === 'encrypt' ? '密文（hex）' : '明文' }}</template>
+        </FormattedOutput>
       </div>
 
       <div class="flex gap-2 bg-base-100 border border-base-content/10 rounded-xl px-4 py-3">
@@ -182,7 +170,8 @@ import { ref, onMounted, watch } from 'vue'
 import { sm3, sm4 } from 'sm-crypto'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import ToolPage from '../components/ToolPage.vue'
-import { copyText } from '../toolUtils'
+import FormattedOutput from '../components/FormattedOutput.vue'
+import { formatText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
 
 defineEmits<{ back: [] }>()
@@ -471,11 +460,21 @@ function processWeb() {
   }
 }
 
-// ---------- 复制 ----------
-const copyDec = () => copyText(decOutput.value, toast)
-const copyEnc = () => copyText(encOutput.value, toast)
-const copySign = () => copyText(signOutput.value, toast)
-const copyWeb = () => copyText(webOutput.value, toast)
+// ---------- 输入区格式化 ----------
+/** 输入区一键美化：JSON/XML/Query 自动识别并缩进，便于核对后再加密或验签 */
+function formatInput(target: 'dec' | 'enc' | 'sign' | 'web') {
+  const box = { dec: decInput, enc: encInput, sign: signInput, web: webInput }[target]
+  if (!box.value.trim()) {
+    toast.warning('请先输入内容')
+    return
+  }
+  try {
+    box.value = formatText(box.value, 'auto', true)
+    toast.success('已格式化')
+  } catch (e: any) {
+    toast.error(`格式化失败：${e.message || e}`)
+  }
+}
 
 // ---------- 密钥记忆（仅本机 localStorage，取消勾选即清除）----------
 function saveConfig() {
