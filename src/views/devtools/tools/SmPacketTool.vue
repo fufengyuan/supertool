@@ -232,6 +232,24 @@ function isHex32(s: string): boolean {
   return /^[0-9a-fA-F]{32}$/.test(s)
 }
 
+/**
+ * 清洗密文：日志/抓包里复制出来的 hex 常带空格、换行、缩进（甚至被折行截断成多段），
+ * 直接喂给解密会因长度不是 32 的倍数而报 padding 错误。这里去掉所有空白字符。
+ */
+function stripWhitespace(s: string): string {
+  return s.replace(/\s+/g, '')
+}
+
+/** 密文合法性：必须是 hex 且长度为 32 的倍数（16 字节分组） */
+function checkCipher(hex: string): string | null {
+  if (!hex) {return '请输入密文'}
+  if (!/^[0-9a-fA-F]+$/.test(hex)) {return '密文含非 hex 字符，请检查是否复制到了多余内容'}
+  if (hex.length % 32 !== 0) {
+    return `密文长度 ${hex.length} 不是 32 的倍数（缺 ${32 - (hex.length % 32)} 位），请检查是否复制不全`
+  }
+  return null
+}
+
 /** 明文 → UTF-8 字节 → 末尾补 0x00 到 16 倍数（正好 16 倍数时不补，与 Java 分支一致） */
 function zeroPad(bytes: number[]): number[] {
   const mod = bytes.length % 16
@@ -254,7 +272,7 @@ function sm4EncryptYfk(plain: string, keyHex: string): string {
 
 /** 渠道报文解密：hex → SM4/ECB/NoPadding → 去掉尾部补零 → trim */
 function sm4DecryptYfk(cipherHex: string, keyHex: string): string {
-  const raw = sm4.decrypt(cipherHex.trim(), normalizeSecret(keyHex), {
+  const raw = sm4.decrypt(stripWhitespace(cipherHex), normalizeSecret(keyHex), {
     padding: 'none',
     mode: 'ecb',
     output: 'array',
@@ -319,9 +337,10 @@ function doDecrypt() {
     return
   }
   const { data, raw } = parseEnvelope(decInput.value)
-  const cipher = data ? String(data.biz_content ?? '') : raw
-  if (!cipher) {
-    toast.warning('未找到 biz_content，请粘贴完整报文或密文')
+  const cipher = stripWhitespace(data ? String(data.biz_content ?? '') : raw)
+  const bad = checkCipher(cipher)
+  if (bad) {
+    toast.error(bad)
     return
   }
   try {
@@ -415,19 +434,15 @@ function loadSample() {
 }
 
 // ---------- 前后端报文（Hutool SM4/ECB/PKCS5Padding）----------
-function webKeyHex(): string {
-  // Hutool: password.getBytes(UTF-8) 直接当 16 字节密钥
-  const bytes = [...encoder.encode(webKey.value)]
-  return bytes.map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
 function processWeb() {
   webOutput.value = ''
-  if (!webKey.value) {
+  // 密钥与密文都先清洗：复制时常带首尾空格/换行
+  const key = webKey.value.trim()
+  if (!key) {
     toast.warning('请填写 16 位 SM4 密钥')
     return
   }
-  const keyBytes = [...encoder.encode(webKey.value)]
+  const keyBytes = [...encoder.encode(key)]
   if (keyBytes.length !== 16) {
     toast.warning(`SM4 密钥需为 16 位字符（当前 ${keyBytes.length} 字节）`)
     return
@@ -437,11 +452,17 @@ function processWeb() {
     return
   }
   try {
-    const keyHex = webKeyHex()
+    const keyHex = [...keyBytes].map(b => b.toString(16).padStart(2, '0')).join('')
     if (webMode.value === 'encrypt') {
       webOutput.value = String(sm4.encrypt(webInput.value, keyHex, { mode: 'ecb' }))
     } else {
-      const arr = sm4.decrypt(webInput.value.trim(), keyHex, { mode: 'ecb', output: 'array' }) as number[]
+      const ct = stripWhitespace(webInput.value)
+      const bad = checkCipher(ct)
+      if (bad) {
+        toast.error(bad)
+        return
+      }
+      const arr = sm4.decrypt(ct, keyHex, { mode: 'ecb', output: 'array' }) as number[]
       webOutput.value = decoder.decode(new Uint8Array(arr))
     }
     toast.success(webMode.value === 'encrypt' ? '加密完成' : '解密完成')
