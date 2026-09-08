@@ -94,6 +94,7 @@ stool server delete <id>
 stool server read <id> <path>                     # Read remote file
 stool server ls <id> [--path /dir] [-j]           # List remote directory
 stool server download <id> <remote> [--output f]  # Download file
+stool server upload <id> <local> <remote>         # Upload file or directory (dir → recursive)
 stool server mkdir <id> <path>                    # Create remote directory
 stool server rm <id> <path>                       # Delete remote file (high-risk paths blocked)
 

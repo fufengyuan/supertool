@@ -15,6 +15,7 @@ pub fn print_guide() {
     println!("    stool server health <id> [-j]       stool server diagnose <id> [-j]");
     println!("    stool server read <id> <path>       stool server ls <id> [--path /dir]");
     println!("    stool server download <id> <remote> stool server mkdir <id> <path>");
+    println!("    stool server upload <id> <local> <remote>  (目录自动递归上传)");
     println!("    stool server java-ps <id> [-j]");
     println!("  CI/CD 部署:");
     println!("    stool cicd list [-j]                stool cicd deploy <id> [--stream|--watch]");

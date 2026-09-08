@@ -514,6 +514,58 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 );
             }
         }
+        ServerCommands::Upload {
+            id,
+            local,
+            remote,
+            json,
+        } => {
+            // 上传是写操作，与 mkdir/rm 一样受「需要审批的服务器」约束
+            check_server_approval(runtime, id).await?;
+            runtime.set_json(*json);
+            let meta = std::fs::metadata(local)
+                .map_err(|e| anyhow::anyhow!("读取本地路径失败 {}: {}", local, e))?;
+            let is_dir = meta.is_dir();
+            let resp: serde_json::Value = runtime
+                .core
+                .sftp_upload_to_remote(id, local, remote)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            if resp
+                .get("success")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
+                let bytes = resp
+                    .get("data")
+                    .and_then(|d| d.get("bytesUploaded"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                if runtime.json_mode {
+                    print_json(&serde_json::json!({
+                        "local": local,
+                        "remote": remote,
+                        "bytes": bytes,
+                        "isDir": is_dir,
+                    }));
+                } else {
+                    print_success(&format!(
+                        "已上传{}: {} → {} ({} bytes)",
+                        if is_dir { "目录" } else { "文件" },
+                        local,
+                        remote,
+                        bytes
+                    ));
+                }
+            } else {
+                anyhow::bail!(
+                    "{}",
+                    resp.get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("上传失败")
+                );
+            }
+        }
         ServerCommands::Mkdir { id, path, json } => {
             check_server_approval(runtime, id).await?;
             runtime.set_json(*json);

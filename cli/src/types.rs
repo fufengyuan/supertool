@@ -385,6 +385,7 @@ pub enum ServerCommands {
         json: bool,
     },
     /// 下载远程文件
+    /// 下载远程文件到本地（--output 指定本地路径，默认取远程文件名）
     Download {
         /// 记录 ID
         id: String,
@@ -393,6 +394,18 @@ pub enum ServerCommands {
         /// 输出文件路径
         #[arg(long)]
         output: Option<String>,
+        /// 以 JSON 格式输出
+        #[arg(short, long)]
+        json: bool,
+    },
+    /// 上传本地文件/目录到远程（本地是目录时自动递归上传整个目录）
+    Upload {
+        /// 记录 ID
+        id: String,
+        /// 本地文件或目录路径
+        local: String,
+        /// 远程目标路径（目录上传时为远程父目录）
+        remote: String,
         /// 以 JSON 格式输出
         #[arg(short, long)]
         json: bool,
